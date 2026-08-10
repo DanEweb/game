@@ -26,8 +26,8 @@
 
   #wrap{
     position:relative;
-    width:min(960px, 98vw);
-    height:min(96vh, 620px);
+    width:min(1360px, 99vw);
+    height:min(97vh, 860px);
     border-radius:10px;
     overflow:hidden;
     background:var(--paper);
@@ -177,7 +177,7 @@
     color:var(--ink-900);
   }
   .title .lite{ color:var(--ink-300); font-weight:600; }
-  .sub{ font-size:12px; color:var(--ink-500); max-width:520px; line-height:1.7; }
+  .sub{ font-size:12.5px; color:var(--ink-500); max-width:720px; line-height:1.7; }
   .sub b{ color:var(--ink-900); }
   kbd{
     display:inline-block; padding:2px 6px; border:1px solid var(--ink-300);
@@ -228,7 +228,7 @@
   #result .row b{ color:var(--ink-900); font-size:15px; font-weight:700; }
 
   #levelupBox{ display:none; flex-direction:column; gap:12px; align-items:center; }
-  #cards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:720px; }
+  #cards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:1040px; }
   .card{
     width:150px; padding:13px 12px; border-radius:9px;
     background:var(--card); border:1px solid var(--line);
@@ -268,12 +268,12 @@
   .miniBtn:disabled{ opacity:0.4; cursor:default; }
 
   #eventBox{ display:none; flex-direction:column; gap:12px; align-items:center; }
-  #eventCards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:640px; }
+  #eventCards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:880px; }
 
   #classBox{ display:flex; flex-direction:column; gap:10px; align-items:center; }
-  #classCards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:760px; }
+  #classCards{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:1100px; }
 
-  #shopBox, #equipBox, #questBox{ display:none; flex-direction:column; gap:9px; align-items:center; width:100%; max-width:600px; }
+  #shopBox, #equipBox, #questBox{ display:none; flex-direction:column; gap:9px; align-items:center; width:100%; max-width:860px; }
   .shopItem{
     display:flex; align-items:center; gap:10px; width:100%;
     background:var(--card); border:1px solid var(--line); border-radius:8px;
@@ -305,7 +305,7 @@
   .r6{ background:linear-gradient(90deg,#b8362e,#8b5cf6,#d9a53f); color:#fff; outline:1.5px solid #d9a53f; outline-offset:1.5px; }
   .rset{ background:#3aa895; color:#fff; }
 
-  #invList{ width:100%; max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  #invList{ width:100%; max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
   #slotGrid{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%; }
   .slotCell{
     flex:1; min-width:100px; background:var(--card); border:1px dashed var(--ink-300); border-radius:7px;

@@ -56,7 +56,8 @@ import { FX } from "./fx.js";
     unlocked: {},        // classes
     mapCleared: {},      // mapKey -> true (unlocks the next map)
     inv: [],             // equipment inventory
-    equipped: {},        // slot -> item id
+    equipped: {},        // slot -> item id (구버전 공용 — loadouts로 이관)
+    loadouts: {},        // classKey -> { slot -> item id } 직업별 장비 세팅
     prog: { kill:0, elite:0, boss:0, survive:0, evolve:0, tier:{} },
     ach: {},
     star: { pts:0, nodes:{} },
@@ -82,6 +83,7 @@ import { FX } from "./fx.js";
           DB.mapCleared = d.mapCleared||{};
           DB.inv = Array.isArray(d.inv) ? d.inv : [];
           DB.equipped = d.equipped||{};
+          DB.loadouts = d.loadouts||{};
           DB.prog = Object.assign(DB.prog, d.prog||{});
           DB.prog.tier = DB.prog.tier||{};
           DB.ach = d.ach||{};
@@ -651,9 +653,9 @@ import { FX } from "./fx.js";
   function addEquip(item){
     if (DB.inv.length >= 40){
       // auto-sell the cheapest unequipped item
-      const equippedIds = Object.values(DB.equipped);
+      const equippedIds = allEquippedIds();
       let worst=null, wi=-1;
-      DB.inv.forEach((it,i)=>{ if (!equippedIds.includes(it.id) && (worst===null || it.r<worst.r)){ worst=it; wi=i; } });
+      DB.inv.forEach((it,i)=>{ if (!equippedIds.has(it.id) && (worst===null || it.r<worst.r)){ worst=it; wi=i; } });
       if (wi>=0){ DB.gold += SELL_PRICE[worst.r]; DB.inv.splice(wi,1); toast('가방이 가득! '+worst.name+' 자동 판매'); }
     }
     DB.inv.push(item);
@@ -701,10 +703,22 @@ import { FX } from "./fx.js";
     if (item.wt==='heavy') t += ' (중갑: 착용 가능 직업 제한)';
     return t;
   }
+  // 직업별 장비 로드아웃 — 직업마다 독립된 장비 세팅 (최초엔 기존 공용 장비를 복사)
+  function loadoutFor(ck){
+    if (!DB.loadouts) DB.loadouts = {};
+    if (!DB.loadouts[ck]) DB.loadouts[ck] = Object.assign({}, DB.equipped||{});
+    return DB.loadouts[ck];
+  }
+  function allEquippedIds(){
+    const ids = new Set(Object.values(DB.equipped||{}));
+    if (DB.loadouts) for (const ck in DB.loadouts) for (const s in DB.loadouts[ck]) ids.add(DB.loadouts[ck][s]);
+    return ids;
+  }
   function equippedBonuses(classKey){
+    const lo = loadoutFor(classKey);
     const out = { atk:0, hp:0, spd:0, cdr:0, crit:0, gold:0, magnet:0, regen:0, affixes:{}, curses:[], relic:null, inactive:0, sets:{} };
     for (const slot of SLOT_KEYS){
-      const id = DB.equipped[slot];
+      const id = lo[slot];
       if (!id) continue;
       const item = DB.inv.find(i=>i.id===id);
       if (!item) continue;
@@ -776,10 +790,32 @@ import { FX } from "./fx.js";
     if (eq.curses.length>0) setTimeout(()=>toast('☠ 저주 장비 '+eq.curses.length+'개 착용 중'), 600);
     if (eq.inactive>0) setTimeout(()=>toast('직업 제한으로 장비 '+eq.inactive+'개 비활성'), 400);
   }
+  let equipClassTab = 'manager';
   function renderEquip(){
+    // 직업 탭 — 직업마다 독립 로드아웃
+    let tabRow = $('equipTabs');
+    if (!tabRow){
+      tabRow = document.createElement('div');
+      tabRow.id = 'equipTabs';
+      tabRow.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; justify-content:center; width:100%; margin-bottom:2px;';
+      slotGrid.parentNode.insertBefore(tabRow, slotGrid);
+    }
+    tabRow.innerHTML = '';
+    Object.keys(CLASSES).forEach((ck)=>{
+      if (!isClassUnlocked(ck)) return;
+      const tb = document.createElement('button');
+      tb.className = 'miniBtn';
+      const cc = CLASS_COLORS[ck]||'#888';
+      const on = ck===equipClassTab;
+      tb.textContent = CLASSES[ck].name;
+      tb.style.cssText = 'font-size:10px; padding:4px 8px;' + (on ? 'background:'+cc+'; color:#fff; border-color:'+cc+';' : 'border-color:'+cc+'55; color:'+cc+';');
+      tb.addEventListener('click', ()=>{ equipClassTab = ck; renderEquip(); });
+      tabRow.appendChild(tb);
+    });
+    const lo = loadoutFor(equipClassTab);
     slotGrid.innerHTML = '';
     SLOT_KEYS.forEach((slot)=>{
-      const id = DB.equipped[slot];
+      const id = lo[slot];
       const item = id ? DB.inv.find(i=>i.id===id) : null;
       const cell = document.createElement('div');
       cell.className = 'slotCell' + (item?' filled':'');
@@ -788,14 +824,14 @@ import { FX } from "./fx.js";
           + '<span style="font-size:9px;">'+item.stats.map(statLine).join(' · ')+'</span>';
         cell.style.cursor = 'pointer';
         cell.title = '클릭하여 해제';
-        cell.addEventListener('click', ()=>{ delete DB.equipped[slot]; saveDB(); renderEquip(); });
+        cell.addEventListener('click', ()=>{ delete lo[slot]; saveDB(); renderEquip(); });
       } else {
         cell.innerHTML = SLOT_NAMES[slot]+'<b>비어 있음</b>';
       }
       slotGrid.appendChild(cell);
     });
     invList.innerHTML = '';
-    const equippedIds = Object.values(DB.equipped);
+    const equippedIds = Object.values(lo);
     const sorted = DB.inv.slice().sort((a,b)=> b.r-a.r);
     if (!sorted.length){
       invList.innerHTML = '<div style="font-size:11px;color:var(--ink-500);padding:10px;">보유 장비가 없습니다. 보스와 엘리트를 처치해 장비를 모으세요.</div>';
@@ -809,10 +845,22 @@ import { FX } from "./fx.js";
         + '<div class="ds">'+equipDesc(item)+'</div></div>';
       const eqBtn = document.createElement('button');
       eqBtn.className = 'buy';
-      eqBtn.textContent = isEq ? '해제' : '장착';
+      // 직업 제한: 전용 유물은 해당 직업 탭에서만, 중갑은 착용 가능 직업만
+      const relicLocked = item.slot==='relic' && item.classKey && item.classKey!==equipClassTab;
+      const heavyLocked = item.wt==='heavy' && !HEAVY_OK[equipClassTab] && !starHasName('중갑 숙련');
+      if (relicLocked){
+        eqBtn.textContent = (CLASSES[item.classKey]?CLASSES[item.classKey].name:'?')+' 전용';
+        eqBtn.disabled = true;
+      } else if (heavyLocked && !isEq){
+        eqBtn.textContent = '중갑 불가';
+        eqBtn.disabled = true;
+      } else {
+        eqBtn.textContent = isEq ? '해제' : '장착';
+      }
       eqBtn.addEventListener('click', ()=>{
-        if (isEq){ delete DB.equipped[item.slot]; }
-        else { DB.equipped[item.slot] = item.id; SFX.play('equip'); }
+        if (eqBtn.disabled) return;
+        if (isEq){ delete lo[item.slot]; }
+        else { lo[item.slot] = item.id; SFX.play('equip'); }
         saveDB(); renderEquip();
       });
       row.appendChild(eqBtn);
@@ -836,7 +884,7 @@ import { FX } from "./fx.js";
         });
         row.appendChild(enhBtn);
       }
-      if (!isEq){
+      if (!isEq && !allEquippedIds().has(item.id)){
         const sellBtn = document.createElement('button');
         sellBtn.className = 'buy sec';
         sellBtn.textContent = SELL_PRICE[item.r]+'G 판매';
@@ -3422,7 +3470,7 @@ import { FX } from "./fx.js";
       SFX.play('boom');
     } else if (it.type==='whet'){
       // 강화석: 장착 중인 무작위 장비를 즉석에서 +1 강화 (+9 한도)
-      const eqs = Object.values(DB.equipped).map(id=>DB.inv.find(v=>v.id===id)).filter(v=>v && (v.plus||0)<9);
+      const eqs = Object.values(loadoutFor(player.classKey)).map(id=>DB.inv.find(v=>v.id===id)).filter(v=>v && (v.plus||0)<9);
       if (eqs.length){
         const tgt = eqs[(Math.random()*eqs.length)|0];
         tgt.plus = (tgt.plus||0)+1; saveDB();
@@ -6424,6 +6472,7 @@ import { FX } from "./fx.js";
     btn.style.display='none'; btn2.style.display='none';
     bestSub.style.display='none';
     equipBox.style.display='flex';
+    equipClassTab = player.classKey; // 인게임에서는 현재 직업 로드아웃 표시
     renderEquip();
     overlay.classList.remove('hidden');
   }
