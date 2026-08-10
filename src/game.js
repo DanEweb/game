@@ -1,5 +1,8 @@
-(function(){
-  "use strict";
+import { MAPS, MAP_ORDER } from "./data/maps.js";
+import { BOSS_TYPES } from "./data/bosses.js";
+import { SLOT_NAMES, SLOT_KEYS, NORMAL_SLOTS, HEAVY_OK, RARITY_NAMES, RARITY_PREFIX, SELL_PRICE, UNIQUE_POOL, SET_DEFS } from "./data/equipment.js";
+import { EQ_STATS, EQ_AFFIX, EQ_NOUNS, EQ_CURSES, RELICS } from "./data/equipment-stats.js";
+import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
   const $ = (id)=> document.getElementById(id);
   const canvas = $('c'), ctx = canvas.getContext('2d');
@@ -311,7 +314,7 @@
       else if (state==='inv'){ closeInv(); }
     }
     if (state==='levelup'){
-      if (['Digit1','Digit2','Digit3','Digit4'].includes(e.code)) pickUpgrade(parseInt(e.code.slice(-1),10)-1);
+      if (['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(e.code)) pickUpgrade(parseInt(e.code.slice(-1),10)-1);
       if (e.code==='KeyR') doReroll();
     }
     if (state==='event'){
@@ -404,42 +407,6 @@
   wrap.addEventListener('click', ()=>{ if (state==='paused') setPaused(false); });
 
   // ---------- maps ----------
-  const MAPS = {
-    field: {
-      key:'field', name:'그레이 필드', tag:'표준',
-      info:'표준 감시 구역 · 배율 ×1.0',
-      mult:{ ehp:1, edmg:1, reward:1 },
-      bosses:['oseojin','parktaeyoung','wonGeun','minGi','seulgi'],
-      final:'awakenOseojin', finalAt:600,
-      unlockAfter:null,
-      skins:{ swarm:'moth', normal:'ghost', brute:'golem', shooter:'drone', splitter:'slime' },
-      extraMob:null,
-      pal:{ bg:'#eeeeec', grid:'rgba(0,0,0,0.045)', ink:'#202124', ink2:'#45474a', mid:'#75777a', soft:'#a9abac', deco:'rgba(0,0,0,0.05)' }
-    },
-    archive: {
-      key:'archive', name:'침묵의 서고', tag:'위험',
-      info:'적 강화 ×1.5 / 보상 ×1.5',
-      mult:{ ehp:1.55, edmg:1.35, reward:1.5 },
-      bosses:['byungWoo','jiEun','eunJae','yuJinKong','jungWoo'],
-      final:'awakenEunJae', finalAt:720,
-      unlockAfter:'field',
-      skins:{ swarm:'book', normal:'wisp', brute:'tome', shooter:'inkbow', splitter:'inkslime' },
-      extraMob:'binder',
-      pal:{ bg:'#e7e2d5', grid:'rgba(70,55,25,0.06)', ink:'#2b251c', ink2:'#4d4436', mid:'#7d7361', soft:'#aaa08b', deco:'rgba(70,55,25,0.07)' }
-    },
-    abyss: {
-      key:'abyss', name:'심연 회로', tag:'극한',
-      info:'적 강화 ×2.2 / 보상 ×2.2',
-      mult:{ ehp:2.3, edmg:1.8, reward:2.2 },
-      bosses:['seonJeong','spaceStar','nukNukEX','goDokGeun'],
-      final:'abyssGoDokGeun', finalAt:900,
-      unlockAfter:'archive',
-      skins:{ swarm:'bug', normal:'glitch', brute:'firewall', shooter:'turret', splitter:'virus' },
-      extraMob:'kamikaze',
-      pal:{ bg:'#232427', grid:'rgba(255,255,255,0.05)', ink:'#e8e8e6', ink2:'#c7c8c6', mid:'#8f9194', soft:'#5c5e61', deco:'rgba(255,255,255,0.05)' }
-    }
-  };
-  const MAP_ORDER = ['field','archive','abyss'];
   let selMap = 'field';
   let MAP = MAPS.field, PAL = MAP.pal;
 
@@ -606,41 +573,6 @@
   }
 
   // ---------- equipment ----------
-  const SLOT_NAMES = { head:'머리', body:'몸통', hand:'장갑', foot:'신발', cloak:'망토', acc1:'악세서리 I', acc2:'악세서리 II', relic:'전용 유물' };
-  const SLOT_KEYS = ['head','body','hand','foot','cloak','acc1','acc2','relic'];
-  const NORMAL_SLOTS = ['head','body','hand','foot','cloak','acc1','acc2'];
-  const HEAVY_OK = { rusher:true, paladin:true, cheol:true }; // 중갑 착용 가능 직업
-  const RARITY_NAMES = ['일반','고급','희귀','에픽','전설','유니크','태초'];
-  const RARITY_PREFIX = ['낡은','견고한','정밀한','영웅의','전설의','유일한','태초의'];
-  const SELL_PRICE = [5,15,40,100,250,600,1500];
-  // 유니크 고정 장비 (r5) — 보스 상자·뽑기에서 낮은 확률
-  const UNIQUE_POOL = [
-    { slot:'head',  name:'왕관 없는 자의 관', stats:[{k:'atk',v:14},{k:'crit',v:8}], affix:'execute' },
-    { slot:'body',  name:'맥동하는 심장갑',   stats:[{k:'hp',v:70},{k:'regen',v:1.2}], affix:'firstaid' },
-    { slot:'hand',  name:'번개를 쥔 장갑',    stats:[{k:'cdr',v:10},{k:'crit',v:6}], affix:'overdrive' },
-    { slot:'foot',  name:'바람도둑의 장화',   stats:[{k:'spd',v:12},{k:'magnet',v:30}], affix:'overdrive' },
-    { slot:'cloak', name:'그림자 재단사의 망토', stats:[{k:'spd',v:8},{k:'atk',v:8}], affix:'thorns' },
-    { slot:'acc1',  name:'탐식가의 인장',     stats:[{k:'gold',v:22},{k:'hp',v:30}], affix:'blast' },
-    { slot:'acc2',  name:'시계태엽 부적',     stats:[{k:'cdr',v:12},{k:'regen',v:0.8}], affix:'firstaid' },
-    { slot:'head',  name:'포식자의 두개골',   stats:[{k:'atk',v:16},{k:'hp',v:-20}], affix:'execute' },
-    { slot:'body',  name:'잿불 코트',        stats:[{k:'atk',v:10},{k:'cdr',v:8}], affix:'blast' },
-    { slot:'acc1',  name:'첫 번째 동전',      stats:[{k:'gold',v:30}], affix:'blast' },
-  ];
-  // 세트 장비 — 같은 세트를 모으면 보너스
-  const SET_DEFS = {
-    pilgrim: { name:'심연 순례자', bonus2:'모든 피해 +10%', bonus3:'원소 발동 +8%p, 쿨다운 -8%',
-      items:[
-        { slot:'head', name:'순례자의 두건', stats:[{k:'atk',v:8},{k:'cdr',v:5}] },
-        { slot:'body', name:'순례자의 장삼', stats:[{k:'hp',v:45},{k:'atk',v:6}] },
-        { slot:'foot', name:'순례자의 짚신', stats:[{k:'spd',v:8},{k:'regen',v:0.5}] },
-      ] },
-    king: { name:'황금 왕', bonus2:'골드 +25%', bonus3:'행운 +30%, 골드 100당 투사체 피해 +3%',
-      items:[
-        { slot:'hand',  name:'황금 왕의 반지장갑', stats:[{k:'gold',v:14},{k:'atk',v:6}] },
-        { slot:'cloak', name:'황금 왕의 어깨망토', stats:[{k:'gold',v:12},{k:'hp',v:35}] },
-        { slot:'acc1',  name:'황금 왕의 옥새',    stats:[{k:'gold',v:16},{k:'magnet',v:25}] },
-      ] },
-  };
   function genUnique(){
     const u = UNIQUE_POOL[(Math.random()*UNIQUE_POOL.length)|0];
     return { id:DB.nextId++, slot:u.slot, r:5, name:u.name, stats:u.stats.map(s=>({k:s.k,v:s.v})), affix:u.affix, unique:true };
@@ -670,53 +602,6 @@
     it.curse = null;
     return it;
   }
-  const EQ_STATS = [
-    { k:'atk',    n:'공격력',     min:3,  max:10, pct:true },
-    { k:'hp',     n:'최대체력',   min:10, max:45 },
-    { k:'spd',    n:'이동속도',   min:2,  max:7,  pct:true },
-    { k:'cdr',    n:'쿨다운 감소', min:2,  max:7,  pct:true },
-    { k:'crit',   n:'치명타 확률', min:2,  max:7,  pct:true },
-    { k:'gold',   n:'골드 획득',   min:5,  max:16, pct:true },
-    { k:'magnet', n:'수집 범위',   min:10, max:40 },
-    { k:'regen',  n:'체력 재생',   min:2,  max:8,  dec:true }, // /10
-  ];
-  const EQ_AFFIX = [
-    { k:'execute',   n:'처형',     d:'체력 15% 이하 일반 적 즉시 처치' },
-    { k:'blast',     n:'폭발탄',   d:'처치 시 10% 확률 소형 폭발' },
-    { k:'thorns',    n:'가시',     d:'접촉 피해의 60% 반사' },
-    { k:'firstaid',  n:'응급처치', d:'피격 시 25% 확률 12 회복' },
-    { k:'overdrive', n:'질주 회로', d:'대시 후 1.5초 공격속도 +35%' },
-  ];
-  const EQ_NOUNS = {
-    head:['모자','헬멧','후드','머리띠'], body:['재킷','수트','로브','조끼'],
-    hand:['장갑','건틀릿','밴드','팔찌'], foot:['운동화','부츠','그리브','슬리퍼'],
-    cloak:['망토','스카프','케이프','담요'],
-    acc1:['배지','반지','목걸이','칩'], acc2:['부적','시계','열쇠고리','메달']
-  };
-  // 저주 장비 — 스탯 +50% 대신 저주가 하나 붙는다
-  const EQ_CURSES = [
-    { k:'noheal',   d:'회복 효과 -50%' },
-    { k:'glass',    d:'받는 피해 +15%' },
-    { k:'slowdash', d:'대시 쿨다운 +25%' },
-    { k:'greed',    d:'획득 골드 -30%' },
-    { k:'fragile',  d:'최대체력 -15%' },
-  ];
-  // 직업 전용 유물 — 해당 직업으로 플레이할 때만 효과 발동
-  const RELICS = {
-    manager:  { name:'마스터 키',      desc:'쿨다운 -8%, 공격력 +5%' },
-    sniper:   { name:'정밀 스코프',    desc:'치명타 확률 +10%' },
-    rusher:   { name:'전투 자극제',    desc:'이동속도 +8%, 흡혈 +1' },
-    archer:   { name:'깃털 화살통',    desc:'공격속도 +10%, 관통 +1' },
-    ninja:    { name:'연막 두루마리',  desc:'회피 +8%' },
-    engineer: { name:'휴대용 발전기',  desc:'골드 +15%, 쿨다운 -5%' },
-    paladin:  { name:'수호 문장',      desc:'받는 피해 -8%, 최대체력 +30' },
-    reaper:   { name:'원혼의 램프',    desc:'처형 임계값 +5%p, 흡혈 +1' },
-    pilot:    { name:'예비 드론 코어', desc:'드론 피해 +20%, 공격속도 +5%' },
-    cheol:    { name:'강철 심장',     desc:'받는 피해 -6%, 최대체력 +20' },
-    voidc:    { name:'공허 파편',     desc:'모든 원소 발동 +6%p' },
-    necro:    { name:'양치기의 종',   desc:'유령 지속시간 +4초, 최대 수 +1' },
-    bard:     { name:'낡은 현',      desc:'콤보 유지 +1초, 골드 +10%' },
-  };
   function genRelic(){
     const keys = Object.keys(RELICS);
     const ck = keys[(Math.random()*keys.length)|0];
@@ -1189,77 +1074,6 @@
 
   // ---------- 성좌 트리 (PoE식 영구 패시브) ----------
   // 중앙 '기원'에서 6대 계열로 뻗는 별자리. 소형 노드(스탯) → 노터블(특수 효과) → 키스톤(양날 빌드 효과).
-  const STAR_BRANCHES = [
-    { key:'war', name:'전사', color:'#c94f4f', angle:-90,
-      small:{ n:'힘의 별', d:'최대체력 +6, 모든 피해 +2%', ap:(B)=>{ B.hp+=6; B.dmg+=2; } },
-      notables:[
-        { n:'불굴의 의지', d:'체력 30% 이하일 때 받는 피해 -10%', ap:(B)=>{ B.undyingDR+=0.10; } },
-        { n:'중갑 숙련',   d:'모든 직업이 중갑을 착용할 수 있다', ap:(B)=>{ B.heavyAll=true; } },
-        { n:'피의 갈증',   d:'처치 시 회복 +1', ap:(B)=>{ B.lifesteal+=1; } },
-        { n:'전쟁 함성',   d:'모든 피해 +6%, 최대체력 +10', ap:(B)=>{ B.dmg+=6; B.hp+=10; } },
-        { n:'강철 피부',   d:'받는 피해 -5%', ap:(B)=>{ B.dr+=5; } },
-      ],
-      keystone:{ n:'광전사의 피', d:'모든 피해 +35% / 최대체력 -30%', ap:(B)=>{ B.dmg+=35; B.hpPct-=30; } } },
-    { key:'rng', name:'사냥꾼', color:'#4c9a55', angle:-30,
-      small:{ n:'민첩의 별', d:'공격속도 +2%, 이동속도 +1.5%', ap:(B)=>{ B.rate+=2; B.spd+=1.5; } },
-      notables:[
-        { n:'급소 사격', d:'치명타 확률 +8%', ap:(B)=>{ B.crit+=8; } },
-        { n:'바람의 걸음', d:'대시 쿨다운 -15%', ap:(B)=>{ B.dashCd+=15; } },
-        { n:'사냥 본능', d:'수집 범위 +30, 경험치 +8%', ap:(B)=>{ B.magnet+=30; B.xp+=8; } },
-        { n:'매의 눈',   d:'치명타 배율 +0.3, 공격속도 +4%', ap:(B)=>{ B.critMult+=0.3; B.rate+=4; } },
-        { n:'추적자',    d:'이동속도 +6%', ap:(B)=>{ B.spd+=6; } },
-      ],
-      keystone:{ n:'일격필살', d:'치명타 배율 +1.0 / 공격속도 -10%', ap:(B)=>{ B.critMult+=1.0; B.rate-=10; } } },
-    { key:'mag', name:'현자', color:'#3b82c4', angle:30,
-      small:{ n:'지혜의 별', d:'쿨다운 -1.5%, 모든 피해 +2%', ap:(B)=>{ B.cdr+=1.5; B.dmg+=2; } },
-      notables:[
-        { n:'원소 조화', d:'모든 원소 발동 확률 +6%p', ap:(B)=>{ B.proc+=0.06; } },
-        { n:'마나 순환', d:'쿨다운 -8%', ap:(B)=>{ B.cdr+=8; } },
-        { n:'집중 강화', d:'공격속도 +8%', ap:(B)=>{ B.rate+=8; } },
-        { n:'비전 지식', d:'모든 피해 +8%', ap:(B)=>{ B.dmg+=8; } },
-        { n:'명상',     d:'쿨다운 -4%, 경험치 +5%', ap:(B)=>{ B.cdr+=4; B.xp+=5; } },
-      ],
-      keystone:{ n:'원소 과부하', d:'속성을 4계열까지 선택 가능 / 공격속도 -10%', ap:(B)=>{ B.attrPlus+=1; B.rate-=10; } } },
-    { key:'rog', name:'암살자', color:'#8b5cf6', angle:90,
-      small:{ n:'그림자 별', d:'회피 +1%, 치명타 확률 +1.5%', ap:(B)=>{ B.dodge+=1; B.crit+=1.5; } },
-      notables:[
-        { n:'그림자 밟기', d:'대시 무적시간 +0.15초', ap:(B)=>{ B.dashInv+=0.15; } },
-        { n:'맹독 숙련', d:'모든 원소 발동 확률 +6%p', ap:(B)=>{ B.proc+=0.06; } },
-        { n:'냉혹', d:'치명타 배율 +0.4', ap:(B)=>{ B.critMult+=0.4; } },
-        { n:'급습 전문가', d:'대시 쿨다운 -10%, 회피 +3%', ap:(B)=>{ B.dashCd+=10; B.dodge+=3; } },
-        { n:'무영보', d:'이동속도 +5%, 회피 +2%', ap:(B)=>{ B.spd+=5; B.dodge+=2; } },
-      ],
-      keystone:{ n:'유리 그림자', d:'회피 +15% / 최대체력 -20%', ap:(B)=>{ B.dodge+=15; B.hpPct-=20; } } },
-    { key:'pri', name:'사제', color:'#d9b23d', angle:150,
-      small:{ n:'빛의 별', d:'초당 재생 +0.15, 최대체력 +4', ap:(B)=>{ B.regen+=0.15; B.hp+=4; } },
-      notables:[
-        { n:'축복', d:'모든 회복 효과 +25%', ap:(B)=>{ B.heal+=25; } },
-        { n:'수호의 기도', d:'받는 피해 -6%', ap:(B)=>{ B.dr+=6; } },
-        { n:'생명의 샘', d:'초당 재생 +0.5', ap:(B)=>{ B.regen+=0.5; } },
-        { n:'헌신',   d:'최대체력 +20, 회복 효과 +10%', ap:(B)=>{ B.hp+=20; B.heal+=10; } },
-        { n:'인내',   d:'받는 피해 -4%, 재생 +0.2', ap:(B)=>{ B.dr+=4; B.regen+=0.2; } },
-      ],
-      keystone:{ n:'순교자', d:'부활 +1회 / 최대체력 -15%', ap:(B)=>{ B.revive+=1; B.hpPct-=15; } } },
-    { key:'mer', name:'대상인', color:'#d9a53f', angle:210,
-      small:{ n:'황금 별', d:'골드 +2.5%, 행운 +3%', ap:(B)=>{ B.gold+=2.5; B.luckPct+=3; } },
-      notables:[
-        { n:'큰손', d:'떠돌이 상인의 가격 -25%', ap:(B)=>{ B.merchantDisc=true; } },
-        { n:'수집광', d:'수집 범위 +35', ap:(B)=>{ B.magnet+=35; } },
-        { n:'투자', d:'런 시작 시 골드 +50', ap:(B)=>{ B.startGold+=50; } },
-        { n:'흥정의 달인', d:'골드 +8%, 행운 +8%', ap:(B)=>{ B.gold+=8; B.luckPct+=8; } },
-        { n:'보물 감각', d:'수집 범위 +25, 경험치 +5%', ap:(B)=>{ B.magnet+=25; B.xp+=5; } },
-      ],
-      keystone:{ n:'미다스의 손', d:'골드 +50% / 경험치 -15%', ap:(B)=>{ B.gold+=50; B.xp-=15; } } },
-  ];
-  // 변혁 키스톤 — 두 계열 사이 외륜에 있으며, 찍으면 메커니즘 자체가 바뀐다
-  const TRANSFORM_KEYS = [
-    { id:'T_wr', between:[0,1], n:'피의 질주',   d:'[변혁] 대시가 학살 돌진이 된다 — 대시 시작·종료 지점에서 폭발', ap:(B)=>{ B.bloodRush=true; } },
-    { id:'T_rm', between:[1,2], n:'파편 폭풍',   d:'[변혁] 투사체로 적 처치 시 파편 2발이 튀어나간다', ap:(B)=>{ B.shatter=true; } },
-    { id:'T_mr', between:[2,3], n:'이중 시전',   d:'[변혁] 전용기가 2연속으로 발동한다', ap:(B)=>{ B.ultEcho=true; } },
-    { id:'T_rp', between:[3,4], n:'그림자 분신', d:'[변혁] 대시할 때 3초간 분신이 남아 함께 사격한다', ap:(B)=>{ B.shadowClone=true; } },
-    { id:'T_pm', between:[4,5], n:'성스러운 보복', d:'[변혁] 피격 시 신성한 폭발이 주변을 불태운다', ap:(B)=>{ B.holyRet=true; } },
-    { id:'T_mw', between:[5,0], n:'황금 혈맥',   d:'[변혁] 보유 런 골드 100당 투사체 피해 +3% (최대 +30%)', ap:(B)=>{ B.goldPower=true; } },
-  ];
   const STAR_NODES = {};
   (function buildStarTree(){
     function add(id, x, y, tier, name, desc, ap, links, color){
@@ -1698,9 +1512,9 @@
       name:'디버거', tag:'비밀', hidden:true,
       condDesc:'??? (비밀 커맨드로만 해금)',
       cond:()=> false,
-      desc:'존재해선 안 되는 개발자. 시작 시 레벨업 3회, 행운 +50%.',
+      desc:'존재해선 안 되는 관측자. 레벨업 카드가 5장 보이지만, 능력치는 평범하다.',
       weapon:'missile',
-      apply:(p)=>{ p.luck*=1.5; pendingLevelUps+=3; }
+      apply:(p)=>{ p.cardSlots=5; }
     }
   };
   function isClassUnlocked(key){
@@ -3041,30 +2855,6 @@
   }
 
   // ---------- bosses (15) ----------
-  const BOSS_TYPES = {
-    oseojin:     { name:'오서진',   kind:'ranged',    r:24, hp:270, speed:66, contactDmg:12, xpValue:45,
-                   preferredRange:210, fireInterval:1.5, projSpeed:235, projDmg:15, projR:6 },
-    parktaeyoung:{ name:'박태영',   kind:'charger',   r:27, hp:330, speed:48, contactDmg:16, xpValue:55,
-                   gaugeTime:2.5, telegraph:0.6, chargeSpeed:650, chargeDuration:0.85, chargeDamage:28, recover:1.2 },
-    wonGeun:     { name:'이원근',   kind:'summoner',  r:24, hp:310, speed:50, contactDmg:12, xpValue:55 },
-    minGi:       { name:'이민기',   kind:'beam',      r:25, hp:350, speed:38, contactDmg:14, xpValue:60 },
-    seulgi:      { name:'슬기짱',   kind:'fickle',    r:23, hp:320, speed:55, contactDmg:12, xpValue:60 },
-    byungWoo:    { name:'최병우',   kind:'mortar',    r:26, hp:370, speed:44, contactDmg:14, xpValue:65 },
-    jiEun:       { name:'지은이',   kind:'clones',    r:22, hp:310, speed:62, contactDmg:12, xpValue:60 },
-    eunJae:      { name:'은재',     kind:'berserk',   r:26, hp:430, speed:55, contactDmg:16, xpValue:70 },
-    yuJinKong:   { name:'유진콩',   kind:'wind',      r:23, hp:340, speed:52, contactDmg:12, xpValue:65 },
-    jungWoo:     { name:'정우팍',   kind:'backstab',  r:24, hp:360, speed:60, contactDmg:14, xpValue:70 },
-    seonJeong:   { name:'선정팩',   kind:'mines',     r:25, hp:400, speed:50, contactDmg:14, xpValue:75 },
-    spaceStar:   { name:'우주별',   kind:'meteor',    r:28, hp:430, speed:42, contactDmg:16, xpValue:80 },
-    nukNukEX:    { name:'눅눅근EX', kind:'esper',     r:24, hp:390, speed:46, contactDmg:12, xpValue:80 },
-    goDokGeun:   { name:'고독근',   kind:'centipede', r:20, hp:780, speed:130, contactDmg:14, xpValue:110 },
-    // 맵별 최종 보스 — 기존 보스의 각성형
-    awakenOseojin:  { name:'각성 오서진',  kind:'root',      r:34, hp:3400, speed:48, contactDmg:22, xpValue:320, finale:true,
-                      telegraph:0.55, chargeSpeed:600, chargeDuration:0.8, chargeDamage:34, projSpeed:215, projDmg:17, projR:6 },
-    awakenEunJae:   { name:'각성 은재',    kind:'berserk',   r:31, hp:3900, speed:64, contactDmg:20, xpValue:340, finale:true },
-    abyssGoDokGeun: { name:'고독근·심연',  kind:'centipede', r:22, hp:5200, speed:150, contactDmg:17, xpValue:450, finale:true }
-  };
-
   function nextBossKey(){
     const list = MAP.bosses;
     const key = list[bossOrderIdx % list.length];
@@ -5467,7 +5257,7 @@
   function maybeOpenLevelUp(){
     if (pendingLevelUps>0 && state==='playing'){
       pendingLevelUps -= 1;
-      currentChoices = rollUpgrades(4);
+      currentChoices = rollUpgrades(player.cardSlots||4);
       renderCards();
       state = 'levelup';
       titleText.innerHTML = 'LEVEL <span class="lite">UP</span>';
@@ -5545,7 +5335,7 @@
   function doReroll(){
     if (state!=='levelup' || rerollsLeft<=0) return;
     rerollsLeft -= 1;
-    currentChoices = rollUpgrades(4);
+    currentChoices = rollUpgrades(player.cardSlots||4);
     renderCards();
     SFX.play('pick');
   }
@@ -5844,6 +5634,32 @@
   btn.addEventListener('pointerdown', (e)=> e.stopPropagation());
   btn2.addEventListener('click', (e)=>{ e.stopPropagation(); grabFocus(); showIdle(); });
   btn2.addEventListener('pointerdown', (e)=> e.stopPropagation());
+
+  // 결과 공유 (Wordle식 성적표 복사 — 친구들과 기록 경쟁)
+  const shareBtn = document.createElement('button');
+  shareBtn.className = 'miniBtn';
+  shareBtn.textContent = '📋 결과 복사';
+  shareBtn.style.display = 'none';
+  resultBox.parentNode.insertBefore(shareBtn, resultBox.nextSibling);
+  shareBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const cleared = state==='win' ? '✅ 클리어' : '💀 사망';
+    const txt = 'GRAYSCALE//SURVIVOR '+cleared
+      + '\n🗺 '+MAP.name+' · 위험도 '+(DB.peril||0)
+      + '\n⏱ '+fmtTime(elapsed)+' · ⚔ '+killCount+'킬 · Lv'+player.level
+      + '\n💥 총 피해 '+(totalDmg>=10000?(totalDmg/10000).toFixed(1)+'만':totalDmg)
+      + '\n▶ https://daneweb.github.io/game/';
+    try{
+      navigator.clipboard.writeText(txt);
+      toast('결과가 복사됐다 — 친구에게 자랑하자!');
+      SFX.play('coin');
+    }catch(err){ toast('복사 실패'); }
+  });
+  // 결과 화면에서만 표시
+  const _origEndFlow = { show:()=>{ shareBtn.style.display='inline-block'; }, hide:()=>{ shareBtn.style.display='none'; } };
+  new MutationObserver(()=>{
+    shareBtn.style.display = (resultBox.style.display==='flex') ? 'inline-block' : 'none';
+  }).observe(resultBox, { attributes:true, attributeFilter:['style'] });
 
   // 이스터에그: 타이틀 로고 10회 클릭
   titleText.addEventListener('click', ()=>{
@@ -7456,4 +7272,3 @@
     else if (state!=='playing'){ draw(0); }
   });
 
-})();

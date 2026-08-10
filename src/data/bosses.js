@@ -1,0 +1,23 @@
+export const BOSS_TYPES = {
+    oseojin:     { name:'오서진',   kind:'ranged',    r:24, hp:270, speed:66, contactDmg:12, xpValue:45,
+                   preferredRange:210, fireInterval:1.5, projSpeed:235, projDmg:15, projR:6 },
+    parktaeyoung:{ name:'박태영',   kind:'charger',   r:27, hp:330, speed:48, contactDmg:16, xpValue:55,
+                   gaugeTime:2.5, telegraph:0.6, chargeSpeed:650, chargeDuration:0.85, chargeDamage:28, recover:1.2 },
+    wonGeun:     { name:'이원근',   kind:'summoner',  r:24, hp:310, speed:50, contactDmg:12, xpValue:55 },
+    minGi:       { name:'이민기',   kind:'beam',      r:25, hp:350, speed:38, contactDmg:14, xpValue:60 },
+    seulgi:      { name:'슬기짱',   kind:'fickle',    r:23, hp:320, speed:55, contactDmg:12, xpValue:60 },
+    byungWoo:    { name:'최병우',   kind:'mortar',    r:26, hp:370, speed:44, contactDmg:14, xpValue:65 },
+    jiEun:       { name:'지은이',   kind:'clones',    r:22, hp:310, speed:62, contactDmg:12, xpValue:60 },
+    eunJae:      { name:'은재',     kind:'berserk',   r:26, hp:430, speed:55, contactDmg:16, xpValue:70 },
+    yuJinKong:   { name:'유진콩',   kind:'wind',      r:23, hp:340, speed:52, contactDmg:12, xpValue:65 },
+    jungWoo:     { name:'정우팍',   kind:'backstab',  r:24, hp:360, speed:60, contactDmg:14, xpValue:70 },
+    seonJeong:   { name:'선정팩',   kind:'mines',     r:25, hp:400, speed:50, contactDmg:14, xpValue:75 },
+    spaceStar:   { name:'우주별',   kind:'meteor',    r:28, hp:430, speed:42, contactDmg:16, xpValue:80 },
+    nukNukEX:    { name:'눅눅근EX', kind:'esper',     r:24, hp:390, speed:46, contactDmg:12, xpValue:80 },
+    goDokGeun:   { name:'고독근',   kind:'centipede', r:20, hp:780, speed:130, contactDmg:14, xpValue:110 },
+    // 맵별 최종 보스 — 기존 보스의 각성형
+    awakenOseojin:  { name:'각성 오서진',  kind:'root',      r:34, hp:3400, speed:48, contactDmg:22, xpValue:320, finale:true,
+                      telegraph:0.55, chargeSpeed:600, chargeDuration:0.8, chargeDamage:34, projSpeed:215, projDmg:17, projR:6 },
+    awakenEunJae:   { name:'각성 은재',    kind:'berserk',   r:31, hp:3900, speed:64, contactDmg:20, xpValue:340, finale:true },
+    abyssGoDokGeun: { name:'고독근·심연',  kind:'centipede', r:22, hp:5200, speed:150, contactDmg:17, xpValue:450, finale:true }
+  };
