@@ -1160,10 +1160,12 @@ import { FX } from "./fx.js";
     toast(dailyPending ? '📅 일일 도전 모드 — 오늘('+todayStr()+') 모두가 같은 시드로 경쟁!' : '일일 도전 해제');
     SFX.play('beep');
   });
+  // 기본 = 웨이브 모드. 버튼은 '무한 모드' 토글
+  $('sprintBtn').textContent = '♾ 무한 모드';
   $('sprintBtn').addEventListener('click', ()=>{
     waveModePending = !waveModePending;
-    $('sprintBtn').classList.toggle('on', waveModePending);
-    toast(waveModePending ? '⚡ 웨이브 모드 — 8웨이브를 버티고 최종 보스를 잡으면 클리어! (밀도 강화)' : '웨이브 모드 해제');
+    $('sprintBtn').classList.toggle('on', !waveModePending);
+    toast(!waveModePending ? '♾ 무한 모드 — 웨이브 제한 없이 원래 흐름대로 (최종 보스는 맵 시간에)' : '⚡ 기본(웨이브) 모드로 복귀 — 8웨이브 + 최종 보스');
     SFX.play('beep');
   });
   document.querySelectorAll('.backBtn').forEach(b=> b.addEventListener('click', ()=>{
@@ -3984,6 +3986,13 @@ import { FX } from "./fx.js";
       showBossBanner('분노', b.name+'의 분노!', BOSS_ACCENTS[b.key]);
       shake = Math.min(22, shake+12);
       freeze = Math.max(freeze, 0.15);
+      // 분노 폭발: 시그니처 색 WebGL 링 + 버스트
+      if (FX.enabled){
+        const ac = BOSS_ACCENTS[b.key];
+        const tint = ac ? parseInt(ac.slice(1),16) : 0xb8362e;
+        FX.ring(b.x, b.y, tint, 24);
+        FX.burst(b.x, b.y, tint, 20, 220, 0.6);
+      }
       SFX.play('warn');
     }
 
@@ -4434,6 +4443,11 @@ import { FX } from "./fx.js";
     const i = n-2;
     const sk = player.skills[i];
     if (!sk || player.skCds[i] > 0) return;
+    // 스킬 시전 이펙트: 주력 속성 > 직업색 링
+    if (FX.enabled){
+      const sc = dominantElemColor() || CLASS_COLORS[player.classKey];
+      if (sc) FX.ring(player.x, player.y, parseInt(sc.slice(1),16), 10);
+    }
     sk.fx();
     player.skCds[i] = sk.cd * player.cdr;
     addTextNum(player.x, player.y-34, sk.n);
@@ -6653,7 +6667,7 @@ import { FX } from "./fx.js";
   let clients = [], clientCount = 0, runQuest = null;
   let pendingSkills = [], pendingAwaken = false, pendingJobs = [];
   let dailyPending = false, dailyRun = false, origRandom = Math.random;
-  let waveModePending = false, waveModeRun = false, runFinalAt = 600, sprintWave = 0;
+  let waveModePending = true, waveModeRun = true, runFinalAt = 380, sprintWave = 0; // 기본 = 웨이브 모드
   function openClientQuest(){
     const D = player.dmgMult;
     const offers = [
@@ -7955,6 +7969,11 @@ import { FX } from "./fx.js";
         const tint = ac ? parseInt(ac.slice(1),16) : 0xb8362e;
         fxZones.push({ x:b.x, y:b.y, r:b.r*2.1, tint, alpha: b.enraged ? 0.30 : 0.16 });
       }
+      // 주력 속성 오라: 3P 이상 투자한 원소 색으로 은은한 개인 광원
+      const de = dominantElemColor();
+      if (de && player){
+        fxZones.push({ x:player.x, y:player.y, r:30, tint:parseInt(de.slice(1),16), alpha:0.10 });
+      }
       FX.drawZones(fxZones);
     }
     for (const z of zones){
@@ -8347,6 +8366,13 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
   }
+  // 주력 속성: 가장 많이 투자한 원소 — 내 탄환·오라·스킬 이펙트가 이 색으로 물든다
+  function dominantElemColor(){
+    if (!player) return null;
+    let best=null, bp=2; // 3포인트 이상 투자해야 발현
+    for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
+    return best ? COLORS[best] : null;
+  }
   function drawProjectiles(){
     const fxBullets = [];
     for (const p of projectiles){
@@ -8393,11 +8419,11 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.moveTo(7,0); ctx.lineTo(2,-3); ctx.lineTo(2,3); ctx.closePath(); ctx.fill();
         ctx.restore();
       } else {
-        // 투사체 색: 각인 원소 > 직업 악센트
+        // 투사체 색: 각인 원소 > 주력 속성 > 직업 악센트
         const pc = p.kind==='fireball' ? COLORS.fire
                  : p.kind==='icelance' ? COLORS.frost
                  : (p.imbue && COLORS[p.imbue]) ? COLORS[p.imbue]
-                 : (CLASS_COLORS[player.classKey] || PAL.ink);
+                 : dominantElemColor() || (CLASS_COLORS[player.classKey] || PAL.ink);
         // Pixi 2단계: 일반 탄환은 WebGL 글로우 스프라이트로 렌더 (캔버스 드로우 스킵)
         if (FX.enabled && !p.kind){
           fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
