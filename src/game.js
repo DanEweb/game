@@ -1681,10 +1681,10 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.cdr*=0.90; }
     },
     sniper: {
-      name:'저격수', tag:'치명타',
-      desc:'[추적 탄환]으로 시작. 20% 확률 3배 치명타.',
+      name:'저격수', tag:'한 방 묵직',
+      desc:'[추적 탄환]으로 시작. 공속 -45%, 대신 탄환 피해 +150% · 20% 확률 3배 치명타. 한 발 한 발이 무겁다.',
       weapon:'missile',
-      apply:(p)=>{ p.critChance=0.20; p.critMult=3.0; }
+      apply:(p)=>{ p.critChance=0.20; p.critMult=3.0; p.rateMult*=0.55; p.projMult*=2.5; p.recoilScale=3; }
     },
     rusher: {
       name:'돌격병', tag:'속도 & 흡혈',
@@ -1693,16 +1693,16 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; }
     },
     archer: {
-      name:'궁수', tag:'관통',
-      desc:'[화살]로 시작. 관통 +1, 공격속도 +15%.',
+      name:'궁수', tag:'속사',
+      desc:'[화살]로 시작. 공격속도 +30%로 쉴 새 없이 쏘지만 한 발은 가볍다 (-15%). 관통 +1.',
       weapon:'arrow',
-      apply:(p)=>{ p.pierce+=1; p.rateMult*=1.15; }
+      apply:(p)=>{ p.pierce+=1; p.rateMult*=1.30; p.projMult*=0.85; }
     },
     ninja: {
       name:'닌자', tag:'대시 특화', cost:250,
-      desc:'[수리검]으로 시작. 대시 쿨다운 -40%, 회피 10%.',
+      desc:'[수리검]으로 시작. 대시 쿨다운 -40%, 회피 10%. 던질 때 몸이 앞으로 쏠린다.',
       weapon:'shuriken',
-      apply:(p)=>{ p.dashCdMax*=0.6; p.dodge=0.10; }
+      apply:(p)=>{ p.dashCdMax*=0.6; p.dodge=0.10; p.lungeThrow=true; }
     },
     engineer: {
       name:'기술자', tag:'골드 & 행운', cost:400,
@@ -2396,6 +2396,64 @@ import { FX } from "./fx.js";
                 { n:'치트 의심', d:'행운 +40%, 카드 +1장', fx:(p)=>{ p.luck*=1.4; p.cardSlots=(p.cardSlots||6)+1; } } ],
   };
   JOB2_BY_CLASS.cheolhyeol = JOB2_BY_CLASS.cheol;
+  // v6-1차 잔여: 3차 전직 직업별 고유 3택 — fx(p, rc) 공명 스케일 (공용 JOB3는 폴백)
+  const JOB3_BY_CLASS = {
+    manager:  [ { n:'시스템 그 자체', d:'위성·쿨감 극대 + 공명 스케일', fx:(p,rc)=>{ p.satBoost=(p.satBoost||1)*1.4; p.cdr*=0.88-0.002*Math.min(20,rc); } },
+                { n:'최종 결재권자', d:'모든 피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } },
+                { n:'무정전 시스템', d:'체력 +25%, 방벽 강화', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); if(p.shieldCdMax) p.shieldCdMax*=0.7; } } ],
+    sniper:   [ { n:'신살자(神殺)', d:'보스 피해 +25% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.25+0.004*rc; } },
+                { n:'탄도의 종언', d:'치명 배율 +1.0', fx:(p,rc)=>{ p.critMult+=1.0+0.01*Math.min(20,rc); } },
+                { n:'바람의 저격수', d:'공속 +15%, 이속 +10% (묵직함 완화)', fx:(p,rc)=>{ p.rateMult*=1.15; p.speed*=1.1; } } ],
+    rusher:   [ { n:'전장의 폭군', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
+                { n:'불사의 선봉', d:'체력 +30%, 부활 +1', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.reviveLeft+=1; } },
+                { n:'폭풍의 인도자', d:'이속 +15%, 대시 쿨 -20%', fx:(p,rc)=>{ p.speed*=1.15; p.dashCdMax*=0.8; } } ],
+    archer:   [ { n:'화살비의 주인', d:'공속 +20% + 공명', fx:(p,rc)=>{ p.rateMult*=1.2+0.003*rc; } },
+                { n:'별 사수', d:'관통 +3, 투사체 +15%', fx:(p,rc)=>{ p.pierce+=3; p.projMult*=1.15; } },
+                { n:'정령왕의 계약자', d:'원소 발동 +12%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.12; } } ],
+    ninja:    [ { n:'그림자의 왕', d:'회피 +15%, 분신 강화', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.shadowClone=true; } },
+                { n:'일섬(一閃)', d:'치명 +15%, 처형 +6%p', fx:(p,rc)=>{ p.critChance=Math.min(0.9,p.critChance+0.15); p.execThresh=Math.min(0.4,p.execThresh+0.06); } },
+                { n:'만천화우', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
+    engineer: [ { n:'특이점 발명가', d:'터렛·드론 +40%', fx:(p,rc)=>{ p.droneBoost+=0.4; p.turretDmg=(p.turretDmg||7)*1.4; } },
+                { n:'재벌 총수', d:'골드 +50%, 골드가 곧 힘', fx:(p,rc)=>{ p.goldMult*=1.5; p.goldPower=true; } },
+                { n:'뇌신의 대리인', d:'낙뢰 +40% + 공명', fx:(p,rc)=>{ p.boltBoost=(p.boltBoost||1)*(1.4+0.004*rc); } } ],
+    paladin:  [ { n:'수호신', d:'받는 피해 -20% + 공명 체력', fx:(p,rc)=>{ p.dmgTaken*=0.8; p.maxHp=Math.round(p.maxHp*(1.1+0.005*rc)); } },
+                { n:'천벌 대행자', d:'피해 +20%, 신성 강화', fx:(p,rc)=>{ p.dmgMult*=1.2; p.holyAmp=(p.holyAmp||1)*1.2; } },
+                { n:'영생의 성자', d:'재생 +1.5, 회복 +30%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.3; } } ],
+    reaper:   [ { n:'종말', d:'처형 임계 +12%p', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.12); } },
+                { n:'명계의 군주', d:'유령 +3, 유령 피해 +40%', fx:(p,rc)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.4; } },
+                { n:'낫의 극의', d:'낫 피해 +30% + 공명', fx:(p,rc)=>{ p.scytheBoost=(p.scytheBoost||1)*(1.3+0.004*rc); } } ],
+    pilot:    [ { n:'하늘의 왕', d:'궁극 폭격 +50%', fx:(p,rc)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.5); } },
+                { n:'무한 드론', d:'드론 +50% + 공명', fx:(p,rc)=>{ p.droneBoost+=0.5+0.004*rc; } },
+                { n:'음속 돌파', d:'공속 +20%, 이속 +15%', fx:(p,rc)=>{ p.rateMult*=1.2; p.speed*=1.15; } } ],
+    glitch:   [ { n:'시스템 붕괴', d:'대혼돈 강화 ×4', fx:(p,rc)=>{ for(let k=0;k<4;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.12; else if(r<0.66) p.rateMult*=1.12; else p.luck*=1.25; } } },
+                { n:'관리자 탈취', d:'카드 +2장', fx:(p,rc)=>{ p.cardSlots=(p.cardSlots||6)+2; } },
+                { n:'바이러스 창궐', d:'부식 극대화', fx:(p,rc)=>{ p.corrodeChance=Math.min(0.8,p.corrodeChance+0.15); p.corrodeAmp=Math.max(p.corrodeAmp,0.28); } } ],
+    returner: [ { n:'운명의 편집자', d:'리롤 +3, 제외 +2, 행운 +30%', fx:(p,rc)=>{ rerollsLeft+=3; banishLeft+=2; p.luck*=1.3; } },
+                { n:'무한 회귀', d:'부활 +1, 부활 시 강화', fx:(p,rc)=>{ p.reviveLeft+=1; } },
+                { n:'전지(全知)', d:'속성 6계열까지, 경험치 +25%', fx:(p,rc)=>{ p.attrLimit=(p.attrLimit||3)+1; p.xpMult=(p.xpMult||1)*1.25; } } ],
+    cheol:    [ { n:'전쟁의 화신', d:'피해 +25% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.25+0.004*rc; } },
+                { n:'절대 요새', d:'받는 피해 -18%, 체력 +25%', fx:(p,rc)=>{ p.dmgTaken*=0.82; p.maxHp=Math.round(p.maxHp*1.25); } },
+                { n:'만군의 주인', d:'모든 소환물 +40%', fx:(p,rc)=>{ p.ghostDmg=(p.ghostDmg||1)*1.4; p.droneBoost+=0.4; p.turretDmg=(p.turretDmg||7)*1.4; } } ],
+    voidc:    [ { n:'심연의 목소리', d:'원소 발동 +15%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.15; } },
+                { n:'허무의 정점', d:'피해 +20%, 쿨감 -10% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; p.cdr*=0.9; } },
+                { n:'별의 붕괴자', d:'부식·용해 극대', fx:(p,rc)=>{ p.corrodeAmp=Math.max(p.corrodeAmp,0.32); p.dissolveDps=(p.dissolveDps||3)*1.6; } } ],
+    necro:    [ { n:'사자(死者)의 왕', d:'유령 +4, 유령 피해 +50%', fx:(p,rc)=>{ p.ghostCap+=4; p.ghostDmg=(p.ghostDmg||1)*1.5; } },
+                { n:'영원한 목자', d:'유령 지속 +5초, 소멸 시 치유', fx:(p,rc)=>{ p.ghostDur=(p.ghostDur||0)+5; p.ghostHeal=true; } },
+                { n:'죽음의 설계자', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
+    bard:     [ { n:'불멸의 디바', d:'피버 +5초, 피버 강화', fx:(p,rc)=>{ p.feverPlus=(p.feverPlus||0)+5; p.feverDmg=true; } },
+                { n:'전설의 지휘자', d:'피해·공속 +14% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.14+0.004*rc; p.rateMult*=1.14; } },
+                { n:'생명의 노래', d:'재생 +1.5, 회복 +35%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.35; } } ],
+    tourist:  [ { n:'전설의 방랑자', d:'이속 +20%, 골드 +40%', fx:(p,rc)=>{ p.speed*=1.2; p.goldMult*=1.4; } },
+                { n:'인생샷 장인', d:'쿨다운 -18%', fx:(p,rc)=>{ p.cdr*=0.82; } },
+                { n:'만수르 여행객', d:'행운 +70% + 공명', fx:(p,rc)=>{ p.luck*=1.7+0.005*rc; } } ],
+    slime:    [ { n:'태초의 슬라임', d:'체력 +50%, 체력 비례 피해', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.5); p.dmgMult*=1+p.maxHp*0.0006; } },
+                { n:'융해왕', d:'부식 극대', fx:(p,rc)=>{ p.corrodeChance=Math.min(0.8,p.corrodeChance+0.15); p.corrodeAmp=Math.max(p.corrodeAmp,0.3); } },
+                { n:'불멸의 젤리', d:'재생 +2.5, 받는 피해 -12%', fx:(p,rc)=>{ p.regen+=2.5; p.dmgTaken*=0.88; } } ],
+    debug:    [ { n:'신의 손', d:'모든 스탯 +12%', fx:(p,rc)=>{ p.dmgMult*=1.12; p.rateMult*=1.12; p.speed*=1.12; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'무결성 증명', d:'회피 +15%, 받는 피해 -10%', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.dmgTaken*=0.9; } },
+                { n:'전설의 개발자', d:'카드 +2장, 행운 +40%', fx:(p,rc)=>{ p.cardSlots=(p.cardSlots||6)+2; p.luck*=1.4; } } ],
+  };
+  JOB3_BY_CLASS.cheolhyeol = JOB3_BY_CLASS.cheol;
   const JOB3_OPTIONS = [
     { n:'초월', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:(p,rc)=>{
       const m = 1.10 + 0.005*rc;
@@ -2438,14 +2496,15 @@ import { FX } from "./fx.js";
       openEvent({ t:'2차 전직 — '+CLASSES[player.classKey].name+'의 길', d:'직업 고유의 심화 경로 중 하나를 선택하세요.', opts });
     } else {
       const rc = resonantCount(player.classKey);
-      const opts = JOB3_OPTIONS.map(j=>({ l:'3차 전직: '+j.n, d:j.d, fx:()=>{
+      const list3 = JOB3_BY_CLASS[player.classKey] || JOB3_OPTIONS;
+      const opts = list3.map(j=>({ l:'3차 전직: '+j.n, d:j.d, fx:()=>{
         j.fx(player, rc);
-        player.jobs.push(j.n==='초월'?'초월':j.n);
+        player.jobs.push(j.n);
         toast('3차 전직 — '+j.n+'! (공명 ×'+rc+')');
         freeze=Math.max(freeze,0.25);
         SFX.play('win');
       } }));
-      openEvent({ t:'3차 전직 — 정점', d:'모든 길의 끝. 존재가 한 단계 올라선다.', opts });
+      openEvent({ t:'3차 전직 — '+CLASSES[player.classKey].name+'의 정점', d:'모든 길의 끝. 존재가 한 단계 올라선다.', opts });
     }
   }
 
@@ -4990,9 +5049,11 @@ import { FX } from "./fx.js";
   let dronePos = [];
 
   function fireProjectile(a, speed, dmg, pierce, life, extra){
-    // 발사 모션: 반동(탄 반대 방향으로 살짝 밀림) + 머즐 플래시
-    player.recoilX = (player.recoilX||0) - Math.cos(a)*2.6;
-    player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6;
+    // 발사 모션: 사격형 = 반동(뒤로 킥), 투척형 = 런지(앞으로 쏠림), 저격수는 3배 묵직
+    const rs = (player.recoilScale||1) * (player.lungeThrow ? -0.9 : 1);
+    player.recoilX = (player.recoilX||0) - Math.cos(a)*2.6*rs;
+    player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6*rs;
+    if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
     const isCrit = Math.random()<player.critChance;
     let d = dmg * player.projMult * (isCrit?player.critMult:1);
