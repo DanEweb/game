@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ACTIVITY MONITOR</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="stage">
+  <div id="wrap" tabindex="0">
+
+    <div id="chrome">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="label">activity_monitor — process view</div>
+      <button id="muteBtn">SND ON</button>
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <div id="hud">
+      <div id="xpTrack"><div id="xpFill"></div></div>
+      <div id="hudRow">
+        <div class="stat">
+          <div class="k">LV</div>
+          <div class="v" id="lvVal">1</div>
+        </div>
+        <div class="stat">
+          <div class="k">HP</div>
+          <div id="hpTrack"><div id="hpFill"></div></div>
+          <div id="dashTrack"><div id="dashFill"></div></div>
+        </div>
+        <div class="stat right">
+          <div class="k">TIME</div>
+          <div class="v" id="timeVal">00:00</div>
+        </div>
+        <div class="stat right">
+          <div class="k" id="nextKey">NEXT</div>
+          <div class="v" id="nextVal">--</div>
+        </div>
+        <div class="stat right">
+          <div class="k">KILLS</div>
+          <div class="v" id="killVal">0</div>
+        </div>
+        <div class="stat right">
+          <div class="k">GOLD</div>
+          <div class="v" id="goldStatVal">0</div>
+        </div>
+      </div>
+      <div id="bossBar"></div>
+    </div>
+
+    <div id="comboTag"><span id="comboNum">×0</span><span class="fv">FEVER</span></div>
+    <div id="skillBar" style="position:absolute; left:50%; transform:translateX(-50%); bottom:8px; z-index:6; display:none; gap:6px;">
+      <button class="skillChip" data-sk="1" style="position:relative;">1<span style="font-size:8px;display:block;">궁극</span></button>
+      <button class="skillChip" data-sk="2" style="position:relative;">2<span style="font-size:8px;display:block;">폭탄</span></button>
+      <button class="skillChip" data-sk="3" style="position:relative;">3<span style="font-size:8px;display:block;">물약</span></button>
+      <button class="skillChip" data-sk="4" style="position:relative;">4<span style="font-size:8px;display:block;">광폭</span></button>
+    </div>
+    <div id="toastWrap"></div>
+    <div id="bossWarn">등장</div>
+    <div id="pausedTag">일시정지 · 클릭해서 계속</div>
+    <div id="bossBanner" style="position:absolute; top:38%; left:0; right:0; text-align:center; z-index:9; pointer-events:none; opacity:0; transition:opacity .35s ease;">
+      <div id="bossBannerTitle" style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:4px; color:var(--ink-500);"></div>
+      <div id="bossBannerName" style="font-family:'IBM Plex Sans KR',sans-serif; font-weight:700; font-size:clamp(24px,5vw,38px); letter-spacing:-1px; text-shadow:0 2px 0 rgba(255,255,255,0.5);"></div>
+    </div>
+    <button id="dashBtn">DASH</button>
+    <button id="ultBtn" style="position:absolute; right:100px; bottom:44px; z-index:6; width:58px; height:58px; border-radius:50%;
+      background:rgba(32,33,36,0.75); color:var(--paper); border:2px solid transparent;
+      font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px;
+      display:none; align-items:center; justify-content:center; touch-action:none; user-select:none;">Q</button>
+
+    <div id="overlay">
+      <div class="title" id="titleText">GRAYSCALE <span class="lite">// SURVIVOR v3</span></div>
+      <div class="sub" id="subText">
+        무한히 펼쳐지는 필드에서 버텨내세요. <b>무기 3개 + 테크트리(속성 3계열 제한)</b>로 빌드를 만들고,<br>
+        장비·퀘스트로 강해진 뒤 <b>맵마다 기다리는 각성 최종보스</b>를 잡으면 클리어 — 다음 맵이 해금됩니다.<br>
+        <kbd>WASD</kbd> 이동 · <kbd>SPACE</kbd> 대시 · 필드의 <b>? 조사 지점</b>을 밟으면 선택 이벤트 · 폰은 드래그+대시 버튼
+      </div>
+      <div id="goldRow">
+        보유 골드 <b id="goldVal">0</b>G
+        <button class="navBtn" id="shopBtn">영구 강화</button>
+        <button class="navBtn" id="equipBtn">장비</button>
+        <button class="navBtn" id="questBtn">퀘스트</button>
+        <button class="navBtn" id="achBtn">업적</button>
+        <button class="navBtn" id="starBtn">운명 ★</button>
+      </div>
+      <div id="mapRow"></div>
+      <div id="classBox">
+        <div style="font-size:12px; color:var(--ink-500);">직업을 선택해 시작하세요</div>
+        <div id="classCards"></div>
+      </div>
+      <div id="shopBox">
+        <div style="font-size:12px; color:var(--ink-500);">골드로 영구 업그레이드를 구매하세요</div>
+        <div id="shopList" style="width:100%; display:flex; flex-direction:column; gap:6px;"></div>
+        <button class="miniBtn backBtn">← 돌아가기</button>
+      </div>
+      <div id="equipBox">
+        <div style="font-size:12px; color:var(--ink-500);">장비 — 보스·엘리트 상자와 퀘스트에서 획득 (영구 보존)</div>
+        <div id="slotGrid"></div>
+        <div id="invList"></div>
+        <button class="miniBtn backBtn">← 돌아가기</button>
+      </div>
+      <div id="questBox">
+        <div style="font-size:12px; color:var(--ink-500);">퀘스트 — 달성 시 자동으로 보상이 지급됩니다</div>
+        <div id="questList" style="width:100%; display:flex; flex-direction:column; gap:6px;"></div>
+        <button class="miniBtn backBtn">← 돌아가기</button>
+      </div>
+      <div id="achBox" style="display:none; flex-direction:column; gap:9px; align-items:center; width:100%; max-width:600px;">
+        <div style="font-size:12px; color:var(--ink-500);">업적 — 일회성 도전 과제, 달성 시 골드 지급</div>
+        <div id="achList" style="width:100%; max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+        <button class="miniBtn backBtn">← 돌아가기</button>
+      </div>
+      <div id="starBox" style="display:none; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:680px;">
+        <div style="display:flex; gap:12px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-700);">
+          <span>운명 포인트 <b id="starPtsVal" style="color:var(--ink-900); font-size:14px;">0</b>P</span>
+          <span style="font-size:10px; color:var(--ink-500);">런에서 레벨을 올리면 포인트 획득 (레벨 4당 1P, 클리어 +5P)</span>
+          <button class="miniBtn" id="starResetBtn">리스펙 (200G)</button>
+        </div>
+        <div style="position:relative; width:100%;">
+          <canvas id="starC" style="width:100%; height:340px; background:#17181c; border-radius:10px; border:1px solid var(--line); touch-action:none; cursor:grab;"></canvas>
+          <div id="starInfo" style="position:absolute; left:8px; bottom:8px; right:8px; pointer-events:none;
+            background:rgba(23,24,28,0.9); color:#e8e8e6; border-radius:7px; padding:7px 11px;
+            font-size:11px; line-height:1.55; display:none; font-family:'IBM Plex Sans KR',sans-serif;"></div>
+        </div>
+        <div style="font-size:10px; color:var(--ink-500);">드래그 이동 · 휠/버튼 확대 · 연결된 노드만 찍을 수 있음 · 효과는 모든 런에 영구 적용</div>
+        <div style="display:flex; gap:8px;">
+          <button class="miniBtn" id="starZoomIn">+ 확대</button>
+          <button class="miniBtn" id="starZoomOut">− 축소</button>
+          <button class="miniBtn backBtn">← 돌아가기</button>
+        </div>
+      </div>
+      <div id="result">
+        <div class="row">생존시간 <b id="finalTime">00:00</b> / 처치 <b id="finalKills">0</b></div>
+        <div class="row">도달 레벨 <b id="finalLv">1</b> / 획득 골드 <b id="finalGold">0</b>G</div>
+        <div class="row">총 피해량 <b id="finalDmg">0</b></div>
+        <div class="row" id="newBestRow" style="display:none;">★ 이 맵 최고 기록 갱신 ★</div>
+      </div>
+      <div id="levelupBox">
+        <div style="font-size:12px; color:var(--ink-500);" id="luHint">레벨업 — 하나를 선택하세요 (1~4 · R 리롤)</div>
+        <div id="cards"></div>
+        <div id="luBtns">
+          <button class="miniBtn" id="rerollBtn">리롤 (1)</button>
+          <button class="miniBtn" id="skipBtn">건너뛰기</button>
+        </div>
+      </div>
+      <div id="eventBox">
+        <div class="title" style="font-size:18px;" id="eventTitle">조사 지점</div>
+        <div class="sub" id="eventDesc"></div>
+        <div id="eventCards"></div>
+      </div>
+      <button id="btn" style="display:none;">다시 시작</button>
+      <button id="btn2">처음 화면으로</button>
+      <div class="sub" id="bestSub" style="font-size:11px;"></div>
+    </div>
+
+    <div id="footer">GRAYSCALE SURVIVOR v3.0 — RIP UPDATE</div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>

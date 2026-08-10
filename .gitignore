@@ -1,0 +1,4 @@
+dist/
+node_modules/
+split.mjs
+.DS_Store
