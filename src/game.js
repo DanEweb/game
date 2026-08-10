@@ -846,6 +846,30 @@ import { FX } from "./fx.js";
     if (eq.curses.length>0) setTimeout(()=>toast('☠ 저주 장비 '+eq.curses.length+'개 착용 중'), 600);
     if (eq.inactive>0) setTimeout(()=>toast('직업 제한으로 장비 '+eq.inactive+'개 비활성'), 400);
   }
+  // 장비 아이콘: 부위별 글리프를 희귀도색으로 그린 미니 캔버스
+  const RARITY_ICON_TINT = ['#8f9194','#4c9a55','#3b82c4','#8b5cf6','#e08a2e','#b8362e','#d9a53f'];
+  function itemIcon(item){
+    const c = document.createElement('canvas');
+    c.width = 34; c.height = 34;
+    c.style.cssText = 'width:34px; height:34px; flex:none; border-radius:7px; background:var(--paper-2); border:1.5px solid '+(RARITY_ICON_TINT[item.r]||'#999')+';';
+    const g = c.getContext('2d');
+    const tint = RARITY_ICON_TINT[item.r]||'#999';
+    g.strokeStyle = tint; g.fillStyle = tint; g.lineWidth = 2; g.lineCap='round'; g.lineJoin='round';
+    g.translate(17,17);
+    const s = item.slot;
+    if (s==='head'){ g.beginPath(); g.arc(0,1,8,Math.PI,0); g.lineTo(8,5); g.lineTo(-8,5); g.closePath(); g.stroke(); g.beginPath(); g.moveTo(0,-7); g.lineTo(0,-11); g.stroke(); }
+    else if (s==='body'){ g.beginPath(); g.moveTo(-7,-8); g.lineTo(7,-8); g.lineTo(9,-3); g.lineTo(6,9); g.lineTo(-6,9); g.lineTo(-9,-3); g.closePath(); g.stroke(); g.beginPath(); g.moveTo(0,-8); g.lineTo(0,9); g.stroke(); }
+    else if (s==='hand'){ g.beginPath(); g.moveTo(-5,8); g.lineTo(-5,-4); g.arc(0,-4,5,Math.PI,0); g.lineTo(5,8); g.closePath(); g.stroke(); g.beginPath(); g.moveTo(-2,-2); g.lineTo(-2,4); g.moveTo(2,-2); g.lineTo(2,4); g.stroke(); }
+    else if (s==='foot'){ g.beginPath(); g.moveTo(-6,-8); g.lineTo(-6,4); g.lineTo(8,4); g.lineTo(8,8); g.lineTo(-6,8); g.closePath(); g.stroke(); }
+    else if (s==='cloak'){ g.beginPath(); g.moveTo(-8,-8); g.quadraticCurveTo(0,-11,8,-8); g.lineTo(5,9); g.lineTo(0,6); g.lineTo(-5,9); g.closePath(); g.stroke(); }
+    else if (s==='acc1'){ g.beginPath(); g.arc(0,1,6,0,Math.PI*2); g.stroke(); g.beginPath(); g.arc(0,-7,2.5,0,Math.PI*2); g.fill(); }
+    else if (s==='acc2'){ g.beginPath(); g.moveTo(0,-9); g.lineTo(7,0); g.lineTo(0,9); g.lineTo(-7,0); g.closePath(); g.stroke(); g.beginPath(); g.arc(0,0,2,0,Math.PI*2); g.fill(); }
+    else if (s==='relic'){ g.beginPath(); for (let k=0;k<5;k++){ const a=-Math.PI/2+(Math.PI*2/5)*k; g.lineTo(Math.cos(a)*8, Math.sin(a)*8); const a2=a+Math.PI/5; g.lineTo(Math.cos(a2)*3.5, Math.sin(a2)*3.5); } g.closePath(); g.stroke(); }
+    else { g.beginPath(); g.arc(0,0,7,0,Math.PI*2); g.stroke(); }
+    if (item.curse){ g.fillStyle='#b8362e'; g.font='700 10px monospace'; g.textAlign='center'; g.fillText('☠', 10, -8); }
+    if ((item.plus||0)>0){ g.fillStyle=tint; g.font='700 8px monospace'; g.textAlign='center'; g.fillText('+'+item.plus, -10, 13); }
+    return c;
+  }
   let equipClassTab = 'manager';
   function renderEquip(){
     // 직업 탭 — 직업마다 독립 로드아웃
@@ -898,6 +922,19 @@ import { FX } from "./fx.js";
       slotGrid.appendChild(cell);
     });
     invList.innerHTML = '';
+    // 유일·성장무기 현황 (장비탭에서 확인 — 무기라서 장착 슬롯은 아님)
+    const gwOwned = [];
+    if (DB.growth.found) gwOwned.push('⚔ '+WEAPONS.nameless.name+' Lv'+DB.growth.lv);
+    if (DB.gweps.bow.found) gwOwned.push('🏹 '+WEAPONS.gbow.name+' Lv'+DB.gweps.bow.lv);
+    if (DB.gweps.tome.found) gwOwned.push('📖 '+WEAPONS.gtome.name+' Lv'+DB.gweps.tome.lv);
+    if (DB.gweps.blade.found) gwOwned.push('🗡 '+WEAPONS.gblade.name+' Lv'+DB.gweps.blade.lv);
+    if (gwOwned.length){
+      const gwRow2 = document.createElement('div');
+      gwRow2.className = 'shopItem';
+      gwRow2.innerHTML = '<div class="info"><div class="nm">유일·성장무기 <span style="font-size:9px;color:var(--ink-500);">(런에서 카드로 드는 무기 — 슬롯 장착식 아님)</span></div>'
+        + '<div class="ds">'+gwOwned.join(' · ')+'</div></div>';
+      invList.appendChild(gwRow2);
+    }
     const equippedIds = Object.values(lo);
     const sorted = DB.inv.slice().sort((a,b)=> b.r-a.r);
     if (!sorted.length){
@@ -910,6 +947,7 @@ import { FX } from "./fx.js";
       row.innerHTML = '<div class="info"><div class="nm"><span class="rbadge r'+item.r+'">'+RARITY_NAMES[item.r]+'</span>'
         + item.name + (isEq?' <span style="font-size:9px;color:var(--ink-500);">[장착중]</span>':'') + '</div>'
         + '<div class="ds">'+equipDesc(item)+'</div></div>';
+      row.insertBefore(itemIcon(item), row.firstChild);
       const eqBtn = document.createElement('button');
       eqBtn.className = 'buy';
       // 직업 제한: 전용 유물은 해당 직업 탭에서만, 중갑은 착용 가능 직업만
@@ -1354,9 +1392,9 @@ import { FX } from "./fx.js";
     war:['rusher','paladin','cheol'],
     rng:['archer','sniper','pilot'],
     mag:['manager','voidc'],
-    rog:['ninja','reaper','glitch'],
+    rog:['ninja','reaper','glitch','blackcat'],
     pri:['necro','bard','returner'],
-    mer:['engineer','debug','tourist','slime','gambler','collector','contributor'],
+    mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu'],
   };
   function resonantCount(classKey){
     let n = 0;
@@ -1662,6 +1700,12 @@ import { FX } from "./fx.js";
       weapon:'drone',
       apply:(p)=>{ p.luck*=1.3; p.walkGold=true; p.dmgMult*=0.9; p.speed*=1.08; }
     },
+    baeksu: {
+      name:'백수', tag:'재미', cost:400,
+      desc:'[역장]으로 시작. 가만히 서 있으면 재생 3배 + 받는 피해 -20%. 움직이면 평범해진다. 원래 집이 최고다.',
+      weapon:'aura',
+      apply:(p)=>{ p.baeksu=true; p.regen+=0.5; }
+    },
     gambler: {
       name:'도박사', tag:'재미', cost:800,
       desc:'[추적 탄환]으로 시작. 모든 피해가 0.5×~2.5× 사이에서 무작위. 카드 상위 등급 확률 +50%.',
@@ -1676,6 +1720,14 @@ import { FX } from "./fx.js";
       desc:'무작위 무기 2개로 시작. 아이템 드랍 2배, 상자에서 나오는 모든 것이 한 단계 좋아진다.',
       weapon:'random2',
       apply:(p)=>{ p.luck*=2; p.chestPlus=true; }
+    },
+    blackcat: {
+      name:'검은 고양이', tag:'히든', hidden:true,
+      condDesc:'업적 20개 달성 시 해금',
+      cond:()=> achCount()>=20,
+      desc:'아홉 개의 목숨. 부활 +2, 회피 +12%, 몸이 작다. 가끔 아무 이유 없이 뛰어다닌다.',
+      weapon:'shuriken',
+      apply:(p)=>{ p.reviveLeft+=2; p.dodge=Math.min(0.6,p.dodge+0.12); p.catSmall=true; p.speed*=1.08; p.r=10; }
     },
     slime: {
       name:'슬라임', tag:'히든', hidden:true,
@@ -2090,6 +2142,18 @@ import { FX } from "./fx.js";
       { n:'보존 처리', lv:15, cd:20, d:'4초간 받는 피해 -50%', fx:()=>{ tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'보존!'); } },
       { n:'개인 창고', lv:25, cd:36, d:'보물상자 1개 소환', fx:()=>{ dropItem(player.x+50,player.y,'chest'); addTextNum(player.x,player.y-26,'창고 개방!'); SFX.play('chest'); } },
     ],
+    baeksu: [
+      { n:'낮잠', lv:3, cd:18, d:'2초 무적 (자는 척)', fx:()=>{ player.invuln=Math.max(player.invuln,2); addTextNum(player.x,player.y-26,'Zzz...'); } },
+      { n:'배달 주문', lv:8, cd:22, d:'회복 아이템 1개 배달', fx:()=>{ dropItem(player.x+40,player.y,'heal'); addTextNum(player.x,player.y-26,'주문 완료'); SFX.play('pick'); } },
+      { n:'이불 밖은 위험해', lv:15, cd:20, d:'5초간 받는 피해 -50%', fx:()=>{ tbuff('dr',0.5,5); addTextNum(player.x,player.y-26,'이불 소환'); } },
+      { n:'재취업 각성', lv:25, cd:30, d:'6초간 피해·공속 +30% (일할 때는 확실하게)', fx:()=>{ tbuff('dmg',1.3,6); tbuff('rate',1.3,6); addTextNum(player.x,player.y-26,'각성!'); SFX.play('fever'); } },
+    ],
+    blackcat: [
+      { n:'할퀴기', lv:3, cd:10, d:'주변 광역 피해', fx:()=>{ skNova(90,22); addTextNum(player.x,player.y-26,'냥!'); } },
+      { n:'우다다', lv:8, cd:16, d:'대시 충전 + 3초 이속 +40%', fx:()=>{ player.dashCd=0; tbuff('spd',1.4,3); addTextNum(player.x,player.y-26,'우다다다'); } },
+      { n:'골골송', lv:15, cd:20, d:'체력 15% 회복', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.15*player.healMult); addTextNum(player.x,player.y-26,'골골골...'); SFX.play('pick'); } },
+      { n:'불길한 예감', lv:25, cd:28, d:'5초간 회피 +25%', fx:()=>{ const o=player.dodge; player.dodge=Math.min(0.75,player.dodge+0.25); setTimeout(()=>{ player.dodge=o; },5000); addTextNum(player.x,player.y-26,'검은 고양이가 지나갔다'); } },
+    ],
     contributor: [
       { n:'패치 노트', lv:3, cd:14, d:'무작위 버프 하나 (4초)', fx:()=>{ const r=Math.random(); if(r<0.34) tbuff('dmg',1.3,4); else if(r<0.67) tbuff('rate',1.3,4); else tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'v1.0.'+((Math.random()*99)|0)); SFX.play('quest'); } },
       { n:'밸런스 패치', lv:8, cd:20, d:'주변 적 피해 -30% 너프 (스탯 반토막 5초)', fx:()=>{ for (const e of enemies){ if((e.x-player.x)**2+(e.y-player.y)**2<180*180){ e.dmg=Math.round(e.dmg*0.7); e.speed*=0.7; } } addTextNum(player.x,player.y-26,'너프!'); SFX.play('warn'); } },
@@ -2163,6 +2227,11 @@ import { FX } from "./fx.js";
                 { n:'음유시인', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
                 { n:'전쟁고수', d:'피해 +12%, 공속 +8%', fx:(p)=>{ p.dmgMult*=1.12; p.rateMult*=1.08; } },
                 { n:'진혼가수', d:'회복 +25%, 재생 +0.6', fx:(p)=>{ p.healMult*=1.25; p.regen+=0.6; } } ],
+    contributor: [
+      { n:'회귀자 최병우', d:'모든 것을 기억한다 — 리롤 +3, 행운 +30%', fx:(p)=>{ rerollsLeft+=3; p.luck*=1.3; } },
+      { n:'전생자 최병우', d:'전생의 무공 — 피해 +15%, 치명 +8%', fx:(p)=>{ p.dmgMult*=1.15; p.critChance=Math.min(0.85,p.critChance+0.08); } },
+      { n:'빙의자 최병우', d:'악역 영애의 몸에 들어갔다 — 받는 피해 -12%, 골드 +25%', fx:(p)=>{ p.dmgTaken*=0.88; p.goldMult*=1.25; } },
+      { n:'SSS급 헌터 최병우', d:'각성 등급 측정 불가 — 공속 +12%, 이동 +10%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.1; } } ],
     gambler:  [ { n:'타짜', d:'치명 +10%, 도박 피해 하한 0.8×로 상승', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.gambleFloor=true; } },
                 { n:'카운터', d:'행운 +30%, 리롤 +1', fx:(p)=>{ p.luck*=1.3; rerollsLeft+=1; } },
                 { n:'현상금 사냥꾼', d:'골드 +25%, 행운 +15%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.15; } },
@@ -2275,6 +2344,9 @@ import { FX } from "./fx.js";
                 { n:'윤회의 목자', d:'유령이 죽을 때 치유', fx:(p)=>{ p.ghostHeal=true; } } ],
     bard:     [ { n:'영웅서사시', d:'피버 지속 +4초, 피버 피해 +25%', fx:(p)=>{ p.feverPlus=(p.feverPlus||0)+4; p.feverDmg=true; } },
                 { n:'세이렌', d:'적 이속 -10%, 골드 +25%', fx:(p)=>{ p.slowAll*=0.9; p.goldMult*=1.25; } } ],
+    contributor: [
+      { n:'천마 최병우', d:'무림 최강 — 피해 +22%, 처형 임계 +6%p', fx:(p)=>{ p.dmgMult*=1.22; p.execThresh=Math.min(0.4,p.execThresh+0.06); } },
+      { n:'만렙 최병우', d:'렙업이 남들과 다르다 — 경험치 +30%, 카드 +1장', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.3; p.cardSlots=(p.cardSlots||6)+1; } } ],
     gambler:  [ { n:'운명 조작', d:'도박 피해 상한 3×로 상승, 행운 +40%', fx:(p)=>{ p.gambleCeil=true; p.luck*=1.4; } },
                 { n:'하우스 에지', d:'골드 +35%, 골드가 곧 힘 (황금 혈맥)', fx:(p)=>{ p.goldMult*=1.35; p.goldPower=true; } } ],
     collector:[ { n:'완벽한 소장품', d:'모든 스탯 +8%, 행운 +30%', fx:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.08); p.luck*=1.3; } },
@@ -2620,10 +2692,11 @@ import { FX } from "./fx.js";
     e_mines:'무기', e_dash:'무기', m_turret:'무기', p_pulse:'무기',
     i_armor:'수호', p_shield:'수호', p_ward:'수호', e_vest:'수호', a_endur:'수호', i_calm:'수호',
     m_scrap:'보조', m_repair:'보조', f_ash:'보조', l_flash:'보조', a_blood:'보조',
-    h_halo:'무기', h_ward:'수호', h_bless:'보조',
-    g_well:'무기', g_orbit:'보조', g_weight:'전술',
+    h_halo:'무기', h_ward:'수호', h_bless:'운명',
+    g_well:'무기', g_orbit:'운명', g_weight:'전술',
     c_drag:'수호', c_haste:'보조',
-    b_burst:'무기', b_frenzy:'전술', b_leech:'전술',
+    b_burst:'무기', b_frenzy:'금단', b_leech:'전술', b_pact:'금단',
+    c_luck:'운명', a_blood:'금단', f_myth0:'무기',
   };
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
@@ -2856,6 +2929,12 @@ import { FX } from "./fx.js";
     else focusTree = candidates.length ? candidates[(Math.random()*candidates.length)|0] : null;
     focusOverride = null;
     const SLOT_LIMIT = 5; // 트리당 하위테크 종류 슬롯 (신화 제외)
+    // 공통 트리는 매 레벨업 2종만 무작위 등장 (강림 속성이 풀의 주인공이 되도록)
+    const commonAllow = new Set();
+    {
+      const cn = TREES.common.nodes.filter(n=>!banned.has(n.key) && (player.techPicks[n.key]||0) < n.max);
+      for (let i2=0;i2<2 && cn.length;i2++){ commonAllow.add(cn.splice((Math.random()*cn.length)|0,1)[0].key); }
+    }
     Object.keys(TREES).forEach((tkey)=>{
       const tree = TREES[tkey];
       if (!tree.common && tkey !== focusTree) return;
@@ -2864,6 +2943,7 @@ import { FX } from "./fx.js";
       const distinct = tree.common ? 0 : tree.nodes.filter(n=>(player.techPicks[n.key]||0)>0).length;
       for (const node of tree.nodes){
         if (banned.has(node.key)) continue;
+        if (tree.common && !commonAllow.has(node.key)) continue;
         const picks = player.techPicks[node.key]||0;
         if (picks >= node.max) continue;
         if (!tree.common && !node.myth && picks===0 && distinct>=SLOT_LIMIT) continue;
@@ -2928,7 +3008,7 @@ import { FX } from "./fx.js";
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
-          name:gt.name, tag:'무명검 전용',
+          name:'무명검 · '+gt.name, tag:'무기 강화 · 유일',
           desc:gt.desc(m),
           apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; }
         });
@@ -5848,6 +5928,15 @@ import { FX } from "./fx.js";
     if (player.growthBranch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
       player.lifesteal += 1; player.__leechApplied = true;
     }
+    // 백수: 가만히 있으면 강해진다 (움직이면 해제)
+    if (player.baeksu){
+      const still = dx===0 && dy===0 && player.dashTime<=0;
+      player.__baeksuT = still ? (player.__baeksuT||0)+dt : 0;
+      if (player.__baeksuT > 0.8){
+        player.hp = Math.min(player.maxHp, player.hp + player.regen*2*player.healMult*dt); // 재생 3배 (기본+2배 추가)
+        if (!player.__baeksuOn){ player.__baeksuOn=true; addTextNum(player.x, player.y-24, '집이 최고다...'); }
+      } else if (player.__baeksuOn){ player.__baeksuOn=false; }
+    }
     // 관광객: 이동 중 골드가 저절로 모인다
     if (player.walkGold && (dx!==0||dy!==0)){
       player.walkGoldAcc = (player.walkGoldAcc||0) + dt;
@@ -6630,6 +6719,7 @@ import { FX } from "./fx.js";
       return false;
     }
     let d = dmg * player.dmgTaken * buffMult('dr');
+    if (player.baeksu && (player.__baeksuT||0)>0.8) d *= 0.8; // 백수: 집콕 방어
     // 불굴: 낮은 체력 피해 감소
     if (player.undyingDR>0 && player.hp < player.maxHp*0.3) d *= (1-player.undyingDR);
     player.hp -= d;
@@ -7563,7 +7653,8 @@ import { FX } from "./fx.js";
     ninja:'#6d5cc4', engineer:'#d9a53f', paladin:'#d9b23d', reaper:'#7a4fa8',
     pilot:'#4fa8c4', glitch:'#3aa895', returner:'#e08a2e',
     cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
-    tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f'
+    tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f',
+    baeksu:'#9aa0a6', blackcat:'#3a3b40'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
@@ -8821,7 +8912,7 @@ import { FX } from "./fx.js";
   // 주력 속성: 가장 많이 투자한 원소 — 내 탄환·오라·스킬 이펙트가 이 색으로 물든다
   function dominantElemColor(){
     if (!player) return null;
-    let best=null, bp=2; // 3포인트 이상 투자해야 발현
+    let best=null, bp=0; // 1포인트만 투자해도 즉시 발현
     for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
     return best ? COLORS[best] : null;
   }
@@ -8865,7 +8956,7 @@ import { FX } from "./fx.js";
         ctx.save();
         ctx.translate(p.x,p.y);
         ctx.rotate(Math.atan2(p.vy,p.vx));
-        const ac2 = (p.imbue && COLORS[p.imbue]) || CLASS_COLORS[player.classKey] || PAL.ink;
+        const ac2 = (p.imbue && COLORS[p.imbue]) || dominantElemColor() || CLASS_COLORS[player.classKey] || PAL.ink;
         ctx.strokeStyle = ac2;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(6,0); ctx.stroke();
