@@ -1296,15 +1296,18 @@ import { FX } from "./fx.js";
     equipBox.style.display = name==='equip' ? 'flex':'none';
     questBox.style.display = name==='quest' ? 'flex':'none';
     $('achBox').style.display = name==='ach' ? 'flex':'none';
+    $('dexBox').style.display = name==='dex' ? 'flex':'none';
     $('starBox').style.display = name==='star' ? 'flex':'none';
     shopBtn.classList.toggle('on', name==='shop');
     equipBtn.classList.toggle('on', name==='equip');
     questBtn.classList.toggle('on', name==='quest');
     $('achBtn').classList.toggle('on', name==='ach');
+    $('dexBtn').classList.toggle('on', name==='dex');
     $('starBtn').classList.toggle('on', name==='star');
     if (name==='shop') renderShop();
     if (name==='equip') renderEquip();
     if (name==='quest') renderQuests();
+    if (name==='dex') renderDex();
     if (name==='ach') renderAch();
     if (name==='star'){ setTimeout(()=>{ resizeStarCanvas(); drawStarTree(); }, 30); }
     goldVal.textContent = DB.gold;
@@ -1313,6 +1316,7 @@ import { FX } from "./fx.js";
   equipBtn.addEventListener('click', ()=> showPanel(equipBox.style.display==='flex'?'class':'equip'));
   questBtn.addEventListener('click', ()=> showPanel(questBox.style.display==='flex'?'class':'quest'));
   $('achBtn').addEventListener('click', ()=> showPanel($('achBox').style.display==='flex'?'class':'ach'));
+  $('dexBtn').addEventListener('click', ()=> showPanel($('dexBox').style.display==='flex'?'class':'dex'));
   $('starBtn').addEventListener('click', ()=> showPanel($('starBox').style.display==='flex'?'class':'star'));
 
   // 일일 도전 — 날짜 시드로 모두가 같은 조건에서 경쟁
@@ -6587,6 +6591,10 @@ import { FX } from "./fx.js";
         e.dmg = Math.round(e.dmg*1.08);
       }
       if (elapsed > 90) toast('⏰ 시간의 압박 — 모든 적이 강해졌다');
+      // 유일무기 힌트: 미발견 상태에서 아주 가끔 세계가 속삭인다
+      if (!DB.growth.found && Math.random()<0.12){
+        setTimeout(()=>toast('👁 '+GW_HINTS[(Math.random()*GW_HINTS.length)|0]), 2000);
+      }
       // 시한부 계약: 매분 최대체력 감소
       if (player.decayContract){
         player.maxHp = Math.max(30, Math.round(player.maxHp*0.95));
@@ -7576,6 +7584,51 @@ import { FX } from "./fx.js";
       else { state='playing'; last = performance.now(); }
     }, 120);
   }
+  // ---------- 📚 도감 (별도 탭) ----------
+  function renderDex(){
+    const list = $('dexList');
+    list.innerHTML = '';
+    const row = (html)=>{ const d=document.createElement('div'); d.className='shopItem'; d.innerHTML='<div class="info">'+html+'</div>'; list.appendChild(d); };
+    // 수집 요약
+    const uniqNames = new Set(DB.inv.filter(i=>i.r===5).map(i=>i.name));
+    row('<div class="nm">📖 수집 현황</div><div class="ds">유니크 '+uniqNames.size+'/'+UNIQUE_POOL.length+' · 태초 '+DB.inv.filter(i=>i.r===6).length+'개 · 업적 '+achCount()+'/'+ACHIEVEMENTS.length+' · 직업 '+Object.keys(CLASSES).filter(isClassUnlocked).length+'/'+Object.keys(CLASSES).length+'</div>');
+    // 장비 도감 — 유니크 풀 전체 공개 (보유 여부 표시)
+    row('<div class="nm">🛡 유니크 장비 도감</div><div class="ds">'
+      + UNIQUE_POOL.map(u=>{ const own = uniqNames.has(u.n||u.name||u); const nm = u.n||u.name||u; return own ? '<b style="color:#b8362e;">'+nm+' ✓</b>' : nm; }).join(' · ')+'</div>');
+    // 세트 도감
+    row('<div class="nm">🧩 세트 도감</div><div class="ds">'
+      + Object.keys(SET_DEFS).map(sk=>{ const sd=SET_DEFS[sk]; const cnt=DB.inv.filter(i=>i.set===sk).length; return '<b>'+(sd.name||sk)+'</b> (보유 조각 '+cnt+')'; }).join(' · ')+'</div>');
+    // 성장무기 도감 — 힌트만 (획득 단서 없음)
+    const gwDex = [
+      { found: DB.growth.found, name:'무명검', hint:'이름을 잃은 검. 벨수록 무언가를 기억해낸다고 한다.' },
+      { found: DB.gweps.bow.found, name:'침묵하는 활', hint:'시위를 당겨도 소리가 나지 않는다.' },
+      { found: DB.gweps.tome.found, name:'굶주린 마도서', hint:'책장이 스스로 넘어간다. 굶주려 있다.' },
+      { found: DB.gweps.blade.found, name:'핏빛 대검', hint:'날에 마르지 않는 얼룩.' },
+    ];
+    row('<div class="nm">⚔ 성장무기 도감 ('+gwDex.filter(g=>g.found).length+'/4)</div><div class="ds">'
+      + gwDex.map(g=> g.found ? '<b style="color:#8b5cf6;">'+g.name+' ✓</b> — '+g.hint : '??? — <span style="opacity:0.6;">'+g.hint+'</span>').join('<br>')+'</div>');
+    // 테크 도감 — 처음부터 전체 공개 (획득한 것은 속성색 강조)
+    const seen = DB.seenTech||{};
+    for (const tk of SPEC_TREES){
+      const tree = TREES[tk];
+      const cnt = tree.nodes.filter(n=>seen[n.key]).length;
+      row('<div class="nm" style="color:'+(COLORS[tk]||'#888')+';">'+tree.name+' ('+cnt+'/'+tree.nodes.length+')</div><div class="ds">'
+        + tree.nodes.map(n=>{
+            const cat = n.myth ? '신화' : n.tier===3 ? '전용기' : (NODE_CAT[n.key]||'전술');
+            const nm = n.name+'<span style="font-size:8px;opacity:0.7;">['+cat+']</span>';
+            return seen[n.key] ? '<b style="color:'+(COLORS[tk]||'#555')+';">'+nm+'</b>' : nm;
+          }).join(' · ')+'</div>');
+    }
+    // 보스 도감
+    row('<div class="nm">👑 보스 도감</div><div class="ds">'
+      + Object.keys(BOSS_TYPES).filter(k=>!BOSS_TYPES[k].finale).map(k=>BOSS_TYPES[k].name).join(' · ')+'</div>');
+  }
+  // 유일무기 힌트 — 아주 가끔, 세계가 속삭인다
+  const GW_HINTS = [
+    '...위험을 아는 자(위험도 3+)에게만 상인이 창고 깊은 곳의 고철을 보여준다는 소문이 있다.',
+    '...업적을 쌓은 방랑자만이 그 고철 뭉치의 진가를 알아본다고 한다.',
+    '...보물상자 천 개 중 하나에 이름 없는 검이 잠들어 있다는 전설이 있다.',
+  ];
   // 3속성 조합 칭호: 속성이 확정되는 순간 조합에 따른 칭호 부여
   const TITLE_WORD = { fire:'겁화', frost:'설한', volt:'뇌정', acid:'침식', boom:'폭렬', mech:'강철', psi:'염동', holy:'성광', grav:'중천', chrono:'시각(時刻)', blood:'혈혼' };
   const TITLE_ROLE = { fire:'방화왕', frost:'동토의 주인', volt:'뇌제(雷帝)', acid:'용해자', boom:'파괴자', mech:'기계 군주', psi:'초능력자', holy:'성인(聖人)', grav:'별을 당기는 자', chrono:'시간의 관리자', blood:'피의 군주' };
@@ -8358,6 +8411,20 @@ import { FX } from "./fx.js";
       ctx.lineTo(player.x-10-player.faceX*2, player.y+1+Math.sin(performance.now()/150)*2);
       ctx.lineTo(player.x-5, player.y-3);
       ctx.closePath(); ctx.fill();
+    }
+    // 칭호: 머리 위에 금빛으로 떠오른다
+    if (player.comboTitle){
+      ctx.save();
+      const tp = 0.75 + 0.25*Math.sin(performance.now()/400);
+      ctx.globalAlpha = tp;
+      ctx.font = "700 9.5px 'IBM Plex Sans KR', sans-serif";
+      ctx.textAlign = 'center';
+      const de2 = dominantElemColor();
+      ctx.fillStyle = de2 || '#d9a53f';
+      ctx.shadowColor = de2 || '#d9a53f';
+      ctx.shadowBlur = 6;
+      ctx.fillText('『'+player.comboTitle+'』', player.x, player.y - 36);
+      ctx.restore();
     }
     // 전직 표식: 1차 이상 = 머리 위 별, 2차 이상 = 별 2개
     if (player.jobs && player.jobs.length>0 && cc){
