@@ -6,6 +6,8 @@ let app = null, layer = null, ready = false, failed = false;
 let camX = 0, camY = 0, viewW = 940, viewH = 588;
 const pool = [];
 const active = [];
+const bullets = [];
+let bulletList = [];
 
 function makeDotTexture(){
   // 부드러운 원형 글로우 텍스처를 런타임 생성
@@ -40,6 +42,8 @@ export const FX = {
       app.stage.addChild(layer);
       dotTex = makeDotTexture();
       ready = true;
+      // 디버그: 콘솔에서 파티클/탄환 카운트 확인용
+      window.__FXDBG = { get particles(){ return active.length; }, get bullets(){ return bulletList.filter(Boolean).length; }, get sprites(){ return layer.children.length; } };
     } catch(e){
       failed = true; // WebGL 불가 환경: 조용히 비활성 (Canvas2D만으로 동작)
       console.warn('[FX] WebGL layer disabled:', e);
@@ -92,8 +96,30 @@ export const FX = {
       active.push(s);
     }
   },
+  // 2단계: 투사체 렌더 이관 — 매 프레임 목록을 받아 풀 스프라이트로 표시
+  drawBullets(list){
+    bulletList = list;
+  },
   update(dt){
     if (!ready) return;
+    // 투사체 스프라이트 동기화 (글로우 코어)
+    while (bullets.length < bulletList.length && bullets.length < 600){
+      const s = new Sprite(dotTex);
+      s.anchor.set(0.5); s.blendMode = 'add';
+      layer.addChild(s); bullets.push(s);
+    }
+    for (let i=0;i<bullets.length;i++){
+      const s = bullets[i];
+      const b = bulletList[i];
+      if (b){
+        s.visible = true;
+        s.tint = b.tint;
+        s.alpha = 0.95;
+        s.scale.set((b.r*3.2)/32);
+        s.x = b.x - camX + viewW/2;
+        s.y = b.y - camY + viewH/2;
+      } else s.visible = false;
+    }
     for (let i=active.length-1;i>=0;i--){
       const s = active[i];
       s.__life -= dt;

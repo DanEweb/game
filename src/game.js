@@ -2355,7 +2355,7 @@ import { FX } from "./fx.js";
     fire: { name:'지옥불', nodes:[
       { key:'f_ignite', name:'발화',       tier:1, max:4, desc:(m)=>'타격 시 화상 확률 +'+R(10*m)+'%, 화상 피해 +'+R(3*m)+'/초 (3초)', apply:(p,m)=>{ if(!p.burnChance) p.burnDps=6; p.burnChance=Math.min(0.8,p.burnChance+0.10*m); p.burnDps+=3*m; } },
       { key:'f_ball',   name:'화염구',     tier:1, max:3, desc:(m)=>'3.5초마다 화염구 발사 — 착탄 시 폭발+화상 (피해 +'+R(12*m)+')', apply:(p,m)=>{ if(!p.fireballLv) p.fireballDmg=22; p.fireballLv+=1; p.fireballDmg+=12*m; } },
-      { key:'f_trail',  name:'불의 궤적',  tier:2, max:2, desc:(m)=>'이동 경로에 불길이 남는다 (초당 피해 +'+R(8*m)+')', apply:(p,m)=>{ p.firetrailLv+=1; p.firetrailDps=(p.firetrailDps||10)+8*m; } },
+      { key:'f_trail',  name:'불의 궤적',  tier:2, max:2, desc:(m)=>'이동 경로에 불길이 남는다 (초당 피해 +'+R(5*m)+')', apply:(p,m)=>{ p.firetrailLv+=1; p.firetrailDps=(p.firetrailDps||7)+5*m; } },
       { key:'f_zone',   name:'폭염 지대',  tier:2, max:2, desc:(m)=>'불길 장판 피해 +'+R(10*m)+', 지속 +0.4초', apply:(p,m)=>{ p.firetrailDps=(p.firetrailDps||10)+10*m; p.firetrailDur+=0.4; } },
       { key:'f_heart',  name:'타오르는 심장', tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 화상 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.burnDps) p.burnDps+=2*m; else { p.burnChance=Math.max(p.burnChance||0,0.1); p.burnDps=6+2*m; } } },
       { key:'f_ash',    name:'재의 질주',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 불의 궤적 피해 +'+R(5*m), apply:(p,m)=>{ p.speed*=1+0.04*m; p.firetrailDps=(p.firetrailDps||10)+5*m; } },
@@ -2375,7 +2375,7 @@ import { FX } from "./fx.js";
     volt: { name:'번개', nodes:[
       { key:'l_shock',  name:'감전',       tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 연쇄 번개 (피해 +'+R(5*m)+')', apply:(p,m)=>{ p.shockChance=Math.min(0.6,p.shockChance+0.08*m); p.shockDmg=(p.shockDmg||10)+5*m; } },
       { key:'l_charge', name:'축전',       tier:1, max:3, desc:(m)=>'공격속도 +'+R(6*m)+'%, 대시 후 2초간 감전 확률 100%', apply:(p,m)=>{ p.rateMult*=1+0.06*m; p.chargeBoost=true; if(!p.shockDmg) p.shockDmg=10; } },
-      { key:'l_field',  name:'자기장',     tier:2, max:2, desc:(m)=>'4초마다 주변에 감전 펄스 (피해 +'+R(8*m)+')', apply:(p,m)=>{ p.magfieldLv+=1; p.magfieldDmg=(p.magfieldDmg||12)+8*m; } },
+      { key:'l_field',  name:'자기장',     tier:2, max:2, desc:(m)=>'4초마다 주변에 감전 펄스 (피해 +'+R(6*m)+')', apply:(p,m)=>{ p.magfieldLv+=1; p.magfieldDmg=(p.magfieldDmg||9)+6*m; } },
       { key:'l_over',   name:'과전압',     tier:2, max:1, desc:(m)=>'감전 연쇄가 한 번 더 튄다', apply:(p,m)=>{ p.chainPlus=1; } },
       { key:'l_cap',    name:'축전기',     tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 감전 피해 +'+R(4*m), apply:(p,m)=>{ p.cdr*=1-0.03*m; p.shockDmg=(p.shockDmg||10)+4*m; } },
       { key:'l_flash',  name:'전광석화',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 공격속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.speed*=1+0.04*m; p.rateMult*=1+0.04*m; } },
@@ -2385,7 +2385,7 @@ import { FX } from "./fx.js";
     acid: { name:'부식', nodes:[
       { key:'a_shred',  name:'방어 붕괴',  tier:1, max:4, desc:(m)=>'타격 시 '+R(10*m)+'% 확률 부식 — 중첩당 받는 피해 +15% (5초)', apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.10*m); } },
       { key:'a_melt',   name:'용해',       tier:1, max:3, desc:(m)=>'부식된 적은 초당 '+R(3*m)+' 추가 피해', apply:(p,m)=>{ p.dissolveDps=(p.dissolveDps||0)+3*m; } },
-      { key:'a_cloud',  name:'산성 구름',  tier:2, max:2, desc:(m)=>'7초마다 산성 구름 장판 (초당 피해 +'+R(7*m)+', 부식 부여)', apply:(p,m)=>{ p.acidLv+=1; p.acidDps=(p.acidDps||10)+7*m; } },
+      { key:'a_cloud',  name:'산성 구름',  tier:2, max:2, desc:(m)=>'7초마다 산성 구름 장판 (초당 피해 +'+R(5*m)+', 부식 부여)', apply:(p,m)=>{ p.acidLv+=1; p.acidDps=(p.acidDps||7)+5*m; } },
       { key:'a_burst',  name:'침식 폭발',  tier:2, max:1, desc:(m)=>'부식 2중첩 이상 적이 죽으면 산성 폭발이 퍼진다', apply:(p,m)=>{ p.acidBurst=true; } },
       { key:'a_blood',  name:'맹독 혈액',  tier:1, max:3, desc:(m)=>'부식 확률 +'+R(6*m)+'%p, 재생 +'+R1(0.2*m), apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.06*m); p.regen+=0.2*m; } },
       { key:'a_endur',  name:'내성',       tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 용해 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; p.dissolveDps=(p.dissolveDps||0)+2*m; } },
@@ -2395,7 +2395,7 @@ import { FX } from "./fx.js";
     boom: { name:'폭발', nodes:[
       { key:'e_boom',   name:'유폭',       tier:1, max:4, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 폭발 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.10*m); p.explodeDmg=(p.explodeDmg||18)+10*m; } },
       { key:'e_dash',   name:'돌파 폭발',  tier:1, max:3, desc:(m)=>'대시할 때 주변 폭발 (피해 +'+R(18*m)+')', apply:(p,m)=>{ if(!p.dashBlast) p.dashBlast=20; p.dashBlast+=18*m; } },
-      { key:'e_mines',  name:'지뢰 살포',  tier:2, max:2, desc:(m)=>'5초마다 지뢰 2개 설치 (피해 +'+R(15*m)+')', apply:(p,m)=>{ p.mineLv+=1; p.mineDmg=(p.mineDmg||30)+15*m; } },
+      { key:'e_mines',  name:'지뢰 살포',  tier:2, max:2, desc:(m)=>'5초마다 지뢰 2개 설치 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.mineLv+=1; p.mineDmg=(p.mineDmg||22)+10*m; } },
       { key:'e_chain2', name:'연쇄 기폭',  tier:2, max:2, desc:(m)=>'유폭·지뢰 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.explodeDmg=(p.explodeDmg||18)*(1+0.15*m); p.mineDmg=(p.mineDmg||30)*(1+0.15*m); } },
       { key:'e_pack',   name:'추가 화약',  tier:1, max:3, desc:(m)=>'유폭 확률 +'+R(8*m)+'%p, 폭발 피해 +'+R(6*m), apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.08*m); p.explodeDmg=(p.explodeDmg||18)+6*m; } },
       { key:'e_vest',   name:'폭발 조끼',  tier:2, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 돌파 폭발 피해 +'+R(10*m), apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.dashBlast=(p.dashBlast||20)+10*m; } },
@@ -2403,7 +2403,7 @@ import { FX } from "./fx.js";
       { key:'e_myth',   name:'메가톤',     tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 폭발 피해 +40%, 유폭 확률 +15%p', apply:(p)=>{ p.explodeDmg=(p.explodeDmg||18)*1.4; p.mineDmg=(p.mineDmg||30)*1.4; p.explodeChance=Math.min(0.75,(p.explodeChance||0)+0.15); } },
     ]},
     mech: { name:'기계', nodes:[
-      { key:'m_turret', name:'자동 터렛',  tier:1, max:2, desc:(m)=>'자동 사격 터렛 +1기 (피해 +'+R(6*m)+')', apply:(p,m)=>{ p.turretLv+=1; p.turretDmg=(p.turretDmg||10)+6*m; } },
+      { key:'m_turret', name:'자동 터렛',  tier:1, max:2, desc:(m)=>'자동 사격 터렛 +1기 (피해 +'+R(4*m)+')', apply:(p,m)=>{ p.turretLv+=1; p.turretDmg=(p.turretDmg||7)+4*m; } },
       { key:'m_tune',   name:'정비',       tier:1, max:4, desc:(m)=>'모든 쿨다운 -'+R(4*m)+'%, 재생 +'+R1(0.25*m), apply:(p,m)=>{ p.cdr*=1-0.04*m; p.regen+=0.25*m; } },
       { key:'m_ammo',   name:'강화 탄자',  tier:2, max:3, desc:(m)=>'관통 +'+(m<2?1:2)+', 투사체 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.pierce+=(m<2?1:2); p.projMult*=1+0.08*m; } },
       { key:'m_heat',   name:'포탑 과열',  tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(15*m)+'%', apply:(p,m)=>{ p.turretRate*=1+0.15*m; } },
@@ -2413,7 +2413,7 @@ import { FX } from "./fx.js";
       { key:'m_myth',   name:'기계 반란',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 터렛 +2기, 터렛 공격속도 +30%, 관통 +1', apply:(p)=>{ p.turretLv=(p.turretLv||0)+2; if(!p.turretDmg) p.turretDmg=12; p.turretRate*=1.3; p.pierce+=1; } },
     ]},
     psi: { name:'염동', nodes:[
-      { key:'p_pulse',  name:'염동 파동',   tier:1, max:4, desc:(m)=>'7초마다 주변을 밀쳐내는 파동 (피해 +'+R(12*m)+')', apply:(p,m)=>{ if(!p.pulseLv) p.pulseDmg=20; p.pulseLv+=1; p.pulseDmg+=12*m; } },
+      { key:'p_pulse',  name:'염동 파동',   tier:1, max:4, desc:(m)=>'7초마다 주변을 밀쳐내는 파동 (피해 +'+R(8*m)+')', apply:(p,m)=>{ if(!p.pulseLv) p.pulseDmg=14; p.pulseLv+=1; p.pulseDmg+=8*m; } },
       { key:'p_shield', name:'사이오닉 방벽', tier:1, max:2, desc:(m)=>'주기적으로 피해 1회 무효 (충전 '+R1(Math.max(5,12-1.5*m))+'초)', apply:(p,m)=>{ const cd=Math.max(5,12-1.5*m); p.shieldCdMax = p.shieldCdMax? Math.min(p.shieldCdMax,cd) : cd; p.shieldT=0; } },
       { key:'p_slow',   name:'정신 압박',   tier:2, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
       { key:'p_grav',   name:'중력 붕괴',   tier:2, max:1, desc:(m)=>'염동 파동이 적을 끌어당기며 피해 +30%', apply:(p,m)=>{ p.pulsePull=true; } },
@@ -2599,10 +2599,11 @@ import { FX } from "./fx.js";
         if (node.tier>=2 && pts < (gate[node.tier]||99)) continue;
         // 신화 노드: 등급 고정 (트리당 유일한 빌드 정점)
         let ri = node.myth ? 5 : rollCardRarity();
-        // 숙련: 이미 찍은 테크는 50% 확률로 한 등급 위로 등장 (투자한 만큼 좋아진다)
+        // 숙련: 이미 찍은 테크는 35% 확률로 한 등급 위로 등장
         let honed = false;
-        if (!node.myth && picks>0 && ri<4 && Math.random()<0.5){ ri+=1; honed=true; }
-        const m = node.myth ? 1 : CARD_RARITY[ri].m;
+        if (!node.myth && picks>0 && ri<4 && Math.random()<0.35){ ri+=1; honed=true; }
+        // 수확 체감: 같은 테크를 반복해서 찍을수록 효율이 70%씩 감소 (무한 성장 차단)
+        const m = node.myth ? 1 : CARD_RARITY[ri].m * Math.pow(0.7, picks);
         const cat = node.myth ? '신화' : node.tier===3 ? '전용기' : (NODE_CAT[node.key]||'전술');
         pool.push({
           key:node.key, kind:'tech', tkey, node, rarity:ri, myth:!!node.myth,
@@ -2626,7 +2627,7 @@ import { FX } from "./fx.js";
         const picks = player.techPicks[ct.key]||0;
         if (picks >= 4) continue;
         const ri = rollCardRarity();
-        const m = CARD_RARITY[ri].m;
+        const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:ct.key, kind:'ctech', rarity:ri, ctag:true,
           name:ct.name, tag:CLASSES[player.classKey].name+' 전용',
@@ -2649,7 +2650,7 @@ import { FX } from "./fx.js";
         const picks = player.techPicks[gt.key]||0;
         if (picks >= gt.max) continue;
         const ri = rollCardRarity();
-        const m = CARD_RARITY[ri].m;
+        const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
           name:gt.name, tag:'무명검 전용',
@@ -6150,7 +6151,7 @@ import { FX } from "./fx.js";
     while (player.xp >= player.xpNext){
       player.xp -= player.xpNext;
       player.level += 1;
-      player.xpNext = Math.floor(10 + player.level*6.5);
+      player.xpNext = Math.floor(10 + player.level*6.5 + player.level*player.level*0.5); // 고레벨 가속 차단 (2차 곡선)
       pendingLevelUps += 1;
     }
     if (player.level >= 30) unlockAch('lv30');
@@ -8102,6 +8103,7 @@ import { FX } from "./fx.js";
     }
   }
   function drawProjectiles(){
+    const fxBullets = [];
     for (const p of projectiles){
       if (p.mega){
         ctx.strokeStyle = PAL.ink;
@@ -8151,7 +8153,12 @@ import { FX } from "./fx.js";
                  : p.kind==='icelance' ? COLORS.frost
                  : (p.imbue && COLORS[p.imbue]) ? COLORS[p.imbue]
                  : (CLASS_COLORS[player.classKey] || PAL.ink);
-        // 글로우 헤일로
+        // Pixi 2단계: 일반 탄환은 WebGL 글로우 스프라이트로 렌더 (캔버스 드로우 스킵)
+        if (FX.enabled && !p.kind){
+          fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
+          continue;
+        }
+        // 글로우 헤일로 (폴백: WebGL 미지원)
         ctx.globalAlpha = 0.14;
         ctx.fillStyle = pc;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r*2.1,0,Math.PI*2); ctx.fill();
@@ -8185,6 +8192,7 @@ import { FX } from "./fx.js";
         ctx.globalAlpha = 1;
       }
     }
+    if (FX.enabled) FX.drawBullets(fxBullets);
   }
   function drawHostileShots(){
     for (const p of hostileShots){
