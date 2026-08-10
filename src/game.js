@@ -3163,6 +3163,19 @@ import { FX } from "./fx.js";
     const out = [];
     let need = n;
     if (forced){ out.push(forced); need -= 1; }
+    // 강림 보장: 강림한 속성의 노드가 최소 3장 (있는 만큼) 먼저 확정 — 속성이 진짜 주인공이 되도록
+    if (focusTree){
+      const focusIdx = [];
+      for (let i=pool.length-1;i>=0;i--) if (pool[i].tkey===focusTree) focusIdx.push(i);
+      let take = Math.min(3, focusIdx.length, need);
+      while (take>0){
+        const pick = focusIdx.splice((Math.random()*focusIdx.length)|0,1)[0];
+        const cand = pool.splice(pick,1)[0];
+        // splice로 인덱스가 밀리므로 남은 인덱스 보정
+        for (let k=0;k<focusIdx.length;k++) if (focusIdx[k]>pick) focusIdx[k]-=1;
+        out.push(cand); need -= 1; take -= 1;
+      }
+    }
     for (let i=0;i<need && pool.length;i++){
       const idx = (Math.random()*pool.length)|0;
       const cand = pool.splice(idx,1)[0];
@@ -4108,7 +4121,7 @@ import { FX } from "./fx.js";
       });
     }
     orbs.push({ x:e.x, y:e.y, value:e.xpValue, r: e.elite?7:(e.xpValue>=4?6:5) });
-    if (player.lifesteal>0){ player.hp = Math.min(player.maxHp, player.hp + player.lifesteal*player.healMult); }
+    if (player.lifesteal>0){ healCapped(player.lifesteal*player.healMult); }
 
     // 장비특성: 폭발탄
     if (player.blastOnKill && Math.random()<0.10){
@@ -4977,6 +4990,10 @@ import { FX } from "./fx.js";
   let dronePos = [];
 
   function fireProjectile(a, speed, dmg, pierce, life, extra){
+    // 발사 모션: 반동(탄 반대 방향으로 살짝 밀림) + 머즐 플래시
+    player.recoilX = (player.recoilX||0) - Math.cos(a)*2.6;
+    player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6;
+    if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
     const isCrit = Math.random()<player.critChance;
     let d = dmg * player.projMult * (isCrit?player.critMult:1);
     if (player.goldPower) d *= 1 + Math.min(0.3, runGold*0.0003); // 변혁: 황금 혈맥
@@ -5090,7 +5107,18 @@ import { FX } from "./fx.js";
     }
     // 혈마: 흡혈 낙인
     if (player.bloodLeechChance>0 && Math.random()<player.bloodLeechChance+pb){
-      player.hp = Math.min(player.maxHp, player.hp + (player.bloodMult||1)*player.healMult);
+      healCapped((player.bloodMult||1)*player.healMult);
+    }
+  }
+  // 흡혈류 회복 감쇠: 초당 최대체력 4%까지만 — 물량전에서 무한 회복으로 불사가 되는 것 방지
+  function healCapped(amount){
+    const cap = player.maxHp * 0.04;
+    if (player.__lsWin === undefined){ player.__lsWin = 0; player.__lsWinT = 0; }
+    const room = Math.max(0, cap - player.__lsWin);
+    const h = Math.min(amount, room);
+    if (h > 0){
+      player.hp = Math.min(player.maxHp, player.hp + h);
+      player.__lsWin += h;
     }
   }
   function tickStatus(t, dt, isBoss){
@@ -6058,6 +6086,12 @@ import { FX } from "./fx.js";
     if (player.invuln>0) player.invuln -= dt;
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
+    // 흡혈 감쇠 윈도 리셋 (1초 단위)
+    player.__lsWinT = (player.__lsWinT||0) + dt;
+    if (player.__lsWinT >= 1){ player.__lsWinT = 0; player.__lsWin = 0; }
+    // 발사 반동 감쇠
+    if (player.recoilX){ player.recoilX *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilX)<0.1) player.recoilX=0; }
+    if (player.recoilY){ player.recoilY *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilY)<0.1) player.recoilY=0; }
     // 무명검 흡명의 형: 검을 든 동안 처치 회복 +1
     if (player.growthBranch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
       player.lifesteal += 1; player.__leechApplied = true;
@@ -7825,7 +7859,7 @@ import { FX } from "./fx.js";
       ctx.closePath(); ctx.fill();
       ctx.restore();
     }
-    drawHumanoid(player.x, player.y, { face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper' });
+    drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), { face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper' });
     // 장비 외형: 투구 밴드 / 흉갑 라인 (희귀도 색)
     const headIt = eqItem('head');
     if (headIt){
