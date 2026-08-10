@@ -8,6 +8,8 @@ const pool = [];
 const active = [];
 const bullets = [];
 let bulletList = [];
+const zoneSprites = [];
+let zoneList = [];
 
 function makeDotTexture(){
   // 부드러운 원형 글로우 텍스처를 런타임 생성
@@ -100,8 +102,32 @@ export const FX = {
   drawBullets(list){
     bulletList = list;
   },
+  // 3단계: 원소 장판 글로우 — 부드러운 WebGL 광원 디스크
+  drawZones(list){
+    zoneList = list;
+  },
   update(dt){
     if (!ready) return;
+    // 장판 글로우 동기화 (맥동하는 광원 디스크)
+    const pulse = 1 + Math.sin(performance.now()/240)*0.06;
+    while (zoneSprites.length < zoneList.length && zoneSprites.length < 80){
+      const s = new Sprite(dotTex);
+      s.anchor.set(0.5); s.blendMode = 'add';
+      layer.addChildAt(s, 0); // 탄환·파티클보다 아래
+      zoneSprites.push(s);
+    }
+    for (let i=0;i<zoneSprites.length;i++){
+      const s = zoneSprites[i];
+      const z = zoneList[i];
+      if (z){
+        s.visible = true;
+        s.tint = z.tint;
+        s.alpha = z.alpha;
+        s.scale.set((z.r*2.6*pulse)/32);
+        s.x = z.x - camX + viewW/2;
+        s.y = z.y - camY + viewH/2;
+      } else s.visible = false;
+    }
     // 투사체 스프라이트 동기화 (글로우 코어)
     while (bullets.length < bulletList.length && bullets.length < 600){
       const s = new Sprite(dotTex);

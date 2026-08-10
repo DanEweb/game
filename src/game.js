@@ -5944,6 +5944,7 @@ import { FX } from "./fx.js";
       }
       if (d < player.r+o.r+2){
         grantXp(o.value);
+        if (FX.enabled && Math.random()<0.5) FX.burst(o.x, o.y, 0x3aa895, 2, 60, 0.3);
         SFX.play('pick');
         orbs.splice(i,1);
       }
@@ -7347,6 +7348,12 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(1,-e.r-6); ctx.lineTo(1,-e.r-1); ctx.stroke();
     }
     // 원소 상태이상 표시 (색으로 한눈에)
+    // Pixi 3단계: 상태이상 WebGL 모트 (확률적 미세 파티클)
+    if (FX.enabled){
+      if (e.burnT>0 && Math.random()<0.06) FX.burst(e.x, e.y-e.r*0.5, 0xe2603f, 1, 45, 0.35);
+      if (e.corrodeS>0 && Math.random()<0.05) FX.burst(e.x, e.y, 0x6faa4e, 1, 30, 0.4);
+      if ((e.chillS>0||e.frozenT>0) && Math.random()<0.04) FX.burst(e.x, e.y-e.r*0.6, 0x7ec8e3, 1, 25, 0.45);
+    }
     if (e.burnT>0){
       ctx.fillStyle = COLORS.fire;
       const ff = Math.sin(performance.now()/70+e.x)*1.5;
@@ -7718,14 +7725,26 @@ import { FX } from "./fx.js";
     }
   }
   function drawZones(){
+    // Pixi 3단계: 장판의 '빛' 자체는 WebGL 광원 디스크로 (형태 요소는 캔버스 유지)
+    if (FX.enabled){
+      const fxZones = [];
+      for (const z of zones){
+        const tt = Math.min(1, z.t/z.maxT);
+        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : 0x6faa4e;
+        fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:0.22*tt });
+      }
+      FX.drawZones(fxZones);
+    }
     for (const z of zones){
       const tt = Math.min(1, z.t/z.maxT);
       ctx.save();
       ctx.translate(z.x, z.y);
       if (z.type==='fire'){
         const flick = 0.9 + Math.sin(performance.now()/60 + z.x)*0.1;
-        ctx.fillStyle = 'rgba(226,96,63,'+(0.16*tt)+')';
-        ctx.beginPath(); ctx.arc(0,0,z.r*flick,0,Math.PI*2); ctx.fill();
+        if (!FX.enabled){
+          ctx.fillStyle = 'rgba(226,96,63,'+(0.16*tt)+')';
+          ctx.beginPath(); ctx.arc(0,0,z.r*flick,0,Math.PI*2); ctx.fill();
+        }
         ctx.strokeStyle = 'rgba(226,96,63,'+(0.6*tt)+')';
         ctx.lineWidth = 1.5;
         for (let k=0;k<3;k++){
@@ -7736,8 +7755,10 @@ import { FX } from "./fx.js";
           ctx.stroke();
         }
       } else if (z.type==='void'){
-        ctx.fillStyle = 'rgba(92,74,138,'+(0.22*tt)+')';
-        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        if (!FX.enabled){
+          ctx.fillStyle = 'rgba(92,74,138,'+(0.22*tt)+')';
+          ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        }
         ctx.strokeStyle = 'rgba(154,111,196,'+(0.7*tt)+')';
         ctx.lineWidth = 2;
         ctx.save();
@@ -7747,8 +7768,10 @@ import { FX } from "./fx.js";
         ctx.fillStyle = '#1a1420';
         ctx.beginPath(); ctx.arc(0,0,7,0,Math.PI*2); ctx.fill();
       } else {
-        ctx.fillStyle = 'rgba(111,170,78,'+(0.13*tt)+')';
-        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        if (!FX.enabled){
+          ctx.fillStyle = 'rgba(111,170,78,'+(0.13*tt)+')';
+          ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        }
         ctx.strokeStyle = 'rgba(111,170,78,'+(0.55*tt)+')';
         ctx.setLineDash([4,5]);
         ctx.lineWidth = 1.4;
