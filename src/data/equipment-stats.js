@@ -14,6 +14,8 @@ export const EQ_AFFIX = [
     { k:'thorns',    n:'가시',     d:'접촉 피해의 60% 반사' },
     { k:'firstaid',  n:'응급처치', d:'피격 시 25% 확률 12 회복' },
     { k:'overdrive', n:'질주 회로', d:'대시 후 1.5초 공격속도 +35%' },
+    { k:'giantkill', n:'거인 살해', d:'엘리트·악몽급에게 주는 피해 +15%' },
+    { k:'kingslayer',n:'왕 시해',   d:'보스에게 주는 피해 +12%' },
   ];
 export const EQ_NOUNS = {
     head:['모자','헬멧','후드','머리띠'], body:['재킷','수트','로브','조끼'],

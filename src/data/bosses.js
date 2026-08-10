@@ -15,6 +15,9 @@ export const BOSS_TYPES = {
     spaceStar:   { name:'우주별',   kind:'meteor',    r:28, hp:430, speed:42, contactDmg:16, xpValue:80 },
     nukNukEX:    { name:'눅눅근EX', kind:'esper',     r:24, hp:390, speed:46, contactDmg:12, xpValue:80 },
     goDokGeun:   { name:'고독근',   kind:'centipede', r:20, hp:780, speed:130, contactDmg:14, xpValue:110 },
+    monday:      { name:'월요일',   kind:'charger',   r:26, hp:360, speed:46, contactDmg:15, xpValue:60,
+                   gaugeTime:2.2, telegraph:0.55, chargeSpeed:680, chargeDuration:0.9, chargeDamage:26, recover:1.1 },
+    deadline:    { name:'마감의 화신', kind:'mortar',  r:25, hp:410, speed:42, contactDmg:14, xpValue:70 },
     // 맵별 최종 보스 — 기존 보스의 각성형
     awakenOseojin:  { name:'각성 오서진',  kind:'root',      r:34, hp:3400, speed:48, contactDmg:22, xpValue:320, finale:true,
                       telegraph:0.55, chargeSpeed:600, chargeDuration:0.8, chargeDamage:34, projSpeed:215, projDmg:17, projR:6 },

@@ -737,6 +737,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     p.goldMult *= 1 + eq.gold/100;
     p.critChance += eq.crit/100;
     if (eq.affixes.execute) p.execThresh = Math.max(p.execThresh, 0.15);
+    if (eq.affixes.giantkill) p.eliteDmg = (p.eliteDmg||1)*1.15;
+    if (eq.affixes.kingslayer) p.bossDmg = (p.bossDmg||1)*1.12;
     if (eq.affixes.blast) p.blastOnKill = true;
     if (eq.affixes.thorns) p.thorns = 0.6;
     if (eq.affixes.firstaid) p.firstAid = true;
@@ -2031,17 +2033,40 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   const JOB2_OPTIONS = [
     { n:'극의', d:'피해 +15%, 공속 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.rateMult*=1.1; } },
     { n:'수호', d:'체력 +20%, 받는 피해 -8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); p.dmgTaken*=0.92; } },
+    { n:'쇄도', d:'공속 +14%, 이동 +10%, 대시 쿨 -12%', fx:(p)=>{ p.rateMult*=1.14; p.speed*=1.1; p.dashCdMax*=0.88; } },
+    { n:'탐구', d:'쿨다운 -10%, 행운 +25%, 리롤 +1', fx:(p)=>{ p.cdr*=0.9; p.luck*=1.25; rerollsLeft+=1; } },
+  ];
+  const JOB3_OPTIONS = [
+    { n:'초월', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:(p,rc)=>{
+      const m = 1.10 + 0.005*rc;
+      p.dmgMult*=m; p.rateMult*=1.1; p.speed*=1.08;
+      p.maxHp=Math.round(p.maxHp*1.1); p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.1);
+    } },
+    { n:'멸살', d:'피해 +22% + 엘리트·보스 피해 +10% + 공명 노드당 +0.4%', fx:(p,rc)=>{
+      p.dmgMult*=1.22+0.004*rc; p.eliteDmg*=1.1; p.bossDmg*=1.1;
+    } },
+    { n:'불멸', d:'체력 +25%, 받는 피해 -12%, 재생 +1 + 공명 노드당 체력 +0.5%', fx:(p,rc)=>{
+      p.maxHp=Math.round(p.maxHp*(1.25+0.005*rc)); p.dmgTaken*=0.88; p.regen+=1; p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.15);
+    } },
   ];
   function openJobChoice(tier){
     if (tier===1){
       const list = JOB_TREES[player.classKey] || JOB_TREES.manager;
-      const opts = list.map(j=>({ l:'전직: '+j.n, d:j.d, fx:()=>{
-        j.fx(player); player.jobs.push(j.n);
-        toast('1차 전직 — '+j.n+'!');
-        effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
-        SFX.play('win');
-      } }));
-      openEvent({ t:'1차 전직', d:'길이 갈라진다. 이 런에서 걸어갈 길을 선택하세요.', opts });
+      // 성도 공명 연동: 공명 노드 10개 이상이면 전직이 '공명 강화'로 진화 (같은 전직도 성도에 따라 달라진다)
+      const rc = resonantCount(player.classKey);
+      const resonant = rc >= 10;
+      const opts = list.map(j=>({
+        l:'전직: '+(resonant?'✦ ':'')+j.n,
+        d:j.d + (resonant ? ' — 공명 강화: 추가 피해 +'+(rc*0.4).toFixed(0)+'%' : ''),
+        fx:()=>{
+          j.fx(player); player.jobs.push(j.n);
+          if (resonant){ player.dmgMult *= 1 + 0.004*rc; }
+          toast('1차 전직 — '+j.n+'!'+(resonant?' (성도 공명 ×'+rc+')':''));
+          effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
+          SFX.play('win');
+        }
+      }));
+      openEvent({ t:'1차 전직'+(resonant?' — 성도가 공명한다':''), d:'길이 갈라진다. 이 런에서 걸어갈 길을 선택하세요.', opts });
     } else if (tier===2){
       const base = player.jobs[0] || '';
       const opts = JOB2_OPTIONS.map(j=>({ l:'2차 전직: '+base+' · '+j.n, d:j.d, fx:()=>{
@@ -2052,17 +2077,14 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       openEvent({ t:'2차 전직', d:'선택한 길이 깊어진다.', opts });
     } else {
       const rc = resonantCount(player.classKey);
-      openEvent({ t:'3차 전직 — 초월', d:'모든 길의 끝. 존재가 한 단계 올라선다.', opts:[
-        { l:'초월한다', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:()=>{
-          const m = 1.10 + 0.005*rc;
-          player.dmgMult*=m; player.rateMult*=1.1; player.speed*=1.08;
-          player.maxHp=Math.round(player.maxHp*1.1); player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.1);
-          player.jobs.push('초월');
-          toast('3차 전직 — 초월! (공명 ×'+rc+')');
-          freeze=Math.max(freeze,0.25);
-          SFX.play('win');
-        } },
-      ]});
+      const opts = JOB3_OPTIONS.map(j=>({ l:'3차 전직: '+j.n, d:j.d, fx:()=>{
+        j.fx(player, rc);
+        player.jobs.push(j.n==='초월'?'초월':j.n);
+        toast('3차 전직 — '+j.n+'! (공명 ×'+rc+')');
+        freeze=Math.max(freeze,0.25);
+        SFX.play('win');
+      } }));
+      openEvent({ t:'3차 전직 — 정점', d:'모든 길의 끝. 존재가 한 단계 올라선다.', opts });
     }
   }
 
@@ -2139,6 +2161,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   const AWAKEN_COMMON = [
     { n:'초월', d:'피해·공속·이속·체력 +8%', fx:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.08); } },
     { n:'탐욕', d:'골드·경험치 +20%', fx:(p)=>{ p.goldMult*=1.2; p.xpMult=(p.xpMult||1)*1.2; } },
+    { n:'폭주', d:'피해 +20% / 받는 피해 +8%', fx:(p)=>{ p.dmgMult*=1.2; p.dmgTaken*=1.08; } },
+    { n:'현자', d:'쿨다운 -12%, 리롤 +2', fx:(p)=>{ p.cdr*=0.88; rerollsLeft+=2; } },
   ];
   function classResGroup(classKey){
     for (const g in RESONANCE) if (RESONANCE[g].includes(classKey)) return g;
@@ -2268,16 +2292,17 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       name:'무명검', desc:'[유일] 처음엔 형편없지만, 벤 만큼 영원히 성장하는 검',
       evName:'무명검·현신', evDesc:'이름 없는 검이 마침내 제 모습을 드러냅니다',
       lvDesc:['','검기 강화','피해 +25%','검기 확장','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.85 : 1.05,
+      baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * (DB.growth.branch==='gale'?0.82:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = DB.growth.lv||1;
         const g = 2 + gl*1.5;
         const t = [1,1.25,1.55,1.9,2.3][w.lv-1];
         // 성장 단계 진화 보너스: Lv10 각성 / Lv20 해방 / Lv35 진명검 / Lv60 초월 / Lv100 귀일
         const tier = gl>=100?2.0 : gl>=60?1.7 : gl>=35?1.5 : gl>=20?1.3 : gl>=10?1.15 : 1;
-        return g * t * tier * (w.evolved?1.5:1);
+        const branch = DB.growth.branch==='slash' ? 1.25 : 1;
+        return g * t * tier * branch * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.growth.lv>=15?1:0) + (DB.growth.lv>=30?1:0) + (w.evolved?1:0)
+      count:(w)=> 1 + (DB.growth.lv>=15?1:0) + (DB.growth.lv>=30?1:0) + (DB.growth.branch==='gale'?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
     },
     drone: {
       name:'드론', desc:'호위 드론이 자동으로 적을 사격합니다',
@@ -2321,6 +2346,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       { key:'c_regen', name:'재생',  tier:1, max:5, desc:(m)=>'초당 체력 +'+R1(0.4*m), apply:(p,m)=>{ p.regen+=0.4*m; } },
       { key:'c_steal', name:'흡혈',  tier:2, max:3, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.8*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.8*m)); } },
       { key:'c_luck',  name:'행운',  tier:2, max:3, desc:(m)=>'골드 +'+R(8*m)+'%, 아이템 드랍 +'+R(12*m)+'%', apply:(p,m)=>{ p.goldMult*=1+0.08*m; p.luck*=1+0.12*m; } },
+      { key:'c_giant', name:'거인 사냥꾼', tier:2, max:3, desc:(m)=>'엘리트·악몽급 피해 +'+R(9*m)+'%, 보스 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.eliteDmg*=1+0.09*m; p.bossDmg*=1+0.06*m; } },
       { key:'c_undying',name:'불굴', tier:3, max:1, desc:(m)=>'[궁극] 1회 부활, 체력 30% 이하일 때 피해 -'+Math.min(60,R(15*m))+'%', apply:(p,m)=>{ p.undyingRevive=true; p.undyingDR=Math.min(0.6,0.15*m); } },
     ]},
     fire: { name:'지옥불', nodes:[
@@ -2398,6 +2424,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   const TIER_GATE = { 2:2, 3:4, 4:7 };     // 전문 속성: 트리 투자 포인트 게이트 (4=신화, 깊은 투자 필요)
   const COMMON_GATE = { 2:4, 3:7, 4:99 };  // 공통: 더 깊은 게이트 (공통엔 신화 없음)
   let focusTree = null; // 이번 레벨업에 '강림'한 속성
+  let focusOverride = null; // 속성 지정 리롤 (원하는 속성 선택)
   // 하위테크 분류 (무기 = 발사체·설치물 생성 / 전술 = 스탯·상태이상)
   const NODE_CAT = {
     f_ball:'무기', f_trail:'무기', f_zone:'무기',
@@ -2424,7 +2451,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   // 유일무기 진화: 성장 레벨에 따라 이름이 바뀐다 (각성 → 진각성)
   Object.defineProperty(WEAPONS.nameless, 'name', { get(){
     const l = (DB.growth&&DB.growth.lv)||1;
-    return l>=100?'시원의 검·귀일' : l>=60?'무극검·초월' : l>=35?'진명검·현신' : l>=20?'명검·해방' : l>=10?'무명검·각성' : '무명검';
+    const base = l>=100?'시원의 검·귀일' : l>=60?'무극검·초월' : l>=35?'진명검·현신' : l>=20?'명검·해방' : l>=10?'무명검·각성' : '무명검';
+    const bt = DB.growth&&DB.growth.branch ? '['+GROWTH_BRANCHES[DB.growth.branch].tag+'] ' : '';
+    return bt + base;
   }});
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.bow.lv)||1;
@@ -2448,6 +2477,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   // 무명검 성장 (영구)
   function addGrowthXp(n){
     if (!DB.growth.found) return;
+    if (player && player.gwXp2) n *= 2; // 명검 공명
     DB.growth.xp += n;
     const need = 20 + DB.growth.lv*15;
     if (DB.growth.xp >= need){
@@ -2545,7 +2575,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     const actives = activeSpecTrees();
     const lockOthers = actives.length >= (player.attrLimit||3);
     const candidates = lockOthers ? actives : SPEC_TREES.slice();
-    focusTree = candidates.length ? candidates[(Math.random()*candidates.length)|0] : null;
+    if (focusOverride && candidates.includes(focusOverride)){ focusTree = focusOverride; }
+    else focusTree = candidates.length ? candidates[(Math.random()*candidates.length)|0] : null;
+    focusOverride = null;
     const SLOT_LIMIT = 5; // 트리당 하위테크 종류 슬롯 (신화 제외)
     Object.keys(TREES).forEach((tkey)=>{
       const tree = TREES[tkey];
@@ -2595,6 +2627,29 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
           name:ct.name, tag:CLASSES[player.classKey].name+' 전용',
           desc:ct.desc(m),
           apply:()=>{ ct.apply(player, m); player.techPicks[ct.key] = picks+1; }
+        });
+      }
+    }
+
+    // 성장무기 전용 테크 — 무명검을 든 런에서만 등장 (이 판에서의 운용 방식 선택)
+    if (ownedWeapon('nameless')){
+      const GW_TECHS = [
+        { key:'gw_hone',  name:'검기 연마', max:3, desc:(m)=>'무명검 피해 +'+R(12*m)+'%', apply:(p,m)=>{ p.gwDmg=(p.gwDmg||1)*(1+0.12*m); } },
+        { key:'gw_multi', name:'잔영 검기', max:2, desc:(m)=>'검기 +1발', apply:(p,m)=>{ p.gwCount=(p.gwCount||0)+1; } },
+        { key:'gw_soul',  name:'명검 공명', max:1, desc:(m)=>'이 판 동안 무명검 성장 경험치 2배', apply:(p,m)=>{ p.gwXp2=true; } },
+        { key:'gw_haste', name:'검기 가속', max:2, desc:(m)=>'무명검 발사 간격 -'+R(8*m)+'%', apply:(p,m)=>{ p.gwCd=(p.gwCd||1)*(1-0.08*m); } },
+      ];
+      for (const gt of GW_TECHS){
+        if (banned.has(gt.key)) continue;
+        const picks = player.techPicks[gt.key]||0;
+        if (picks >= gt.max) continue;
+        const ri = rollCardRarity();
+        const m = CARD_RARITY[ri].m;
+        pool.push({
+          key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
+          name:gt.name, tag:'무명검 전용',
+          desc:gt.desc(m),
+          apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; }
         });
       }
     }
@@ -2653,6 +2708,26 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     opts.push({ l:'계약 없음', d:'모디파이어 없이 순수하게 진행한다', fx:null });
     openEvent({ t:'런 계약 선택', d:'이번 판 전체에 적용되는 계약입니다. 위험과 보상을 저울질하세요.', opts });
   }
+
+  // ---------- 무명검 계보 (분기 진화 — Lv20 해방 시 갈림길, 영구 선택) ----------
+  const GROWTH_BRANCHES = {
+    slash: { n:'참격의 계보', d:'검기 피해 +25% — 이름에 [참(斬)]이 새겨진다', tag:'참' },
+    gale:  { n:'질풍의 계보', d:'검기 발사 간격 -18%, 검기 +1 — 이름에 [풍(風)]이 새겨진다', tag:'풍' },
+    leech: { n:'흡명의 계보', d:'검기 처치 시 체력 1 회복 — 이름에 [명(命)]이 새겨진다', tag:'명' },
+  };
+  function openGrowthBranch(){
+    const opts = Object.keys(GROWTH_BRANCHES).map(bk=>{
+      const br = GROWTH_BRANCHES[bk];
+      return { l:br.n, d:br.d, fx:()=>{
+        DB.growth.branch = bk; saveDB();
+        toast('⚔ 계보 각인 — '+br.n+'! 검의 이름이 바뀌었다');
+        SFX.play('evolve');
+      } };
+    });
+    opts.push({ l:'아직 정하지 않는다', d:'다음 레벨업 후 다시 물어본다', fx:()=>{ pendingBranchAsk = true; } });
+    openEvent({ t:'검이 갈림길에 섰다', d:'명검·해방에 도달한 검이 계보를 요구한다. 한 번 새기면 되돌릴 수 없다.', opts });
+  }
+  let pendingBranchAsk = true;
 
   // ---------- 떠돌이 상인 — 런 중 골드를 쓸 곳 ----------
   const MERCHANT_OFFERS = [
@@ -2809,7 +2884,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   let totalDmg = 0, noHitT = 0, dashCount = 0;
   let combo = 0, comboTimer = 0, feverTimer = 0;
   let eliteCount = 0, waveCount = 0, surveyCount = 0, altarCount = 0;
-  let altars = [], trialT = 0;
+  let altars = [], trialT = 0, trialKind = 'horde';
   let merchants = [], merchantCount = 0;
   let slowmoT = 0, screenDimT = 0;
   let endless = false, rootDefeated = false, nextRootAt = 0;
@@ -2875,6 +2950,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       turretLv:0, turretDmg:0, turretRepoT:0, turrets:[], shadows:[], ghosts:[],
       necroChance:0, ghostCap:4, comboKeep:0, feverPlus:0, feverDmg:false, rageT:0,
       tbuffs:[], skills:[null,null,null], learned:[], skCds:[0,0,0], awakening:null, jobs:[],
+      eliteDmg:1, bossDmg:1, // 등급 상대 피해 (엘리트·악몽 / 보스)
       acidBurst:false, chainPlus:0, frozenAmp:1, freezeBonus:0, turretRate:1, pulsePull:false, firetrailDur:1.6,
       ultChargedT:0, ultFireReq:false,
       projMult:1, odCd:0, odPower:0, odT:0, odTimer:5,
@@ -3253,9 +3329,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     player.invuln = Math.max(player.invuln, 1.5);
     if (success){
       dropItem(player.x+40, player.y, 'chest');
-      DB.mats.shard += 2; saveDB();
+      DB.mats.shard += 1; saveDB();
       const g = gainGold(40+(DB.peril||0)*5);
-      showBossBanner('시련 돌파', '보물상자 + 별의 조각 ×2 + '+g+'G', '#d9a53f');
+      showBossBanner('시련 돌파', '보물상자 + 별의 조각 + '+g+'G', '#d9a53f');
       freeze = Math.max(freeze, 0.2);
       SFX.play('win');
     } else {
@@ -3509,12 +3585,12 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     }
     if (e.elite){
       questAdd('elite', 1);
-      if (Math.random()<0.25){
+      if (Math.random()<0.12){
         DB.mats.shard += 1;
         toast('★ 별의 조각 획득 ('+DB.mats.shard+')');
       }
       dropItem(e.x, e.y, 'chest');
-      if (Math.random()<0.30) dropItem(e.x+30, e.y, 'whet'); // 강화석: 런 중 장비를 즉석 강화
+      if (Math.random()<0.16) dropItem(e.x+30, e.y, 'whet'); // 강화석: 런 중 장비를 즉석 강화 (희귀)
       const g = gainGold(15 + ((Math.random()*10)|0));
       addTextNum(e.x, e.y-16, '+'+g+'G');
       freeze = Math.max(freeze, 0.05);
@@ -3546,6 +3622,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     jiEun:'다이어트는 내일부터인', eunJae:'화나면 아무도 못 말리는', yuJinKong:'바람보다 말이 빠른',
     jungWoo:'어제의 동료를 오늘 파는', seonJeong:'통장 잔고가 마이너스인', spaceStar:'별자리 운세를 맹신하는',
     nukNukEX:'점심 메뉴를 2시간 고민하는', goDokGeun:'마흔살까지 장가 못 간',
+    monday:'주말을 순삭시키고 나타난', deadline:'어제까지였다고 말하는',
   };
   function isEmpoweredCycle(){
     return bossOrderIdx > MAP.bosses.length; // 한 바퀴 다 만난 뒤부터는 강화형
@@ -3624,7 +3701,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       orbs.push({ x:b.x+Math.cos(a)*14, y:b.y+Math.sin(a)*14, value:Math.ceil(b.xpValue/n), r:6 });
     }
     dropItem(b.x, b.y, 'chest');
-    const essN = 1 + Math.floor((DB.peril||0)/3);
+    const essN = (b.finale ? 1 : (Math.random()<0.5?1:0)) + Math.floor((DB.peril||0)/4); // 정수 드랍 하향 (일반 보스 50%)
     DB.mats.essence += essN;
     toast('◆ 보스의 정수 +'+essN+' ('+DB.mats.essence+')');
     let goldBase = b.finale ? 200 : 45;
@@ -4297,6 +4374,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   function corrodeMult(t){
     let m = 1 + player.corrodeAmp * (t.corrodeS||0);
     if ((t.frozenT>0 || t.chillS>0) && player.frozenAmp>1) m *= player.frozenAmp; // 혹한
+    // 등급 상대 피해: 보스 / 엘리트·악몽급
+    if (t.isBoss) m *= player.bossDmg||1;
+    else if (t.elite || t.grade===2) m *= player.eliteDmg||1;
     return m;
   }
   function procElement(t, elem, isBoss){
@@ -5227,6 +5307,10 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (player.invuln>0) player.invuln -= dt;
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
+    // 무명검 흡명의 계보: 검을 든 동안 처치 회복 +1
+    if (DB.growth.branch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
+      player.lifesteal += 1; player.__leechApplied = true;
+    }
     // 관광객: 이동 중 골드가 저절로 모인다
     if (player.walkGold && (dx!==0||dy!==0)){
       player.walkGoldAcc = (player.walkGoldAcc||0) + dt;
@@ -5236,7 +5320,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     // spawns — 난이도 상향 곡선
     spawnTimer += dt;
     let interval = elapsed < 8 ? 1.15 : Math.max(0.15, 1.0 - (elapsed-8)*0.018);
-    if (trialT > 0) interval *= 0.5; // 시련: 스폰 2배
+    if (trialT > 0) interval *= (trialKind==='frenzy' ? 0.33 : 0.5); // 시련: 스폰 2배 (광란은 3배)
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
     const cap = Math.min(150, 18 + Math.floor(elapsed/3.5));
     if (spawnTimer >= interval){
@@ -5302,7 +5386,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       if (trialT <= 0){
         questAdd('trial', 1);
         dropItem(player.x+40, player.y-30, 'chest');
-        dropItem(player.x-40, player.y-30, 'chest');
+        if (trialKind==='elite') dropItem(player.x-40, player.y-30, 'whet');
+        else if (trialKind==='frenzy') dropItem(player.x-40, player.y-30, 'scroll');
+        else dropItem(player.x-40, player.y-30, 'chest');
         const g = gainGold(50);
         addTextNum(player.x, player.y-30, '시련 완수! +'+g+'G');
         effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
@@ -5864,8 +5950,19 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       if (Math.hypot(player.x-al.x, player.y-al.y) > 1400){ altars.splice(i,1); continue; }
       if (Math.hypot(player.x-al.x, player.y-al.y) < player.r+al.r+4){
         altars.splice(i,1);
-        trialT = 60;
-        bossWarn.textContent = '⚔ 시련 시작! 60초를 버텨라 (적 스폰 2배)';
+        // 제단 시련도 매번 다르게: 물량 / 정예 습격 / 광란 (짧고 격렬)
+        const tr = Math.random();
+        if (tr < 0.4){
+          trialT = 60; trialKind = 'horde';
+          bossWarn.textContent = '⚔ 물량 시련! 60초를 버텨라 (적 스폰 2배)';
+        } else if (tr < 0.7){
+          trialT = 45; trialKind = 'elite';
+          for (let k=0;k<3;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('brute', player.x+Math.cos(a)*340, player.y+Math.sin(a)*340, true)); }
+          bossWarn.textContent = '⚔ 정예 습격! 45초를 버텨라 (정예 3기 출현)';
+        } else {
+          trialT = 30; trialKind = 'frenzy';
+          bossWarn.textContent = '⚔ 광란의 시련! 30초를 버텨라 (스폰 3배)';
+        }
         bossWarn.style.opacity = '1';
         setTimeout(()=>{ bossWarn.style.opacity='0'; }, 2000);
         shake = Math.min(16, shake+8);
@@ -6047,6 +6144,23 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   banishBtn.className = 'miniBtn';
   banishBtn.id = 'banishBtn';
   $('luBtns').appendChild(banishBtn);
+  // 속성 지정: 리롤 1개를 소모해 원하는 속성을 강림시킨다 (다음 후보로 순환)
+  const elemBtn = document.createElement('button');
+  elemBtn.className = 'miniBtn';
+  elemBtn.id = 'elemBtn';
+  $('luBtns').appendChild(elemBtn);
+  elemBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if (state!=='levelup' || rerollsLeft<=0 || !focusTree) return;
+    const actives = activeSpecTrees();
+    const cands = actives.length >= (player.attrLimit||3) ? actives : SPEC_TREES.slice();
+    if (cands.length<2) return;
+    rerollsLeft -= 1;
+    focusOverride = cands[(cands.indexOf(focusTree)+1) % cands.length];
+    currentChoices = rollUpgrades(player.cardSlots||6);
+    renderCards();
+    SFX.play('pick');
+  });
   const statsLine = document.createElement('div');
   statsLine.style.cssText = 'font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--ink-500);max-width:640px;line-height:1.7;white-space:pre-line;';
   levelupBox.appendChild(statsLine);
@@ -6113,6 +6227,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     banishBtn.textContent = '제외 ('+banishLeft+')';
     banishBtn.disabled = banishLeft<=0;
     banishBtn.classList.remove('on');
+    if (typeof elemBtn !== 'undefined'){
+      const actives0 = activeSpecTrees();
+      const cands0 = actives0.length >= (player.attrLimit||3) ? actives0 : SPEC_TREES;
+      const nxt = focusTree ? cands0[(cands0.indexOf(focusTree)+1) % cands0.length] : null;
+      elemBtn.textContent = nxt ? '→ '+TREES[nxt].name+' 강림 (리롤 1)' : '속성 변경';
+      elemBtn.disabled = rerollsLeft<=0 || !nxt || nxt===focusTree;
+    }
     statsLine.textContent = statsSummary();
   }
   banishBtn.addEventListener('click', (e)=>{
@@ -6128,6 +6249,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
+      else if (pendingBranchAsk && DB.growth.found && DB.growth.lv>=20 && !DB.growth.branch && ownedWeapon('nameless')){ pendingBranchAsk=false; state='playing'; openGrowthBranch(); }
       else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
@@ -6874,8 +6996,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       ctx.beginPath(); ctx.ellipse(player.x, player.y+15, 16+Math.sin(performance.now()/220)*2, 6, 0, 0, Math.PI*2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    // 초월 (3차 전직): 회전 광륜
-    if (player.jobs && player.jobs.includes('초월') && cc){
+    // 3차 전직 (초월/멸살/불멸): 회전 광륜
+    if (player.jobs && player.jobs.length>=3 && cc){
       ctx.strokeStyle = cc;
       ctx.globalAlpha = 0.5;
       ctx.lineWidth = 1.6;
@@ -7230,6 +7352,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     seulgi:'어장의 지배자', byungWoo:'포화의 지휘관', jiEun:'천 개의 그림자', eunJae:'피에 굶주린 자',
     yuJinKong:'폭풍을 부르는 콩', jungWoo:'등 뒤의 배신자', seonJeong:'지뢰밭의 공병', spaceStar:'추락한 별',
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
+    monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -7247,6 +7370,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     seulgi:'#d97ba8', byungWoo:'#e2823f', jiEun:'#b06ab0', eunJae:'#b8362e',
     yuJinKong:'#4fa8c4', jungWoo:'#7a8a99', seonJeong:'#e2823f', spaceStar:'#e0b73d',
     nukNukEX:'#9a6fc4', goDokGeun:'#3aa895',
+    monday:'#5c6a8a', deadline:'#c9403a',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
@@ -7994,6 +8118,17 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         ctx.globalAlpha = 1;
         ctx.fillStyle = pc;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+        // 각인 속성: 원소색 꼬리 잔상
+        if (p.imbue){
+          const vl = Math.hypot(p.vx||0,p.vy||0)||1;
+          ctx.globalAlpha = 0.28;
+          for (let k=1;k<=2;k++){
+            ctx.beginPath();
+            ctx.arc(p.x-(p.vx/vl)*k*7, p.y-(p.vy/vl)*k*7, Math.max(1,p.r*(1-0.3*k)), 0, Math.PI*2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
         if (p.kind==='fireball'){
           ctx.strokeStyle = 'rgba(226,96,63,0.4)';
           ctx.lineWidth = 3;
