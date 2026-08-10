@@ -422,6 +422,7 @@ import { FX } from "./fx.js";
   const COLORS = {
     fire:'#e2603f', frost:'#3fa8c9', volt:'#e0b73d', acid:'#6faa4e',
     boom:'#e2823f', mech:'#7a8a99', psi:'#9a6fc4',
+    holy:'#e0c04f', grav:'#6a5acd', chrono:'#5ab8c9', blood:'#c9403a',
     gold:'#d9a53f', xp:'#3aa895', hp:'#d9534f', danger:'#c94f4f',
     heart:'#d97ba8', chest:'#b98a3f', crit:'#d9613f'
   };
@@ -2481,9 +2482,42 @@ import { FX } from "./fx.js";
       { key:'p_ward',   name:'결계',        tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 방벽 충전 -1초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; if(p.shieldCdMax) p.shieldCdMax=Math.max(4,p.shieldCdMax-1); } },
       { key:'p_blink',  name:'점멸',        tier:3, max:1, desc:(m)=>'[궁극] 대시가 순간이동이 되고 도착 지점에 대폭발 (피해 '+R(55*m)+')', apply:(p,m)=>{ p.blink=55*m; } },
       { key:'p_myth',   name:'초월자',      tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 파동 피해 +60%·적을 끌어당김, 모든 적 이속 -8%', apply:(p)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=20; } p.pulseDmg=Math.round(p.pulseDmg*1.6); p.pulsePull=true; p.slowAll*=0.92; } },
+    ]},
+    holy: { name:'신성', nodes:[
+      { key:'h_smite',  name:'성광 강타',   tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 신성 피해 +'+R(8*m), apply:(p,m)=>{ p.smiteChance=Math.min(0.6,(p.smiteChance||0)+0.08*m); p.smiteDmg=(p.smiteDmg||10)+8*m; } },
+      { key:'h_bless',  name:'빛의 축복',   tier:1, max:3, desc:(m)=>'재생 +'+R1(0.4*m)+', 회복 효과 +'+R(8*m)+'%', apply:(p,m)=>{ p.regen+=0.4*m; p.healMult*=1+0.08*m; } },
+      { key:'h_halo',   name:'후광',        tier:1, max:3, desc:(m)=>'6초마다 주변 신성 파동 (피해 +'+R(9*m)+', 체력 2 회복)', apply:(p,m)=>{ p.haloLv=(p.haloLv||0)+1; p.haloDmg=(p.haloDmg||12)+9*m; } },
+      { key:'h_ward',   name:'성역',        tier:2, max:2, desc:(m)=>'피격을 '+R(6*m)+'% 확률로 무효화', apply:(p,m)=>{ p.holyWard=Math.min(0.35,(p.holyWard||0)+0.06*m); } },
+      { key:'h_zeal',   name:'열광',        tier:2, max:2, desc:(m)=>'신성 피해 +'+R(12*m)+'%, 회복할 때마다 다음 공격 강화', apply:(p,m)=>{ p.holyAmp=(p.holyAmp||1)*(1+0.12*m); p.holyHealOnSmite=true; } },
+      { key:'h_judge',  name:'심판의 빛',   tier:3, max:1, desc:(m)=>'[전용기] 12초마다 무작위 적 5기에 빛기둥 (피해 '+R(35*m)+' + 회복 5)', apply:(p,m)=>{ p.judgment=35*m; } },
+      { key:'h_myth',   name:'신격',        tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 신성 피해 2배, 성역 +10%p, 심판이 회복 2배', apply:(p)=>{ p.holyAmp=(p.holyAmp||1)*2; p.holyWard=Math.min(0.45,(p.holyWard||0)+0.10); p.judgeHeal2=true; } },
+    ]},
+    grav: { name:'중력', nodes:[
+      { key:'g_well',   name:'중력 우물',   tier:1, max:3, desc:(m)=>'8초마다 적을 빨아들이는 우물 생성 (초당 피해 +'+R(5*m)+')', apply:(p,m)=>{ p.gravLv=(p.gravLv||0)+1; p.gravDps=(p.gravDps||8)+5*m; } },
+      { key:'g_weight', name:'중량 가중',   tier:1, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
+      { key:'g_orbit',  name:'궤도 안정',   tier:1, max:2, desc:(m)=>'수집 범위 +'+R(25*m)+', 경험치 구슬이 스스로 끌려온다', apply:(p,m)=>{ p.magnet+=25*m; } },
+      { key:'g_crush',  name:'압착',        tier:2, max:3, desc:(m)=>'중력 우물 안의 적 피해 +'+R(14*m)+'%', apply:(p,m)=>{ p.crushAmp=(p.crushAmp||0)+0.14*m; } },
+      { key:'g_singul', name:'특이점',      tier:3, max:1, desc:(m)=>'[전용기] 15초마다 거대 특이점 — 흡인 후 대폭발 (피해 '+R(50*m)+')', apply:(p,m)=>{ p.singularity=50*m; } },
+      { key:'g_myth',   name:'사건의 지평선', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 중력 우물 상시 유지 + 우물 피해·압착 +50%', apply:(p)=>{ p.gravAlways=true; if(!p.gravLv){ p.gravLv=1; p.gravDps=8; } p.gravDps=Math.round(p.gravDps*1.5); p.crushAmp=(p.crushAmp||0)*1.5+0.1; } },
+    ]},
+    chrono: { name:'시간', nodes:[
+      { key:'c_cut',    name:'시간 절단',   tier:1, max:4, desc:(m)=>'타격 시 '+R(6*m)+'% 확률로 0.5초 정지', apply:(p,m)=>{ p.stutterChance=Math.min(0.5,(p.stutterChance||0)+0.06*m); p.stutterDur=0.5; } },
+      { key:'c_haste',  name:'가속',        tier:1, max:3, desc:(m)=>'공격속도 +'+R(5*m)+'%, 쿨다운 -'+R(3*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; p.cdr*=1-0.03*m; } },
+      { key:'c_drag',   name:'지연장',      tier:2, max:2, desc:(m)=>'내 주변 적 탄환 속도 -'+R(15*m)+'%', apply:(p,m)=>{ p.dragField=Math.min(0.6,(p.dragField||0)+0.15*m); } },
+      { key:'c_moment', name:'찰나 포착',   tier:2, max:2, desc:(m)=>'정지 상태의 적 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.15*m; } },
+      { key:'c_stop',   name:'시간 정지',   tier:3, max:1, desc:(m)=>'[전용기] 16초마다 전 화면 1.2초 정지 (피해 '+R(20*m)+')', apply:(p,m)=>{ p.timestop=20*m; } },
+      { key:'c_myth',   name:'인과 역전',   tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 정지 지속 2배, 정지 적 피해 +40%, 시간 정지 쿨 -25%', apply:(p)=>{ p.stutterDur=1.0; p.frozenAmp+=0.40; p.timestopCdMult=0.75; } },
+    ]},
+    blood: { name:'혈마', nodes:[
+      { key:'b_pact',   name:'피의 계약',   tier:1, max:3, desc:(m)=>'피해 +'+R(7*m)+'% / 최대체력 -3%', apply:(p,m)=>{ p.dmgMult*=1+0.07*m; p.maxHp=Math.max(30,Math.round(p.maxHp*0.97)); p.hp=Math.min(p.hp,p.maxHp); } },
+      { key:'b_leech',  name:'흡혈 낙인',   tier:1, max:4, desc:(m)=>'타격 시 '+R(5*m)+'% 확률 체력 +'+Math.max(1,R(m))+' 회복', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.5,(p.bloodLeechChance||0)+0.05*m); p.bloodMult=Math.max(1,R(m)); } },
+      { key:'b_burst',  name:'혈폭',        tier:1, max:3, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 핏빛 폭발 (피해 +'+R(9*m)+')', apply:(p,m)=>{ p.bloodBurstCh=Math.min(0.6,(p.bloodBurstCh||0)+0.10*m); p.bloodBurstDmg=(p.bloodBurstDmg||14)+9*m; } },
+      { key:'b_frenzy', name:'광혈',        tier:2, max:2, desc:(m)=>'잃은 체력 10%당 공격속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.bloodFrenzy=(p.bloodFrenzy||0)+0.03*m; } },
+      { key:'b_lord',   name:'피의 군주',   tier:3, max:1, desc:(m)=>'[전용기] 12초마다 체력 8%를 바쳐 핏빛 대폭발 (피해 '+R(45*m)+')', apply:(p,m)=>{ p.bloodLord=45*m; } },
+      { key:'b_myth',   name:'진혈각성',    tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 흡혈·회복 낙인 2배, 혈폭 확률 +15%p, 피의 군주 체력 소모 절반', apply:(p)=>{ p.bloodMult=(p.bloodMult||1)*2; p.lifesteal*=2; p.bloodBurstCh=Math.min(0.75,(p.bloodBurstCh||0)+0.15); p.bloodLordHalf=true; } },
     ]}
   };
-  const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi'];
+  const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi','holy','grav','chrono','blood'];
   const TIER_GATE = { 2:2, 3:4, 4:7 };     // 전문 속성: 트리 투자 포인트 게이트 (4=신화, 깊은 투자 필요)
   const COMMON_GATE = { 2:4, 3:7, 4:99 };  // 공통: 더 깊은 게이트 (공통엔 신화 없음)
   let focusTree = null; // 이번 레벨업에 '강림'한 속성
@@ -2495,6 +2529,10 @@ import { FX } from "./fx.js";
     e_mines:'무기', e_dash:'무기', m_turret:'무기', p_pulse:'무기',
     i_armor:'수호', p_shield:'수호', p_ward:'수호', e_vest:'수호', a_endur:'수호', i_calm:'수호',
     m_scrap:'보조', m_repair:'보조', f_ash:'보조', l_flash:'보조', a_blood:'보조',
+    h_halo:'무기', h_ward:'수호', h_bless:'보조',
+    g_well:'무기', g_orbit:'보조', g_weight:'전술',
+    c_drag:'수호', c_haste:'보조',
+    b_burst:'무기', b_frenzy:'전술', b_leech:'전술',
   };
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
@@ -2746,6 +2784,7 @@ import { FX } from "./fx.js";
         const cat = node.myth ? '신화' : node.tier===3 ? '전용기' : (NODE_CAT[node.key]||'전술');
         pool.push({
           key:node.key, kind:'tech', tkey, node, rarity:ri, myth:!!node.myth,
+          elc: tree.common ? null : tkey,
           name:node.name, tag:(tree.common ? tree.name : tree.name+' · '+cat) + (honed?' · 숙련':''),
           desc:node.desc(m), cap:node.tier===3,
           apply:()=>{
@@ -3693,6 +3732,11 @@ import { FX } from "./fx.js";
       : (ENEMY_TINTS[e.type] ? parseInt(ENEMY_TINTS[e.type].slice(1),16) : 0xbfc2c7);
     burst(e.x,e.y, e.elite?20:(e.type==='brute'?16:8), e.elite?230:(e.type==='brute'?200:130), deathTint);
     FX.puff(e.x, e.y, deathTint, e.r); // 디졸브 퍼프
+    // 혈마 혈폭: 처치 시 핏빛 연쇄 폭발
+    if (player.bloodBurstCh>0 && Math.random()<player.bloodBurstCh){
+      friendlyBlast(e.x, e.y, 60, player.bloodBurstDmg*player.dmgMult, true);
+      FX.puff(e.x, e.y, 0xc9403a, 16);
+    }
     // 망자의 목자: 처치한 적이 유령이 된다
     if (player.necroChance>0 && Math.random()<player.necroChance && player.ghosts.length<player.ghostCap){
       player.ghosts.push({ x:e.x, y:e.y, t:8+(player.ghostDur||0), cd:0 });
@@ -4685,6 +4729,23 @@ import { FX } from "./fx.js";
     const shockCh = player.shockSureT>0 ? 1 : player.shockChance;
     if (player.shockDmg>0 && shockCh>0 && Math.random()<shockCh+pb) procElement(t, 'volt', isBoss);
     if (player.corrodeChance>0 && Math.random()<player.corrodeChance+pb) procElement(t, 'acid', isBoss);
+    // 신성: 성광 강타 — 즉발 추가 피해 (신성한 금빛 섬광)
+    if (player.smiteChance>0 && Math.random()<player.smiteChance+pb){
+      const d = player.smiteDmg*player.dmgMult*(isBoss?0.6:1)*(player.holyAmp||1);
+      t.hp -= d;
+      addDmgNum(t.x, t.y-6, d, true);
+      FX.puff(t.x, t.y, 0xe0c04f, 10);
+      if (player.holyHealOnSmite && Math.random()<0.3) player.hp = Math.min(player.maxHp, player.hp+1*player.healMult);
+    }
+    // 시간: 시간 절단 — 짧은 정지
+    if (player.stutterChance>0 && !isBoss && Math.random()<player.stutterChance+pb){
+      t.frozenT = Math.max(t.frozenT||0, player.stutterDur||0.5);
+      FX.puff(t.x, t.y, 0x9adbe8, 8);
+    }
+    // 혈마: 흡혈 낙인
+    if (player.bloodLeechChance>0 && Math.random()<player.bloodLeechChance+pb){
+      player.hp = Math.min(player.maxHp, player.hp + (player.bloodMult||1)*player.healMult);
+    }
   }
   function tickStatus(t, dt, isBoss){
     // returns true if killed by status (caller handles removal)
@@ -4712,7 +4773,9 @@ import { FX } from "./fx.js";
     satPos = [];
     auraState.on = false;
     dronePos = [];
-    const rate = player.rateMult * feverRate() * (player.dashHasteT>0 ? 1.35 : 1) * (player.odT>0 ? 1+player.odPower : 1) * (player.rageT>0 ? 1.3 : 1) * buffMult('rate');
+    // 혈마 광혈: 잃은 체력 10%당 공격속도 가산
+    const frenzyMult = player.bloodFrenzy>0 ? 1 + player.bloodFrenzy * Math.floor((1 - player.hp/player.maxHp)*10) : 1;
+    const rate = player.rateMult * feverRate() * (player.dashHasteT>0 ? 1.35 : 1) * (player.odT>0 ? 1+player.odPower : 1) * (player.rageT>0 ? 1.3 : 1) * buffMult('rate') * frenzyMult;
 
     // 융합 무기는 두 파츠를 각각 85% 성능으로 발동
     const wlist = [];
@@ -5012,6 +5075,92 @@ import { FX } from "./fx.js";
     if (player.shockSureT>0) player.shockSureT -= dt;
     if (player.odT>0) player.odT -= dt;
 
+    // ---- 신성 ----
+    if (player.haloLv>0){
+      player.haloT = (player.haloT||6) - dt;
+      if (player.haloT<=0){
+        friendlyBlast(player.x, player.y, 95, player.haloDmg*D*(player.holyAmp||1), true);
+        player.hp = Math.min(player.maxHp, player.hp + 2*player.healMult);
+        FX.ring(player.x, player.y, 0xe0c04f, 12);
+        player.haloT = 6 * player.cdr;
+      }
+    }
+    if (player.judgment>0){
+      player.judgeT = (player.judgeT||12) - dt;
+      if (player.judgeT<=0){
+        let struck = 0;
+        for (let k=0;k<5 && enemies.length;k++){
+          const e2 = enemies[(Math.random()*enemies.length)|0];
+          const d2 = player.judgment*D*(player.holyAmp||1);
+          e2.hp -= d2; addDmgNum(e2.x, e2.y, d2, true);
+          FX.puff(e2.x, e2.y, 0xe0c04f, 20);
+          effects.push({ type:'ring', x:e2.x, y:e2.y, life:0.35, age:0, r0:6, r1:44 });
+          if (e2.hp<=0){ const idx=enemies.indexOf(e2); if (idx>=0) defeatEnemy(idx); }
+          struck++;
+        }
+        if (struck>0){
+          player.hp = Math.min(player.maxHp, player.hp + 5*(player.judgeHeal2?2:1)*player.healMult);
+          addTextNum(player.x, player.y-30, '심판의 빛!');
+          SFX.play('tele');
+        }
+        player.judgeT = 12 * player.cdr;
+      }
+    }
+    // ---- 중력 ----
+    if (player.gravLv>0 || player.gravAlways){
+      player.gravT = (player.gravT||3) - dt;
+      const hasWell = zones.some(z=>z.type==='grav');
+      if (player.gravT<=0 && (!hasWell || !player.gravAlways)){
+        const t2 = nearestTarget();
+        const gx = t2 ? t2.x : player.x + Math.cos(player.facing)*140;
+        const gy = t2 ? t2.y : player.y + Math.sin(player.facing)*140;
+        if (zones.length<40) zones.push({ x:gx, y:gy, r:85, dps:player.gravDps*D, t:4, maxT:4, type:'grav' });
+        player.gravT = 8 * player.cdr;
+      }
+    }
+    if (player.singularity>0){
+      player.singuT = (player.singuT||15) - dt;
+      if (player.singuT<=0){
+        const t3 = nearestTarget();
+        const sx = t3 ? t3.x : player.x, sy = t3 ? t3.y : player.y;
+        if (zones.length<40) zones.push({ x:sx, y:sy, r:150, dps:player.gravDps||10, t:2.2, maxT:2.2, type:'grav', singular:player.singularity*D });
+        addTextNum(sx, sy-20, '특이점');
+        FX.ring(sx, sy, 0x6a5acd, 18);
+        SFX.play('tele');
+        player.singuT = 15 * player.cdr;
+      }
+    }
+    // ---- 시간 ----
+    if (player.timestop>0){
+      player.tstopT = (player.tstopT||16) - dt;
+      if (player.tstopT<=0){
+        for (const e2 of enemies) e2.frozenT = Math.max(e2.frozenT||0, 1.2*(player.stutterDur>=1?1.5:1));
+        for (let i2=enemies.length-1;i2>=0;i2--){ const e2=enemies[i2]; e2.hp -= player.timestop*D; if (e2.hp<=0) defeatEnemy(i2); }
+        addTextNum(player.x, player.y-30, '시간 정지!');
+        FX.ring(player.x, player.y, 0x5ab8c9, 20);
+        screenDimT = Math.max(screenDimT, 0.3);
+        SFX.play('tele');
+        player.tstopT = 16 * player.cdr * (player.timestopCdMult||1);
+      }
+    }
+    // ---- 혈마 ----
+    if (player.bloodLord>0){
+      player.blordT = (player.blordT||12) - dt;
+      if (player.blordT<=0){
+        const cost = player.maxHp*0.08*(player.bloodLordHalf?0.5:1);
+        if (player.hp > cost+10){
+          player.hp -= cost;
+          friendlyBlast(player.x, player.y, 170, player.bloodLord*D, true);
+          FX.ring(player.x, player.y, 0xc9403a, 20);
+          FX.puff(player.x, player.y, 0xc9403a, 40);
+          addTextNum(player.x, player.y-30, '피의 군주!');
+          shake = Math.min(18, shake+10);
+          SFX.play('boom');
+        }
+        player.blordT = 12 * player.cdr;
+      }
+    }
+
     // 지옥불: 화염구
     if (player.fireballLv>0){
       player.fireballT -= dt;
@@ -5294,13 +5443,29 @@ import { FX } from "./fx.js";
     for (let i=zones.length-1;i>=0;i--){
       const z = zones[i];
       z.t -= dt;
-      if (z.t<=0){ zones.splice(i,1); continue; }
+      if (z.t<=0){
+        // 특이점: 소멸 순간 대폭발
+        if (z.singular){
+          friendlyBlast(z.x, z.y, z.r+40, z.singular, true);
+          FX.ring(z.x, z.y, 0x6a5acd, 20);
+          shake = Math.min(18, shake+10);
+          SFX.play('boom');
+        }
+        zones.splice(i,1); continue;
+      }
       for (let k=enemies.length-1;k>=0;k--){
         const e = enemies[k];
         if (Math.hypot(e.x-z.x,e.y-z.y) < z.r+e.r){
-          e.hp -= z.dps*dt;
+          e.hp -= z.dps*dt * (z.type==='grav' ? 1+(player.crushAmp||0) : 1);
           if (z.type==='fire' && Math.random()<dt*2){ e.burnT=2.5; e.burnDps=Math.max(e.burnDps||0, (player.burnDps||5)*D); }
           if (z.type==='acid' && Math.random()<dt*2){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+1); e.corrodeT=5; }
+          if (z.type==='grav'){
+            // 중력 우물: 중심으로 강하게 흡인
+            const ga = Math.atan2(z.y-e.y, z.x-e.x);
+            const pull = z.singular ? 160 : 110;
+            e.x += Math.cos(ga)*pull*dt;
+            e.y += Math.sin(ga)*pull*dt;
+          }
           if (z.type==='void'){
             // 공허 균열: 중심으로 빨아들인다
             const va = Math.atan2(z.y-e.y, z.x-e.x);
@@ -6161,7 +6326,10 @@ import { FX } from "./fx.js";
         const sp = Math.hypot(p.vx,p.vy);
         p.vx = Math.cos(cur+turn)*sp; p.vy = Math.sin(cur+turn)*sp;
       }
-      p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt;
+      // 시간 지연장: 내 주변 적탄 감속
+      let dragMul = 1;
+      if (player.dragField>0 && Math.hypot(p.x-player.x, p.y-player.y) < 160) dragMul = 1 - player.dragField;
+      p.x += p.vx*dt*dragMul; p.y += p.vy*dt*dragMul; p.life -= dt;
       if (p.life<=0 || Math.hypot(p.x-player.x,p.y-player.y) > Math.hypot(W,H)*0.8){ hostileShots.splice(i,1); continue; }
       const dd = Math.hypot(p.x-player.x, p.y-player.y);
       if (dd < p.r+player.r && player.invuln<=0){
@@ -6306,6 +6474,13 @@ import { FX } from "./fx.js";
     if (player.dodge>0 && Math.random()<player.dodge){
       addTextNum(player.x, player.y-14, 'MISS');
       player.invuln = 0.25;
+      return false;
+    }
+    // 신성 성역: 확률 무효화 (금빛 섬광)
+    if (player.holyWard>0 && Math.random()<player.holyWard){
+      addTextNum(player.x, player.y-14, '성역!');
+      FX.puff(player.x, player.y, 0xe0c04f, 18);
+      player.invuln = 0.3;
       return false;
     }
     // 사이오닉 방벽
@@ -6486,10 +6661,20 @@ import { FX } from "./fx.js";
   function renderCards(){
     cardsEl.innerHTML = '';
     banishMode = false;
-    if (focusTree) luHint.textContent = '⚡ ['+TREES[focusTree].name+'] 속성 강림 — 하나를 선택하세요 (1~6 · R 리롤)';
+    if (focusTree){
+      luHint.textContent = '⚡ ['+TREES[focusTree].name+'] 속성 강림 — 하나를 선택하세요 (1~6 · R 리롤)';
+      luHint.style.color = COLORS[focusTree] || '';
+      luHint.style.fontWeight = '700';
+    } else { luHint.style.color=''; luHint.style.fontWeight=''; }
     currentChoices.forEach((u,i)=>{
       const el = document.createElement('div');
       el.className = 'card' + (u.cap?' cap':'') + (u.myth?' myth':'') + (u.rarity!==undefined&&!u.myth?' rar'+u.rarity:'');
+      // 속성별 카드 스타일: 속성색 상단 바 + 태그 착색
+      if (u.elc && COLORS[u.elc]){
+        el.style.borderTop = '3px solid '+COLORS[u.elc];
+        const tagEl0 = ()=>{ const te=el.querySelector('.tag'); if (te){ te.style.background=COLORS[u.elc]; te.style.color='#fff'; } };
+        setTimeout(tagEl0, 0);
+      }
       const num = '<div class="num">0'+(i+1)+'</div>';
       const tag = u.tag ? '<div class="tag"'+(u.ctag?' style="background:var(--ink-900);color:#e8c56a;"':'')+'>'+u.tag+'</div>' : '';
       const rb = (u.rarity!==undefined) ? '<span class="rbadge '+(u.jackpot?'r4':CARD_RARITY[u.rarity].cls)+'">'+(u.jackpot?'잭팟':CARD_RARITY[u.rarity].n)+'</span>' : '';
@@ -8070,7 +8255,7 @@ import { FX } from "./fx.js";
       const fxZones = [];
       for (const z of zones){
         const tt = Math.min(1, z.t/z.maxT);
-        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : 0x6faa4e;
+        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : 0x6faa4e;
         fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:0.22*tt });
       }
       // Pixi 4단계: 보스 오라 — 시그니처 색 광원 (분노 시 강렬하게)
@@ -8106,6 +8291,23 @@ import { FX } from "./fx.js";
           ctx.moveTo(fx2, fy2+3); ctx.quadraticCurveTo(fx2+2, fy2-4, fx2, fy2-7);
           ctx.stroke();
         }
+      } else if (z.type==='grav'){
+        // 중력 우물: 안으로 빨려드는 궤도선
+        if (!FX.enabled){
+          ctx.fillStyle = 'rgba(106,90,205,'+(0.20*tt)+')';
+          ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(106,90,205,'+(0.65*tt)+')';
+        ctx.lineWidth = 1.4;
+        const gr2 = performance.now()/500;
+        for (let k=0;k<3;k++){
+          const rr = z.r * (1 - ((gr2 + k/3) % 1));
+          ctx.globalAlpha = (rr/z.r)*0.7*tt;
+          ctx.beginPath(); ctx.arc(0,0,rr,0,Math.PI*2); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#241d3a';
+        ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
       } else if (z.type==='void'){
         if (!FX.enabled){
           ctx.fillStyle = 'rgba(92,74,138,'+(0.22*tt)+')';
