@@ -84,6 +84,7 @@ import { FX } from "./fx.js";
           DB.inv = Array.isArray(d.inv) ? d.inv : [];
           DB.equipped = d.equipped||{};
           DB.loadouts = d.loadouts||{};
+          DB.seenTech = d.seenTech||{};
           DB.prog = Object.assign(DB.prog, d.prog||{});
           DB.prog.tier = DB.prog.tier||{};
           DB.ach = d.ach||{};
@@ -334,6 +335,17 @@ import { FX } from "./fx.js";
       window.__seq = (window.__seq||[]);
       window.__seq.push(e.code);
       if (window.__seq.length>6) window.__seq.shift();
+      // 공로자: 'chlquddn' (최병우) 타이핑
+      window.__seq2 = (window.__seq2||'') + (e.key && e.key.length===1 ? e.key.toLowerCase() : '');
+      if (window.__seq2.length>12) window.__seq2 = window.__seq2.slice(-12);
+      if (window.__seq2.endsWith('chlquddn') && !DB.unlocked.contributor){
+        DB.unlocked.contributor = true;
+        unlockAch('hidden');
+        saveDB();
+        toast('...세계가 창조주를 알아본다. 비밀 직업 [최병우] 해금');
+        SFX.play('win');
+        renderClassCards();
+      }
       if (window.__seq.join(',')==='ArrowUp,ArrowUp,ArrowDown,ArrowDown,KeyB,KeyA' && !DB.unlocked.debug){
         DB.unlocked.debug = true;
         unlockAch('hidden');
@@ -403,12 +415,28 @@ import { FX } from "./fx.js";
   function setPaused(p){
     if (p && state==='playing'){
       state='paused';
-      let build = '일시정지 · 클릭해서 계속';
+      let build = '<div style="font-size:15px; font-weight:700; margin-bottom:6px;">일시정지</div>';
       try{
-        build += '<br><span style="font-size:9.5px;opacity:0.8;">'+statsSummary()+'</span>';
+        build += '<div style="font-size:9.5px;opacity:0.8; white-space:pre-line; margin-bottom:10px;">'+statsSummary()+'</div>';
       }catch(e){}
+      build += '<div style="display:flex; gap:8px; justify-content:center; pointer-events:auto;">'
+        + '<button class="miniBtn" id="pmResume">▶ 계속하기</button>'
+        + '<button class="miniBtn" id="pmSound">'+(DB.muted?'🔇 사운드 켜기':'🔊 사운드 끄기')+'</button>'
+        + '<button class="miniBtn" id="pmHome" style="color:#b8362e; border-color:#b8362e;">🏠 홈으로 (런 포기)</button>'
+        + '</div>';
       pausedTag.innerHTML = build;
       pausedTag.style.display='block';
+      pausedTag.style.pointerEvents = 'auto';
+      const rb2 = $('pmResume'), sb2 = $('pmSound'), hb2 = $('pmHome');
+      if (rb2) rb2.addEventListener('click', (e)=>{ e.stopPropagation(); setPaused(false); });
+      if (sb2) sb2.addEventListener('click', (e)=>{ e.stopPropagation(); muteBtn.click(); setPaused(false); setPaused(true); });
+      if (hb2) hb2.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if (!confirm('이 런을 포기하고 홈으로 돌아갈까요? (골드·성장은 저장됩니다)')) return;
+        pausedTag.style.display='none';
+        try{ bankRun(); }catch(err){}
+        showIdle();
+      });
     }
     else if (!p && state==='paused'){ state='playing'; pausedTag.style.display='none'; last=performance.now(); }
   }
@@ -576,8 +604,31 @@ import { FX } from "./fx.js";
     const col = document.createElement('div');
     col.className = 'shopItem';
     col.innerHTML = '<div class="info"><div class="nm">📖 수집 도감</div>'
-      + '<div class="ds">유니크 '+uniqNames.size+'/'+UNIQUE_POOL.length+' 종 · 태초 '+primalN+'개 · 세트 조각 '+setN+'/6 · 업적 '+achCount()+'/'+ACHIEVEMENTS.length+'</div></div>';
+      + '<div class="ds">유니크 '+uniqNames.size+'/'+UNIQUE_POOL.length+' 종 · 태초 '+primalN+'개 · 세트 조각 '+setN+' · 업적 '+achCount()+'/'+ACHIEVEMENTS.length+'</div></div>';
     list.appendChild(col);
+    // 성장무기 도감 — 정체를 알 수 없는 설명 (수집욕 자극, 획득 단서 없음)
+    const gwDex = [
+      { found: DB.growth.found, name:'무명검', hint:'이름을 잃은 검. 벨수록 무언가를 기억해낸다고 한다.' },
+      { found: DB.gweps.bow.found, name:'침묵하는 활', hint:'시위를 당겨도 소리가 나지 않는다. 어디서 왔는지 아무도 모른다.' },
+      { found: DB.gweps.tome.found, name:'굶주린 마도서', hint:'책장이 스스로 넘어간다. 굶주려 있다.' },
+      { found: DB.gweps.blade.found, name:'핏빛 대검', hint:'날에 마르지 않는 얼룩. 들 수 있는 자가 드물다.' },
+    ];
+    const gwRow = document.createElement('div');
+    gwRow.className = 'shopItem';
+    gwRow.innerHTML = '<div class="info"><div class="nm">⚔ 성장무기 도감 ('+gwDex.filter(g=>g.found).length+'/4)</div>'
+      + '<div class="ds">'+gwDex.map(g=> g.found ? '<b>'+g.name+'</b> — '+g.hint : '??? — <span style="opacity:0.6;">'+g.hint+'</span>').join('<br>')+'</div></div>';
+    list.appendChild(gwRow);
+    // 테크 도감 — 속성별 발견 현황
+    const seen = DB.seenTech||{};
+    const techLine = SPEC_TREES.map(tk=>{
+      const nodes = TREES[tk].nodes;
+      const found = nodes.filter(n=>seen[n.key]).length;
+      return '<span style="color:'+(COLORS[tk]||'#888')+'; font-weight:600;">'+TREES[tk].name+' '+found+'/'+nodes.length+'</span>';
+    }).join(' · ');
+    const techRow = document.createElement('div');
+    techRow.className = 'shopItem';
+    techRow.innerHTML = '<div class="info"><div class="nm">🔮 테크 도감 (11속성)</div><div class="ds">'+techLine+'</div></div>';
+    list.appendChild(techRow);
     ACHIEVEMENTS.forEach((a)=>{
       const done = DB.ach && DB.ach[a.key];
       const row = document.createElement('div');
@@ -711,7 +762,7 @@ import { FX } from "./fx.js";
   // 직업별 장비 로드아웃 — 직업마다 독립된 장비 세팅 (최초엔 기존 공용 장비를 복사)
   function loadoutFor(ck){
     if (!DB.loadouts) DB.loadouts = {};
-    if (!DB.loadouts[ck]) DB.loadouts[ck] = Object.assign({}, DB.equipped||{});
+    if (!DB.loadouts[ck]) DB.loadouts[ck] = {}; // 직업마다 빈손에서 시작 — 탭별 세팅이 확실히 구분되게
     return DB.loadouts[ck];
   }
   function allEquippedIds(){
@@ -818,6 +869,17 @@ import { FX } from "./fx.js";
       tabRow.appendChild(tb);
     });
     const lo = loadoutFor(equipClassTab);
+    // 장착 스탯 합계 표시
+    let statBar = $('equipStatBar');
+    if (!statBar){
+      statBar = document.createElement('div');
+      statBar.id = 'equipStatBar';
+      statBar.style.cssText = 'font-family:IBM Plex Mono,monospace; font-size:10.5px; color:var(--ink-700); width:100%; text-align:center; padding:3px 0;';
+      slotGrid.parentNode.insertBefore(statBar, slotGrid);
+    }
+    const eb2 = equippedBonuses(equipClassTab);
+    statBar.textContent = '합계: 공격 +'+R(eb2.atk)+'% · 체력 +'+R(eb2.hp)+' · 이속 +'+R(eb2.spd)+'% · 쿨감 '+R(eb2.cdr)+'% · 치명 +'+R(eb2.crit)+'% · 골드 +'+R(eb2.gold)+'% · 재생 +'+R1(eb2.regen)
+      + (eb2.relic ? ' · 유물 발동' : '') + (eb2.inactive>0 ? ' · ⚠비활성 '+eb2.inactive : '');
     slotGrid.innerHTML = '';
     SLOT_KEYS.forEach((slot)=>{
       const id = lo[slot];
@@ -1294,7 +1356,7 @@ import { FX } from "./fx.js";
     mag:['manager','voidc'],
     rog:['ninja','reaper','glitch'],
     pri:['necro','bard','returner'],
-    mer:['engineer','debug','tourist','slime','gambler','collector'],
+    mer:['engineer','debug','tourist','slime','gambler','collector','contributor'],
   };
   function resonantCount(classKey){
     let n = 0;
@@ -1639,6 +1701,14 @@ import { FX } from "./fx.js";
       weapon:'missile',
       apply:(p)=>{ p.attrLimit=4; rerollsLeft+=2; }
     },
+    contributor: {
+      name:'최병우', tag:'비밀', hidden:true, secretInput:true,
+      condDesc:'??? (힌트: 공로자)',
+      cond:()=> false,
+      desc:'이 세계를 처음 만든 자가 직접 강림했다. 무작위 무기 3개로 시작, 카드 +1장, 모든 것이 조금씩 강하다.',
+      weapon:'random3',
+      apply:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.luck*=1.3; p.cardSlots=(p.cardSlots||6)+1; }
+    },
     debug: {
       name:'디버거', tag:'비밀', hidden:true,
       condDesc:'??? (비밀 커맨드로만 해금)',
@@ -1666,6 +1736,21 @@ import { FX } from "./fx.js";
         el.addEventListener('click', ()=> startGame(key));
       } else if (c.hidden){
         el.innerHTML = '<div class="tag">히든</div><div class="name">???</div><div class="desc">'+c.condDesc+'</div>';
+        // 비밀 입력형 (모바일 대응): 카드를 누르면 입력창
+        if (c.secretInput){
+          el.style.cursor = 'pointer';
+          el.addEventListener('click', ()=>{
+            const ans = prompt('...무언가를 알고 있다면 이름을 말하라.');
+            if (ans && ans.trim()==='최병우'){
+              DB.unlocked[key] = true;
+              unlockAch('hidden');
+              saveDB();
+              toast('...세계가 창조주를 알아본다. 비밀 직업 ['+c.name+'] 해금');
+              SFX.play('win');
+              renderClassCards();
+            } else if (ans){ toast('...아무 일도 일어나지 않았다.'); }
+          });
+        }
       } else {
         el.innerHTML = '<div class="tag">잠금 · '+c.cost+'G</div><div class="name">'+c.name+'</div><div class="desc">'+c.desc+'<br><b>클릭하여 해금</b></div>';
         el.addEventListener('click', ()=>{
@@ -2004,6 +2089,12 @@ import { FX } from "./fx.js";
       { n:'자석 손', lv:8, cd:14, d:'모든 경험치·아이템 흡인', fx:()=>{ for (const o of orbs) o.magnetized=true; addTextNum(player.x,player.y-26,'자석 손!'); } },
       { n:'보존 처리', lv:15, cd:20, d:'4초간 받는 피해 -50%', fx:()=>{ tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'보존!'); } },
       { n:'개인 창고', lv:25, cd:36, d:'보물상자 1개 소환', fx:()=>{ dropItem(player.x+50,player.y,'chest'); addTextNum(player.x,player.y-26,'창고 개방!'); SFX.play('chest'); } },
+    ],
+    contributor: [
+      { n:'패치 노트', lv:3, cd:14, d:'무작위 버프 하나 (4초)', fx:()=>{ const r=Math.random(); if(r<0.34) tbuff('dmg',1.3,4); else if(r<0.67) tbuff('rate',1.3,4); else tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'v1.0.'+((Math.random()*99)|0)); SFX.play('quest'); } },
+      { n:'밸런스 패치', lv:8, cd:20, d:'주변 적 피해 -30% 너프 (스탯 반토막 5초)', fx:()=>{ for (const e of enemies){ if((e.x-player.x)**2+(e.y-player.y)**2<180*180){ e.dmg=Math.round(e.dmg*0.7); e.speed*=0.7; } } addTextNum(player.x,player.y-26,'너프!'); SFX.play('warn'); } },
+      { n:'롤백', lv:15, cd:22, d:'체력 25% 복구', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.25*player.healMult); addTextNum(player.x,player.y-26,'롤백 완료'); SFX.play('pick'); } },
+      { n:'서비스 점검', lv:25, cd:34, d:'3초간 전체 정지 + 화면 청소 (보스 제외)', fx:()=>{ for (const e of enemies) e.frozenT=Math.max(e.frozenT||0,3); for (let i=enemies.length-1;i>=0;i--){ if(Math.random()<0.4 && enemies[i].type!=='treasure'){ enemies[i].hp=0; defeatEnemy(i); } } addTextNum(player.x,player.y-26,'점검 중...'); SFX.play('boom'); } },
     ],
     cheolhyeol: [],
   };
@@ -2692,11 +2783,15 @@ import { FX } from "./fx.js";
       }
     }
     if (player.weapons.length < (player.weaponCap||MAX_WEAPONS)){
+      // 성장무기를 들고 있으면 일반 새 무기 제안 중단 (성장무기 중심 빌드로 — 사용자 요청)
+      const hasGrowth = ownedWeapon('nameless') || ownedWeapon('gbow') || ownedWeapon('gtome') || ownedWeapon('gblade');
       Object.keys(WEAPONS).forEach((key)=>{
         if (key==='nameless' && !DB.growth.found) return; // 유일 무기: 발견해야 등장
         if (key==='gbow' && !DB.gweps.bow.found) return;
         if (key==='gtome' && !DB.gweps.tome.found) return;
         if (key==='gblade' && !DB.gweps.blade.found) return;
+        const isGrowthKey = ['nameless','gbow','gtome','gblade'].includes(key);
+        if (hasGrowth && !isGrowthKey) return;
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
           pool.push({
@@ -2791,6 +2886,8 @@ import { FX } from "./fx.js";
             node.apply(player, m);
             player.tech[tkey] = (player.tech[tkey]||0) + 1;
             player.techPicks[node.key] = picks + 1;
+            if (!DB.seenTech) DB.seenTech = {};
+            DB.seenTech[node.key] = true; // 테크 도감 기록
             renderTreeRow();
           }
         });
@@ -2960,11 +3057,11 @@ import { FX } from "./fx.js";
   function openMerchant(){
     const pool = MERCHANT_OFFERS.slice();
     const opts = [];
-    // 유일 무기: 아직 발견 못했다면 상인이 녹슨 검을 판다 (50%)
-    if (!DB.growth.found && Math.random()<0.5){
+    // 유일 무기: 우연이 겹쳐야만 나타나는 물건 — 위험도 3+ & 업적 6+ & 8% 확률, 단서 없는 이름
+    if (!DB.growth.found && (DB.peril||0)>=3 && achCount()>=6 && Math.random()<0.08){
       const cost0 = Math.round(150 * (player.merchantDisc||1));
       opts.push({
-        l:'녹슨 검 ('+cost0+'G)', d:'[유일 무기] 형편없는 검. 하지만 벨수록 성장한다는 소문이...',
+        l:'고철 뭉치 ('+cost0+'G)', d:'상인도 이게 뭔지 모른다. "창고 정리하다 나온 건데... 살 거요?"',
         fx:()=>{
           if (runGold < cost0){ toast('골드 부족!'); SFX.play('hit'); return; }
           runGold -= cost0;
@@ -3013,6 +3110,18 @@ import { FX } from "./fx.js";
           else { const g=gainGold(40); toast('공명 없음... +'+g+'G'); }
         } },
       { l:'놔둔다', d:'아무 일도 일어나지 않는다', fx:null },
+    ]},
+    { t:'수상한 자판기 2호', d:'"강화석 뽑기 — 한 번 40G" 라고 적혀 있다.', opts:[
+      { l:'40G를 넣는다', d:'40% 강화석 / 60% 꽝', fx:()=>{ if (runGold>=40){ runGold-=40; } else { DB.gold=Math.max(0,DB.gold-40); } if (Math.random()<0.4){ dropItem(player.x+40, player.y, 'whet'); toast('강화석이 굴러나왔다!'); SFX.play('chest'); } else { toast('덜컹... 꽝.'); SFX.play('hit'); } } },
+      { l:'흔들어본다', d:'20% 공짜 / 80% 적 습격', fx:()=>{ if (Math.random()<0.2){ dropItem(player.x+40, player.y, 'whet'); toast('공짜!'); SFX.play('chest'); } else { toast('경보 발동!'); for (let i=0;i<8;i++){ const a=(Math.PI*2/8)*i; enemies.push(makeEnemy('swarm', player.x+Math.cos(a)*200, player.y+Math.sin(a)*200, false)); } SFX.play('warn'); } } },
+    ]},
+    { t:'시간의 균열 조각', d:'공중에 작게 갈라진 틈. 시간이 새어나온다.', opts:[
+      { l:'손을 넣는다', d:'50% 스킬 쿨다운 전부 초기화 / 50% 5초간 이속 -30%', fx:()=>{ if (Math.random()<0.5){ player.skCds=[0,0,0]; player.ultCooldown=0; toast('시간이 되감겼다!'); SFX.play('quest'); } else { tbuff('spd',0.7,5); toast('시간이 끈적하게 달라붙는다...'); SFX.play('warn'); } } },
+      { l:'봉합한다', d:'경험치 소량', fx:()=>{ grantXp(Math.ceil(player.xpNext*0.3)); toast('균열 봉합 — 경험치 획득'); SFX.play('pick'); } },
+    ]},
+    { t:'낡은 게시판', d:'현상수배 전단이 붙어 있다. "이명 보스 처치 시 보상 두 배"', opts:[
+      { l:'전단을 뜯는다', d:'다음 보스가 반드시 이명(강화)으로 등장 — 처치 골드 2배', fx:()=>{ player.bounty=true; toast('현상수배 수락 — 다음 보스가 강해져서 온다'); SFX.play('warn'); } },
+      { l:'무시한다', d:'아무 일도 일어나지 않는다', fx:null },
     ]},
     { t:'버려진 보급상자', d:'먼지 쌓인 보급상자가 놓여 있다.', opts:[
       { l:'상자를 연다', d:'골드 +30~60', fx:()=>{ const g=gainGold(30+((Math.random()*31)|0)); toast('+'+g+'G'); SFX.play('coin'); } },
@@ -3302,7 +3411,7 @@ import { FX } from "./fx.js";
     const nk = $('nextKey'), nv = $('nextVal');
     if (rift){
       nk.textContent = '◈균열';
-      nv.textContent = (rift.mode==='kill' ? (killCount-rift.kills0)+'/'+rift.need+' ' : rift.mode==='elite' ? '정예 '+enemies.filter(e=>e.riftElite).length+'기 ' : '생존 ')+Math.ceil(rift.t)+'s';
+      nv.textContent = (rift.mode==='kill' ? (killCount-rift.kills0)+'/'+rift.need+' ' : rift.mode==='elite' ? '정예 '+enemies.filter(e=>e.riftElite).length+'기 ' : rift.mode==='guard' ? '수문장 ' : '생존 ')+Math.ceil(rift.t)+'s';
     } else if (runQuest){
       nk.textContent = '의뢰';
       const prog = runQuest.type==='kill' ? (killCount-runQuest.start)+'/'+runQuest.goal
@@ -3378,11 +3487,11 @@ import { FX } from "./fx.js";
   // v4.4 난이도 재설계: 시간 + 플레이어 파워(레벨·테크·성장무기)에 함께 반응하는 적응형 곡선
   function powerScale(){
     if (!player) return 1;
-    let pw = Math.max(0, player.level - 8) * 0.022;              // 레벨이 오를수록
+    let pw = Math.max(0, player.level - 6) * 0.032;              // 레벨이 오를수록
     let tpts = 0; for (const k in player.tech) tpts += player.tech[k];
-    pw += Math.max(0, tpts - 6) * 0.012;                          // 테크를 찍을수록
-    if (ownedWeapon('nameless')) pw += (DB.growth.lv||0) * 0.006; // 성장무기가 강할수록
-    return 1 + Math.min(1.2, pw);                                 // 최대 +120%
+    pw += Math.max(0, tpts - 5) * 0.018;                          // 테크를 찍을수록
+    if (ownedWeapon('nameless')) pw += growthEffLv() * 0.010;     // 성장무기가 깨어날수록
+    return 1 + Math.min(1.7, pw);                                 // 최대 +170%
   }
   function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
   function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
@@ -3534,6 +3643,7 @@ import { FX } from "./fx.js";
     { key:'kill',   name:'섬멸',  d:(n)=>'35초 안에 '+n+'마리 처치' },
     { key:'live',   name:'생존',  d:()=>'몰려드는 적들 속에서 25초 생존' },
     { key:'elite',  name:'정예 사냥', d:()=>'40초 안에 정예 2기 처치' },
+    { key:'guard',  name:'수문장', d:()=>'50초 안에 균열의 수문장 격파' },
   ];
   function spawnRift(){
     if (rifts.length >= 1 || rift) return;
@@ -3545,12 +3655,13 @@ import { FX } from "./fx.js";
   function enterRift(){
     const mode = RIFT_MODES[(Math.random()*RIFT_MODES.length)|0];
     const need = mode.key==='elite' ? 2 : 22 + Math.floor(elapsed/60)*4 + (DB.peril||0)*2;
-    rift = { mode:mode.key, t:(mode.key==='live'?25:mode.key==='elite'?40:35), need, kills0:killCount, elite0:0, returnX:player.x, returnY:player.y };
+    rift = { mode:mode.key, t:(mode.key==='live'?25:mode.key==='elite'?40:mode.key==='guard'?50:35), need, kills0:killCount, elite0:0, returnX:player.x, returnY:player.y };
     // 아득히 먼 별공간으로 이동 (무한 필드의 외딴 좌표)
     player.x += 50000; player.y += 50000;
     trialT = Math.max(trialT, rift.t); // 시련 스폰 2배 재활용
     for (let k=0;k<10;k++){ const a=(Math.PI*2/10)*k; enemies.push(makeEnemy(Math.random()<0.3?'fish':'swarm', player.x+Math.cos(a)*260, player.y+Math.sin(a)*260, false)); }
     if (mode.key==='elite'){ for (let k=0;k<2;k++){ const a=Math.random()*Math.PI*2; const e=makeEnemy('brute', player.x+Math.cos(a)*320, player.y+Math.sin(a)*320, true); e.riftElite=true; enemies.push(e); rift.elite0++; } }
+    if (mode.key==='guard'){ spawnBoss('gatekeeper'); const gb=bosses[bosses.length-1]; if (gb) gb.riftBoss=true; }
     showBossBanner('차원 균열 — '+mode.name, '시련: '+mode.d(need), '#5c4a8a');
     toast('◈ 시련 시작! 성공 시 보물과 재료를 얻는다');
     screenDimT = Math.max(screenDimT||0, 0.4);
@@ -3559,6 +3670,14 @@ import { FX } from "./fx.js";
   function exitRift(success){
     player.x = rift.returnX; player.y = rift.returnY;
     player.invuln = Math.max(player.invuln, 1.5);
+    // 균열 전용 보스·원격 몹 정리: 안에서 못 잡은 것은 바깥으로 따라오지 못한다
+    for (let i=bosses.length-1;i>=0;i--){
+      if (bosses[i].riftBoss || Math.hypot(bosses[i].x-player.x, bosses[i].y-player.y) > 5000) bosses.splice(i,1);
+    }
+    for (let i=enemies.length-1;i>=0;i--){
+      if (Math.hypot(enemies[i].x-player.x, enemies[i].y-player.y) > 5000) enemies.splice(i,1);
+    }
+    refreshBossBar();
     if (success){
       dropItem(player.x+40, player.y, 'chest');
       DB.mats.shard += 1; saveDB();
@@ -3886,13 +4005,14 @@ import { FX } from "./fx.js";
     const empMult = emp ? 1.7 : 1;
     // 이명(코믹 칭호) 출현: 40% 확률 — 칭호가 붙은 보스는 더 강하다 (칭호는 풀에서 랜덤)
     const cpool = BOSS_COMIC[key];
-    const comic = (!def.finale && cpool && Math.random()<0.4) ? cpool[(Math.random()*cpool.length)|0] : null;
+    const bountyOn = player && player.bounty && !def.finale;
+    const comic = (!def.finale && cpool && (bountyOn || Math.random()<0.4)) ? cpool[(Math.random()*cpool.length)|0] : null;
     const comicMult = comic ? 1.35 : 1;
     const hp = def.hp * encScale * empMult * comicMult * MAP.mult.ehp;
     const b = {
       isBoss:true, key, kind:def.kind,
       name: (comic ? '『'+comic+'』 ' : '') + (emp?'강화 ':'') + def.name,
-      comic: !!comic,
+      comic: !!comic, bountyMark: !!bountyOn,
       emp: !!emp, finale: !!def.finale,
       x:p.x, y:p.y, r:def.r * (emp?1.15:1),
       hp, maxHp:hp,
@@ -3931,6 +4051,7 @@ import { FX } from "./fx.js";
       FX.ring(b.x, b.y, ac2, 22);
       FX.puff(b.x, b.y, ac2, b.r*2);
     }
+    if (bountyOn) player.bounty = false; // 현상수배 소모
     showBossBanner(BOSS_TITLES[key]||'', b.name, BOSS_ACCENTS ? BOSS_ACCENTS[key] : null);
     shake = Math.min(20, shake+10);
     SFX.play('warn');
@@ -3965,6 +4086,7 @@ import { FX } from "./fx.js";
     toast('◆ 보스의 정수 +'+essN+' ('+DB.mats.essence+')');
     let goldBase = b.finale ? 200 : 45;
     if (b.emp) goldBase = Math.round(goldBase*1.6);
+    if (b.bountyMark){ goldBase *= 2; toast('현상수배 완수 — 보상 2배!'); }
     const g = gainGold(goldBase);
     addTextNum(b.x, b.y-20, '+'+g+'G');
     if (b.kind==='backstab' && b.stolen>0){
@@ -4483,6 +4605,16 @@ import { FX } from "./fx.js";
     }
   }
   function nearestTarget(){
+    // 조준 우선순위: 사거리 내 보스 > 엘리트·악몽 > 최근접 (자동 사격이 잡몹에 낭비되지 않게)
+    for (const b of bosses){ if (!b.ghost && Math.hypot(b.x-player.x,b.y-player.y) < 420) return b; }
+    let prio=null, pd=Infinity;
+    for (const e of enemies){
+      if (e.elite || e.grade===2){
+        const d=(e.x-player.x)**2+(e.y-player.y)**2;
+        if (d < 360*360 && d<pd){ pd=d; prio=e; }
+      }
+    }
+    if (prio) return prio;
     let nearest=null, nd=Infinity;
     for (const e of enemies){ const d=(e.x-player.x)**2+(e.y-player.y)**2; if (d<nd){ nd=d; nearest=e; } }
     for (const b of bosses){ if (b.ghost) continue; const d=(b.x-player.x)**2+(b.y-player.y)**2; if (d<nd){ nd=d; nearest=b; } }
@@ -5790,6 +5922,7 @@ import { FX } from "./fx.js";
       let done = false;
       if (rift.mode==='kill') done = (killCount - rift.kills0) >= rift.need;
       else if (rift.mode==='elite') done = !enemies.some(e=>e.riftElite);
+      else if (rift.mode==='guard') done = !bosses.some(b=>b.riftBoss);
       else if (rift.mode==='live') done = false; // 시간을 버티면 성공
       if (done) exitRift(true);
       else if (rift.t <= 0) exitRift(rift.mode==='live');
@@ -6202,7 +6335,9 @@ import { FX } from "./fx.js";
     }
 
     // boss spawn scheduling — 맵별 최종 보스(기존 보스의 각성형)
+    // 균열 안에서는 일반 보스 스폰 정지 (균열은 자체 시련만)
     const finalAlive = bosses.some(b=>b.finale);
+    if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
       spawnBoss(MAP.final);
     } else if (!finalAlive && rootDefeated && endless && nextRootAt>0 && elapsed>=nextRootAt){
@@ -6229,6 +6364,7 @@ import { FX } from "./fx.js";
         }
       }
     }
+    } // !rift
 
     // bosses
     for (let i=bosses.length-1;i>=0;i--){
@@ -6677,7 +6813,7 @@ import { FX } from "./fx.js";
       }
       const num = '<div class="num">0'+(i+1)+'</div>';
       const tag = u.tag ? '<div class="tag"'+(u.ctag?' style="background:var(--ink-900);color:#e8c56a;"':'')+'>'+u.tag+'</div>' : '';
-      const rb = (u.rarity!==undefined) ? '<span class="rbadge '+(u.jackpot?'r4':CARD_RARITY[u.rarity].cls)+'">'+(u.jackpot?'잭팟':CARD_RARITY[u.rarity].n)+'</span>' : '';
+      const rb = (u.rarity!==undefined) ? '<span class="rbadge '+(u.jackpot?'r4':CARD_RARITY[u.rarity].cls)+'">'+(u.jackpot?'잭팟':CARD_RARITY[u.rarity].n+(u.rarity>0?' ×'+CARD_RARITY[u.rarity].m:''))+'</span>' : '';
       el.innerHTML = num+tag+'<div class="name">'+rb+u.name+'</div><div class="desc">'+u.desc+'</div>';
       el.addEventListener('click', ()=>{
         if (banishMode){
@@ -6969,13 +7105,16 @@ import { FX } from "./fx.js";
     const cls = CLASSES[classKey];
     if (cls){
       cls.apply(player);
-      if (cls.weapon==='random2'){
-        // 글리치: 무작위 무기 2개
-        const keys = Object.keys(WEAPONS);
-        const first = keys[(Math.random()*keys.length)|0];
-        let second = keys[(Math.random()*keys.length)|0];
-        while (second===first) second = keys[(Math.random()*keys.length)|0];
-        addWeapon(first); addWeapon(second);
+      if (cls.weapon==='random2' || cls.weapon==='random3'){
+        // 무작위 무기 (기본 무기 풀에서)
+        const keys = Object.keys(WEAPONS).filter(k=>!['fusion','gbow','gtome','gblade','nameless'].includes(k));
+        const n3 = cls.weapon==='random3' ? 3 : 2;
+        const picked = [];
+        while (picked.length<n3){
+          const k2 = keys[(Math.random()*keys.length)|0];
+          if (!picked.includes(k2)) picked.push(k2);
+        }
+        picked.forEach(k2=>addWeapon(k2));
       } else {
         addWeapon(cls.weapon);
       }
@@ -7424,7 +7563,7 @@ import { FX } from "./fx.js";
     ninja:'#6d5cc4', engineer:'#d9a53f', paladin:'#d9b23d', reaper:'#7a4fa8',
     pilot:'#4fa8c4', glitch:'#3aa895', returner:'#e08a2e',
     cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
-    tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f'
+    tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
@@ -7908,7 +8047,7 @@ import { FX } from "./fx.js";
     seulgi:'어장의 지배자', byungWoo:'포화의 지휘관', jiEun:'천 개의 그림자', eunJae:'피에 굶주린 자',
     yuJinKong:'폭풍을 부르는 콩', jungWoo:'등 뒤의 배신자', seonJeong:'지뢰밭의 공병', spaceStar:'추락한 별',
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
-    monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩',
+    monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -7926,7 +8065,7 @@ import { FX } from "./fx.js";
     seulgi:'#d97ba8', byungWoo:'#e2823f', jiEun:'#b06ab0', eunJae:'#b8362e',
     yuJinKong:'#4fa8c4', jungWoo:'#7a8a99', seonJeong:'#e2823f', spaceStar:'#e0b73d',
     nukNukEX:'#9a6fc4', goDokGeun:'#3aa895',
-    monday:'#5c6a8a', deadline:'#c9403a',
+    monday:'#5c6a8a', deadline:'#c9403a', gatekeeper:'#5c4a8a',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
