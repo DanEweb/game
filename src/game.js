@@ -2566,9 +2566,10 @@ import { FX } from "./fx.js";
     '저놈 이명 봤나? 웃기지도 않는군.', '큰 놈이다. 월급 루팡처럼 생겼군.', '집중해라. 저건 읽씹하면 안 되는 상대다.',
   ];
   let egoT = 0, keyHintUntil = 30;
+  let egoBubble = null; // { text, t } — 검에서 직접 나오는 말풍선
   function egoSay(pool){
     const line = pool[(Math.random()*pool.length)|0];
-    toast('⚔ 무명검: "'+line+'"');
+    egoBubble = { text: line, t: 4.6 };
   }
   function tickEgo(dt){
     if (!ownedWeapon('nameless')) return;
@@ -3625,8 +3626,8 @@ import { FX } from "./fx.js";
   function openChest(x, y){
     const candidates = player.weapons.filter(w => w.lv>=5 && !w.evolved);
     effects.push({ type:'rays', x, y, life:0.6, age:0 });
-    // 유일 무기 발견 (0.4% — 극악)
-    if (!DB.growth.found && Math.random()<0.004){
+    // 유일 무기 발견 (0.001% — 사실상 전설의 목격담. 현실적 경로는 상인의 녹슨 검)
+    if (!DB.growth.found && Math.random()<0.00001){
       DB.growth.found = true;
       saveDB();
       addTextNum(x, y-14, '무명검 발견!');
@@ -5576,6 +5577,7 @@ import { FX } from "./fx.js";
     }
     // 에고 무기 수다 + 봉인 해제 알림
     tickEgo(dt);
+    if (egoBubble){ egoBubble.t -= dt; if (egoBubble.t<=0) egoBubble = null; }
     if (ownedWeapon('nameless')){
       const gel = growthEffLv();
       if (gel > (player.__gel||1)){
@@ -6382,7 +6384,7 @@ import { FX } from "./fx.js";
     while (player.xp >= player.xpNext){
       player.xp -= player.xpNext;
       player.level += 1;
-      player.xpNext = Math.floor(12 + player.level*8 + player.level*player.level*0.9); // 고레벨 가속 강력 차단
+      player.xpNext = Math.floor(14 + player.level*9 + player.level*player.level*1.4); // 4차 하향 — 레벨은 귀하다
       pendingLevelUps += 1;
     }
     if (player.level >= 30) unlockAch('lv30');
@@ -7235,7 +7237,43 @@ import { FX } from "./fx.js";
     }
     // 슬라임: 체력이 높을수록 몸집이 커진다
     const bodyScale = player.slimeBody ? Math.min(2.0, 1.15 + player.maxHp/800) : 1.15;
+    // 장비 외형: 망토는 몸 뒤에 (희귀도 색)
+    const RARITY_TINT = ['#8f9194','#4c9a55','#3b82c4','#8b5cf6','#e08a2e','#b8362e','#d9a53f'];
+    const lo0 = loadoutFor(player.classKey);
+    const eqItem = (slot)=>{ const id=lo0[slot]; return id ? DB.inv.find(i=>i.id===id) : null; };
+    const cloakIt = eqItem('cloak');
+    if (cloakIt){
+      ctx.save();
+      ctx.fillStyle = RARITY_TINT[cloakIt.r]||'#8f9194';
+      ctx.globalAlpha = 0.85;
+      const flap = Math.sin(performance.now()/160)*2.5 + (moving?2:0);
+      ctx.beginPath();
+      ctx.moveTo(player.x-4, player.y-8);
+      ctx.lineTo(player.x+4, player.y-8);
+      ctx.lineTo(player.x+6-player.faceX*8, player.y+13+flap*0.4);
+      ctx.lineTo(player.x-player.faceX*11, player.y+9+flap);
+      ctx.lineTo(player.x-6-player.faceX*8, player.y+13-flap*0.4);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
     drawHumanoid(player.x, player.y, { face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper' });
+    // 장비 외형: 투구 밴드 / 흉갑 라인 (희귀도 색)
+    const headIt = eqItem('head');
+    if (headIt){
+      ctx.fillStyle = RARITY_TINT[headIt.r]||'#8f9194';
+      ctx.fillRect(player.x-6, player.y-19, 12, 2.6);
+      if (headIt.r>=4){ ctx.fillRect(player.x-1.2, player.y-23, 2.4, 4); } // 상급: 깃 장식
+    }
+    const bodyIt = eqItem('body');
+    if (bodyIt){
+      ctx.strokeStyle = RARITY_TINT[bodyIt.r]||'#8f9194';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(player.x-5, player.y-1); ctx.lineTo(player.x+5, player.y-1); ctx.stroke();
+      if (bodyIt.wt==='heavy'){ // 중갑: 어깨 패드
+        ctx.fillStyle = RARITY_TINT[bodyIt.r];
+        ctx.fillRect(player.x-8.5, player.y-8, 3.4, 3); ctx.fillRect(player.x+5.1, player.y-8, 3.4, 3);
+      }
+    }
     // 직업 목도리
     const cc = CLASS_COLORS[player.classKey];
     if (cc){
@@ -7269,6 +7307,37 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(player.x, player.y+15, 16+Math.sin(performance.now()/220)*2, 6, 0, 0, Math.PI*2); ctx.stroke();
       ctx.globalAlpha = 1;
+    }
+    // 에고 무기 말풍선 — 검(오른손 쪽)에서 직접 말한다
+    if (egoBubble && ownedWeapon('nameless')){
+      const alpha = Math.min(1, egoBubble.t / 0.6);
+      const bx = player.x + player.faceX*14, by = player.y - 30;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = "500 10.5px 'IBM Plex Sans KR', sans-serif";
+      // 줄바꿈 (한 줄 최대 ~18자)
+      const words = egoBubble.text;
+      const lines = [];
+      for (let i2=0;i2<words.length;i2+=18) lines.push(words.slice(i2,i2+18));
+      const bw2 = Math.min(200, Math.max(...lines.map(l=>ctx.measureText(l).width)) + 16);
+      const bh2 = lines.length*14 + 10;
+      const dark = MAP.key==='abyss';
+      ctx.fillStyle = dark ? 'rgba(35,36,42,0.94)' : 'rgba(255,255,255,0.94)';
+      ctx.strokeStyle = dark ? '#8f9194' : '#45474a';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const rx = bx - bw2/2, ry = by - bh2;
+      ctx.moveTo(rx+7, ry);
+      ctx.lineTo(rx+bw2-7, ry); ctx.quadraticCurveTo(rx+bw2, ry, rx+bw2, ry+7);
+      ctx.lineTo(rx+bw2, ry+bh2-7); ctx.quadraticCurveTo(rx+bw2, ry+bh2, rx+bw2-7, ry+bh2);
+      ctx.lineTo(bx+6, ry+bh2); ctx.lineTo(bx+player.faceX*3, ry+bh2+7); ctx.lineTo(bx-6, ry+bh2); // 꼬리 → 검 방향
+      ctx.lineTo(rx+7, ry+bh2); ctx.quadraticCurveTo(rx, ry+bh2, rx, ry+bh2-7);
+      ctx.lineTo(rx, ry+7); ctx.quadraticCurveTo(rx, ry, rx+7, ry);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = dark ? '#e8e8e6' : '#202124';
+      ctx.textAlign = 'left';
+      lines.forEach((l,li)=> ctx.fillText(l, rx+8, ry+15+li*14));
+      ctx.restore();
     }
     // 3차 전직 (초월/멸살/불멸): 회전 광륜
     if (player.jobs && player.jobs.length>=3 && cc){
@@ -7350,6 +7419,15 @@ import { FX } from "./fx.js";
         ctx.textAlign = 'center';
         ctx.fillText(e.name, 0, -e.r-9);
       }
+      // 엘리트 왕관
+      ctx.fillStyle = '#d9a53f';
+      ctx.strokeStyle = '#8a6428';
+      ctx.lineWidth = 0.8;
+      const cy2 = -e.r-20 + Math.sin(performance.now()/280)*1.5;
+      ctx.beginPath();
+      ctx.moveTo(-6, cy2+4); ctx.lineTo(-6, cy2); ctx.lineTo(-3, cy2+2.5); ctx.lineTo(0, cy2-1.5);
+      ctx.lineTo(3, cy2+2.5); ctx.lineTo(6, cy2); ctx.lineTo(6, cy2+4);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
     } else if (ENEMY_TINTS[e.type]){
       ctx.globalAlpha = 0.20;
       ctx.fillStyle = ENEMY_TINTS[e.type];
@@ -7657,6 +7735,23 @@ import { FX } from "./fx.js";
     const t = performance.now()/1000;
     const face = player.x > b.x ? 1 : -1;
     const ink = PAL.ink, ink2 = PAL.ink2, mid = PAL.mid;
+    // 시그니처 악센트 외곽 링: 평시 은은, 분노 시 붉게 맥동
+    if (!b.ghost){
+      const ac = BOSS_ACCENTS[b.key] || '#b8362e';
+      ctx.save();
+      if (b.enraged){
+        const ep = 0.45 + 0.3*Math.sin(performance.now()/110);
+        ctx.strokeStyle = '#c9403a';
+        ctx.globalAlpha = ep;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r+7+Math.sin(performance.now()/110)*2, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.strokeStyle = ac;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r+4, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
 
     // 돌진 텔레그래프
     if ((b.kind==='charger'||b.kind==='root') && b.chargeState==='telegraph'){
