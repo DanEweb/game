@@ -560,6 +560,15 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   function renderAch(){
     const list = $('achList');
     list.innerHTML = '';
+    // 도감: 유니크·태초·세트 수집 현황
+    const uniqNames = new Set(DB.inv.filter(i=>i.r===5).map(i=>i.name));
+    const primalN = DB.inv.filter(i=>i.r===6).length;
+    const setN = DB.inv.filter(i=>i.set).length;
+    const col = document.createElement('div');
+    col.className = 'shopItem';
+    col.innerHTML = '<div class="info"><div class="nm">📖 수집 도감</div>'
+      + '<div class="ds">유니크 '+uniqNames.size+'/'+UNIQUE_POOL.length+' 종 · 태초 '+primalN+'개 · 세트 조각 '+setN+'/6 · 업적 '+achCount()+'/'+ACHIEVEMENTS.length+'</div></div>';
+    list.appendChild(col);
     ACHIEVEMENTS.forEach((a)=>{
       const done = DB.ach && DB.ach[a.key];
       const row = document.createElement('div');
@@ -644,6 +653,12 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     }
     DB.inv.push(item);
     toast('장비 획득: ['+RARITY_NAMES[item.r]+'] '+item.name);
+    // 초희귀 획득: 전광판 연출 (자랑 타임)
+    if (item.r>=5){
+      showBossBanner(item.r===6 ? '✦ 태초의 유물 ✦' : '✦ 유니크 발견 ✦', item.name, item.r===6 ? '#d9a53f' : '#b8362e');
+      freeze = Math.max(freeze, 0.25);
+      effects.push({ type:'rays', x:player?player.x:0, y:player?player.y:0, life:0.8, age:0 });
+    }
     if (item.r===4) unlockAch('legend');
     if (item.r===6) unlockAch('primal');
     if (item.slot==='relic') unlockAch('relic');
@@ -1067,6 +1082,23 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   questBtn.addEventListener('click', ()=> showPanel(questBox.style.display==='flex'?'class':'quest'));
   $('achBtn').addEventListener('click', ()=> showPanel($('achBox').style.display==='flex'?'class':'ach'));
   $('starBtn').addEventListener('click', ()=> showPanel($('starBox').style.display==='flex'?'class':'star'));
+
+  // 일일 도전 — 날짜 시드로 모두가 같은 조건에서 경쟁
+  function mulberry32(a){
+    return function(){
+      a|=0; a=a+0x6D2B79F5|0;
+      let t=Math.imul(a^a>>>15,1|a);
+      t=t+Math.imul(t^t>>>7,61|t)^t;
+      return ((t^t>>>14)>>>0)/4294967296;
+    };
+  }
+  function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  $('dailyBtn').addEventListener('click', ()=>{
+    dailyPending = !dailyPending;
+    $('dailyBtn').classList.toggle('on', dailyPending);
+    toast(dailyPending ? '📅 일일 도전 모드 — 오늘('+todayStr()+') 모두가 같은 시드로 경쟁!' : '일일 도전 해제');
+    SFX.play('beep');
+  });
   document.querySelectorAll('.backBtn').forEach(b=> b.addEventListener('click', ()=>{
     if (state==='inv'){ closeInv(); return; }
     showPanel('class');
@@ -1715,6 +1747,174 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     ],
   };
 
+  // ---------- 직업별 고유 스킬 (레벨 도달로 습득 → 슬롯 2~4에 장착) ----------
+  // 임시 버프 시스템
+  function tbuff(stat, v, t){ player.tbuffs.push({ stat, v, t }); }
+  function buffMult(stat){
+    let m = 1;
+    for (const b of (player.tbuffs||[])) if (b.stat===stat) m *= b.v;
+    return m;
+  }
+  function skFreezeAll(t){
+    for (const e of enemies) e.frozenT = Math.max(e.frozenT||0, t);
+    effects.push({ type:'ring', x:player.x, y:player.y, life:0.5, age:0, r0:30, r1:420 });
+    SFX.play('tele');
+  }
+  function skNova(r, dmg){ friendlyBlast(player.x, player.y, r, dmg*player.dmgMult, true); SFX.play('boom'); }
+  const SKILL_POOLS = {
+    manager: [
+      { n:'정지 명령', lv:3, cd:16, d:'모든 적을 1.5초 정지', fx:()=>skFreezeAll(1.5) },
+      { n:'강제 종료', lv:8, cd:14, d:'주변 적 현재 체력 20% 피해', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (Math.hypot(e.x-player.x,e.y-player.y)<200){ const d2=e.hp*0.2+8; e.hp-=d2; addDmgNum(e.x,e.y,d2,false); if(e.hp<=0) defeatEnemy(i); } } SFX.play('boom'); } },
+      { n:'재배치', lv:15, cd:10, d:'무작위 순간이동 + 1초 무적', fx:()=>{ const a=Math.random()*Math.PI*2; burst(player.x,player.y,12,160); player.x+=Math.cos(a)*220; player.y+=Math.sin(a)*220; player.invuln=Math.max(player.invuln,1); SFX.play('tele'); } },
+      { n:'루트 권한', lv:25, cd:30, d:'5초간 공격속도 +50%', fx:()=>{ tbuff('rate',1.5,5); addTextNum(player.x,player.y-26,'ROOT'); SFX.play('fever'); } },
+    ],
+    sniper: [
+      { n:'조준 사격', lv:3, cd:8, d:'모든 것을 관통하는 저격탄', fx:()=>{ const t=nearestTarget(); if(t){ const a=Math.atan2(t.y-player.y,t.x-player.x); projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*700,vy:Math.sin(a)*700,r:5,damage:30*player.dmgMult,crit:true,pierce:9999,life:1.2,mega:true}); SFX.play('shoot'); } } },
+      { n:'연막', lv:8, cd:16, d:'3초간 회피 +40%', fx:()=>{ player.dodge=Math.min(0.9,player.dodge+0.4); setTimeout(()=>{ player.dodge=Math.max(0,player.dodge-0.4); },3000); burst(player.x,player.y,20,120); } },
+      { n:'더블탭', lv:15, cd:14, d:'3초간 모든 공격 확정 치명타', fx:()=>{ const o=player.critChance; player.critChance=1; setTimeout(()=>{ player.critChance=o; },3000); SFX.play('fever'); } },
+      { n:'데드아이', lv:25, cd:26, d:'적 8명을 즉시 저격', fx:()=>{ let n=0; for (let i=enemies.length-1;i>=0&&n<8;i--,n++){ const e=enemies[i]; const d2=40*player.dmgMult*player.critMult; e.hp-=d2; addDmgNum(e.x,e.y,d2,true); burst(e.x,e.y,6,140); if(e.hp<=0) defeatEnemy(i); } SFX.play('boom'); } },
+    ],
+    rusher: [
+      { n:'돌격', lv:3, cd:9, d:'전방 돌진 + 경로 폭발', fx:()=>{ tryDashFree(); dashExplosion(player.x,player.y,30); } },
+      { n:'전투 함성', lv:8, cd:15, d:'4초간 피해 +25%', fx:()=>{ tbuff('dmg',1.25,4); addTextNum(player.x,player.y-26,'함성!'); SFX.play('warn'); } },
+      { n:'피의 소용돌이', lv:15, cd:13, d:'주변을 베고 처치당 회복', fx:()=>{ const before=killCount; skNova(150,26); const k=killCount-before; if(k>0){ player.hp=Math.min(player.maxHp,player.hp+k*3*player.healMult); } } },
+      { n:'무모함', lv:25, cd:28, d:'5초간 받는 피해 -70%', fx:()=>{ tbuff('dr',0.3,5); addTextNum(player.x,player.y-26,'무모함!'); } },
+    ],
+    archer: [
+      { n:'관통 사격', lv:3, cd:8, d:'초관통 화살 3연발', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; for(let k=-1;k<=1;k++) projectiles.push({x:player.x,y:player.y,vx:Math.cos(a+k*0.12)*560,vy:Math.sin(a+k*0.12)*560,r:4,damage:18*player.dmgMult,crit:false,pierce:12,life:1.1,arrow:true}); SFX.play('shoot'); } },
+      { n:'화살비', lv:8, cd:14, d:'전방 지역에 화살 폭격', fx:()=>{ const a=player.facing; for(let k=0;k<4;k++) addHazard(player.x+Math.cos(a)*(90+k*60)+(Math.random()*60-30), player.y+Math.sin(a)*(90+k*60)+(Math.random()*60-30), 52, 0.3+k*0.1, 26*player.dmgMult, true); SFX.play('shoot'); } },
+      { n:'속사', lv:15, cd:16, d:'4초간 공격속도 +40%', fx:()=>{ tbuff('rate',1.4,4); SFX.play('fever'); } },
+      { n:'수확의 바람', lv:25, cd:24, d:'모든 조각을 끌어모으고 회오리 피해', fx:()=>{ for (const o of orbs) o.magnetized=true; skNova(170,30); } },
+    ],
+    ninja: [
+      { n:'수리검 부채', lv:3, cd:8, d:'부채꼴 수리검 7발', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; for(let k=0;k<7;k++) projectiles.push({x:player.x,y:player.y,vx:Math.cos(a+(k-3)*0.18)*430,vy:Math.sin(a+(k-3)*0.18)*430,r:5,damage:14*player.dmgMult,crit:false,pierce:2,life:0.9,kind:'shuriken',phase:'out',noReturn:true,spin:0,hitSet:new Set()}); SFX.play('shoot'); } },
+      { n:'연막탄', lv:8, cd:15, d:'대시 쿨 초기화 + 3초 회피 +30%', fx:()=>{ player.dashCd=0; player.dodge=Math.min(0.9,player.dodge+0.3); setTimeout(()=>{ player.dodge=Math.max(0,player.dodge-0.3); },3000); burst(player.x,player.y,18,140); } },
+      { n:'그림자 습격', lv:15, cd:12, d:'가장 가까운 적 뒤로 점멸 + 참격', fx:()=>{ const t=nearestTarget(); if(t){ burst(player.x,player.y,10,130); player.x=t.x+20; player.y=t.y; player.invuln=Math.max(player.invuln,0.6); friendlyBlast(t.x,t.y,90,35*player.dmgMult,true); SFX.play('tele'); } } },
+      { n:'분신 소환', lv:25, cd:26, d:'분신 3기가 5초간 함께 사격', fx:()=>{ for(let k=0;k<3;k++) player.shadows.push({x:player.x+(Math.random()*60-30),y:player.y+(Math.random()*60-30),t:5,cd:0.2}); SFX.play('tele'); } },
+    ],
+    engineer: [
+      { n:'스파크', lv:3, cd:9, d:'즉시 연쇄 번개 4회', fx:()=>{ for(let k=0;k<4;k++) lightningStrike(20*player.dmgMult, true); } },
+      { n:'골드 러시', lv:8, cd:20, d:'5초간 골드 획득 2배', fx:()=>{ const o=player.goldMult; player.goldMult*=2; setTimeout(()=>{ player.goldMult=o; },5000); addTextNum(player.x,player.y-26,'💰'); SFX.play('coin'); } },
+      { n:'임시 포탑', lv:15, cd:18, d:'10초짜리 포탑 설치', fx:()=>{ player.turrets.push({x:player.x+40,y:player.y,cd:0,temp:10}); if(!player.turretDmg) player.turretDmg=12; SFX.play('equip'); } },
+      { n:'EMP', lv:25, cd:26, d:'전체 감전 + 1초 정지', fx:()=>{ skFreezeAll(1); for(let k=0;k<8;k++) lightningStrike(24*player.dmgMult,true); } },
+    ],
+    paladin: [
+      { n:'심판의 망치', lv:3, cd:9, d:'전방 성스러운 강타', fx:()=>{ const a=player.facing; addHazard(player.x+Math.cos(a)*100, player.y+Math.sin(a)*100, 70, 0.25, 35*player.dmgMult, true); SFX.play('boom'); } },
+      { n:'축성', lv:8, cd:18, d:'체력 20% 회복 + 3초 피해감소', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.2*player.healMult); tbuff('dr',0.7,3); SFX.play('pick'); } },
+      { n:'수호의 방패', lv:15, cd:16, d:'즉시 방벽 1회 충전', fx:()=>{ player.shieldReady=true; if(!player.shieldCdMax) player.shieldCdMax=12; effects.push({type:'ring',x:player.x,y:player.y,life:0.3,age:0,r0:14,r1:40}); SFX.play('tele'); } },
+      { n:'천상의 빛', lv:25, cd:28, d:'대범위 성역 폭발 + 2초 무적', fx:()=>{ skNova(220,45); player.invuln=Math.max(player.invuln,2); } },
+    ],
+    reaper: [
+      { n:'사신의 손짓', lv:3, cd:12, d:'5초간 처형 임계값 +10%p', fx:()=>{ player.execThresh+=0.10; setTimeout(()=>{ player.execThresh=Math.max(0,player.execThresh-0.10); },5000); addTextNum(player.x,player.y-26,'죽음이 온다'); } },
+      { n:'영혼 수확', lv:8, cd:10, d:'주변을 베고 조각 흡수', fx:()=>{ skNova(130,28); for (const o of orbs) o.magnetized=true; } },
+      { n:'죽음의 표식', lv:15, cd:14, d:'주변 적 전체에 부식 2중첩', fx:()=>{ for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y)<250){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+2); e.corrodeT=6; } } SFX.play('warn'); } },
+      { n:'대낫 회전', lv:25, cd:24, d:'거대 낫 3연속 회전', fx:()=>{ let k=0; const iv=setInterval(()=>{ if(state==='playing') skNova(170,32); k++; if(k>=3) clearInterval(iv); },300); } },
+    ],
+    pilot: [
+      { n:'집중 포화', lv:3, cd:9, d:'드론·터렛 표적 일제 사격', fx:()=>{ const t=nearestTarget(); if(t){ for(let k=0;k<6;k++){ const a=Math.random()*Math.PI*2; projectiles.push({x:t.x+Math.cos(a)*80,y:t.y+Math.sin(a)*80,vx:-Math.cos(a)*500,vy:-Math.sin(a)*500,r:3,damage:14*player.dmgMult,crit:false,pierce:0,life:0.5,tracer:true}); } SFX.play('shoot'); } } },
+      { n:'보급 요청', lv:8, cd:25, d:'무작위 아이템 2개 투하', fx:()=>{ dropItem(player.x+50,player.y-30); dropItem(player.x-50,player.y-30); SFX.play('coin'); } },
+      { n:'드론 과부하', lv:15, cd:16, d:'4초간 공격속도 +35%', fx:()=>{ tbuff('rate',1.35,4); SFX.play('fever'); } },
+      { n:'궤도 폭격', lv:25, cd:26, d:'주변 8발 융단 폭격', fx:()=>{ for(let k=0;k<8;k++){ const a=Math.random()*Math.PI*2,d2=60+Math.random()*220; addHazard(player.x+Math.cos(a)*d2,player.y+Math.sin(a)*d2,60,0.5+k*0.1,40*player.dmgMult,true); } SFX.play('meteor'); } },
+    ],
+    glitch: [
+      { n:'???', lv:3, cd:12, d:'무작위 직업의 무작위 스킬 발동', fx:()=>{ const ks=Object.keys(SKILL_POOLS).filter(k=>k!=='glitch'); const pool=SKILL_POOLS[ks[(Math.random()*ks.length)|0]]; const sk=pool[(Math.random()*pool.length)|0]; addTextNum(player.x,player.y-26,'?? '+sk.n); sk.fx(); } },
+      { n:'롤백', lv:8, cd:18, d:'체력 18% 복구', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.18*player.healMult); addTextNum(player.x,player.y-26,'ctrl+z'); SFX.play('pick'); } },
+      { n:'노클립', lv:15, cd:16, d:'2초간 무적', fx:()=>{ player.invuln=Math.max(player.invuln,2); addTextNum(player.x,player.y-26,'noclip'); } },
+      { n:'스택 오버플로', lv:25, cd:30, d:'화면이 버그로 뒤덮인다 (대폭발)', fx:()=>{ for(let k=0;k<12;k++){ const a=Math.random()*Math.PI*2,d2=Math.random()*300; addHazard(player.x+Math.cos(a)*d2,player.y+Math.sin(a)*d2,55,0.2+Math.random()*0.8,35*player.dmgMult,true); } shake=Math.min(24,shake+16); SFX.play('boom'); } },
+    ],
+    returner: [
+      { n:'기시감', lv:3, cd:20, d:'모든 스킬 쿨다운 -50%', fx:()=>{ player.skCds=player.skCds.map(c=>c*0.5); player.ultCooldown*=0.5; addTextNum(player.x,player.y-26,'이미 본 미래'); } },
+      { n:'미래시', lv:8, cd:16, d:'4초간 회피 +35%', fx:()=>{ player.dodge=Math.min(0.9,player.dodge+0.35); setTimeout(()=>{ player.dodge=Math.max(0,player.dodge-0.35); },4000); } },
+      { n:'회귀 파동', lv:15, cd:14, d:'적을 크게 밀쳐내는 파동', fx:()=>{ for (const e of enemies){ const d2=Math.hypot(e.x-player.x,e.y-player.y); if(d2<220){ const a=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(a)*140; e.y+=Math.sin(a)*140; } } skNova(200,18); } },
+      { n:'시간 정지', lv:25, cd:32, d:'2.5초간 세계가 멈춘다', fx:()=>skFreezeAll(2.5) },
+    ],
+    cheol: [
+      { n:'방패 밀치기', lv:3, cd:8, d:'전방 강타 + 넉백', fx:()=>{ const a=player.facing; addHazard(player.x+Math.cos(a)*80,player.y+Math.sin(a)*80,65,0.15,28*player.dmgMult,true); } },
+      { n:'철벽 태세', lv:8, cd:18, d:'4초간 받는 피해 -50%', fx:()=>{ tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'철벽'); } },
+      { n:'대지 강타', lv:15, cd:14, d:'주변 대지를 내려찍는다', fx:()=>{ skNova(160,38); shake=Math.min(20,shake+12); } },
+      { n:'최후의 보루', lv:25, cd:30, d:'체력 30% 회복 + 5초 피해 +20%', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.3*player.healMult); tbuff('dmg',1.2,5); } },
+    ],
+    voidc: [
+      { n:'공허 화살', lv:3, cd:8, d:'관통 공허탄 + 부식', fx:()=>{ const t=nearestTarget(); if(t){ const a=Math.atan2(t.y-player.y,t.x-player.x); projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*500,vy:Math.sin(a)*500,r:6,damage:26*player.dmgMult,crit:false,pierce:8,life:1.1,imbue:'acid'}); SFX.play('shoot'); } } },
+      { n:'침식 파동', lv:8, cd:14, d:'주변 적 전체 부식 + 피해', fx:()=>{ for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y)<230){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+1); e.corrodeT=6; } } skNova(180,22); } },
+      { n:'소균열', lv:15, cd:16, d:'작은 공허 균열 소환', fx:()=>{ const t=nearestTarget(); const x2=t?t.x:player.x+Math.cos(player.facing)*150, y2=t?t.y:player.y+Math.sin(player.facing)*150; if (zones.length<40) zones.push({x:x2,y:y2,r:85,dps:16*player.dmgMult,t:3,maxT:3,type:'void'}); SFX.play('tele'); } },
+      { n:'심연 개방', lv:25, cd:30, d:'거대 공허 균열', fx:()=>{ if (zones.length<40) zones.push({x:player.x,y:player.y,r:170,dps:30*player.dmgMult,t:5,maxT:5,type:'void'}); SFX.play('warn'); } },
+    ],
+    necro: [
+      { n:'유령 소환', lv:3, cd:12, d:'유령 2기 소환', fx:()=>{ for(let k=0;k<2;k++) player.ghosts.push({x:player.x+(Math.random()*60-30),y:player.y+(Math.random()*60-30),t:8+(player.ghostDur||0),cd:0}); SFX.play('tele'); } },
+      { n:'뼈 감옥', lv:8, cd:16, d:'주변 적 2초 정지', fx:()=>{ for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y)<200) e.frozenT=Math.max(e.frozenT||0,2); } SFX.play('tele'); } },
+      { n:'희생', lv:15, cd:14, d:'모든 유령이 폭발한다', fx:()=>{ for (const gh of player.ghosts){ friendlyBlast(gh.x,gh.y,90,30*player.dmgMult,true); } player.ghosts.length=0; SFX.play('boom'); } },
+      { n:'사자의 군단', lv:25, cd:30, d:'유령 8기 대소환', fx:()=>{ for(let k=0;k<8;k++){ const a=(Math.PI*2/8)*k; player.ghosts.push({x:player.x+Math.cos(a)*50,y:player.y+Math.sin(a)*50,t:10,cd:0}); } addTextNum(player.x,player.y-26,'일어나라!'); SFX.play('warn'); } },
+    ],
+    bard: [
+      { n:'불협화음', lv:3, cd:9, d:'귀를 찢는 음파 넉백', fx:()=>{ for (const e of enemies){ const d2=Math.hypot(e.x-player.x,e.y-player.y); if(d2<180){ const a=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(a)*110; e.y+=Math.sin(a)*110; } } skNova(170,20); } },
+      { n:'진혼곡', lv:8, cd:20, d:'체력 15% 회복 + 재생 5초', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.15*player.healMult); tbuff('dr',0.85,5); SFX.play('pick'); } },
+      { n:'템포 업', lv:15, cd:16, d:'4초간 공속 +30%, 이속 +15%', fx:()=>{ tbuff('rate',1.3,4); tbuff('spd',1.15,4); SFX.play('fever'); } },
+      { n:'피날레', lv:25, cd:30, d:'즉시 피버 + 대폭발', fx:()=>{ combo=Math.max(combo,15); feverTimer=6+(player.feverPlus||0); comboTag.style.display='block'; comboTag.classList.add('fever'); skNova(200,40); SFX.play('win'); } },
+    ],
+    debug: [
+      { n:'print()', lv:3, cd:8, d:'전방에 데미지 로그를 출력한다', fx:()=>{ const a=player.facing; for(let k=0;k<5;k++) addHazard(player.x+Math.cos(a)*(60+k*55),player.y+Math.sin(a)*(60+k*55),40,0.1+k*0.08,22*player.dmgMult,true); } },
+      { n:'git revert', lv:8, cd:18, d:'체력 20% 복구', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.2*player.healMult); addTextNum(player.x,player.y-26,'reverted'); } },
+      { n:'sudo', lv:15, cd:20, d:'4초간 모든 버프 (공속·이속·피해 +20%)', fx:()=>{ tbuff('rate',1.2,4); tbuff('spd',1.2,4); tbuff('dmg',1.2,4); addTextNum(player.x,player.y-26,'#'); } },
+      { n:'rm -rf', lv:25, cd:34, d:'보스를 제외한 화면을 청소한다', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(e.type!=='treasure'){ e.hp-=200*player.dmgMult; addDmgNum(e.x,e.y,200*player.dmgMult,true); if(e.hp<=0) defeatEnemy(i); } } shake=Math.min(24,shake+18); SFX.play('boom'); } },
+    ],
+    cheolhyeol: [],
+  };
+  SKILL_POOLS.cheolhyeol = SKILL_POOLS.cheol;
+  function tryDashFree(){ const o=player.dashCd; player.dashCd=0; tryDash(); if (player.dashCd>0) player.dashCd=Math.min(player.dashCd,o); }
+
+  // ---------- 각성 (레벨 20, 공명 계열 2경로 + 공용 2경로) ----------
+  const AWAKENINGS = {
+    war: [
+      { n:'파괴자', d:'모든 피해 +20% / 받는 피해 +10%', fx:(p)=>{ p.dmgMult*=1.2; p.dmgTaken*=1.1; } },
+      { n:'불괴',   d:'받는 피해 -15%, 최대체력 +15%', fx:(p)=>{ p.dmgTaken*=0.85; p.maxHp=Math.round(p.maxHp*1.15); p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.15); } },
+    ],
+    rng: [
+      { n:'질풍', d:'공격속도 +18%, 이동속도 +10%', fx:(p)=>{ p.rateMult*=1.18; p.speed*=1.1; } },
+      { n:'매의 혼', d:'치명 확률 +12%, 치명 배율 +0.4', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); p.critMult+=0.4; } },
+    ],
+    mag: [
+      { n:'대현자', d:'쿨다운 -15%, 원소 발동 +8%p', fx:(p)=>{ p.cdr*=0.85; p.procBonus=(p.procBonus||0)+0.08; } },
+      { n:'폭주 마력', d:'모든 피해 +25% / 쿨다운 +10%', fx:(p)=>{ p.dmgMult*=1.25; p.cdr*=1.1; } },
+    ],
+    rog: [
+      { n:'그림자 군주', d:'회피 +10%, 대시 쿨 -20%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.dashCdMax*=0.8; } },
+      { n:'맹독왕', d:'원소 발동 +10%p, 부식 효과 강화', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.10; p.corrodeAmp=Math.max(p.corrodeAmp,0.22); } },
+    ],
+    pri: [
+      { n:'대사제', d:'회복 +30%, 재생 +1', fx:(p)=>{ p.healMult*=1.3; p.regen+=1; } },
+      { n:'심판자', d:'모든 피해 +15%, 받는 피해 -8%', fx:(p)=>{ p.dmgMult*=1.15; p.dmgTaken*=0.92; } },
+    ],
+    mer: [
+      { n:'재벌', d:'골드 +35%, 행운 +25%', fx:(p)=>{ p.goldMult*=1.35; p.luck*=1.25; } },
+      { n:'투기꾼', d:'카드 상위 등급 확률 +50%', fx:(p)=>{ p.luck*=1.5; } },
+    ],
+  };
+  const AWAKEN_COMMON = [
+    { n:'초월', d:'피해·공속·이속·체력 +8%', fx:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.08); } },
+    { n:'탐욕', d:'골드·경험치 +20%', fx:(p)=>{ p.goldMult*=1.2; p.xpMult=(p.xpMult||1)*1.2; } },
+  ];
+  function classResGroup(classKey){
+    for (const g in RESONANCE) if (RESONANCE[g].includes(classKey)) return g;
+    return 'war';
+  }
+  function openAwakening(){
+    const g = classResGroup(player.classKey);
+    const list = (AWAKENINGS[g]||AWAKENINGS.war).concat(AWAKEN_COMMON);
+    const rc = resonantCount(player.classKey);
+    const opts = list.map(a=>({ l:'각성: '+a.n, d:a.d + (rc>0 ? ' — 공명 증폭 +'+(rc*0.5).toFixed(1)+'%' : ''), fx:()=>{
+      a.fx(player);
+      // 성도 공명 연동: 공명 노드가 많을수록 각성이 강해진다
+      if (rc>0) player.dmgMult *= 1 + 0.005*rc;
+      player.awakening = a.n;
+      toast('각성 — '+a.n+'!'+(rc>0?' (공명 ×'+rc+')':''));
+      effects.push({ type:'rays', x:player.x, y:player.y, life:0.8, age:0 });
+      freeze = Math.max(freeze, 0.2);
+      SFX.play('win');
+    } }));
+    openEvent({ t:'각성의 순간', d:'한계를 넘어선다. 이 런에서 각성 경로를 하나 선택하세요.', opts });
+  }
+
   // ---------- weapons (8) ----------
   const MAX_WEAPONS = 4;
   const WEAPONS = {
@@ -2333,7 +2533,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       mineLv:0, mineDmg:0, mineT:2,
       turretLv:0, turretDmg:0, turretRepoT:0, turrets:[], shadows:[], ghosts:[],
       necroChance:0, ghostCap:4, comboKeep:0, feverPlus:0, feverDmg:false, rageT:0,
-      sk2Cd:0, sk3Cd:0, sk4Cd:0,
+      tbuffs:[], skills:[null,null,null], learned:[], skCds:[0,0,0], awakening:null,
       acidBurst:false, chainPlus:0, frozenAmp:1, freezeBonus:0, turretRate:1, pulsePull:false, firetrailDur:1.6,
       ultChargedT:0, ultFireReq:false,
       projMult:1, odCd:0, odPower:0, odT:0, odTimer:5,
@@ -2404,6 +2604,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     altars = []; trialT = 0; slowmoT = 0; screenDimT = 0;
     merchants = []; merchantCount = 0;
     clients = []; clientCount = 0; runQuest = null;
+    pendingSkills = []; pendingAwaken = false;
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -2428,10 +2629,18 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     const sb = $('skillBar');
     sb.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
     const chips = sb.querySelectorAll('.skillChip');
-    const cds = [player.ultReady ? player.ultCooldown : -1, player.sk2Cd, player.sk3Cd, player.sk4Cd];
+    const cds = [player.ultReady ? player.ultCooldown : -1, player.skCds[0], player.skCds[1], player.skCds[2]];
     chips.forEach((ch,i)=>{
-      if (i===0 && !player.ultReady){ ch.disabled = true; ch.classList.remove('ready'); return; }
-      ch.disabled = false;
+      if (i===0){
+        if (!player.ultReady){ ch.disabled=true; ch.classList.remove('ready'); return; }
+        ch.disabled = false;
+        ch.innerHTML = '1<span style="font-size:8px;display:block;">궁극</span>';
+      } else {
+        const sk = player.skills[i-1];
+        if (!sk){ ch.disabled=true; ch.classList.remove('ready'); ch.innerHTML = i+1+'<span style="font-size:8px;display:block;">—</span>'; return; }
+        ch.disabled = false;
+        ch.innerHTML = (i+1)+'<span style="font-size:8px;display:block;">'+sk.n.slice(0,3)+'</span>';
+      }
       const ready = cds[i] <= 0;
       ch.classList.toggle('ready', ready);
       ch.style.opacity = ready ? '1' : '0.55';
@@ -3439,32 +3648,16 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   }
 
   // ---------- 액티브 스킬 (1~4) ----------
+  // 스킬 시전 — 슬롯 1: 전용기 / 슬롯 2~4: 직업 스킬 (레벨 습득)
   function castSkill(n){
     if (state!=='playing') return;
     if (n===1){ player.ultFireReq = true; return; }
-    if (n===2){
-      if (player.sk2Cd>0) return;
-      const t = nearestTarget();
-      const tx = t ? t.x : player.x + Math.cos(player.facing)*140;
-      const ty = t ? t.y : player.y + Math.sin(player.facing)*140;
-      addHazard(tx, ty, 70, 0.5, 45*player.dmgMult, true);
-      player.sk2Cd = 12 * player.cdr;
-      SFX.play('shoot');
-    } else if (n===3){
-      if (player.sk3Cd>0) return;
-      const hv = Math.round(player.maxHp*0.3*player.healMult);
-      player.hp = Math.min(player.maxHp, player.hp+hv);
-      addTextNum(player.x, player.y-24, '+'+hv);
-      player.sk3Cd = 30;
-      SFX.play('pick');
-    } else if (n===4){
-      if (player.sk4Cd>0) return;
-      player.rageT = 5;
-      addTextNum(player.x, player.y-24, '광폭화!');
-      effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:14, r1:80 });
-      player.sk4Cd = 25 * player.cdr;
-      SFX.play('fever');
-    }
+    const i = n-2;
+    const sk = player.skills[i];
+    if (!sk || player.skCds[i] > 0) return;
+    sk.fx();
+    player.skCds[i] = sk.cd * player.cdr;
+    addTextNum(player.x, player.y-34, sk.n);
   }
   document.querySelectorAll('.skillChip').forEach(b=>{
     b.addEventListener('pointerdown', (e)=>{
@@ -3586,6 +3779,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     let d = dmg * player.projMult * (isCrit?player.critMult:1);
     if (player.goldPower) d *= 1 + Math.min(0.3, runGold*0.0003); // 변혁: 황금 혈맥
     if (player.feverDmg && feverTimer>0) d *= 1.15; // 선율가: 피버 강화
+    d *= buffMult('dmg'); // 스킬 버프
     const p = {
       x:player.x, y:player.y,
       vx:Math.cos(a)*speed, vy:Math.sin(a)*speed,
@@ -3702,7 +3896,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     satPos = [];
     auraState.on = false;
     dronePos = [];
-    const rate = player.rateMult * feverRate() * (player.dashHasteT>0 ? 1.35 : 1) * (player.odT>0 ? 1+player.odPower : 1) * (player.rageT>0 ? 1.3 : 1);
+    const rate = player.rateMult * feverRate() * (player.dashHasteT>0 ? 1.35 : 1) * (player.odT>0 ? 1+player.odPower : 1) * (player.rageT>0 ? 1.3 : 1) * buffMult('rate');
 
     // 융합 무기는 두 파츠를 각각 85% 성능으로 발동
     const wlist = [];
@@ -4175,12 +4369,17 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         player.orbitalT = 16 * player.cdr;
       }
     }
-    // 기계: 터렛
-    if (player.turretLv>0){
-      while (player.turrets.length < player.turretLv) player.turrets.push({ x:player.x+40, y:player.y-40, cd:0.5 });
+    // 기계: 터렛 (+스킬로 소환된 임시 터렛)
+    if (player.turretLv>0 || player.turrets.length>0){
+      while (player.turrets.filter(t=>!t.temp).length < player.turretLv) player.turrets.push({ x:player.x+40, y:player.y-40, cd:0.5 });
+      for (let i=player.turrets.length-1;i>=0;i--){
+        const tu = player.turrets[i];
+        if (tu.temp !== undefined){ tu.temp -= dt; if (tu.temp<=0){ burst(tu.x,tu.y,6,110); player.turrets.splice(i,1); } }
+      }
       player.turretRepoT -= dt;
       if (player.turretRepoT<=0){
         for (const tu of player.turrets){
+          if (tu.temp !== undefined) continue;
           tu.x = player.x + (Math.random()*160-80);
           tu.y = player.y + (Math.random()*160-80);
           burst(tu.x, tu.y, 4, 90);
@@ -4461,7 +4660,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       particles.push({ x:player.x, y:player.y, vx:0, vy:0, life:0.25, age:0, r:player.r*0.8, ghost:true });
       if (player.dashTime<=0 && player.bloodRush) dashExplosion(player.x, player.y, 25); // 피의 질주: 종료 폭발
     } else {
-      const odMult = player.odT>0 ? 1.2 : 1;
+      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd');
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
     }
@@ -4479,10 +4678,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
     if (player.dashCd>0) player.dashCd -= dt;
     if (player.dashHasteT>0) player.dashHasteT -= dt;
-    if (player.sk2Cd>0) player.sk2Cd -= dt;
-    if (player.sk3Cd>0) player.sk3Cd -= dt;
-    if (player.sk4Cd>0) player.sk4Cd -= dt;
+    for (let i=0;i<3;i++) if (player.skCds[i]>0) player.skCds[i] -= dt;
     if (player.rageT>0) player.rageT -= dt;
+    // 임시 버프 만료
+    for (let i=player.tbuffs.length-1;i>=0;i--){
+      player.tbuffs[i].t -= dt;
+      if (player.tbuffs[i].t<=0) player.tbuffs.splice(i,1);
+    }
     if (player.invuln>0) player.invuln -= dt;
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
@@ -5154,7 +5356,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       SFX.play('tele');
       return false;
     }
-    let d = dmg * player.dmgTaken;
+    let d = dmg * player.dmgTaken * buffMult('dr');
     // 불굴: 낮은 체력 피해 감소
     if (player.undyingDR>0 && player.hp < player.maxHp*0.3) d *= (1-player.undyingDR);
     player.hp -= d;
@@ -5236,6 +5438,27 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       pendingLevelUps += 1;
     }
     if (player.level >= 30) unlockAch('lv30');
+    // 스킬 습득 체크 (레벨 도달 시)
+    const pool = SKILL_POOLS[player.classKey];
+    if (pool){
+      for (const sk of pool){
+        if (player.level >= sk.lv && !player.learned.includes(sk)){
+          player.learned.push(sk);
+          const empty = player.skills.indexOf(null);
+          if (empty >= 0){
+            player.skills[empty] = sk;
+            toast('스킬 습득: ['+sk.n+'] → 슬롯 '+(empty+2)+'번');
+            SFX.play('quest');
+          } else {
+            pendingSkills.push(sk);
+          }
+        }
+      }
+    }
+    // 각성 (레벨 20)
+    if (player.level >= 20 && !player.awakening && !pendingAwaken){
+      pendingAwaken = true;
+    }
   }
   const banishBtn = document.createElement('button');
   banishBtn.className = 'miniBtn';
@@ -5320,8 +5543,19 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
+      else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
+      else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
       else { state='playing'; last = performance.now(); }
     }, 120);
+  }
+  // 슬롯이 가득 찼을 때: 새 스킬을 어디에 넣을지 선택
+  function openSkillSwap(sk){
+    const opts = player.skills.map((cur, i)=>({
+      l:'슬롯 '+(i+2)+'번과 교체', d:'현재: ['+(cur?cur.n:'빈 슬롯')+'] → ['+sk.n+']',
+      fx:()=>{ player.skills[i] = sk; player.skCds[i] = 0; toast('['+sk.n+'] 장착!'); SFX.play('equip'); }
+    }));
+    opts.push({ l:'배우기만 한다', d:'슬롯은 그대로 둔다', fx:null });
+    openEvent({ t:'새 스킬: '+sk.n, d:sk.d+' (쿨다운 '+sk.cd+'초)', opts });
   }
   function pickUpgrade(i){
     if (state!=='levelup' || banishMode) return;
@@ -5410,6 +5644,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
   // ---------- NPC 의뢰인 (런 중 퀘스트) ----------
   let clients = [], clientCount = 0, runQuest = null;
+  let pendingSkills = [], pendingAwaken = false;
+  let dailyPending = false, dailyRun = false, origRandom = Math.random;
   function openClientQuest(){
     const D = player.dmgMult;
     const offers = [
@@ -5463,6 +5699,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   // ---------- game flow ----------
   function showIdle(){
     state = 'idle';
+    Math.random = origRandom; // 일일 시드 해제
     resize();
     resetWorld();
     draw(0);
@@ -5488,11 +5725,21 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (!isClassUnlocked(classKey)) return;
     grabFocus();
     resize();
+    // 일일 도전: 날짜 시드로 Math.random 고정 (같은 날 = 같은 전개)
+    dailyRun = dailyPending;
+    if (dailyRun){
+      let seed = 0;
+      const ds = todayStr();
+      for (let i=0;i<ds.length;i++) seed = (seed*31 + ds.charCodeAt(i))|0;
+      Math.random = mulberry32(seed);
+    } else {
+      Math.random = origRandom;
+    }
     // 랜덤 출격: 해금된 맵 중 무작위
     const unlockedMaps = MAP_ORDER.filter(mapUnlocked);
     selMap = unlockedMaps[(Math.random()*unlockedMaps.length)|0];
     resetWorld();
-    toast('출격: '+MAP.name+' (위험도 '+(DB.peril||0)+')');
+    toast((dailyRun?'📅 일일 도전 — ':'')+'출격: '+MAP.name+' (위험도 '+(DB.peril||0)+')');
     player.classKey = classKey;
     const cls = CLASSES[classKey];
     if (cls){
@@ -5645,6 +5892,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     e.stopPropagation();
     const cleared = state==='win' ? '✅ 클리어' : '💀 사망';
     const txt = 'GRAYSCALE//SURVIVOR '+cleared
+      + (dailyRun ? '\n📅 일일 도전 '+todayStr() : '')
       + '\n🗺 '+MAP.name+' · 위험도 '+(DB.peril||0)
       + '\n⏱ '+fmtTime(elapsed)+' · ⚔ '+killCount+'킬 · Lv'+player.level
       + '\n💥 총 피해 '+(totalDmg>=10000?(totalDmg/10000).toFixed(1)+'만':totalDmg)
