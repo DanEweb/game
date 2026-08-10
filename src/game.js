@@ -313,6 +313,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       if (state==='playing'){ openInv(); }
       else if (state==='inv'){ closeInv(); }
     }
+    if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (state==='levelup'){
       if (['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(e.code)) pickUpgrade(parseInt(e.code.slice(-1),10)-1);
       if (e.code==='KeyR') doReroll();
@@ -1224,7 +1225,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     mag:['manager','voidc'],
     rog:['ninja','reaper','glitch'],
     pri:['necro','bard','returner'],
-    mer:['engineer','debug'],
+    mer:['engineer','debug','tourist','slime'],
   };
   function resonantCount(classKey){
     let n = 0;
@@ -1523,7 +1524,22 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       weapon:'aura',
       apply:(p)=>{ p.comboKeep=1.5; p.feverPlus=3; p.feverDmg=true; }
     },
+    // ---- 재미 직업 ----
+    tourist: {
+      name:'관광객', tag:'재미', cost:500,
+      desc:'[드론(셀카봉)]으로 시작. 이동 중 골드가 저절로 모인다 (+행운 +30%). 싸움엔 관심 없음.',
+      weapon:'drone',
+      apply:(p)=>{ p.luck*=1.3; p.walkGold=true; p.dmgMult*=0.9; p.speed*=1.08; }
+    },
     // ---- 히든 직업 (골드가 아니라 조건으로 해금) ----
+    slime: {
+      name:'슬라임', tag:'히든', hidden:true,
+      condDesc:'누적 20,000마리 처치 시 해금',
+      cond:()=> (DB.prog.kill||0)>=20000,
+      desc:'너무 많이 죽여서 몬스터가 되어버렸다. [역장]으로 시작, 체력이 높을수록 커지고 강해진다.',
+      weapon:'aura',
+      apply:(p)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.hp=p.maxHp; p.slimeBody=true; p.speed*=0.95; }
+    },
     glitch: {
       name:'글리치', tag:'히든', hidden:true,
       condDesc:'심연 회로 클리어 시 해금',
@@ -1669,6 +1685,18 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       strengthenDesc:'소환 수 +2',
       unlock:(p)=>{ p.ultReady=true; p.ultCooldownMax=10; p.ultCooldown=2; p.ultVolleyCount=6; },
       strengthen:(p)=>{ p.ultVolleyCount=Math.min(12,p.ultVolleyCount+2); }
+    },
+    tourist: {
+      key:'ult_photo', name:'기념 촬영', desc:'12초마다 셔터를 눌러 모든 적을 2.5초 정지시키고 골드를 줍습니다.',
+      strengthenDesc:'재사용 대기시간 감소',
+      unlock:(p)=>{ p.ultReady=true; p.ultCooldownMax=12; p.ultCooldown=2; p.ultDamage=10; },
+      strengthen:(p)=>{ p.ultCooldownMax=Math.max(7,p.ultCooldownMax-1.5); }
+    },
+    slime: {
+      key:'ult_press', name:'바디 프레스', desc:'9초마다 온몸으로 짓눌러 체력에 비례한 광역 피해를 주고 조금 회복합니다.',
+      strengthenDesc:'피해 +12, 회복량 증가',
+      unlock:(p)=>{ p.ultReady=true; p.ultCooldownMax=9; p.ultCooldown=1.5; p.ultDamage=24; },
+      strengthen:(p)=>{ p.ultDamage+=12; }
     },
     bard: {
       key:'ult_crescendo', name:'광상곡', desc:'14초마다 폭발적인 연주로 즉시 피버를 일으킵니다.',
@@ -1858,12 +1886,177 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       { n:'sudo', lv:15, cd:20, d:'4초간 모든 버프 (공속·이속·피해 +20%)', fx:()=>{ tbuff('rate',1.2,4); tbuff('spd',1.2,4); tbuff('dmg',1.2,4); addTextNum(player.x,player.y-26,'#'); } },
       { n:'rm -rf', lv:25, cd:34, d:'보스를 제외한 화면을 청소한다', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(e.type!=='treasure'){ e.hp-=200*player.dmgMult; addDmgNum(e.x,e.y,200*player.dmgMult,true); if(e.hp<=0) defeatEnemy(i); } } shake=Math.min(24,shake+18); SFX.play('boom'); } },
     ],
+    tourist: [
+      { n:'셀카', lv:3, cd:14, d:'주변 적 1.5초 정지 + 골드 5', fx:()=>{ for (const e of enemies){ if((e.x-player.x)**2+(e.y-player.y)**2<160*160) e.frozenT=Math.max(e.frozenT||0,1.5); } runGold+=Math.round(5*player.goldMult); addTextNum(player.x,player.y-26,'📸'); SFX.play('tele'); } },
+      { n:'간식 타임', lv:8, cd:18, d:'체력 15% 회복', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.15*player.healMult); addTextNum(player.x,player.y-26,'냠냠'); SFX.play('pick'); } },
+      { n:'택시!', lv:15, cd:16, d:'대시 즉시 충전 + 3초간 이속 +30%', fx:()=>{ player.dashCd=0; tbuff('spd',1.3,3); addTextNum(player.x,player.y-26,'택시!'); } },
+      { n:'환불 요청', lv:25, cd:30, d:'골드 30 소모, 6초간 피해 +40% (진상의 힘)', fx:()=>{ if(runGold>=30){ runGold-=30; tbuff('dmg',1.4,6); addTextNum(player.x,player.y-26,'환불해줘!'); SFX.play('warn'); } else { addTextNum(player.x,player.y-26,'잔액 부족...'); } } },
+    ],
+    slime: [
+      { n:'점액 뿌리기', lv:3, cd:12, d:'주변 적 3초간 감속 60%', fx:()=>{ for (const e of enemies){ if((e.x-player.x)**2+(e.y-player.y)**2<150*150) e.chillS=Math.max(e.chillS||0,3); } addTextNum(player.x,player.y-26,'끈적'); SFX.play('tele'); } },
+      { n:'분열', lv:8, cd:20, d:'체력 10% 소모, 4초간 분신처럼 사방 파편 발사', fx:()=>{ player.hp=Math.max(1,player.hp-player.maxHp*0.1); skNova(120, 22); addTextNum(player.x,player.y-26,'뽀잉!'); } },
+      { n:'젤리 방패', lv:15, cd:18, d:'4초간 받는 피해 -60%', fx:()=>{ tbuff('dr',0.4,4); addTextNum(player.x,player.y-26,'말랑'); } },
+      { n:'폭식', lv:25, cd:32, d:'최대 체력 +10% (영구) + 즉시 20% 회복', fx:()=>{ player.maxHp=Math.round(player.maxHp*1.1); player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.2); addTextNum(player.x,player.y-26,'꿀꺽'); SFX.play('win'); } },
+    ],
     cheolhyeol: [],
   };
   SKILL_POOLS.cheolhyeol = SKILL_POOLS.cheol;
   function tryDashFree(){ const o=player.dashCd; player.dashCd=0; tryDash(); if (player.dashCd>0) player.dashCd=Math.min(player.dashCd,o); }
 
-  // ---------- 각성 (레벨 20, 공명 계열 2경로 + 공용 2경로) ----------
+  // ---------- 전직 (레벨 10: 1차 4택 → 레벨 25: 2차 → 레벨 40: 3차) ----------
+  const JOB_TREES = {
+    manager:  [ { n:'시스템 설계자', d:'위성 피해 +20%, 쿨다운 -6%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.2; p.cdr*=0.94; } },
+                { n:'감사관', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
+                { n:'보안 책임자', d:'받는 피해 -10%, 방벽 충전 시간 -20%', fx:(p)=>{ p.dmgTaken*=0.9; if(p.shieldCdMax) p.shieldCdMax*=0.8; } },
+                { n:'아키텍트', d:'모든 피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } } ],
+    sniper:   [ { n:'헤드헌터', d:'치명 확률 +10%, 배율 +0.3', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.critMult+=0.3; } },
+                { n:'유격수', d:'이동 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
+                { n:'중화기병', d:'투사체 피해 +15%, 관통 +1', fx:(p)=>{ p.projMult*=1.15; p.pierce+=1; } },
+                { n:'탄도학자', d:'모든 피해 +10%, 관통 +1', fx:(p)=>{ p.dmgMult*=1.1; p.pierce+=1; } } ],
+    rusher:   [ { n:'광전사', d:'피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; } },
+                { n:'선봉장', d:'이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; } },
+                { n:'수호기사', d:'받는 피해 -12%, 체력 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.15); } },
+                { n:'결투가', d:'치명 확률 +12%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); } } ],
+    archer:   [ { n:'질풍 사수', d:'공속 +12%, 이동 +6%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.06; } },
+                { n:'명궁', d:'치명 +8%, 관통 +2', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.08); p.pierce+=2; } },
+                { n:'사냥주술사', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
+                { n:'유랑 궁사', d:'이동 +8%, 행운 +25%', fx:(p)=>{ p.speed*=1.08; p.luck*=1.25; } } ],
+    ninja:    [ { n:'암살자', d:'치명 +10%, 처형 임계 +5%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.05); } },
+                { n:'환영술사', d:'회피 +8%, 대시 시 분신', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.shadowClone=true; } },
+                { n:'질주자', d:'대시 쿨 -25%, 이동 +8%', fx:(p)=>{ p.dashCdMax*=0.75; p.speed*=1.08; } },
+                { n:'독인', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } } ],
+    engineer: [ { n:'발명가', d:'드론·터렛 피해 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||10)*1.25; } },
+                { n:'금융공학자', d:'골드 +25%, 아이템 드랍 +30%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.3; } },
+                { n:'뇌격술사', d:'낙뢰 피해 +25%', fx:(p)=>{ p.boltBoost=(p.boltBoost||1)*1.25; } },
+                { n:'정비공', d:'쿨다운 -10%, 재생 +0.5', fx:(p)=>{ p.cdr*=0.9; p.regen+=0.5; } } ],
+    paladin:  [ { n:'성전사', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } },
+                { n:'수호성인', d:'받는 피해 -12%, 회복 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.2; } },
+                { n:'심판관', d:'처형 임계 +8%p, 치명 +6%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.critChance=Math.min(0.85,p.critChance+0.06); } },
+                { n:'순례자', d:'이동 +10%, 재생 +0.6', fx:(p)=>{ p.speed*=1.1; p.regen+=0.6; } } ],
+    reaper:   [ { n:'수확자', d:'처형 임계 +8%p, 낫 피해 +15%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.scytheBoost=(p.scytheBoost||1)*1.15; } },
+                { n:'원혼술사', d:'처치 시 15% 유령 소환', fx:(p)=>{ p.necroChance=Math.max(p.necroChance,0.15); } },
+                { n:'침묵', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
+                { n:'재앙', d:'모든 피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } } ],
+    pilot:    [ { n:'에이스', d:'공속 +12%, 드론 +15%', fx:(p)=>{ p.rateMult*=1.12; p.droneBoost+=0.15; } },
+                { n:'폭격수', d:'폭발·궁극 피해 +20%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.2); p.explodeDmg=(p.explodeDmg||18)*1.2; } },
+                { n:'정찰병', d:'이동 +10%, 수집 범위 +40', fx:(p)=>{ p.speed*=1.1; p.magnet+=40; } },
+                { n:'군수담당', d:'아이템 드랍 +50%, 골드 +15%', fx:(p)=>{ p.luck*=1.5; p.goldMult*=1.15; } } ],
+    glitch:   [ { n:'바이러스', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } },
+                { n:'오버클럭', d:'공속 +10%, 쿨다운 -8%', fx:(p)=>{ p.rateMult*=1.1; p.cdr*=0.92; } },
+                { n:'랜덤 포인터', d:'무작위 스탯 대폭 강화 ×2', fx:(p)=>{ for(let k=0;k<2;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.15; else if(r<0.66) p.rateMult*=1.15; else p.speed*=1.15; } } },
+                { n:'세그폴트', d:'피해 +20% / 체력 -10%', fx:(p)=>{ p.dmgMult*=1.2; p.maxHp=Math.round(p.maxHp*0.9); } } ],
+    returner: [ { n:'예언자', d:'리롤 +2, 행운 +20%', fx:(p)=>{ rerollsLeft+=2; p.luck*=1.2; } },
+                { n:'기록자', d:'경험치 +15%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.15; } },
+                { n:'시간술사', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } },
+                { n:'순환자', d:'재생 +0.8, 회복 +15%', fx:(p)=>{ p.regen+=0.8; p.healMult*=1.15; } } ],
+    cheol:    [ { n:'파성퇴', d:'피해 +15%, 낫 피해 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.scytheBoost=(p.scytheBoost||1)*1.1; } },
+                { n:'요새', d:'받는 피해 -12%, 체력 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.2); } },
+                { n:'단조가', d:'모든 피해 +10%, 체력 +10%', fx:(p)=>{ p.dmgMult*=1.1; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'전장군주', d:'주변 아군 효과 — 유령·분신·터렛 피해 +30%', fx:(p)=>{ p.ghostDmg=(p.ghostDmg||1)*1.3; p.droneBoost+=0.3; p.turretDmg=(p.turretDmg||10)*1.3; } } ],
+    voidc:    [ { n:'심연 대변자', d:'원소 발동 +10%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.10; } },
+                { n:'붕괴술사', d:'부식 강화 (중첩당 +22%)', fx:(p)=>{ p.corrodeAmp=Math.max(p.corrodeAmp,0.22); } },
+                { n:'허무', d:'쿨다운 -10%, 피해 +8%', fx:(p)=>{ p.cdr*=0.9; p.dmgMult*=1.08; } },
+                { n:'별지기', d:'공명 노드당 피해 +0.5% 추가', fx:(p)=>{ p.dmgMult*=1+0.005*resonantCount(p.classKey); } } ],
+    necro:    [ { n:'군단장', d:'유령 최대 +2, 유령 피해 +25%', fx:(p)=>{ p.ghostCap+=2; p.ghostDmg=(p.ghostDmg||1)*1.25; } },
+                { n:'무덤지기', d:'받는 피해 -10%, 유령 지속 +3초', fx:(p)=>{ p.dmgTaken*=0.9; p.ghostDur=(p.ghostDur||0)+3; } },
+                { n:'영매', d:'회복 +25%, 유령 소환 확률 +5%p', fx:(p)=>{ p.healMult*=1.25; p.necroChance+=0.05; } },
+                { n:'역병술사', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } } ],
+    bard:     [ { n:'지휘자', d:'스킬 버프 지속... 피버 +2초', fx:(p)=>{ p.feverPlus=(p.feverPlus||0)+2; } },
+                { n:'음유시인', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
+                { n:'전쟁고수', d:'피해 +12%, 공속 +8%', fx:(p)=>{ p.dmgMult*=1.12; p.rateMult*=1.08; } },
+                { n:'진혼가수', d:'회복 +25%, 재생 +0.6', fx:(p)=>{ p.healMult*=1.25; p.regen+=0.6; } } ],
+    tourist:  [ { n:'배낭여행자', d:'이동 +12%, 골드 +15%', fx:(p)=>{ p.speed*=1.12; p.goldMult*=1.15; } },
+                { n:'사진작가', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } },
+                { n:'미식가', d:'회복 +30%, 체력 +10%', fx:(p)=>{ p.healMult*=1.3; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'인플루언서', d:'행운 +40%, 아이템 드랍 강화', fx:(p)=>{ p.luck*=1.4; } } ],
+    slime:    [ { n:'킹슬라임', d:'체력 +25%, 피해 +10%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.25); p.dmgMult*=1.1; } },
+                { n:'산성 슬라임', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } },
+                { n:'메탈 슬라임', d:'받는 피해 -15% / 이동 -5%', fx:(p)=>{ p.dmgTaken*=0.85; p.speed*=0.95; } },
+                { n:'분열 슬라임', d:'처치 시 파편 발사', fx:(p)=>{ p.shatter=true; } } ],
+    debug:    [ { n:'백엔드', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } },
+                { n:'프론트엔드', d:'공속 +12%', fx:(p)=>{ p.rateMult*=1.12; } },
+                { n:'데브옵스', d:'모든 스탯 +6%', fx:(p)=>{ p.dmgMult*=1.06; p.rateMult*=1.06; p.speed*=1.06; p.maxHp=Math.round(p.maxHp*1.06); } },
+                { n:'해커', d:'치명 +10%, 행운 +30%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.luck*=1.3; } } ],
+  };
+  JOB_TREES.cheolhyeol = JOB_TREES.cheol;
+  const JOB2_OPTIONS = [
+    { n:'극의', d:'피해 +15%, 공속 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.rateMult*=1.1; } },
+    { n:'수호', d:'체력 +20%, 받는 피해 -8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); p.dmgTaken*=0.92; } },
+  ];
+  function openJobChoice(tier){
+    if (tier===1){
+      const list = JOB_TREES[player.classKey] || JOB_TREES.manager;
+      const opts = list.map(j=>({ l:'전직: '+j.n, d:j.d, fx:()=>{
+        j.fx(player); player.jobs.push(j.n);
+        toast('1차 전직 — '+j.n+'!');
+        effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
+        SFX.play('win');
+      } }));
+      openEvent({ t:'1차 전직', d:'길이 갈라진다. 이 런에서 걸어갈 길을 선택하세요.', opts });
+    } else if (tier===2){
+      const base = player.jobs[0] || '';
+      const opts = JOB2_OPTIONS.map(j=>({ l:'2차 전직: '+base+' · '+j.n, d:j.d, fx:()=>{
+        j.fx(player); player.jobs.push(j.n);
+        toast('2차 전직 — '+base+' · '+j.n+'!');
+        SFX.play('win');
+      } }));
+      openEvent({ t:'2차 전직', d:'선택한 길이 깊어진다.', opts });
+    } else {
+      const rc = resonantCount(player.classKey);
+      openEvent({ t:'3차 전직 — 초월', d:'모든 길의 끝. 존재가 한 단계 올라선다.', opts:[
+        { l:'초월한다', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:()=>{
+          const m = 1.10 + 0.005*rc;
+          player.dmgMult*=m; player.rateMult*=1.1; player.speed*=1.08;
+          player.maxHp=Math.round(player.maxHp*1.1); player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.1);
+          player.jobs.push('초월');
+          toast('3차 전직 — 초월! (공명 ×'+rc+')');
+          freeze=Math.max(freeze,0.25);
+          SFX.play('win');
+        } },
+      ]});
+    }
+  }
+
+  // ---------- 각성 (레벨 20) — 전 직업 고유 경로 ----------
+  const AWAKEN_BY_CLASS = {
+    manager:  [ { n:'중앙 통제', d:'위성 피해 +30%, 쿨다운 -10%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.3; p.cdr*=0.9; } },
+                { n:'무결성', d:'받는 피해 -15%, 방벽 즉시 충전', fx:(p)=>{ p.dmgTaken*=0.85; p.shieldReady=true; if(!p.shieldCdMax) p.shieldCdMax=12; } } ],
+    sniper:   [ { n:'일격의 화신', d:'치명 배율 +0.8', fx:(p)=>{ p.critMult+=0.8; } },
+                { n:'유령 사수', d:'회피 +12%, 공속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); p.rateMult*=1.1; } } ],
+    rusher:   [ { n:'전신(戰神)', d:'피해 +25% / 받는 피해 +8%', fx:(p)=>{ p.dmgMult*=1.25; p.dmgTaken*=1.08; } },
+                { n:'불사조', d:'부활 +1, 흡혈 +2', fx:(p)=>{ p.reviveLeft+=1; p.lifesteal+=2; } } ],
+    archer:   [ { n:'바람의 사도', d:'공속 +20%, 이동 +10%', fx:(p)=>{ p.rateMult*=1.2; p.speed*=1.1; } },
+                { n:'별을 쏘는 자', d:'관통 +3, 투사체 피해 +12%', fx:(p)=>{ p.pierce+=3; p.projMult*=1.12; } } ],
+    ninja:    [ { n:'그림자 그 자체', d:'회피 +15%, 대시 무적 +0.2초', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.15); p.dashInvuln+=0.2; } },
+                { n:'필살의 인', d:'치명 +15%, 처형 임계 +6%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.15); p.execThresh=Math.min(0.35,p.execThresh+0.06); } } ],
+    engineer: [ { n:'수석 엔지니어', d:'터렛 +1기, 드론 피해 +30%', fx:(p)=>{ p.turretLv=(p.turretLv||0)+1; if(!p.turretDmg) p.turretDmg=12; p.droneBoost+=0.3; } },
+                { n:'대부호', d:'골드 +40%, 골드가 곧 힘 (황금 혈맥)', fx:(p)=>{ p.goldMult*=1.4; p.goldPower=true; } } ],
+    paladin:  [ { n:'대천사의 가호', d:'받는 피해 -18%, 회복 +25%', fx:(p)=>{ p.dmgTaken*=0.82; p.healMult*=1.25; } },
+                { n:'응징의 빛', d:'피해 +18%, 피격 시 신성 폭발', fx:(p)=>{ p.dmgMult*=1.18; p.holyRet=true; } } ],
+    reaper:   [ { n:'죽음의 군주', d:'처형 임계 +10%p', fx:(p)=>{ p.execThresh=Math.min(0.4,p.execThresh+0.10); } },
+                { n:'망령왕', d:'유령 소환 +10%p, 유령 피해 +40%', fx:(p)=>{ p.necroChance=(p.necroChance||0)+0.10; p.ghostDmg=(p.ghostDmg||1)*1.4; } } ],
+    pilot:    [ { n:'하늘의 지배자', d:'궁극 폭격 강화 +40%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||35)*1.4); } },
+                { n:'풀 스로틀', d:'공속 +18%, 이동 +12%', fx:(p)=>{ p.rateMult*=1.18; p.speed*=1.12; } } ],
+    glitch:   [ { n:'메모리 누수', d:'매우 무작위한 대폭 강화', fx:(p)=>{ for(let k=0;k<3;k++){ const r=Math.random(); if(r<0.25) p.dmgMult*=1.12; else if(r<0.5) p.rateMult*=1.12; else if(r<0.75) p.maxHp=Math.round(p.maxHp*1.12); else p.luck*=1.3; } } },
+                { n:'무한 루프', d:'스킬 쿨다운 -20%', fx:(p)=>{ p.cdr*=0.8; } } ],
+    returner: [ { n:'모든 것을 본 자', d:'속성 5계열까지 선택 가능', fx:(p)=>{ p.attrLimit=(p.attrLimit||3)+1; } },
+                { n:'되감기', d:'부활 +1', fx:(p)=>{ p.reviveLeft+=1; } } ],
+    cheol:    [ { n:'강철의 화신', d:'받는 피해 -20%', fx:(p)=>{ p.dmgTaken*=0.8; } },
+                { n:'전쟁 기계', d:'피해 +22%, 낫·역장 +15%', fx:(p)=>{ p.dmgMult*=1.22; p.scytheBoost=(p.scytheBoost||1)*1.15; p.auraBoost=(p.auraBoost||1)*1.15; } } ],
+    voidc:    [ { n:'공허와의 계약', d:'원소 발동 +12%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.12; } },
+                { n:'경계의 붕괴', d:'피해 +20%, 쿨다운 -8%', fx:(p)=>{ p.dmgMult*=1.2; p.cdr*=0.92; } } ],
+    necro:    [ { n:'사령제왕', d:'유령 최대 +3, 피해 +30%', fx:(p)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.3; } },
+                { n:'윤회의 목자', d:'유령이 죽을 때 치유', fx:(p)=>{ p.ghostHeal=true; } } ],
+    bard:     [ { n:'영웅서사시', d:'피버 지속 +4초, 피버 피해 +25%', fx:(p)=>{ p.feverPlus=(p.feverPlus||0)+4; p.feverDmg=true; } },
+                { n:'세이렌', d:'적 이속 -10%, 골드 +25%', fx:(p)=>{ p.slowAll*=0.9; p.goldMult*=1.25; } } ],
+    tourist:  [ { n:'세계일주자', d:'이동 +18%, 골드 +30%', fx:(p)=>{ p.speed*=1.18; p.goldMult*=1.3; } },
+                { n:'전설의 리뷰어', d:'행운 +60%', fx:(p)=>{ p.luck*=1.6; } } ],
+    slime:    [ { n:'슬라임 황제', d:'체력 +40%, 체력 비례 피해', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.4); p.dmgMult*=1+p.maxHp*0.0008; } },
+                { n:'불멸의 점액', d:'재생 +2, 받는 피해 -10%', fx:(p)=>{ p.regen+=2; p.dmgTaken*=0.9; } } ],
+    debug:    [ { n:'루트 어드민', d:'모든 스탯 +10%', fx:(p)=>{ p.dmgMult*=1.1; p.rateMult*=1.1; p.speed*=1.1; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'열람자', d:'카드 6장 표시', fx:(p)=>{ p.cardSlots=6; } } ],
+  };
+  AWAKEN_BY_CLASS.cheolhyeol = AWAKEN_BY_CLASS.cheol;
   const AWAKENINGS = {
     war: [
       { n:'파괴자', d:'모든 피해 +20% / 받는 피해 +10%', fx:(p)=>{ p.dmgMult*=1.2; p.dmgTaken*=1.1; } },
@@ -1900,7 +2093,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   }
   function openAwakening(){
     const g = classResGroup(player.classKey);
-    const list = (AWAKENINGS[g]||AWAKENINGS.war).concat(AWAKEN_COMMON);
+    // 직업별 고유 각성 2 + 공용 2 (고유가 없으면 공명군 각성으로 폴백)
+    const own = AWAKEN_BY_CLASS[player.classKey] || AWAKENINGS[g] || AWAKENINGS.war;
+    const list = own.concat(AWAKEN_COMMON);
     const rc = resonantCount(player.classKey);
     const opts = list.map(a=>({ l:'각성: '+a.n, d:a.d + (rc>0 ? ' — 공명 증폭 +'+(rc*0.5).toFixed(1)+'%' : ''), fx:()=>{
       a.fx(player);
@@ -2040,11 +2235,12 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     { n:'희귀', w:14,  m:2.0, cls:'r2' },
     { n:'영웅', w:6.5, m:3.0, cls:'r3' },
     { n:'전설', w:2.5, m:4.5, cls:'r4' },
+    { n:'신화', w:0,   m:6.0, cls:'r5m' },  // 일반 롤에선 안 나옴 — 신화 노드 전용 (트리당 유일)
   ];
   function rollCardRarity(){
     const luckB = Math.min(3, Math.max(1, player ? player.luck : 1));
     let total = 0;
-    const ws = CARD_RARITY.map((r,i)=> { const w = i===0 ? r.w : r.w*luckB; total += w; return w; });
+    const ws = CARD_RARITY.slice(0,5).map((r,i)=> { const w = i===0 ? r.w : r.w*luckB; total += w; return w; });
     let roll = Math.random()*total;
     for (let i=0;i<ws.length;i++){ roll -= ws[i]; if (roll<=0) return i; }
     return 0;
@@ -2070,54 +2266,75 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       { key:'f_ball',   name:'화염구',     tier:1, max:3, desc:(m)=>'3.5초마다 화염구 발사 — 착탄 시 폭발+화상 (피해 +'+R(12*m)+')', apply:(p,m)=>{ if(!p.fireballLv) p.fireballDmg=22; p.fireballLv+=1; p.fireballDmg+=12*m; } },
       { key:'f_trail',  name:'불의 궤적',  tier:2, max:2, desc:(m)=>'이동 경로에 불길이 남는다 (초당 피해 +'+R(8*m)+')', apply:(p,m)=>{ p.firetrailLv+=1; p.firetrailDps=(p.firetrailDps||10)+8*m; } },
       { key:'f_zone',   name:'폭염 지대',  tier:2, max:2, desc:(m)=>'불길 장판 피해 +'+R(10*m)+', 지속 +0.4초', apply:(p,m)=>{ p.firetrailDps=(p.firetrailDps||10)+10*m; p.firetrailDur+=0.4; } },
+      { key:'f_heart',  name:'타오르는 심장', tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 화상 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.burnDps) p.burnDps+=2*m; else { p.burnChance=Math.max(p.burnChance||0,0.1); p.burnDps=6+2*m; } } },
+      { key:'f_ash',    name:'재의 질주',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 불의 궤적 피해 +'+R(5*m), apply:(p,m)=>{ p.speed*=1+0.04*m; p.firetrailDps=(p.firetrailDps||10)+5*m; } },
       { key:'f_inferno',name:'대화재',     tier:3, max:1, desc:(m)=>'[궁극] 12초마다 대폭염 (피해 '+R(60*m)+') + 모든 화상 즉시 폭발', apply:(p,m)=>{ p.inferno=60*m; } },
+      { key:'f_myth',   name:'겁화의 군주', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 화상 피해 2배, 화상 확률 +20%p, 대화재 쿨다운 -30%', apply:(p)=>{ p.burnDps=(p.burnDps||6)*2; p.burnChance=Math.min(0.95,(p.burnChance||0)+0.2); p.infernoCdMult=0.7; } },
     ]},
     frost: { name:'서리', nodes:[
       { key:'i_chill',  name:'냉기 부여',  tier:1, max:3, desc:(m)=>'타격 시 냉기 중첩 — 중첩당 이속 -'+R((0.15+0.03*m)*100)+'% (최대 3중첩)', apply:(p,m)=>{ p.chillOn=true; p.chillPower=Math.min(0.28,(p.chillPower||0.12)+0.03*m); } },
       { key:'i_lance',  name:'얼음창',     tier:1, max:3, desc:(m)=>'4초마다 관통 얼음창 — 25% 확률 1초 빙결 (피해 +'+R(10*m)+')', apply:(p,m)=>{ if(!p.lanceLv) p.lanceDmg=16; p.lanceLv+=1; p.lanceDmg+=10*m; } },
       { key:'i_armor',  name:'서리 갑옷',  tier:2, max:2, desc:(m)=>'피격 시 주변 적 빙결 1.2초, 받는 피해 -'+R(6*m)+'%', apply:(p,m)=>{ p.frostArmor=(p.frostArmor||0)+1; p.dmgTaken*=1-0.06*m; } },
       { key:'i_deep',   name:'혹한',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적에게 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.10*m; } },
+      { key:'i_calm',   name:'냉정',       tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 냉기 효과 +'+R(2*m)+'%p', apply:(p,m)=>{ p.cdr*=1-0.03*m; p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.02*m); p.chillOn=true; } },
+      { key:'i_shatter',name:'분쇄',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.08*m; } },
       { key:'i_abszero',name:'절대영도',   tier:3, max:1, desc:(m)=>'[궁극] 14초마다 화면 전체 2초 빙결 + 피해 '+R(40*m), apply:(p,m)=>{ p.absZero=40*m; } },
+      { key:'i_myth',   name:'영원한 겨울', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 빙결·냉기 적 피해 +35%, 냉기 최대 효과, 서리 갑옷 강화', apply:(p)=>{ p.frozenAmp+=0.35; p.chillPower=0.32; p.chillOn=true; p.frostArmor=(p.frostArmor||0)+1; } },
     ]},
     volt: { name:'번개', nodes:[
       { key:'l_shock',  name:'감전',       tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 연쇄 번개 (피해 +'+R(5*m)+')', apply:(p,m)=>{ p.shockChance=Math.min(0.6,p.shockChance+0.08*m); p.shockDmg=(p.shockDmg||10)+5*m; } },
       { key:'l_charge', name:'축전',       tier:1, max:3, desc:(m)=>'공격속도 +'+R(6*m)+'%, 대시 후 2초간 감전 확률 100%', apply:(p,m)=>{ p.rateMult*=1+0.06*m; p.chargeBoost=true; if(!p.shockDmg) p.shockDmg=10; } },
       { key:'l_field',  name:'자기장',     tier:2, max:2, desc:(m)=>'4초마다 주변에 감전 펄스 (피해 +'+R(8*m)+')', apply:(p,m)=>{ p.magfieldLv+=1; p.magfieldDmg=(p.magfieldDmg||12)+8*m; } },
       { key:'l_over',   name:'과전압',     tier:2, max:1, desc:(m)=>'감전 연쇄가 한 번 더 튄다', apply:(p,m)=>{ p.chainPlus=1; } },
+      { key:'l_cap',    name:'축전기',     tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 감전 피해 +'+R(4*m), apply:(p,m)=>{ p.cdr*=1-0.03*m; p.shockDmg=(p.shockDmg||10)+4*m; } },
+      { key:'l_flash',  name:'전광석화',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 공격속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.speed*=1+0.04*m; p.rateMult*=1+0.04*m; } },
       { key:'l_thor',   name:'뇌신 강림',  tier:3, max:1, desc:(m)=>'[궁극] 11초마다 거대 낙뢰 8연타 (피해 '+R(30*m)+')', apply:(p,m)=>{ p.thor=30*m; } },
+      { key:'l_myth',   name:'천둥의 심장', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 감전 연쇄 +2회, 감전 확률 +15%p, 감전 피해 +15', apply:(p)=>{ p.chainPlus=(p.chainPlus||0)+2; p.shockChance=Math.min(0.8,(p.shockChance||0)+0.15); p.shockDmg=(p.shockDmg||10)+15; } },
     ]},
     acid: { name:'부식', nodes:[
       { key:'a_shred',  name:'방어 붕괴',  tier:1, max:4, desc:(m)=>'타격 시 '+R(10*m)+'% 확률 부식 — 중첩당 받는 피해 +15% (5초)', apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.10*m); } },
       { key:'a_melt',   name:'용해',       tier:1, max:3, desc:(m)=>'부식된 적은 초당 '+R(3*m)+' 추가 피해', apply:(p,m)=>{ p.dissolveDps=(p.dissolveDps||0)+3*m; } },
       { key:'a_cloud',  name:'산성 구름',  tier:2, max:2, desc:(m)=>'7초마다 산성 구름 장판 (초당 피해 +'+R(7*m)+', 부식 부여)', apply:(p,m)=>{ p.acidLv+=1; p.acidDps=(p.acidDps||10)+7*m; } },
       { key:'a_burst',  name:'침식 폭발',  tier:2, max:1, desc:(m)=>'부식 2중첩 이상 적이 죽으면 산성 폭발이 퍼진다', apply:(p,m)=>{ p.acidBurst=true; } },
+      { key:'a_blood',  name:'맹독 혈액',  tier:1, max:3, desc:(m)=>'부식 확률 +'+R(6*m)+'%p, 재생 +'+R1(0.2*m), apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.06*m); p.regen+=0.2*m; } },
+      { key:'a_endur',  name:'내성',       tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 용해 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; p.dissolveDps=(p.dissolveDps||0)+2*m; } },
       { key:'a_collapse',name:'완전 붕괴', tier:3, max:1, desc:(m)=>'[궁극] 부식 최대 4중첩·효과 강화, 15초마다 전 화면 부식', apply:(p,m)=>{ p.collapse=true; p.corrodeMaxS=4; p.corrodeAmp=0.22; } },
+      { key:'a_myth',   name:'만물 분해',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 부식 중첩당 받는 피해 +30%로 강화, 용해 피해 2배', apply:(p)=>{ p.corrodeAmp=0.30; p.dissolveDps=(p.dissolveDps||3)*2; } },
     ]},
     boom: { name:'폭발', nodes:[
       { key:'e_boom',   name:'유폭',       tier:1, max:4, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 폭발 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.10*m); p.explodeDmg=(p.explodeDmg||18)+10*m; } },
       { key:'e_dash',   name:'돌파 폭발',  tier:1, max:3, desc:(m)=>'대시할 때 주변 폭발 (피해 +'+R(18*m)+')', apply:(p,m)=>{ if(!p.dashBlast) p.dashBlast=20; p.dashBlast+=18*m; } },
       { key:'e_mines',  name:'지뢰 살포',  tier:2, max:2, desc:(m)=>'5초마다 지뢰 2개 설치 (피해 +'+R(15*m)+')', apply:(p,m)=>{ p.mineLv+=1; p.mineDmg=(p.mineDmg||30)+15*m; } },
       { key:'e_chain2', name:'연쇄 기폭',  tier:2, max:2, desc:(m)=>'유폭·지뢰 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.explodeDmg=(p.explodeDmg||18)*(1+0.15*m); p.mineDmg=(p.mineDmg||30)*(1+0.15*m); } },
+      { key:'e_pack',   name:'추가 화약',  tier:1, max:3, desc:(m)=>'유폭 확률 +'+R(8*m)+'%p, 폭발 피해 +'+R(6*m), apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.08*m); p.explodeDmg=(p.explodeDmg||18)+6*m; } },
+      { key:'e_vest',   name:'폭발 조끼',  tier:2, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 돌파 폭발 피해 +'+R(10*m), apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.dashBlast=(p.dashBlast||20)+10*m; } },
       { key:'e_carpet', name:'융단 폭격',  tier:3, max:1, desc:(m)=>'[궁극] 16초마다 8발 폭격 (피해 '+R(45*m)+')', apply:(p,m)=>{ p.orbital=45*m; } },
+      { key:'e_myth',   name:'메가톤',     tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 폭발 피해 +40%, 유폭 확률 +15%p', apply:(p)=>{ p.explodeDmg=(p.explodeDmg||18)*1.4; p.mineDmg=(p.mineDmg||30)*1.4; p.explodeChance=Math.min(0.75,(p.explodeChance||0)+0.15); } },
     ]},
     mech: { name:'기계', nodes:[
       { key:'m_turret', name:'자동 터렛',  tier:1, max:2, desc:(m)=>'자동 사격 터렛 +1기 (피해 +'+R(6*m)+')', apply:(p,m)=>{ p.turretLv+=1; p.turretDmg=(p.turretDmg||10)+6*m; } },
       { key:'m_tune',   name:'정비',       tier:1, max:4, desc:(m)=>'모든 쿨다운 -'+R(4*m)+'%, 재생 +'+R1(0.25*m), apply:(p,m)=>{ p.cdr*=1-0.04*m; p.regen+=0.25*m; } },
       { key:'m_ammo',   name:'강화 탄자',  tier:2, max:3, desc:(m)=>'관통 +'+(m<2?1:2)+', 투사체 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.pierce+=(m<2?1:2); p.projMult*=1+0.08*m; } },
       { key:'m_heat',   name:'포탑 과열',  tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(15*m)+'%', apply:(p,m)=>{ p.turretRate*=1+0.15*m; } },
+      { key:'m_repair', name:'자가 수리',  tier:1, max:3, desc:(m)=>'재생 +'+R1(0.4*m)+', 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.regen+=0.4*m; p.cdr*=1-0.02*m; } },
+      { key:'m_scrap',  name:'재활용',     tier:2, max:2, desc:(m)=>'골드 +'+R(6*m)+'%, 터렛 피해 +'+R(4*m), apply:(p,m)=>{ p.goldMult*=1+0.06*m; p.turretDmg=(p.turretDmg||10)+4*m; } },
       { key:'m_od',     name:'오버드라이브',tier:3, max:1, desc:(m)=>'[궁극] 15초마다 5초간 공격속도 +'+R((0.3+0.1*m)*100)+'%·이동속도 +20%', apply:(p,m)=>{ p.odCd=15; p.odPower=0.3+0.1*m; } },
+      { key:'m_myth',   name:'기계 반란',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 터렛 +2기, 터렛 공격속도 +30%, 관통 +1', apply:(p)=>{ p.turretLv=(p.turretLv||0)+2; if(!p.turretDmg) p.turretDmg=12; p.turretRate*=1.3; p.pierce+=1; } },
     ]},
     psi: { name:'염동', nodes:[
       { key:'p_pulse',  name:'염동 파동',   tier:1, max:4, desc:(m)=>'7초마다 주변을 밀쳐내는 파동 (피해 +'+R(12*m)+')', apply:(p,m)=>{ if(!p.pulseLv) p.pulseDmg=20; p.pulseLv+=1; p.pulseDmg+=12*m; } },
       { key:'p_shield', name:'사이오닉 방벽', tier:1, max:2, desc:(m)=>'주기적으로 피해 1회 무효 (충전 '+R1(Math.max(5,12-1.5*m))+'초)', apply:(p,m)=>{ const cd=Math.max(5,12-1.5*m); p.shieldCdMax = p.shieldCdMax? Math.min(p.shieldCdMax,cd) : cd; p.shieldT=0; } },
       { key:'p_slow',   name:'정신 압박',   tier:2, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
       { key:'p_grav',   name:'중력 붕괴',   tier:2, max:1, desc:(m)=>'염동 파동이 적을 끌어당기며 피해 +30%', apply:(p,m)=>{ p.pulsePull=true; } },
+      { key:'p_focus',  name:'정신 집중',   tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 파동 피해 +'+R(5*m), apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.pulseLv) p.pulseDmg+=5*m; else { p.pulseLv=1; p.pulseDmg=20+5*m; } } },
+      { key:'p_ward',   name:'결계',        tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 방벽 충전 -1초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; if(p.shieldCdMax) p.shieldCdMax=Math.max(4,p.shieldCdMax-1); } },
       { key:'p_blink',  name:'점멸',        tier:3, max:1, desc:(m)=>'[궁극] 대시가 순간이동이 되고 도착 지점에 대폭발 (피해 '+R(55*m)+')', apply:(p,m)=>{ p.blink=55*m; } },
+      { key:'p_myth',   name:'초월자',      tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 파동 피해 +60%·적을 끌어당김, 모든 적 이속 -8%', apply:(p)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=20; } p.pulseDmg=Math.round(p.pulseDmg*1.6); p.pulsePull=true; p.slowAll*=0.92; } },
     ]}
   };
   const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi'];
-  const TIER_GATE = { 2:2, 3:4 };          // 전문 속성: 트리 투자 포인트 게이트
-  const COMMON_GATE = { 2:4, 3:7 };        // 공통: 더 깊은 게이트
+  const TIER_GATE = { 2:2, 3:4, 4:7 };     // 전문 속성: 트리 투자 포인트 게이트 (4=신화, 깊은 투자 필요)
+  const COMMON_GATE = { 2:4, 3:7, 4:99 };  // 공통: 더 깊은 게이트 (공통엔 신화 없음)
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
   const JACKPOTS = [
@@ -2241,12 +2458,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         const picks = player.techPicks[node.key]||0;
         if (picks >= node.max) continue;
         const gate = tree.common ? COMMON_GATE : TIER_GATE;
-        if (node.tier>=2 && pts < gate[node.tier]) continue;
-        const ri = rollCardRarity();
-        const m = CARD_RARITY[ri].m;
+        if (node.tier>=2 && pts < (gate[node.tier]||99)) continue;
+        // 신화 노드: 등급 고정 (트리당 유일한 빌드 정점)
+        const ri = node.myth ? 5 : rollCardRarity();
+        const m = node.myth ? 1 : CARD_RARITY[ri].m;
         pool.push({
-          key:node.key, kind:'tech', tkey, node, rarity:ri,
-          name:node.name, tag:tree.name + (tree.common?'':' 속성'),
+          key:node.key, kind:'tech', tkey, node, rarity:ri, myth:!!node.myth,
+          name:node.name, tag:node.myth ? tree.name+' 신화' : tree.name + (tree.common?'':' 속성'),
           desc:node.desc(m), cap:node.tier===3,
           apply:()=>{
             node.apply(player, m);
@@ -2388,6 +2606,24 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
   // ---------- 조사 이벤트 (필드 탐색 선택지) ----------
   const FIELD_EVENTS = [
+    { t:'떠돌이 서기관', d:'너덜너덜한 두루마리 뭉치를 든 서기관이 서 있다.', opts:[
+      { l:'두루마리를 산다', d:'골드 -25 → 리롤 +2', fx:()=>{ if (runGold>=25){ runGold-=25; } else { DB.gold=Math.max(0,DB.gold-25); } rerollsLeft+=2; toast('리롤 +2!'); SFX.play('quest'); } },
+      { l:'도장을 산다', d:'골드 -25 → 제외 +2', fx:()=>{ if (runGold>=25){ runGold-=25; } else { DB.gold=Math.max(0,DB.gold-25); } banishLeft+=2; toast('제외 +2!'); SFX.play('quest'); } },
+      { l:'빼앗는다', d:'50% 리롤·제외 +1씩 / 50% 저주 (받는 피해 +10%)', fx:()=>{
+          if (Math.random()<0.5){ rerollsLeft+=1; banishLeft+=1; toast('리롤·제외 +1!'); SFX.play('quest'); }
+          else { player.dmgTaken*=1.1; toast('서기관의 저주...'); SFX.play('warn'); }
+        } },
+    ]},
+    { t:'봉인된 신화 조각', d:'검은 돌에 미지의 문양이 새겨져 있다. 손을 대면 뜨겁다.', opts:[
+      { l:'봉인을 뜯는다', d:'체력 -25% → 현재 최다 투자 속성 +2포인트', fx:()=>{
+          player.hp = Math.max(1, player.hp - player.maxHp*0.25);
+          let best=null, bp=0;
+          for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
+          if (best){ player.tech[best]=(player.tech[best]||0)+2; toast(TREES[best].name+' 속성 +2P (신화가 가까워진다)'); SFX.play('quest'); }
+          else { const g=gainGold(40); toast('공명 없음... +'+g+'G'); }
+        } },
+      { l:'놔둔다', d:'아무 일도 일어나지 않는다', fx:null },
+    ]},
     { t:'버려진 보급상자', d:'먼지 쌓인 보급상자가 놓여 있다.', opts:[
       { l:'상자를 연다', d:'골드 +30~60', fx:()=>{ const g=gainGold(30+((Math.random()*31)|0)); toast('+'+g+'G'); SFX.play('coin'); } },
       { l:'지나친다', d:'아무 일도 일어나지 않는다', fx:null },
@@ -2533,7 +2769,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       mineLv:0, mineDmg:0, mineT:2,
       turretLv:0, turretDmg:0, turretRepoT:0, turrets:[], shadows:[], ghosts:[],
       necroChance:0, ghostCap:4, comboKeep:0, feverPlus:0, feverDmg:false, rageT:0,
-      tbuffs:[], skills:[null,null,null], learned:[], skCds:[0,0,0], awakening:null,
+      tbuffs:[], skills:[null,null,null], learned:[], skCds:[0,0,0], awakening:null, jobs:[],
       acidBurst:false, chainPlus:0, frozenAmp:1, freezeBonus:0, turretRate:1, pulsePull:false, firetrailDur:1.6,
       ultChargedT:0, ultFireReq:false,
       projMult:1, odCd:0, odPower:0, odT:0, odTimer:5,
@@ -2604,7 +2840,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     altars = []; trialT = 0; slowmoT = 0; screenDimT = 0;
     merchants = []; merchantCount = 0;
     clients = []; clientCount = 0; runQuest = null;
-    pendingSkills = []; pendingAwaken = false;
+    pendingSkills = []; pendingAwaken = false; pendingJobs = [];
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -2728,9 +2964,10 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   // 위험도 (디아블로식 난이도): 적 강화 ×(1+0.35n), 보상 ×(1+0.25n)
   function perilE(){ return 1 + 0.35*(DB.peril||0); }
   function perilR(){ return 1 + 0.25*(DB.peril||0); }
-  function hpScale(){ return (1 + elapsed*0.015) * MAP.mult.ehp * perilE(); }
-  function dmgScale(){ return (1 + elapsed*0.0015) * MAP.mult.edmg * (1 + 0.25*(DB.peril||0)); }
-  function spdScale(){ return 1 + Math.min(0.35, elapsed*0.0009); }
+  // v4.1 난이도 재설계: 전직·각성·스킬·신화 테크의 파워 크리프에 맞춰 상향
+  function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-300)*0.004,1.6)) * MAP.mult.ehp * perilE(); }
+  function dmgScale(){ return (1 + elapsed*0.0022) * MAP.mult.edmg * (1 + 0.25*(DB.peril||0)); }
+  function spdScale(){ return 1 + Math.min(0.45, elapsed*0.0011); }
   function ringSpawnPos(minR, maxR){
     const a = Math.random()*Math.PI*2;
     const d = (minR||Math.hypot(W,H)/2+50) + Math.random()*((maxR||0)-(minR||0) > 0 ? (maxR-minR) : 60);
@@ -2849,11 +3086,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     let type = forceType;
     if (!type){
       const r = Math.random();
-      if (r<0.40) type='gold';
-      else if (r<0.62) type='heal';
-      else if (r<0.78) type='magnet';
-      else if (r<0.92) type='bomb';
-      else type='freeze';
+      if (r<0.38) type='gold';
+      else if (r<0.59) type='heal';
+      else if (r<0.74) type='magnet';
+      else if (r<0.87) type='bomb';
+      else if (r<0.94) type='freeze';
+      else if (r<0.975) type='scroll';   // 리롤 두루마리
+      else type='stamp';                 // 제외 도장
     }
     if (type==='heal' && player && player.noHealDrops) type = 'gold'; // 수전노 계약
     if (items.length > 30) items.shift();
@@ -2897,6 +3136,14 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       shake = Math.min(24, shake+16);
       freeze = Math.max(freeze, 0.06);
       SFX.play('boom');
+    } else if (it.type==='scroll'){
+      rerollsLeft += 1;
+      addTextNum(it.x, it.y, '리롤 +1');
+      SFX.play('quest');
+    } else if (it.type==='stamp'){
+      banishLeft += 1;
+      addTextNum(it.x, it.y, '제외 +1');
+      SFX.play('quest');
     } else if (it.type==='chest'){
       openChest(it.x, it.y);
     }
@@ -3197,6 +3444,22 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     const bd = Math.hypot(bx,by)||1;
     const ds = dmgScale();
     const empN = b.emp ? 1 : 0;
+
+    // 시간 초과 기믹 — 90초 안에 못 잡으면 보스가 '초조'해진다 (단계적 강화)
+    b.aliveT = (b.aliveT||0) + dt;
+    if (!b.impatient && b.aliveT > 90){
+      b.impatient = 1;
+      b.dmg = Math.round(b.dmg*1.25); b.speed *= 1.2;
+      showBossBanner('시간 초과', (b.name||'보스')+'의 인내심이 바닥났다', '#b8362e');
+      toast('⏳ 보스 광폭화 1단계 — 서두르세요!');
+      SFX.play('warn');
+    } else if (b.impatient===1 && b.aliveT > 150){
+      b.impatient = 2;
+      b.dmg = Math.round(b.dmg*1.3); b.speed *= 1.2;
+      b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.15); refreshBossBar();
+      toast('⏳ 보스 광폭화 2단계 — 체력 회복 + 대폭 강화!');
+      SFX.play('warn');
+    }
 
     // 분노 페이즈 — 체력 45% 이하에서 각성
     if (!b.enraged && b.hp < b.maxHp*0.45){
@@ -3662,7 +3925,10 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   document.querySelectorAll('.skillChip').forEach(b=>{
     b.addEventListener('pointerdown', (e)=>{
       e.stopPropagation(); e.preventDefault(); SFX.unlock();
-      castSkill(parseInt(b.dataset.sk,10));
+      const n = parseInt(b.dataset.sk,10);
+      // 빈 슬롯 탭 → 스킬북 (모바일에서 K키 대체)
+      if (n>=2 && state==='playing' && !player.skills[n-2]){ openSkillBook(); return; }
+      castSkill(n);
     });
   });
 
@@ -4249,7 +4515,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         addTextNum(player.x, player.y-30, '대화재!');
         shake = Math.min(18, shake+8);
         SFX.play('boom');
-        player.infernoT = 12 * player.cdr;
+        player.infernoT = 12 * player.cdr * (player.infernoCdMult||1);
       }
     }
     // 서리: 얼음창
@@ -4417,7 +4683,12 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     for (let i=player.ghosts.length-1;i>=0;i--){
       const gh = player.ghosts[i];
       gh.t -= dt;
-      if (gh.t<=0){ player.ghosts.splice(i,1); continue; }
+      if (gh.t<=0){
+        player.ghosts.splice(i,1);
+        // 각성 '윤회의 목자': 유령이 소멸할 때 치유
+        if (player.ghostHeal){ player.hp=Math.min(player.maxHp, player.hp+3*player.healMult); addTextNum(player.x,player.y-20,'+3',true); }
+        continue;
+      }
       if (gh.cd>0) gh.cd -= dt;
       let gn=null, gd2=Infinity;
       for (const e of enemies){ const dd=(e.x-gh.x)**2+(e.y-gh.y)**2; if (dd<gd2){ gd2=dd; gn=e; } }
@@ -4629,6 +4900,23 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       friendlyBlast(player.x, player.y, 140, player.ultDamage*D, true);
       addTextNum(player.x, player.y-28, '광상곡!');
       SFX.play('fever');
+
+    } else if (ck==='tourist'){
+      // 기념 촬영: 화면 전체 정지 + 골드
+      for (const e of enemies) e.frozenT = Math.max(e.frozenT||0, 2.5);
+      runGold += Math.round(8*player.goldMult);
+      screenDimT = Math.max(screenDimT||0, 0.15);
+      addTextNum(player.x, player.y-28, '📸 찰칵!');
+      SFX.play('tele');
+
+    } else if (ck==='slime'){
+      // 바디 프레스: 체력 비례 광역 피해 + 소폭 회복
+      const dmg = (player.ultDamage + player.maxHp*0.12) * D;
+      friendlyBlast(player.x, player.y, 96+player.maxHp*0.15, dmg, true);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.04*player.healMult);
+      shake = Math.min(20, shake+8);
+      addTextNum(player.x, player.y-28, '바디 프레스!');
+      SFX.play('boom');
     }
   }
 
@@ -4688,16 +4976,21 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (player.invuln>0) player.invuln -= dt;
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
+    // 관광객: 이동 중 골드가 저절로 모인다
+    if (player.walkGold && (dx!==0||dy!==0)){
+      player.walkGoldAcc = (player.walkGoldAcc||0) + dt;
+      if (player.walkGoldAcc >= 3.5){ player.walkGoldAcc = 0; gainGold(1); addTextNum(player.x, player.y-18, '+1G'); }
+    }
 
     // spawns — 난이도 상향 곡선
     spawnTimer += dt;
-    let interval = elapsed < 8 ? 1.2 : Math.max(0.18, 1.0 - (elapsed-8)*0.016);
+    let interval = elapsed < 8 ? 1.15 : Math.max(0.15, 1.0 - (elapsed-8)*0.018);
     if (trialT > 0) interval *= 0.5; // 시련: 스폰 2배
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
-    const cap = Math.min(130, 16 + Math.floor(elapsed/4));
+    const cap = Math.min(150, 18 + Math.floor(elapsed/3.5));
     if (spawnTimer >= interval){
       spawnTimer = 0;
-      const burstN = 1 + (elapsed>75?1:0) + (elapsed>180?1:0);
+      const burstN = 1 + (elapsed>60?1:0) + (elapsed>150?1:0) + (elapsed>360?1:0);
       for (let k=0;k<burstN;k++){ if (enemies.length < cap) spawnEnemy(); }
     }
     if (elapsed >= ELITE_FIRST_AT + eliteCount*ELITE_INTERVAL){ eliteCount+=1; spawnElite(); }
@@ -5455,6 +5748,10 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         }
       }
     }
+    // 전직 (레벨 10 / 25 / 40) — 3차까지
+    if (player.level >= 10 && player.jobs.length < 1 && !pendingJobs.includes(1)) pendingJobs.push(1);
+    if (player.level >= 25 && player.jobs.length < 2 && !pendingJobs.includes(2)) pendingJobs.push(2);
+    if (player.level >= 40 && player.jobs.length < 3 && !pendingJobs.includes(3)) pendingJobs.push(3);
     // 각성 (레벨 20)
     if (player.level >= 20 && !player.awakening && !pendingAwaken){
       pendingAwaken = true;
@@ -5465,13 +5762,14 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   banishBtn.id = 'banishBtn';
   $('luBtns').appendChild(banishBtn);
   const statsLine = document.createElement('div');
-  statsLine.style.cssText = 'font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--ink-500);max-width:640px;line-height:1.7;';
+  statsLine.style.cssText = 'font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--ink-500);max-width:640px;line-height:1.7;white-space:pre-line;';
   levelupBox.appendChild(statsLine);
 
   function statsSummary(){
     const p = player;
     const els = activeSpecTrees().map(t=>TREES[t].name).join('·');
-    return '속성 ['+(els||'없음')+'] — 공격 '+Math.round(p.dmgMult*100)+'% · 공속 '+Math.round(p.rateMult*100)+'% · 쿨감 '+Math.round((1-p.cdr)*100)+'%'
+    const path = [CLASSES[p.classKey].name].concat(p.jobs||[]).join(' → ') + (p.awakening ? ' ★'+p.awakening : '');
+    return path+'\n속성 ['+(els||'없음')+'] — 공격 '+Math.round(p.dmgMult*100)+'% · 공속 '+Math.round(p.rateMult*100)+'% · 쿨감 '+Math.round((1-p.cdr)*100)+'%'
       + ' · 이속 '+Math.round(p.speed)+' · 치명 '+Math.round(p.critChance*100)+'%/'+p.critMult.toFixed(1)+'배'
       + ' · 관통 '+p.pierce+' · 회피 '+Math.round(p.dodge*100)+'% · 행운 '+p.luck.toFixed(1)
       + ' · 재생 '+p.regen.toFixed(1)+'/s';
@@ -5503,7 +5801,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     banishMode = false;
     currentChoices.forEach((u,i)=>{
       const el = document.createElement('div');
-      el.className = 'card' + (u.cap?' cap':'');
+      el.className = 'card' + (u.cap?' cap':'') + (u.myth?' myth':'') + (u.rarity!==undefined&&!u.myth?' rar'+u.rarity:'');
       const num = '<div class="num">0'+(i+1)+'</div>';
       const tag = u.tag ? '<div class="tag"'+(u.ctag?' style="background:var(--ink-900);color:#e8c56a;"':'')+'>'+u.tag+'</div>' : '';
       const rb = (u.rarity!==undefined) ? '<span class="rbadge '+(u.jackpot?'r4':CARD_RARITY[u.rarity].cls)+'">'+(u.jackpot?'잭팟':CARD_RARITY[u.rarity].n)+'</span>' : '';
@@ -5543,10 +5841,25 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
+      else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
       else { state='playing'; last = performance.now(); }
     }, 120);
+  }
+  // 스킬창 (K): 습득한 스킬 열람 + 슬롯 재배치
+  function openSkillBook(){
+    if (!player.learned.length){ toast('아직 배운 스킬이 없습니다 (레벨 3부터 습득)'); return; }
+    const opts = player.learned.map(sk=>{
+      const slot = player.skills.indexOf(sk);
+      return {
+        l:sk.n + (slot>=0 ? ' [슬롯 '+(slot+2)+']' : ' [미장착]'),
+        d:sk.d+' · 쿨다운 '+sk.cd+'초',
+        fx:()=>{ setTimeout(()=>{ if (state==='playing') openSkillSwap(sk); }, 150); }
+      };
+    });
+    opts.push({ l:'닫기', d:'게임으로 돌아간다', fx:null });
+    openEvent({ t:'스킬북 ('+CLASSES[player.classKey].name+')', d:'배운 스킬을 눌러 슬롯 2~4에 배치할 수 있습니다.', opts });
   }
   // 슬롯이 가득 찼을 때: 새 스킬을 어디에 넣을지 선택
   function openSkillSwap(sk){
@@ -5644,7 +5957,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
   // ---------- NPC 의뢰인 (런 중 퀘스트) ----------
   let clients = [], clientCount = 0, runQuest = null;
-  let pendingSkills = [], pendingAwaken = false;
+  let pendingSkills = [], pendingAwaken = false, pendingJobs = [];
   let dailyPending = false, dailyRun = false, origRandom = Math.random;
   function openClientQuest(){
     const D = player.dmgMult;
@@ -6198,7 +6511,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     manager:'#8b5cf6', sniper:'#3b82c4', rusher:'#c94f4f', archer:'#4c9a55',
     ninja:'#6d5cc4', engineer:'#d9a53f', paladin:'#d9b23d', reaper:'#7a4fa8',
     pilot:'#4fa8c4', glitch:'#3aa895', returner:'#e08a2e',
-    cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895'
+    cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
+    tourist:'#e0a94f', slime:'#5db06a'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
@@ -6207,7 +6521,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (player.invuln>0 && Math.floor(performance.now()/90)%2===0){
       ctx.globalAlpha = 0.5;
     }
-    drawHumanoid(player.x, player.y, { face:player.faceX, walk, gear:player.classKey, scale:1.15, robe:player.classKey==='reaper' });
+    // 슬라임: 체력이 높을수록 몸집이 커진다
+    const bodyScale = player.slimeBody ? Math.min(2.0, 1.15 + player.maxHp/800) : 1.15;
+    drawHumanoid(player.x, player.y, { face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper' });
     // 직업 목도리
     const cc = CLASS_COLORS[player.classKey];
     if (cc){
@@ -7006,6 +7322,20 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
         ctx.fillStyle = PAL.ink;
         ctx.beginPath(); ctx.arc(0,1,7,0,Math.PI*2); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(3,-4); ctx.quadraticCurveTo(7,-9,10,-8); ctx.stroke();
+      } else if (it.type==='scroll'){
+        // 리롤 두루마리 (보라)
+        ctx.fillStyle = '#f4ecd8';
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.lineWidth = 1.6;
+        roundRect(-7,-9,14,18,3); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.beginPath(); ctx.moveTo(-4,-4); ctx.lineTo(4,-4); ctx.moveTo(-4,0); ctx.lineTo(4,0); ctx.moveTo(-4,4); ctx.lineTo(2,4); ctx.stroke();
+      } else if (it.type==='stamp'){
+        // 제외 도장 (빨강 금지 마크)
+        ctx.strokeStyle = COLORS.danger;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0,0,7,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-4.5,4.5); ctx.lineTo(4.5,-4.5); ctx.stroke();
       }
       ctx.restore();
     }
@@ -7509,7 +7839,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (slowmoT>0){ slowmoT -= dt; dt *= 0.45; } // 위기 슬로모션
     if (state==='playing' && dt>0){ update(dt); }
     if (state!=='idle'){ draw(dt); }
-    if (state==='playing'||state==='paused'||state==='levelup'||state==='event'||state==='dead'||state==='win'){
+    if (state==='playing'||state==='paused'||state==='levelup'||state==='event'||state==='dead'||state==='win'||state==='inv'){
       raf = requestAnimationFrame(loop);
     }
   }
