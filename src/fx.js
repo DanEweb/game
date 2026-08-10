@@ -1,0 +1,117 @@
+// Pixi WebGL 이펙트 레이어 — Canvas2D 월드 위에 겹쳐지는 가산 합성 파티클
+// 1단계 도입: 폭발/처치/보스 연출을 WebGL 파티클로. (월드 렌더러 이관은 다음 단계)
+import { Application, Container, Sprite, Texture, BLEND_MODES } from 'pixi.js';
+
+let app = null, layer = null, ready = false, failed = false;
+let camX = 0, camY = 0, viewW = 940, viewH = 588;
+const pool = [];
+const active = [];
+
+function makeDotTexture(){
+  // 부드러운 원형 글로우 텍스처를 런타임 생성
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 32;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(16,16,0,16,16,16);
+  grad.addColorStop(0,'rgba(255,255,255,1)');
+  grad.addColorStop(0.35,'rgba(255,255,255,0.55)');
+  grad.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0,0,32,32);
+  return Texture.from(c);
+}
+let dotTex = null;
+
+export const FX = {
+  async init(hostEl){
+    if (ready || failed) return;
+    try {
+      app = new Application();
+      await app.init({
+        width: viewW, height: viewH,
+        backgroundAlpha: 0,
+        antialias: false,
+        autoStart: false,           // 게임 루프에서 직접 render
+        preference: 'webgl',
+      });
+      app.canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:3; mix-blend-mode:screen;';
+      hostEl.appendChild(app.canvas);
+      layer = new Container();
+      app.stage.addChild(layer);
+      dotTex = makeDotTexture();
+      ready = true;
+    } catch(e){
+      failed = true; // WebGL 불가 환경: 조용히 비활성 (Canvas2D만으로 동작)
+      console.warn('[FX] WebGL layer disabled:', e);
+    }
+  },
+  resize(w, h){
+    viewW = w; viewH = h;
+    if (ready) app.renderer.resize(w, h);
+  },
+  sync(cx, cy){ camX = cx; camY = cy; },
+  // 가산 글로우 버스트 — 처치/폭발/보상 연출
+  burst(wx, wy, color, n, speed, life){
+    if (!ready) return;
+    n = Math.min(n||8, 40);
+    for (let i=0;i<n;i++){
+      let s = pool.pop();
+      if (!s){
+        s = new Sprite(dotTex);
+        s.anchor.set(0.5);
+        s.blendMode = 'add';
+      }
+      const a = Math.random()*Math.PI*2;
+      const v = (speed||120) * (0.4+Math.random()*0.8);
+      s.__vx = Math.cos(a)*v; s.__vy = Math.sin(a)*v;
+      s.__wx = wx; s.__wy = wy;
+      s.__life = s.__maxLife = (life||0.5)*(0.7+Math.random()*0.6);
+      s.tint = color;
+      s.alpha = 0.9;
+      const sc = 0.4+Math.random()*0.7;
+      s.scale.set(sc);
+      s.__baseScale = sc;
+      layer.addChild(s);
+      active.push(s);
+    }
+  },
+  ring(wx, wy, color, n){
+    if (!ready) return;
+    n = Math.min(n||14, 28);
+    for (let i=0;i<n;i++){
+      let s = pool.pop();
+      if (!s){ s = new Sprite(dotTex); s.anchor.set(0.5); s.blendMode='add'; }
+      const a = (Math.PI*2/n)*i;
+      const v = 210;
+      s.__vx = Math.cos(a)*v; s.__vy = Math.sin(a)*v;
+      s.__wx = wx; s.__wy = wy;
+      s.__life = s.__maxLife = 0.45;
+      s.tint = color; s.alpha = 1;
+      s.scale.set(0.8); s.__baseScale = 0.8;
+      layer.addChild(s);
+      active.push(s);
+    }
+  },
+  update(dt){
+    if (!ready) return;
+    for (let i=active.length-1;i>=0;i--){
+      const s = active[i];
+      s.__life -= dt;
+      if (s.__life <= 0){
+        layer.removeChild(s);
+        active.splice(i,1);
+        if (pool.length < 300) pool.push(s);
+        continue;
+      }
+      s.__wx += s.__vx*dt; s.__wy += s.__vy*dt;
+      s.__vx *= (1-2.2*dt); s.__vy *= (1-2.2*dt);
+      const t = s.__life / s.__maxLife;
+      s.alpha = t*0.9;
+      s.scale.set(s.__baseScale * (0.5+t*0.8));
+      s.x = s.__wx - camX + viewW/2;
+      s.y = s.__wy - camY + viewH/2;
+    }
+    app.render();
+  },
+  get enabled(){ return ready; }
+};

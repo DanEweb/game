@@ -3,6 +3,7 @@ import { BOSS_TYPES } from "./data/bosses.js";
 import { SLOT_NAMES, SLOT_KEYS, NORMAL_SLOTS, HEAVY_OK, RARITY_NAMES, RARITY_PREFIX, SELL_PRICE, UNIQUE_POOL, SET_DEFS } from "./data/equipment.js";
 import { EQ_STATS, EQ_AFFIX, EQ_NOUNS, EQ_CURSES, RELICS } from "./data/equipment-stats.js";
 import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
+import { FX } from "./fx.js";
 
   const $ = (id)=> document.getElementById(id);
   const canvas = $('c'), ctx = canvas.getContext('2d');
@@ -40,9 +41,11 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     canvas.width = Math.floor(W*DPR);
     canvas.height = Math.floor(H*DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    FX.resize(W, H);
   }
   window.addEventListener('resize', resize);
   resize();
+  FX.init(wrap).then(()=>{ FX.resize(W, H); }); // Pixi WebGL 이펙트 레이어 (1단계)
 
   // ---------- persistence ----------
   const SAVE_KEY = 'gray_survivor_v3';
@@ -440,13 +443,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     const p = DB.peril||0;
     pWrap.innerHTML = '<span style="font-size:10px; color:var(--ink-500);">출격 맵 무작위 배정</span>'
       + '<button class="miniBtn" id="perilDown">−</button>'
-      + '<b style="color:var(--ink-900);">위험도 '+p+'</b> <span style="font-size:10px;">/ 최대 '+(DB.perilMax||0)+' (한계 20)</span>'
+      + '<b style="color:var(--ink-900);">위험도 '+p+'</b> <span style="font-size:10px;">/ 최대 '+(DB.perilMax||0)+' (한계 60)</span>'
       + '<button class="miniBtn" id="perilUp">＋</button>'
       + '<span style="font-size:10px; color:var(--ink-500);">적 +'+Math.round(35*p)+'% / 보상 +'+Math.round(25*p)+'%</span>';
     mapRow.appendChild(pWrap);
     setTimeout(()=>{
       const up = $('perilUp'), dn = $('perilDown');
-      if (up) up.addEventListener('click', ()=>{ DB.peril = Math.min(DB.perilMax||0, Math.min(20,(DB.peril||0)+1)); saveDB(); renderMapRow(); });
+      if (up) up.addEventListener('click', ()=>{ DB.peril = Math.min(DB.perilMax||0, Math.min(60,(DB.peril||0)+1)); saveDB(); renderMapRow(); });
       if (dn) dn.addEventListener('click', ()=>{ DB.peril = Math.max(0,(DB.peril||0)-1); saveDB(); renderMapRow(); });
     }, 0);
   }
@@ -2292,17 +2295,17 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       name:'무명검', desc:'[유일] 처음엔 형편없지만, 벤 만큼 영원히 성장하는 검',
       evName:'무명검·현신', evDesc:'이름 없는 검이 마침내 제 모습을 드러냅니다',
       lvDesc:['','검기 강화','피해 +25%','검기 확장','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * (DB.growth.branch==='gale'?0.82:1) * ((player&&player.gwCd)||1),
+      baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = DB.growth.lv||1;
-        const g = 2 + gl*1.5;
+        const g = 2 + gl*1.1; // 성장 완만화 (난이도 급감 방지)
         const t = [1,1.25,1.55,1.9,2.3][w.lv-1];
         // 성장 단계 진화 보너스: Lv10 각성 / Lv20 해방 / Lv35 진명검 / Lv60 초월 / Lv100 귀일
-        const tier = gl>=100?2.0 : gl>=60?1.7 : gl>=35?1.5 : gl>=20?1.3 : gl>=10?1.15 : 1;
-        const branch = DB.growth.branch==='slash' ? 1.25 : 1;
+        const tier = gl>=100?1.7 : gl>=60?1.5 : gl>=35?1.35 : gl>=20?1.2 : gl>=10?1.1 : 1;
+        const branch = (player&&player.growthBranch==='slash') ? 1.18 : 1;
         return g * t * tier * branch * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.growth.lv>=15?1:0) + (DB.growth.lv>=30?1:0) + (DB.growth.branch==='gale'?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
+      count:(w)=> 1 + (DB.growth.lv>=15?1:0) + (DB.growth.lv>=30?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
     },
     drone: {
       name:'드론', desc:'호위 드론이 자동으로 적을 사격합니다',
@@ -2425,11 +2428,13 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   const COMMON_GATE = { 2:4, 3:7, 4:99 };  // 공통: 더 깊은 게이트 (공통엔 신화 없음)
   let focusTree = null; // 이번 레벨업에 '강림'한 속성
   let focusOverride = null; // 속성 지정 리롤 (원하는 속성 선택)
-  // 하위테크 분류 (무기 = 발사체·설치물 생성 / 전술 = 스탯·상태이상)
+  // 하위테크 분류: 무기(생성물) / 전술(스탯·상태이상) / 수호(방어) / 보조(경제·유틸)
   const NODE_CAT = {
     f_ball:'무기', f_trail:'무기', f_zone:'무기',
     i_lance:'무기', l_field:'무기', a_cloud:'무기',
     e_mines:'무기', e_dash:'무기', m_turret:'무기', p_pulse:'무기',
+    i_armor:'수호', p_shield:'수호', p_ward:'수호', e_vest:'수호', a_endur:'수호', i_calm:'수호',
+    m_scrap:'보조', m_repair:'보조', f_ash:'보조', l_flash:'보조', a_blood:'보조',
   };
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
@@ -2452,7 +2457,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   Object.defineProperty(WEAPONS.nameless, 'name', { get(){
     const l = (DB.growth&&DB.growth.lv)||1;
     const base = l>=100?'시원의 검·귀일' : l>=60?'무극검·초월' : l>=35?'진명검·현신' : l>=20?'명검·해방' : l>=10?'무명검·각성' : '무명검';
-    const bt = DB.growth&&DB.growth.branch ? '['+GROWTH_BRANCHES[DB.growth.branch].tag+'] ' : '';
+    const bt = (player&&player.growthBranch) ? '['+GROWTH_BRANCHES[player.growthBranch].tag+'] ' : '';
     return bt + base;
   }});
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
@@ -2709,23 +2714,23 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     openEvent({ t:'런 계약 선택', d:'이번 판 전체에 적용되는 계약입니다. 위험과 보상을 저울질하세요.', opts });
   }
 
-  // ---------- 무명검 계보 (분기 진화 — Lv20 해방 시 갈림길, 영구 선택) ----------
+  // ---------- 무명검 계보 (이 판에서 검을 어떻게 진화시킬지 — 매 런마다 새로 선택) ----------
   const GROWTH_BRANCHES = {
-    slash: { n:'참격의 계보', d:'검기 피해 +25% — 이름에 [참(斬)]이 새겨진다', tag:'참' },
-    gale:  { n:'질풍의 계보', d:'검기 발사 간격 -18%, 검기 +1 — 이름에 [풍(風)]이 새겨진다', tag:'풍' },
-    leech: { n:'흡명의 계보', d:'검기 처치 시 체력 1 회복 — 이름에 [명(命)]이 새겨진다', tag:'명' },
+    slash: { n:'참격의 형(型)', d:'이 판 동안 검기 피해 +18% — 이름에 [참(斬)]', tag:'참' },
+    gale:  { n:'질풍의 형(型)', d:'이 판 동안 발사 간격 -14%, 검기 +1 — 이름에 [풍(風)]', tag:'풍' },
+    leech: { n:'흡명의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [명(命)]', tag:'명' },
   };
   function openGrowthBranch(){
     const opts = Object.keys(GROWTH_BRANCHES).map(bk=>{
       const br = GROWTH_BRANCHES[bk];
       return { l:br.n, d:br.d, fx:()=>{
-        DB.growth.branch = bk; saveDB();
-        toast('⚔ 계보 각인 — '+br.n+'! 검의 이름이 바뀌었다');
+        player.growthBranch = bk;
+        toast('⚔ 형 개방 — '+br.n+'! (이 판 한정)');
         SFX.play('evolve');
       } };
     });
-    opts.push({ l:'아직 정하지 않는다', d:'다음 레벨업 후 다시 물어본다', fx:()=>{ pendingBranchAsk = true; } });
-    openEvent({ t:'검이 갈림길에 섰다', d:'명검·해방에 도달한 검이 계보를 요구한다. 한 번 새기면 되돌릴 수 없다.', opts });
+    opts.push({ l:'형을 개방하지 않는다', d:'다음 레벨업 후 다시 물어본다', fx:()=>{ pendingBranchAsk = true; } });
+    openEvent({ t:'검이 형(型)을 묻는다', d:'해방된 검은 매 전장에서 다른 형태로 운용할 수 있다. 이번 판의 형을 선택하라.', opts });
   }
   let pendingBranchAsk = true;
 
@@ -2884,7 +2889,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   let totalDmg = 0, noHitT = 0, dashCount = 0;
   let combo = 0, comboTimer = 0, feverTimer = 0;
   let eliteCount = 0, waveCount = 0, surveyCount = 0, altarCount = 0;
-  let altars = [], trialT = 0, trialKind = 'horde';
+  let altars = [], trialT = 0, trialKind = 'horde', eraTimer = 0;
   let merchants = [], merchantCount = 0;
   let slowmoT = 0, screenDimT = 0;
   let endless = false, rootDefeated = false, nextRootAt = 0;
@@ -3018,13 +3023,14 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     shake = 0; freeze = 0;
     combo = 0; comboTimer = 0; feverTimer = 0;
     eliteCount = 0; waveCount = 0; surveyCount = 0; altarCount = 0;
-    altars = []; trialT = 0; slowmoT = 0; screenDimT = 0;
+    altars = []; trialT = 0; slowmoT = 0; screenDimT = 0; eraTimer = 0;
     merchants = []; merchantCount = 0;
     clients = []; clientCount = 0; runQuest = null;
     pendingSkills = []; pendingAwaken = false; pendingJobs = [];
     rifts = []; riftCount = 0; rift = null;
     nextSurveyAt = SURVEY_FIRST_AT; nextAltarAt = 60; nextRiftAt = 110;
     bossPool = [];
+    pendingBranchAsk = true;
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -3149,11 +3155,20 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 
   // ---------- enemies ----------
   // 위험도 (디아블로식 난이도): 적 강화 ×(1+0.35n), 보상 ×(1+0.25n)
-  function perilE(){ return 1 + 0.35*(DB.peril||0); }
-  function perilR(){ return 1 + 0.25*(DB.peril||0); }
-  // v4.1 난이도 재설계: 전직·각성·스킬·신화 테크의 파워 크리프에 맞춰 상향
-  function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE(); }
-  function dmgScale(){ return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*(DB.peril||0)); }
+  // 위험도 60단계: 20까지는 급하게, 그 이후는 완만하게 (하지만 끝없이) 오른다
+  function perilE(){ const p=DB.peril||0; return 1 + 0.35*Math.min(p,20) + 0.22*Math.max(0,p-20); }
+  function perilR(){ const p=DB.peril||0; return 1 + 0.25*Math.min(p,20) + 0.12*Math.max(0,p-20); }
+  // v4.4 난이도 재설계: 시간 + 플레이어 파워(레벨·테크·성장무기)에 함께 반응하는 적응형 곡선
+  function powerScale(){
+    if (!player) return 1;
+    let pw = Math.max(0, player.level - 8) * 0.022;              // 레벨이 오를수록
+    let tpts = 0; for (const k in player.tech) tpts += player.tech[k];
+    pw += Math.max(0, tpts - 6) * 0.012;                          // 테크를 찍을수록
+    if (ownedWeapon('nameless')) pw += (DB.growth.lv||0) * 0.006; // 성장무기가 강할수록
+    return 1 + Math.min(1.2, pw);                                 // 최대 +120%
+  }
+  function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
+  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15); }
   function spdScale(){ return 1 + Math.min(0.45, elapsed*0.0011); }
   function ringSpawnPos(minR, maxR){
     const a = Math.random()*Math.PI*2;
@@ -3351,13 +3366,14 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     let type = forceType;
     if (!type){
       const r = Math.random();
-      if (r<0.38) type='gold';
-      else if (r<0.59) type='heal';
-      else if (r<0.74) type='magnet';
-      else if (r<0.87) type='bomb';
-      else if (r<0.94) type='freeze';
-      else if (r<0.975) type='scroll';   // 리롤 두루마리
-      else type='stamp';                 // 제외 도장
+      if (r<0.50) type='gold';
+      else if (r<0.66) type='heal';
+      else if (r<0.78) type='magnet';
+      else if (r<0.86) type='bomb';
+      else if (r<0.90) type='freeze';
+      else if (r<0.915) type='scroll';   // 리롤 두루마리 (1.5%)
+      else if (r<0.925) type='stamp';    // 제외 도장 (1%)
+      else type='gold';
     }
     if (type==='heal' && player && player.noHealDrops) type = 'gold'; // 수전노 계약
     if (items.length > 30) items.shift();
@@ -3595,7 +3611,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
       addTextNum(e.x, e.y-16, '+'+g+'G');
       freeze = Math.max(freeze, 0.05);
       SFX.play('boom');
-    } else if (Math.random() < 0.020*player.luck){
+    } else if (Math.random() < 0.013*player.luck){
       dropItem(e.x, e.y);
     } else if (Math.random() < 0.05*player.luck*(player.goldDropMod||1)){
       dropItem(e.x, e.y, 'gold');
@@ -3617,12 +3633,22 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   }
   // 코믹 칭호 — 등장 시 40% 확률로 붙고, 그 보스는 '이명 강화형'으로 강해진다
   const BOSS_COMIC = {
-    oseojin:'정시 퇴근을 모르는', parktaeyoung:'브레이크가 고장난', wonGeun:'회의만 7시간 하는',
-    minGi:'주말에도 출근하는', seulgi:'읽씹의 달인', byungWoo:'답장을 3일 뒤에 하는',
-    jiEun:'다이어트는 내일부터인', eunJae:'화나면 아무도 못 말리는', yuJinKong:'바람보다 말이 빠른',
-    jungWoo:'어제의 동료를 오늘 파는', seonJeong:'통장 잔고가 마이너스인', spaceStar:'별자리 운세를 맹신하는',
-    nukNukEX:'점심 메뉴를 2시간 고민하는', goDokGeun:'마흔살까지 장가 못 간',
-    monday:'주말을 순삭시키고 나타난', deadline:'어제까지였다고 말하는',
+    oseojin:['정시 퇴근을 모르는','기념일을 또 까먹은','월급날만 기다리는'],
+    parktaeyoung:['브레이크가 고장난','신호등을 못 본 척하는','환승연애 중인'],
+    wonGeun:['회의만 7시간 하는','참조에 전부 다 넣는','밥 한번 먹자고만 하는'],
+    minGi:['주말에도 출근하는','연차를 못 쓰는','답장이 늘 ㅇㅋ뿐인'],
+    seulgi:['읽씹의 달인','썸만 5년째인','프사가 늘 뒷모습인'],
+    byungWoo:['답장을 3일 뒤에 하는','더치페이 계산이 칼같은','축의금 액수를 고민하는'],
+    jiEun:['다이어트는 내일부터인','새벽 배송을 매일 시키는','장바구니만 채우는'],
+    eunJae:['화나면 아무도 못 말리는','기분이 태도가 되는','설거지 순서로 싸우는'],
+    yuJinKong:['바람보다 말이 빠른','비밀을 3초 만에 퍼뜨리는','단톡방을 캡처하는'],
+    jungWoo:['어제의 동료를 오늘 파는','회식에서만 착해지는','성과를 조용히 가로채는'],
+    seonJeong:['통장 잔고가 마이너스인','할부가 12개월 남은','적금을 3일 만에 깬'],
+    spaceStar:['별자리 운세를 맹신하는','MBTI로 사람을 거르는','타로 카드에 월급을 바친'],
+    nukNukEX:['점심 메뉴를 2시간 고민하는','배달앱만 30분 보는','결정 장애가 온'],
+    goDokGeun:['마흔살까지 장가 못 간','소개팅 100번 실패한','명절마다 추궁당하는'],
+    monday:['주말을 순삭시키고 나타난','알람 5개를 뚫고 오는','출근길을 지배하는'],
+    deadline:['어제까지였다고 말하는','금요일 6시에 일을 주는','내일의 나에게 미룬'],
   };
   function isEmpoweredCycle(){
     return bossOrderIdx > MAP.bosses.length; // 한 바퀴 다 만난 뒤부터는 강화형
@@ -3633,8 +3659,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     const p = ringSpawnPos(Math.min(W,H)/2+30, Math.min(W,H)/2+120);
     const encScale = def.finale ? 1 : (1 + 0.45*Math.max(0, bossEncounterCount-1));
     const empMult = emp ? 1.7 : 1;
-    // 이명(코믹 칭호) 출현: 40% 확률 — 칭호가 붙은 보스는 더 강하다
-    const comic = (!def.finale && BOSS_COMIC[key] && Math.random()<0.4) ? BOSS_COMIC[key] : null;
+    // 이명(코믹 칭호) 출현: 40% 확률 — 칭호가 붙은 보스는 더 강하다 (칭호는 풀에서 랜덤)
+    const cpool = BOSS_COMIC[key];
+    const comic = (!def.finale && cpool && Math.random()<0.4) ? cpool[(Math.random()*cpool.length)|0] : null;
     const comicMult = comic ? 1.35 : 1;
     const hp = def.hp * encScale * empMult * comicMult * MAP.mult.ehp;
     const b = {
@@ -3693,7 +3720,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     killCount += 1;
     addCombo();
     questAdd('boss', 1);
-    burst(b.x,b.y, 34, 240);
+    burst(b.x,b.y, 34, 240, 0xe8c56a);
+    FX.ring(b.x, b.y, 0xe8c56a, 22);
     effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:20, r1:220 });
     const n = 5;
     for (let i=0;i<n;i++){
@@ -4206,7 +4234,9 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
   }
 
   // ---------- particles / misc ----------
-  function burst(x,y,n,spread){
+  function burst(x,y,n,spread,fxColor){
+    // WebGL 글로우 파티클 (Pixi 레이어) — 큰 폭발일수록 화려하게
+    if (n>=14) FX.burst(x, y, fxColor||0xffffff, Math.floor(n*0.7), spread||120, 0.5);
     if (particles.length > 380) return;
     for (let i=0;i<n;i++){
       const a = Math.random()*Math.PI*2;
@@ -5307,8 +5337,8 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     if (player.invuln>0) player.invuln -= dt;
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
-    // 무명검 흡명의 계보: 검을 든 동안 처치 회복 +1
-    if (DB.growth.branch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
+    // 무명검 흡명의 형: 검을 든 동안 처치 회복 +1
+    if (player.growthBranch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
       player.lifesteal += 1; player.__leechApplied = true;
     }
     // 관광객: 이동 중 골드가 저절로 모인다
@@ -5330,6 +5360,16 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     }
     if (elapsed >= ELITE_FIRST_AT + eliteCount*ELITE_INTERVAL){ eliteCount+=1; spawnElite(); }
     if (elapsed >= WAVE_FIRST_AT + waveCount*WAVE_INTERVAL){ waveCount+=1; spawnWave(); }
+    // 시간의 압박: 60초마다 살아있는 모든 적이 강해진다 (필드에 오래 남은 몹도 위협 유지)
+    eraTimer += dt;
+    if (eraTimer >= 60){
+      eraTimer = 0;
+      for (const e of enemies){
+        e.maxHp *= 1.1; e.hp *= 1.1;
+        e.dmg = Math.round(e.dmg*1.08);
+      }
+      if (elapsed > 90) toast('⏰ 시간의 압박 — 모든 적이 강해졌다');
+    }
     // 등장 주기 랜덤화: 매판·매회 다른 타이밍에 나타난다
     if (elapsed >= nextSurveyAt){ nextSurveyAt = elapsed + SURVEY_INTERVAL*(0.6+Math.random()*0.9); spawnSurvey(); }
     if (elapsed >= nextAltarAt){ nextAltarAt = elapsed + 75*(0.7+Math.random()*0.8); spawnAltar(); }
@@ -6249,7 +6289,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
-      else if (pendingBranchAsk && DB.growth.found && DB.growth.lv>=20 && !DB.growth.branch && ownedWeapon('nameless')){ pendingBranchAsk=false; state='playing'; openGrowthBranch(); }
+      else if (pendingBranchAsk && DB.growth.found && DB.growth.lv>=20 && !player.growthBranch && ownedWeapon('nameless')){ pendingBranchAsk=false; state='playing'; openGrowthBranch(); }
       else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
@@ -6576,7 +6616,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     DB.star.pts = (DB.star.pts||0) + 5;
     toast('클리어 보너스: 운명 포인트 +5P');
     // 위험도 해금: 현재 위험도로 클리어 시 다음 단계 개방
-    if ((DB.peril||0) >= (DB.perilMax||0) && (DB.perilMax||0) < 20){
+    if ((DB.peril||0) >= (DB.perilMax||0) && (DB.perilMax||0) < 60){
       DB.perilMax = (DB.perilMax||0) + 1;
       toast('위험도 '+DB.perilMax+' 해금!');
     }
@@ -8377,6 +8417,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
     try {
       if (state==='playing' && dt>0){ update(dt); }
       if (state!=='idle'){ draw(dt); }
+      if (FX.enabled){ FX.sync(player?player.x:0, player?player.y:0); FX.update(Math.max(dt, state==='playing'?dt:0.016)); }
     } catch(err){
       window.__gameErr = String(err && err.stack || err);
       console.error('[frame skipped]', err);
