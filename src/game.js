@@ -2779,6 +2779,7 @@ import { FX } from "./fx.js";
       { key:'f_zone',   name:'폭염 지대',  tier:2, max:2, desc:(m)=>'불길 장판 피해 +'+R(10*m)+', 지속 +0.4초', apply:(p,m)=>{ p.firetrailDps=(p.firetrailDps||10)+10*m; p.firetrailDur+=0.4; } },
       { key:'f_heart',  name:'타오르는 심장', tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 화상 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.burnDps) p.burnDps+=2*m; else { p.burnChance=Math.max(p.burnChance||0,0.1); p.burnDps=6+2*m; } } },
       { key:'f_ash',    name:'재의 질주',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 불의 궤적 피해 +'+R(5*m), apply:(p,m)=>{ p.speed*=1+0.04*m; p.firetrailDps=(p.firetrailDps||10)+5*m; } },
+      { key:'f_meteor', name:'유성우',     tier:2, max:2, desc:(m)=>'9초마다 유성 3개가 무작위 적에게 낙하 (피해 +'+R(14*m)+', 화상)', apply:(p,m)=>{ p.meteorLv=(p.meteorLv||0)+1; p.meteorDmg=(p.meteorDmg||20)+14*m; } },
       { key:'f_inferno',name:'대화재',     tier:3, max:1, desc:(m)=>'[궁극] 12초마다 대폭염 (피해 '+R(60*m)+') + 모든 화상 즉시 폭발', apply:(p,m)=>{ p.inferno=60*m; } },
       { key:'f_myth',   name:'겁화의 군주', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 화상 피해 2배, 화상 확률 +20%p, 대화재 쿨다운 -30%', apply:(p)=>{ p.burnDps=(p.burnDps||6)*2; p.burnChance=Math.min(0.95,(p.burnChance||0)+0.2); p.infernoCdMult=0.7; } },
     ]},
@@ -2789,6 +2790,7 @@ import { FX } from "./fx.js";
       { key:'i_deep',   name:'혹한',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적에게 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.10*m; } },
       { key:'i_calm',   name:'냉정',       tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 냉기 효과 +'+R(2*m)+'%p', apply:(p,m)=>{ p.cdr*=1-0.03*m; p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.02*m); p.chillOn=true; } },
       { key:'i_shatter',name:'분쇄',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.08*m; } },
+      { key:'i_blizz',  name:'눈보라',     tier:2, max:2, desc:(m)=>'9초마다 주변에 눈보라 (초당 피해 +'+R(4*m)+', 냉기 중첩)', apply:(p,m)=>{ p.blizzLv=(p.blizzLv||0)+1; p.blizzDps=(p.blizzDps||6)+4*m; } },
       { key:'i_abszero',name:'절대영도',   tier:3, max:1, desc:(m)=>'[궁극] 14초마다 화면 전체 2초 빙결 + 피해 '+R(40*m), apply:(p,m)=>{ p.absZero=40*m; } },
       { key:'i_myth',   name:'영원한 겨울', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 빙결·냉기 적 피해 +35%, 냉기 최대 효과, 서리 갑옷 강화', apply:(p)=>{ p.frozenAmp+=0.35; p.chillPower=0.32; p.chillOn=true; p.frostArmor=(p.frostArmor||0)+1; } },
     ]},
@@ -2799,6 +2801,7 @@ import { FX } from "./fx.js";
       { key:'l_over',   name:'과전압',     tier:2, max:1, desc:(m)=>'감전 연쇄가 한 번 더 튄다', apply:(p,m)=>{ p.chainPlus=1; } },
       { key:'l_cap',    name:'축전기',     tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 감전 피해 +'+R(4*m), apply:(p,m)=>{ p.cdr*=1-0.03*m; p.shockDmg=(p.shockDmg||10)+4*m; } },
       { key:'l_flash',  name:'전광석화',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 공격속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.speed*=1+0.04*m; p.rateMult*=1+0.04*m; } },
+      { key:'l_spear',  name:'천둥 창',    tier:2, max:2, desc:(m)=>'6초마다 관통 뇌창 발사 (피해 +'+R(12*m)+', 관통 6)', apply:(p,m)=>{ p.spearLv=(p.spearLv||0)+1; p.spearDmg=(p.spearDmg||18)+12*m; } },
       { key:'l_thor',   name:'뇌신 강림',  tier:3, max:1, desc:(m)=>'[궁극] 11초마다 거대 낙뢰 8연타 (피해 '+R(30*m)+')', apply:(p,m)=>{ p.thor=30*m; } },
       { key:'l_myth',   name:'천둥의 심장', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 감전 연쇄 +2회, 감전 확률 +15%p, 감전 피해 +15', apply:(p)=>{ p.chainPlus=(p.chainPlus||0)+2; p.shockChance=Math.min(0.8,(p.shockChance||0)+0.15); p.shockDmg=(p.shockDmg||10)+15; } },
     ]},
@@ -2809,6 +2812,7 @@ import { FX } from "./fx.js";
       { key:'a_burst',  name:'침식 폭발',  tier:2, max:1, desc:(m)=>'부식 2중첩 이상 적이 죽으면 산성 폭발이 퍼진다', apply:(p,m)=>{ p.acidBurst=true; } },
       { key:'a_blood',  name:'맹독 혈액',  tier:1, max:3, desc:(m)=>'부식 확률 +'+R(6*m)+'%p, 재생 +'+R1(0.2*m), apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.06*m); p.regen+=0.2*m; } },
       { key:'a_endur',  name:'내성',       tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 용해 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; p.dissolveDps=(p.dissolveDps||0)+2*m; } },
+      { key:'a_wave',   name:'산성 파도',  tier:2, max:2, desc:(m)=>'8초마다 부식 파동 방출 (피해 +'+R(10*m)+', 부식 부여)', apply:(p,m)=>{ p.awaveLv=(p.awaveLv||0)+1; p.awaveDmg=(p.awaveDmg||14)+10*m; } },
       { key:'a_collapse',name:'완전 붕괴', tier:3, max:1, desc:(m)=>'[궁극] 부식 최대 4중첩·효과 강화, 15초마다 전 화면 부식', apply:(p,m)=>{ p.collapse=true; p.corrodeMaxS=4; p.corrodeAmp=0.22; } },
       { key:'a_myth',   name:'만물 분해',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 부식 중첩당 받는 피해 +30%로 강화, 용해 피해 2배', apply:(p)=>{ p.corrodeAmp=0.30; p.dissolveDps=(p.dissolveDps||3)*2; } },
     ]},
@@ -2819,6 +2823,7 @@ import { FX } from "./fx.js";
       { key:'e_chain2', name:'연쇄 기폭',  tier:2, max:2, desc:(m)=>'유폭·지뢰 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.explodeDmg=(p.explodeDmg||18)*(1+0.15*m); p.mineDmg=(p.mineDmg||30)*(1+0.15*m); } },
       { key:'e_pack',   name:'추가 화약',  tier:1, max:3, desc:(m)=>'유폭 확률 +'+R(8*m)+'%p, 폭발 피해 +'+R(6*m), apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.08*m); p.explodeDmg=(p.explodeDmg||18)+6*m; } },
       { key:'e_vest',   name:'폭발 조끼',  tier:2, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 돌파 폭발 피해 +'+R(10*m), apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.dashBlast=(p.dashBlast||20)+10*m; } },
+      { key:'e_cluster',name:'클러스터 폭격', tier:2, max:2, desc:(m)=>'10초마다 집속 폭격 — 본폭발 + 분열탄 3 (피해 +'+R(12*m)+')', apply:(p,m)=>{ p.clusterLv=(p.clusterLv||0)+1; p.clusterDmg=(p.clusterDmg||18)+12*m; } },
       { key:'e_carpet', name:'융단 폭격',  tier:3, max:1, desc:(m)=>'[궁극] 16초마다 8발 폭격 (피해 '+R(45*m)+')', apply:(p,m)=>{ p.orbital=45*m; } },
       { key:'e_myth',   name:'메가톤',     tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 폭발 피해 +40%, 유폭 확률 +15%p', apply:(p)=>{ p.explodeDmg=(p.explodeDmg||18)*1.4; p.mineDmg=(p.mineDmg||30)*1.4; p.explodeChance=Math.min(0.75,(p.explodeChance||0)+0.15); } },
     ]},
@@ -2829,6 +2834,7 @@ import { FX } from "./fx.js";
       { key:'m_heat',   name:'포탑 과열',  tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(15*m)+'%', apply:(p,m)=>{ p.turretRate*=1+0.15*m; } },
       { key:'m_repair', name:'자가 수리',  tier:1, max:3, desc:(m)=>'재생 +'+R1(0.4*m)+', 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.regen+=0.4*m; p.cdr*=1-0.02*m; } },
       { key:'m_scrap',  name:'재활용',     tier:2, max:2, desc:(m)=>'골드 +'+R(6*m)+'%, 터렛 피해 +'+R(4*m), apply:(p,m)=>{ p.goldMult*=1+0.06*m; p.turretDmg=(p.turretDmg||10)+4*m; } },
+      { key:'m_emp',    name:'EMP 방출',   tier:2, max:2, desc:(m)=>'9초마다 전자기 충격파 (피해 +'+R(8*m)+', 0.4초 정지)', apply:(p,m)=>{ p.empLv=(p.empLv||0)+1; p.empDmg=(p.empDmg||12)+8*m; } },
       { key:'m_od',     name:'오버드라이브',tier:3, max:1, desc:(m)=>'[궁극] 15초마다 5초간 공격속도 +'+R((0.3+0.1*m)*100)+'%·이동속도 +20%', apply:(p,m)=>{ p.odCd=15; p.odPower=0.3+0.1*m; } },
       { key:'m_myth',   name:'기계 반란',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 터렛 +2기, 터렛 공격속도 +30%, 관통 +1', apply:(p)=>{ p.turretLv=(p.turretLv||0)+2; if(!p.turretDmg) p.turretDmg=12; p.turretRate*=1.3; p.pierce+=1; } },
     ]},
@@ -2839,6 +2845,7 @@ import { FX } from "./fx.js";
       { key:'p_grav',   name:'중력 붕괴',   tier:2, max:1, desc:(m)=>'염동 파동이 적을 끌어당기며 피해 +30%', apply:(p,m)=>{ p.pulsePull=true; } },
       { key:'p_focus',  name:'정신 집중',   tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 파동 피해 +'+R(5*m), apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.pulseLv) p.pulseDmg+=5*m; else { p.pulseLv=1; p.pulseDmg=20+5*m; } } },
       { key:'p_ward',   name:'결계',        tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 방벽 충전 -1초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; if(p.shieldCdMax) p.shieldCdMax=Math.max(4,p.shieldCdMax-1); } },
+      { key:'p_barrier',name:'염동 결계',   tier:2, max:1, desc:(m)=>'7초마다 주변의 적 탄환을 전부 소거', apply:(p,m)=>{ p.wardLv=(p.wardLv||0)+1; } },
       { key:'p_blink',  name:'점멸',        tier:3, max:1, desc:(m)=>'[궁극] 대시가 순간이동이 되고 도착 지점에 대폭발 (피해 '+R(55*m)+')', apply:(p,m)=>{ p.blink=55*m; } },
       { key:'p_myth',   name:'초월자',      tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 파동 피해 +60%·적을 끌어당김, 모든 적 이속 -8%', apply:(p)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=20; } p.pulseDmg=Math.round(p.pulseDmg*1.6); p.pulsePull=true; p.slowAll*=0.92; } },
     ]},
@@ -2892,7 +2899,8 @@ import { FX } from "./fx.js";
     g_well:'무기', g_orbit:'운명', g_weight:'전술',
     c_drag:'수호', c_haste:'보조',
     b_burst:'무기', b_frenzy:'금단', b_leech:'전술', b_pact:'금단',
-    c_luck:'운명', a_blood:'금단', f_myth0:'무기',
+    c_luck:'운명', a_blood:'금단',
+    f_meteor:'무기', i_blizz:'무기', l_spear:'무기', a_wave:'무기', e_cluster:'무기', m_emp:'무기', p_barrier:'수호',
   };
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
@@ -5510,6 +5518,116 @@ import { FX } from "./fx.js";
     if (player.shockSureT>0) player.shockSureT -= dt;
     if (player.odT>0) player.odT -= dt;
 
+    // ---- 속성 대확장: 신규 액티브 7종 ----
+    // 지옥불: 유성우
+    if (player.meteorLv>0){
+      player.meteorT = (player.meteorT||9) - dt;
+      if (player.meteorT<=0){
+        for (let k=0;k<3 && enemies.length;k++){
+          const e2 = enemies[(Math.random()*enemies.length)|0];
+          const d2 = player.meteorDmg*D;
+          e2.hp -= d2; e2.burnT = 2.5; e2.burnDps = Math.max(e2.burnDps||0, (player.burnDps||6)*D);
+          addDmgNum(e2.x, e2.y, d2, true);
+          burst(e2.x, e2.y, 10, 180, 0xe2603f);
+          FX.puff(e2.x, e2.y, 0xe2603f, 18);
+          if (e2.hp<=0){ const idx=enemies.indexOf(e2); if (idx>=0) defeatEnemy(idx); }
+        }
+        SFX.play('boom');
+        player.meteorT = 9 * player.cdr;
+      }
+    }
+    // 서리: 눈보라
+    if (player.blizzLv>0){
+      player.blizzT = (player.blizzT||9) - dt;
+      if (player.blizzT<=0){
+        if (zones.length<40) zones.push({ x:player.x, y:player.y, r:105, dps:player.blizzDps*D, t:4, maxT:4, type:'frost' });
+        SFX.play('tele');
+        player.blizzT = 9 * player.cdr;
+      }
+    }
+    // 번개: 천둥 창
+    if (player.spearLv>0){
+      player.spearT = (player.spearT||6) - dt;
+      if (player.spearT<=0){
+        const t4 = nearestTarget();
+        const a4 = t4 ? Math.atan2(t4.y-player.y, t4.x-player.x) : player.facing;
+        fireProjectile(a4, 560, player.spearDmg*D, 6, 1.3, { imbue:'volt' });
+        FX.puff(player.x+Math.cos(a4)*18, player.y+Math.sin(a4)*18, 0xe0b73d, 12);
+        player.spearT = 6 * player.cdr;
+      }
+    }
+    // 부식: 산성 파도
+    if (player.awaveLv>0){
+      player.awaveT = (player.awaveT||8) - dt;
+      if (player.awaveT<=0){
+        for (let i2=enemies.length-1;i2>=0;i2--){
+          const e2 = enemies[i2];
+          if (Math.hypot(e2.x-player.x, e2.y-player.y) < 140+e2.r){
+            const d2 = player.awaveDmg*D*corrodeMult(e2);
+            e2.hp -= d2; addDmgNum(e2.x, e2.y, d2, false);
+            e2.corrodeS = Math.min(player.corrodeMaxS, (e2.corrodeS||0)+1); e2.corrodeT = 5;
+            if (e2.hp<=0) defeatEnemy(i2);
+          }
+        }
+        effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:20, r1:140 });
+        FX.ring(player.x, player.y, 0x6faa4e, 12);
+        SFX.play('tele');
+        player.awaveT = 8 * player.cdr;
+      }
+    }
+    // 폭발: 클러스터 폭격
+    if (player.clusterLv>0){
+      player.clusterT = (player.clusterT||10) - dt;
+      if (player.clusterT<=0){
+        const t5 = nearestTarget();
+        if (t5){
+          friendlyBlast(t5.x, t5.y, 70, player.clusterDmg*D, true);
+          for (let k=0;k<3;k++){
+            const a5 = Math.random()*Math.PI*2, d5 = 40+Math.random()*50;
+            friendlyBlast(t5.x+Math.cos(a5)*d5, t5.y+Math.sin(a5)*d5, 45, player.clusterDmg*0.6*D, true);
+          }
+          shake = Math.min(14, shake+6);
+          SFX.play('boom');
+        }
+        player.clusterT = 10 * player.cdr;
+      }
+    }
+    // 기계: EMP 방출
+    if (player.empLv>0){
+      player.empT = (player.empT||9) - dt;
+      if (player.empT<=0){
+        for (let i2=enemies.length-1;i2>=0;i2--){
+          const e2 = enemies[i2];
+          if (Math.hypot(e2.x-player.x, e2.y-player.y) < 150+e2.r){
+            e2.hp -= player.empDmg*D;
+            e2.frozenT = Math.max(e2.frozenT||0, 0.4);
+            addDmgNum(e2.x, e2.y, player.empDmg*D, false);
+            if (e2.hp<=0) defeatEnemy(i2);
+          }
+        }
+        effects.push({ type:'ring', x:player.x, y:player.y, life:0.35, age:0, r0:16, r1:150 });
+        FX.ring(player.x, player.y, 0x7a8a99, 14);
+        SFX.play('tele');
+        player.empT = 9 * player.cdr;
+      }
+    }
+    // 염동: 결계 (적탄 소거)
+    if (player.wardLv>0){
+      player.wardT = (player.wardT||7) - dt;
+      if (player.wardT<=0){
+        let cleared = 0;
+        for (let i2=hostileShots.length-1;i2>=0;i2--){
+          const s2 = hostileShots[i2];
+          if (Math.hypot(s2.x-player.x, s2.y-player.y) < 150){ hostileShots.splice(i2,1); cleared++; }
+        }
+        if (cleared>0){
+          addTextNum(player.x, player.y-26, '결계 ('+cleared+')');
+          FX.ring(player.x, player.y, 0x9a6fc4, 10);
+          SFX.play('tele');
+        }
+        player.wardT = 7 * player.cdr;
+      }
+    }
     // ---- 신성 ----
     if (player.haloLv>0){
       player.haloT = (player.haloT||6) - dt;
@@ -5894,6 +6012,7 @@ import { FX } from "./fx.js";
           e.hp -= z.dps*dt * (z.type==='grav' ? 1+(player.crushAmp||0) : 1);
           if (z.type==='fire' && Math.random()<dt*2){ e.burnT=2.5; e.burnDps=Math.max(e.burnDps||0, (player.burnDps||5)*D); }
           if (z.type==='acid' && Math.random()<dt*2){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+1); e.corrodeT=5; }
+          if (z.type==='frost' && Math.random()<dt*2.5){ e.chillS=Math.min(3,(e.chillS||0)+1); e.chillT=2.5; }
           if (z.type==='grav'){
             // 중력 우물: 중심으로 강하게 흡인
             const ga = Math.atan2(z.y-e.y, z.x-e.x);
@@ -8721,7 +8840,7 @@ import { FX } from "./fx.js";
       const fxZones = [];
       for (const z of zones){
         const tt = Math.min(1, z.t/z.maxT);
-        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : 0x6faa4e;
+        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : 0x6faa4e;
         fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:0.22*tt });
       }
       // Pixi 4단계: 보스 오라 — 시그니처 색 광원 (분노 시 강렬하게)
@@ -8756,6 +8875,23 @@ import { FX } from "./fx.js";
           ctx.beginPath();
           ctx.moveTo(fx2, fy2+3); ctx.quadraticCurveTo(fx2+2, fy2-4, fx2, fy2-7);
           ctx.stroke();
+        }
+      } else if (z.type==='frost'){
+        // 눈보라: 흩날리는 눈송이
+        if (!FX.enabled){
+          ctx.fillStyle = 'rgba(63,168,201,'+(0.14*tt)+')';
+          ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(63,168,201,'+(0.55*tt)+')';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.stroke();
+        ctx.fillStyle = 'rgba(220,240,248,'+(0.8*tt)+')';
+        for (let k=0;k<5;k++){
+          const st = (performance.now()/600 + k*0.37) % 1;
+          const sa = k*1.9 + z.x*0.01;
+          ctx.beginPath();
+          ctx.arc(Math.cos(sa)*z.r*0.6, Math.sin(sa)*z.r*0.6 - 10 + st*20, 2, 0, Math.PI*2);
+          ctx.fill();
         }
       } else if (z.type==='grav'){
         // 중력 우물: 안으로 빨려드는 궤도선
