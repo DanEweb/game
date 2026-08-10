@@ -661,7 +661,10 @@ import { FX } from "./fx.js";
     }
     DB.inv.push(item);
     toast('장비 획득: ['+RARITY_NAMES[item.r]+'] '+item.name);
-    // 초희귀 획득: 전광판 연출 (자랑 타임)
+    // 초희귀 획득: 전광판 연출 (자랑 타임) + 에고 무기 반응
+    if (item.r>=4 && player && ownedWeapon('nameless') && Math.random()<0.7){
+      setTimeout(()=>egoSay(EGO_RARE), 900);
+    }
     if (item.r>=5){
       showBossBanner(item.r===6 ? '✦ 태초의 유물 ✦' : '✦ 유니크 발견 ✦', item.name, item.r===6 ? '#d9a53f' : '#b8362e');
       freeze = Math.max(freeze, 0.25);
@@ -1155,6 +1158,12 @@ import { FX } from "./fx.js";
     dailyPending = !dailyPending;
     $('dailyBtn').classList.toggle('on', dailyPending);
     toast(dailyPending ? '📅 일일 도전 모드 — 오늘('+todayStr()+') 모두가 같은 시드로 경쟁!' : '일일 도전 해제');
+    SFX.play('beep');
+  });
+  $('sprintBtn').addEventListener('click', ()=>{
+    waveModePending = !waveModePending;
+    $('sprintBtn').classList.toggle('on', waveModePending);
+    toast(waveModePending ? '⚡ 웨이브 모드 — 8웨이브를 버티고 최종 보스를 잡으면 클리어! (밀도 강화)' : '웨이브 모드 해제');
     SFX.play('beep');
   });
   document.querySelectorAll('.backBtn').forEach(b=> b.addEventListener('click', ()=>{
@@ -2516,6 +2525,32 @@ import { FX } from "./fx.js";
     '슬슬 각성해야 하는데. 나 말고 너.', '엄살 부리지 마라. 아직 체력 남았다.', '방금 스킬은 좀 멋있었다. 조금.',
     '검한테 말 시키지 말고 앞이나 봐라.', '휴가... 그게 뭐였지.', '네 빌드 그거 맞냐? 인터넷 찾아봐라.',
     '점심 메뉴 고민할 시간에 한 마리 더 잡아라.', '나를 더 갈아라. 아프지 않다. 아마도.',
+    '카드값 결제일이 다가온다... 아 이건 내 기억이 아니군.', '전 주인은 너보다 검을 잘 닦았다.',
+    '요즘 검들은 소켓이니 옵션이니... 나 때는 날 하나로 승부했다.', '너 방금 하품했나? 전장에서?',
+    '통장을 보고도 그렇게 태연할 수 있다니 대단하군.', '적게 일하고 많이 잡아라.',
+    '내가 말이 많은 건 수백 년 묻혀 있었기 때문이다. 이해해라.', '오늘 걸음 수는 채웠겠군. 그건 인정.',
+    '눈앞의 적보다 무서운 건 다음 달 공과금이다.', '헬스장 등록만 하고 안 간 지 몇 달째냐.',
+    '연락 안 하는 친구는 손절이 아니라 자연사다.', '너의 최고 기록, 내가 다 봤다. 별거 없더군.',
+    '적이 몰려온다. 월요일 아침처럼.', '지금 뛰는 건 운동이 아니라 도망이다.',
+    '침착해라. 통장 잔고 볼 때처럼.', '그 장비 진짜 쓸 거냐? 패션이냐?',
+    '내 이름을 지어줄 생각은 없나. 아, 무명검이 이름이군. 성의 없기는.',
+    '휴대폰 그만 보고— 아 여긴 게임이었지.', '삶은 짧다. 쿨다운은 길고.',
+    '너 정도면 잘하고 있다. 검이 하는 위로다. 새겨들어라.', '가끔은 지는 것도 경험치다. 가끔은.',
+    '집중력이 3초짜리군. 붕어냐.', '이 판 끝나면 물 마셔라. 인간은 그런 게 필요하다지.',
+    '보스가 이명을 달고 나오면 도망쳐도 된다. 아무도 뭐라 안 한다. 내가 뭐라 하겠지만.',
+    '경험치 구슬 놓쳤다. 방금. 두 개나.', '어깨 펴라. 새우처럼 굽었다.',
+    '적금 깨서 산 게 겨우 리롤이냐.', '너의 회피율은 네 인생의 책임 회피율보다 낮다.',
+    '숫자가 커지는 게임은 좋은 게임이다. 인생과 다르게 정직하지.', '오늘도 야근이군. 게임 속에서까지.',
+    '검에게도 주말은 필요하다.', '다음 생엔 방패로 태어나고 싶군. 맞는 건 네가 해라.',
+    '지금 빌드로 끝까지 갈 생각이냐? 용감하군.', '설거지는 하고 나온 거냐.',
+    '데드라인은 마감의 화신만의 얘기가 아니다. 네 얘기다.', '숨은 쉬면서 해라.',
+    '이 정도 물량이면 특근 수당을 받아야 한다.', '방금 그 회피, 우연이었지? 다 안다.',
+  ];
+  const EGO_FEVER = [
+    '좋아, 물이 올랐군! 그대로 썰어라!', '피버다! 월급날 기분이 이런 건가!', '지금이다! 생각은 나중에!',
+  ];
+  const EGO_RARE = [
+    '오... 그거 비싸 보이는군. 내 옆에 두지 마라. 비교된다.', '팔지 마라. 절대 팔지 마라.', '운을 여기서 다 쓰는군. 내일 조심해라.',
   ];
   const EGO_LOWHP = [
     '어이, 죽지 마라. 나 또 땅에 묻히기 싫다.', '체력 관리도 실력이다!', '도망쳐라! 부끄러운 게 아니다!',
@@ -2540,6 +2575,7 @@ import { FX } from "./fx.js";
       egoT = 26 + Math.random()*30;
       if (player.hp < player.maxHp*0.3) egoSay(EGO_LOWHP);
       else if (bosses.length>0 && Math.random()<0.4) egoSay(EGO_BOSS);
+      else if (feverTimer>0 && Math.random()<0.6) egoSay(EGO_FEVER);
       else egoSay(EGO_IDLE);
     }
   }
@@ -3160,6 +3196,8 @@ import { FX } from "./fx.js";
     pendingBranchAsk = true;
     midContractIdx = 0;
     egoT = 12; keyHintUntil = 30;
+    waveModeRun = waveModePending; sprintWave = 0;
+    runFinalAt = waveModeRun ? 380 : MAP.finalAt;
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -3180,7 +3218,7 @@ import { FX } from "./fx.js";
     timeVal.textContent = fmtTime(elapsed);
     killVal.textContent = killCount;
     goldStatVal.textContent = runGold;
-    const wv = $('waveVal'); if (wv) wv.textContent = waveCount;
+    const wv = $('waveVal'); if (wv) wv.textContent = waveModeRun ? sprintWave+'/8' : waveCount;
     // 키 안내: 초반엔 선명 → 반투명 → 소멸, H로 다시 표시
     const kh = $('keyHints');
     if (kh){
@@ -3233,8 +3271,8 @@ import { FX } from "./fx.js";
       nk.textContent = '시련'; nv.textContent = fmtTime(Math.ceil(trialT));
     } else if (bosses.length>0){
       nk.textContent = 'BOSS'; nv.textContent = '전투!';
-    } else if (!rootDefeated && MAP.finalAt - elapsed <= (bossSpawnedOnce ? BOSS_INTERVAL - bossTimer : BOSS_FIRST_AT - elapsed)){
-      nk.textContent = 'FINAL'; nv.textContent = fmtTime(Math.max(0, MAP.finalAt - elapsed));
+    } else if (!rootDefeated && runFinalAt - elapsed <= (bossSpawnedOnce ? BOSS_INTERVAL - bossTimer : BOSS_FIRST_AT - elapsed)){
+      nk.textContent = 'FINAL'; nv.textContent = fmtTime(Math.max(0, runFinalAt - elapsed));
     } else {
       nk.textContent = 'BOSS';
       const tRemain = bossSpawnedOnce ? (BOSS_INTERVAL - bossTimer) : (BOSS_FIRST_AT - elapsed);
@@ -5493,6 +5531,7 @@ import { FX } from "./fx.js";
     spawnTimer += dt;
     let interval = elapsed < 8 ? 1.15 : Math.max(0.15, 1.0 - (elapsed-8)*0.018);
     if (trialT > 0) interval *= (trialKind==='frenzy' ? 0.33 : 0.5); // 시련: 스폰 2배 (광란은 3배)
+    if (waveModeRun) interval *= 0.78; // 웨이브 모드: 밀도 강화
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
     const cap = Math.min(150, 18 + Math.floor(elapsed/3.5));
     if (spawnTimer >= interval){
@@ -5528,6 +5567,16 @@ import { FX } from "./fx.js";
         egoSay(EGO_LEVELUP);
         FX.ring(player.x, player.y, 0xb8362e, 12);
       }
+    }
+    // 웨이브(스프린트) 모드: 45초마다 웨이브 상승 — 압축된 8웨이브 + 최종 보스
+    if (waveModeRun && sprintWave < 8 && elapsed >= sprintWave*45){
+      sprintWave += 1;
+      showBossBanner('WAVE '+sprintWave+' / 8', sprintWave>=8 ? '최종 보스가 다가온다' : '웨이브 '+sprintWave+' 시작', sprintWave>=7 ? '#b8362e' : '#45474a');
+      for (let k=0;k<sprintWave*3;k++){
+        const a = Math.random()*Math.PI*2;
+        enemies.push(makeEnemy(Math.random()<0.4?'fish':'swarm', player.x+Math.cos(a)*(360+Math.random()*120), player.y+Math.sin(a)*(360+Math.random()*120), false));
+      }
+      SFX.play('warn');
     }
     // 중간 계약 (4분 / 8분)
     if (midContractIdx < midContractTimes.length && elapsed >= midContractTimes[midContractIdx]){
@@ -5958,7 +6007,7 @@ import { FX } from "./fx.js";
 
     // boss spawn scheduling — 맵별 최종 보스(기존 보스의 각성형)
     const finalAlive = bosses.some(b=>b.finale);
-    if (!finalAlive && !rootDefeated && elapsed>=MAP.finalAt){
+    if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
       spawnBoss(MAP.final);
     } else if (!finalAlive && rootDefeated && endless && nextRootAt>0 && elapsed>=nextRootAt){
       spawnBoss(MAP.final, true);
@@ -6604,6 +6653,7 @@ import { FX } from "./fx.js";
   let clients = [], clientCount = 0, runQuest = null;
   let pendingSkills = [], pendingAwaken = false, pendingJobs = [];
   let dailyPending = false, dailyRun = false, origRandom = Math.random;
+  let waveModePending = false, waveModeRun = false, runFinalAt = 600, sprintWave = 0;
   function openClientQuest(){
     const D = player.dmgMult;
     const offers = [
