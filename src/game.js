@@ -2306,7 +2306,7 @@ import { FX } from "./fx.js";
       lvDesc:['','피해 강화','피해 +25%','관통 강화','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.95 : 1.2,
       dmg:(w)=>{
-        const gl = DB.gweps.bow.lv||1;
+        const gl = gwepEffLv(DB.gweps.bow.lv||1);
         const g = 2 + gl*1.4;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1; // 각성/진각성
         return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
@@ -2319,7 +2319,7 @@ import { FX } from "./fx.js";
       lvDesc:['','마탄 +1','피해 +25%','마탄 +1','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.1 : 1.4,
       dmg:(w)=>{
-        const gl = DB.gweps.tome.lv||1;
+        const gl = gwepEffLv(DB.gweps.tome.lv||1);
         const g = 1.5 + gl*1.1;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
         return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
@@ -2332,7 +2332,7 @@ import { FX } from "./fx.js";
       lvDesc:['','참격 확장','피해 +25%','참격 확장','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.25 : 1.6,
       dmg:(w)=>{
-        const gl = DB.gweps.blade.lv||1;
+        const gl = gwepEffLv(DB.gweps.blade.lv||1);
         const g = 3 + gl*1.8;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
         return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
@@ -2345,15 +2345,15 @@ import { FX } from "./fx.js";
       lvDesc:['','검기 강화','피해 +25%','검기 확장','피해 강화'],
       baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
-        const gl = DB.growth.lv||1;
-        const g = 2 + gl*1.1; // 성장 완만화 (난이도 급감 방지)
+        const gl = growthEffLv(); // 봉인 해제: 이 판의 처치 수만큼만 본래 힘을 낸다
+        const g = 2 + gl*1.1;
         const t = [1,1.25,1.55,1.9,2.3][w.lv-1];
         // 성장 단계 진화 보너스: Lv10 각성 / Lv20 해방 / Lv35 진명검 / Lv60 초월 / Lv100 귀일
         const tier = gl>=100?1.7 : gl>=60?1.5 : gl>=35?1.35 : gl>=20?1.2 : gl>=10?1.1 : 1;
         const branch = (player&&player.growthBranch==='slash') ? 1.18 : 1;
         return g * t * tier * branch * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.growth.lv>=15?1:0) + (DB.growth.lv>=30?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
+      count:(w)=>{ const gl = growthEffLv(); return 1 + (gl>=15?1:0) + (gl>=30?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0); }
     },
     drone: {
       name:'드론', desc:'호위 드론이 자동으로 적을 사격합니다',
@@ -2500,6 +2500,17 @@ import { FX } from "./fx.js";
   function ownedWeapon(key){
     for (const w of player.weapons){ if (w.key===key) return w; }
     return null;
+  }
+  // 봉인 해제: 성장무기는 런 시작 시 봉인 상태 — 이 판의 처치 수로 서서히 본래 힘을 되찾는다
+  // (메타 성장이 높을수록 '상한'이 높아질 뿐, 초반 난이도를 부수지 않음)
+  function growthEffLv(){
+    const full = DB.growth.lv||1;
+    if (!player) return full;
+    return Math.min(full, 1 + Math.floor(killCount/35));
+  }
+  function gwepEffLv(full){
+    if (!player) return full;
+    return Math.min(full, 1 + Math.floor(killCount/30));
   }
   // 유일무기 진화: 성장 레벨에 따라 이름이 바뀐다 (각성 → 진각성)
   Object.defineProperty(WEAPONS.nameless, 'name', { get(){
@@ -2751,7 +2762,33 @@ import { FX } from "./fx.js";
     { n:'고행',       d:'무기 슬롯 3개 제한 / 모든 피해 +25%', fx:(p)=>{ p.weaponCap=3; p.dmgMult*=1.25; } },
     { n:'질풍 계약',  d:'적 이동속도 +20% / 내 이속 +15%, 대시 쿨다운 -15%', fx:(p)=>{ p.enemySpdMod=1.2; p.speed*=1.15; p.dashCdMax*=0.85; } },
     { n:'수전노',     d:'처치 골드 드랍 3배 / 회복 아이템 등장 안 함', fx:(p)=>{ p.goldDropMod=3; p.noHealDrops=true; } },
+    { n:'침묵의 서약', d:'스킬(2~4번) 사용 불가 / 모든 피해 +35%', fx:(p)=>{ p.skillsSealed=true; p.dmgMult*=1.35; } },
+    { n:'맨몸 수행',  d:'무기 슬롯 2개 제한 / 경험치 +40%', fx:(p)=>{ p.weaponCap=2; p.xpMult=(p.xpMult||1)*1.4; } },
+    { n:'시한부 계약', d:'매 60초마다 최대체력 -5% / 피해 +30%', fx:(p)=>{ p.decayContract=true; p.dmgMult*=1.3; } },
+    { n:'대식가 계약', d:'회복 +50% / 이동속도 -12%', fx:(p)=>{ p.healMult*=1.5; p.speed*=0.88; } },
+    { n:'유령 계약',  d:'회피 +15% / 최대체력 -20%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.15); p.maxHp=Math.max(30,Math.round(p.maxHp*0.8)); } },
+    { n:'폭풍 인도자', d:'웨이브 주기 -30% (더 자주) / 웨이브마다 골드 +15', fx:(p)=>{ p.stormCall=true; } },
   ];
+  // 중간 계약 — 4분/8분에 나타나는 추가 제약 제안 (수락할수록 위험하고 강해진다)
+  const MID_CONTRACTS = [
+    { n:'가속 조항',  d:'적 이동속도 +12% / 모든 피해 +14%', fx:(p)=>{ p.enemySpdMod=(p.enemySpdMod||1)*1.12; p.dmgMult*=1.14; } },
+    { n:'피의 조항',  d:'회복 효과 -40% / 흡혈 +2', fx:(p)=>{ p.healMult*=0.6; p.lifesteal+=2; } },
+    { n:'군중 조항',  d:'적 스폰 +35% / 경험치 +25%', fx:(p)=>{ p.hordeMod=(p.hordeMod||1)*1.35; p.xpMult=(p.xpMult||1)*1.25; } },
+    { n:'유리 조항',  d:'받는 피해 +15% / 쿨다운 -12%', fx:(p)=>{ p.dmgTaken*=1.15; p.cdr*=0.88; } },
+    { n:'궁핍 조항',  d:'골드 획득 -50% / 처형 임계 +5%p', fx:(p)=>{ p.goldMult*=0.5; p.execThresh=Math.min(0.4,p.execThresh+0.05); } },
+    { n:'폭주 조항',  d:'적 피해 +20% / 공격속도 +15%', fx:(p)=>{ p.midEdmg=(p.midEdmg||1)*1.2; p.rateMult*=1.15; } },
+  ];
+  let midContractTimes = [240, 480], midContractIdx = 0;
+  function openMidContract(){
+    const pool2 = MID_CONTRACTS.slice();
+    const opts = [];
+    for (let i=0;i<3 && pool2.length;i++){
+      const c = pool2.splice((Math.random()*pool2.length)|0,1)[0];
+      opts.push({ l:c.n, d:c.d, fx:()=>{ c.fx(player); toast('추가 계약: '+c.n); SFX.play('quest'); } });
+    }
+    opts.push({ l:'거절한다', d:'추가 제약 없이 계속한다', fx:null });
+    openEvent({ t:'중간 계약 — 어둠의 재협상', d:'그림자가 다시 나타나 새 조항을 내민다. 위험과 힘을 저울질하라.', opts });
+  }
   function openArcanaChoice(){
     const pool = ARCANA.slice();
     const opts = [];
@@ -3080,6 +3117,7 @@ import { FX } from "./fx.js";
     nextSurveyAt = SURVEY_FIRST_AT; nextAltarAt = 60; nextRiftAt = 110;
     bossPool = [];
     pendingBranchAsk = true;
+    midContractIdx = 0;
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -3100,6 +3138,7 @@ import { FX } from "./fx.js";
     timeVal.textContent = fmtTime(elapsed);
     killVal.textContent = killCount;
     goldStatVal.textContent = runGold;
+    const wv = $('waveVal'); if (wv) wv.textContent = waveCount;
     // 스킬바 (플레이 중 표시)
     const sb = $('skillBar');
     sb.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
@@ -3217,7 +3256,7 @@ import { FX } from "./fx.js";
     return 1 + Math.min(1.2, pw);                                 // 최대 +120%
   }
   function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
-  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15); }
+  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
   function spdScale(){ return 1 + Math.min(0.45, elapsed*0.0011); }
   function ringSpawnPos(minR, maxR){
     const a = Math.random()*Math.PI*2;
@@ -3415,13 +3454,13 @@ import { FX } from "./fx.js";
     let type = forceType;
     if (!type){
       const r = Math.random();
-      if (r<0.50) type='gold';
-      else if (r<0.66) type='heal';
-      else if (r<0.78) type='magnet';
-      else if (r<0.86) type='bomb';
-      else if (r<0.90) type='freeze';
-      else if (r<0.915) type='scroll';   // 리롤 두루마리 (1.5%)
-      else if (r<0.925) type='stamp';    // 제외 도장 (1%)
+      if (r<0.55) type='gold';
+      else if (r<0.67) type='heal';
+      else if (r<0.75) type='magnet';
+      else if (r<0.80) type='bomb';
+      else if (r<0.825) type='freeze';
+      else if (r<0.833) type='scroll';   // 리롤 두루마리 (0.8%)
+      else if (r<0.838) type='stamp';    // 제외 도장 (0.5%)
       else type='gold';
     }
     if (type==='heal' && player && player.noHealDrops) type = 'gold'; // 수전노 계약
@@ -3660,7 +3699,7 @@ import { FX } from "./fx.js";
       addTextNum(e.x, e.y-16, '+'+g+'G');
       freeze = Math.max(freeze, 0.05);
       SFX.play('boom');
-    } else if (Math.random() < 0.013*player.luck){
+    } else if (Math.random() < 0.009*player.luck){
       dropItem(e.x, e.y);
     } else if (Math.random() < 0.05*player.luck*(player.goldDropMod||1)){
       dropItem(e.x, e.y, 'gold');
@@ -4305,6 +4344,7 @@ import { FX } from "./fx.js";
   function castSkill(n){
     if (state!=='playing') return;
     if (n===1){ player.ultFireReq = true; return; }
+    if (player.skillsSealed){ addTextNum(player.x, player.y-24, '침묵...'); return; } // 침묵의 서약
     const i = n-2;
     const sk = player.skills[i];
     if (!sk || player.skCds[i] > 0) return;
@@ -5408,7 +5448,7 @@ import { FX } from "./fx.js";
       for (let k=0;k<burstN;k++){ if (enemies.length < cap) spawnEnemy(); }
     }
     if (elapsed >= ELITE_FIRST_AT + eliteCount*ELITE_INTERVAL){ eliteCount+=1; spawnElite(); }
-    if (elapsed >= WAVE_FIRST_AT + waveCount*WAVE_INTERVAL){ waveCount+=1; spawnWave(); }
+    if (elapsed >= WAVE_FIRST_AT + waveCount*WAVE_INTERVAL*(player.stormCall?0.7:1)){ waveCount+=1; spawnWave(); if (player.stormCall){ const g=gainGold(15); addTextNum(player.x, player.y-24, '폭풍 +'+g+'G'); } }
     // 시간의 압박: 60초마다 살아있는 모든 적이 강해진다 (필드에 오래 남은 몹도 위협 유지)
     eraTimer += dt;
     if (eraTimer >= 60){
@@ -5418,6 +5458,18 @@ import { FX } from "./fx.js";
         e.dmg = Math.round(e.dmg*1.08);
       }
       if (elapsed > 90) toast('⏰ 시간의 압박 — 모든 적이 강해졌다');
+      // 시한부 계약: 매분 최대체력 감소
+      if (player.decayContract){
+        player.maxHp = Math.max(30, Math.round(player.maxHp*0.95));
+        player.hp = Math.min(player.hp, player.maxHp);
+        toast('⌛ 시한부 계약 — 최대체력 -5%');
+      }
+    }
+    // 중간 계약 (4분 / 8분)
+    if (midContractIdx < midContractTimes.length && elapsed >= midContractTimes[midContractIdx]){
+      midContractIdx += 1;
+      openMidContract();
+      return;
     }
     // 등장 주기 랜덤화: 매판·매회 다른 타이밍에 나타난다
     if (elapsed >= nextSurveyAt){ nextSurveyAt = elapsed + SURVEY_INTERVAL*(0.6+Math.random()*0.9); spawnSurvey(); }
