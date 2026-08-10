@@ -575,6 +575,12 @@ import { FX } from "./fx.js";
     { key:'gw20',          name:'명검의 탄생', desc:'무명검을 20레벨까지 성장시킨다', gold:400 },
     { key:'craft1',        name:'대장장이',    desc:'유일 무기를 처음 제작한다', gold:200 },
     { key:'allmaps',       name:'세계의 끝',   desc:'모든 맵을 클리어한다', gold:1000 },
+    { key:'title1',        name:'명명(命名)',  desc:'3속성 조합 칭호를 처음 각성한다', gold:250 },
+    { key:'rift1',         name:'차원 여행자', desc:'차원 균열 시련을 돌파한다', gold:200 },
+    { key:'wave1',         name:'파도를 넘어', desc:'웨이브 모드를 클리어한다', gold:300 },
+    { key:'gate1',         name:'격의 돌파',   desc:'각성 의식으로 성장무기의 격을 돌파한다', gold:300 },
+    { key:'mythtech',      name:'신화에 손을 뻗다', desc:'신화 테크를 획득한다', gold:400 },
+    { key:'bleed1',        name:'차원 침식 목격자', desc:'다른 세계에서 넘어온 보스를 처치한다', gold:250 },
   ];
   // 업적 → 유니크 장비 직접 해금 (Halls of Torment식)
   const UNIQUE_FROM_ACH = {
@@ -871,6 +877,18 @@ import { FX } from "./fx.js";
     else if (s==='acc1'){ g.beginPath(); g.arc(0,1,6,0,Math.PI*2); g.stroke(); g.beginPath(); g.arc(0,-7,2.5,0,Math.PI*2); g.fill(); }
     else if (s==='acc2'){ g.beginPath(); g.moveTo(0,-9); g.lineTo(7,0); g.lineTo(0,9); g.lineTo(-7,0); g.closePath(); g.stroke(); g.beginPath(); g.arc(0,0,2,0,Math.PI*2); g.fill(); }
     else if (s==='relic'){ g.beginPath(); for (let k=0;k<5;k++){ const a=-Math.PI/2+(Math.PI*2/5)*k; g.lineTo(Math.cos(a)*8, Math.sin(a)*8); const a2=a+Math.PI/5; g.lineTo(Math.cos(a2)*3.5, Math.sin(a2)*3.5); } g.closePath(); g.stroke(); }
+    else if (s==='gw'){
+      // 유일 성장무기: 은하빛 검 + 반짝임
+      c.style.borderImage = 'linear-gradient(135deg,#3aa895,#8b5cf6) 1';
+      c.style.boxShadow = '0 0 8px rgba(139,92,246,0.4)';
+      const gr = g.createLinearGradient(-9,-9,9,9);
+      gr.addColorStop(0,'#3aa895'); gr.addColorStop(1,'#8b5cf6');
+      g.strokeStyle = gr; g.fillStyle = gr; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(-6,8); g.lineTo(6,-6); g.stroke(); // 검신
+      g.beginPath(); g.moveTo(-3,2); g.lineTo(1,6); g.stroke();  // 가드
+      g.beginPath(); g.moveTo(-6,8); g.lineTo(-8,10); g.stroke(); // 자루
+      g.fillRect(6,-8,2,2); g.fillRect(9,-3,1.5,1.5); g.fillRect(3,-10,1.5,1.5); // 반짝임
+    }
     else { g.beginPath(); g.arc(0,0,7,0,Math.PI*2); g.stroke(); }
     if (item.curse){ g.fillStyle='#b8362e'; g.font='700 10px monospace'; g.textAlign='center'; g.fillText('☠', 10, -8); }
     if ((item.plus||0)>0){ g.fillStyle=tint; g.font='700 8px monospace'; g.textAlign='center'; g.fillText('+'+item.plus, -10, 13); }
@@ -927,6 +945,23 @@ import { FX } from "./fx.js";
       }
       slotGrid.appendChild(cell);
     });
+    // 무기 슬롯 (유일 성장무기)
+    {
+      const wcell = document.createElement('div');
+      const gwKey = lo.gw;
+      const gwDef = gwKey && WEAPONS[gwKey];
+      wcell.className = 'slotCell' + (gwDef?' filled':'');
+      if (gwDef){
+        wcell.innerHTML = '무기<b><span class="rbadge rgw">✦</span>'+gwDef.name+'</b><span style="font-size:9px;">런 시작부터 장착 출전</span>';
+        wcell.style.cursor = 'pointer';
+        wcell.style.borderColor = '#8b5cf6';
+        wcell.title = '클릭하여 해제';
+        wcell.addEventListener('click', ()=>{ delete lo.gw; saveDB(); renderEquip(); });
+      } else {
+        wcell.innerHTML = '무기<b>비어 있음</b><span style="font-size:9px;">아래 유일 무기를 장착</span>';
+      }
+      slotGrid.appendChild(wcell);
+    }
     invList.innerHTML = '';
     // ⚔ 무기 섹션 — 기본 무기(직업 고정) / 테크트리 무기(런 중 카드) / 유일 성장무기(장착식, 전용 강화 트리)
     {
@@ -948,12 +983,12 @@ import { FX } from "./fx.js";
     GW_LIST.forEach(g=>{
       const on = lo.gw === g.key;
       const row = document.createElement('div');
-      row.className = 'shopItem';
-      row.innerHTML = '<div class="info"><div class="nm"><span class="rbadge r5">유일</span>'
+      row.className = 'shopItem gwRow';
+      row.innerHTML = '<div class="info"><div class="nm"><span class="rbadge rgw">✦ 유일</span>'
         + g.def.name+' <span style="font-size:9px;color:var(--ink-500);">Lv'+g.lv+'</span>'
         + (on?' <span style="font-size:9px;color:var(--ink-500);">[장착중]</span>':'') + '</div>'
         + '<div class="ds">'+g.ds+' · 장착 시 런 시작부터 들고 출전</div></div>';
-      row.insertBefore(itemIcon({ slot:'relic', r:5 }), row.firstChild);
+      row.insertBefore(itemIcon({ slot:'gw', r:5 }), row.firstChild);
       const eqB = document.createElement('button');
       eqB.className = 'buy';
       eqB.textContent = on ? '해제' : '장착';
@@ -1042,6 +1077,7 @@ import { FX } from "./fx.js";
             DB.inv = DB.inv.filter(i=>i.id!==item.id);
             DB.growth.xp += xp;
             while (DB.growth.xp >= 20 + DB.growth.lv*15){
+              if (GROWTH_GATE_LVS.includes(DB.growth.lv)){ toast('⚔ 무명검이 격(格)의 벽에 막혔다 — 영구 강화에서 각성 의식 필요'); break; }
               DB.growth.xp -= (20 + DB.growth.lv*15);
               DB.growth.lv += 1;
               toast('무명검이 장비를 삼키고 성장했다 — Lv'+DB.growth.lv);
@@ -1222,32 +1258,34 @@ import { FX } from "./fx.js";
     bet.appendChild(bBuy);
     shopList.appendChild(bet);
 
-    // 무명검 연마 (발견한 경우)
+    // 무명검 각성 의식 — 골드 연마 폐지. 성장은 오직 처치·흡수로, 돌파 단계에서만 재료 의식이 열린다
     if (DB.growth.found){
-      const gr = document.createElement('div');
-      gr.className = 'shopItem';
-      const need = 20 + DB.growth.lv*15;
-      gr.innerHTML = '<div class="info"><div class="nm">무명검 연마 <span class="rbadge r4">유일</span></div>'
-        + '<div class="ds">현재 Lv'+DB.growth.lv+' ('+DB.growth.xp+'/'+need+' 경험치) — 골드를 갈아 넣어 성장시킨다</div></div>';
-      const gBuy2 = document.createElement('button');
-      gBuy2.className = 'buy';
-      gBuy2.textContent = '60G (+40xp)';
-      gBuy2.disabled = DB.gold < 60;
-      gBuy2.addEventListener('click', ()=>{
-        if (DB.gold < 60) return;
-        DB.gold -= 60;
-        DB.growth.xp += 40;
-        while (DB.growth.xp >= 20 + DB.growth.lv*15){
-          DB.growth.xp -= (20 + DB.growth.lv*15);
+      const GATES = { 9:{shard:2,gold:200,next:'무명검·각성'}, 19:{shard:4,gold:400,next:'명검·해방'}, 34:{shard:7,gold:800,next:'진명검·현신'}, 59:{shard:12,gold:1500,next:'무극검·초월'}, 99:{shard:20,gold:3000,next:'시원의 검·귀일'} };
+      const gate = GATES[DB.growth.lv];
+      if (gate){
+        const gr = document.createElement('div');
+        gr.className = 'shopItem gwRow';
+        gr.innerHTML = '<div class="info"><div class="nm">⚔ 각성 의식 <span class="rbadge rgw">✦ 유일</span></div>'
+          + '<div class="ds">무명검이 다음 격(格)의 문턱에 섰다 — <b>['+gate.next+']</b>로 돌파하려면 의식이 필요하다<br>'
+          + '필요: 별의 조각 ×'+gate.shard+' (보유 '+DB.mats.shard+') + '+gate.gold+'G</div></div>';
+        const gBuy2 = document.createElement('button');
+        gBuy2.className = 'buy';
+        gBuy2.textContent = '의식 거행';
+        gBuy2.disabled = DB.gold < gate.gold || DB.mats.shard < gate.shard;
+        gBuy2.addEventListener('click', ()=>{
+          if (DB.gold < gate.gold || DB.mats.shard < gate.shard) return;
+          DB.gold -= gate.gold;
+          DB.mats.shard -= gate.shard;
           DB.growth.lv += 1;
-          toast('무명검이 성장했다 — Lv'+DB.growth.lv);
+          DB.growth.xp = 0;
           growthTierToast(DB.growth.lv);
-        }
-        saveDB(); SFX.play('quest');
-        renderShop();
-      });
-      gr.appendChild(gBuy2);
-      shopList.appendChild(gr);
+          unlockAch('gate1');
+          saveDB(); SFX.play('evolve');
+          renderShop();
+        });
+        gr.appendChild(gBuy2);
+        shopList.appendChild(gr);
+      }
     }
   }
 
@@ -1397,6 +1435,36 @@ import { FX } from "./fx.js";
         add(id, Math.cos(a)*r, Math.sin(a)*r, 'small', br.small.n, br.small.d, br.small.ap, [sprev], br.color);
         sprev = id;
       }
+      // v6-2차: 직업 성단 — 키스톤 너머, "이 계열 직업으로 플레이할 때만" 발동하는 전용 구역
+      const CL = {
+        war: { nN:'전사의 긍지', nD:'[전사군 전용] 모든 피해 +10%', nF:(p)=>{ p.dmgMult*=1.1; },
+               kN:'군신(軍神)', kD:'[전사군 전용] 피해 +15%, 받는 피해 -8%', kF:(p)=>{ p.dmgMult*=1.15; p.dmgTaken*=0.92; } },
+        rng: { nN:'사냥의 대가', nD:'[원거리군 전용] 공격속도 +10%', nF:(p)=>{ p.rateMult*=1.1; },
+               kN:'천리안', kD:'[원거리군 전용] 치명 +10%, 관통 +1', kF:(p)=>{ p.critChance=Math.min(0.9,p.critChance+0.1); p.pierce+=1; } },
+        mag: { nN:'비전 통달', nD:'[마법군 전용] 원소 발동 +8%p', nF:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; },
+               kN:'대마도사', kD:'[마법군 전용] 쿨다운 -12%, 피해 +10%', kF:(p)=>{ p.cdr*=0.88; p.dmgMult*=1.1; } },
+        rog: { nN:'그림자 계약', nD:'[도적군 전용] 회피 +8%', nF:(p)=>{ p.dodge=Math.min(0.65,p.dodge+0.08); },
+               kN:'밤의 지배자', kD:'[도적군 전용] 치명 +12%, 대시 쿨 -15%', kF:(p)=>{ p.critChance=Math.min(0.9,p.critChance+0.12); p.dashCdMax*=0.85; } },
+        pri: { nN:'성직 서약', nD:'[사제군 전용] 회복 효과 +20%', nF:(p)=>{ p.healMult*=1.2; },
+               kN:'대사제', kD:'[사제군 전용] 재생 +1, 받는 피해 -10%', kF:(p)=>{ p.regen+=1; p.dmgTaken*=0.9; } },
+        mer: { nN:'길드 마스터', nD:'[상인군 전용] 골드 +20%', nF:(p)=>{ p.goldMult*=1.2; },
+               kN:'재벌', kD:'[상인군 전용] 행운 +30%, 골드 +20%', kF:(p)=>{ p.luck*=1.3; p.goldMult*=1.2; } },
+      }[br.key];
+      if (CL){
+        let cprev = br.key+'_k';
+        for (let k=0;k<2;k++){
+          const r = 70 + (11+k)*STEP;
+          const a = th - 0.12;
+          const id = br.key+'_cl'+k;
+          add(id, Math.cos(a)*r, Math.sin(a)*r, 'small', br.small.n, br.small.d, br.small.ap, [cprev], br.color);
+          cprev = id;
+        }
+        const rn = 70 + 13*STEP, an = th - 0.12;
+        add(br.key+'_cln', Math.cos(an)*rn, Math.sin(an)*rn, 'notable', CL.nN, CL.nD,
+            (B)=>{ (B.classPerks=B.classPerks||[]).push({ g:br.key, f:CL.nF }); }, [cprev], br.color);
+        add(br.key+'_clk', Math.cos(an)*(rn+STEP), Math.sin(an)*(rn+STEP), 'key', CL.kN, CL.kD,
+            (B)=>{ (B.classPerks=B.classPerks||[]).push({ g:br.key, f:CL.kF }); }, [br.key+'_cln'], br.color);
+      }
     });
     // 내륜 (순환로 1): 인접 계열의 N1끼리 소형 2개로 연결 — r ≈ 250
     for (let i=0;i<6;i++){
@@ -1427,6 +1495,19 @@ import { FX } from "./fx.js";
           '모든 피해 +5%, 최대체력 +12, 행운 +5%',
           (B)=>{ B.dmg+=5; B.hp+=12; B.luckPct+=5; }, ['deep_'+i+'_0'], '#e8e8e6');
     });
+    // v6-2차: 빌드 변형 키스톤 — 캐릭터의 근본을 바꾸는 최심층 (PoE식) — 심연의 별 너머
+    const TRANS2 = [
+      { i:0, id:'t2_bladewave', n:'검기 방출', d:'[변형] 역장·낫 무기가 4초마다 검기 3발을 발사한다 (근접 → 원거리)', ap:(B)=>{ B.bladeWave=true; } },
+      { i:2, id:'t2_rapidfire', n:'광포화', d:'[변형] 공격속도 +25% / 모든 피해 -15% (기관총 빌드)', ap:(B)=>{ B.rate+=25; B.dmg-=15; } },
+      { i:4, id:'t2_projleech', n:'마탄 흡혈', d:'[변형] 투사체 명중 시 5% 확률 체력 +1 (원거리 → 흡혈)', ap:(B)=>{ B.projLeech=true; } },
+    ];
+    TRANS2.forEach(t2=>{
+      const b1 = STAR_BRANCHES[TRANSFORM_KEYS[t2.i].between[0]];
+      const a1 = b1.angle*Math.PI/180;
+      const mid = a1 + Math.PI/6;
+      const r2 = 70 + 10*36 + 14 + 130;
+      add(t2.id, Math.cos(mid)*r2, Math.sin(mid)*r2, 'key', t2.n, t2.d, t2.ap, ['deep_'+t2.i+'_1'], '#d9a53f');
+    });
   })();
   function starAllocated(id){ return id==='center' || !!(DB.star && DB.star.nodes[id]); }
   function starSpent(){ return Object.keys(DB.star.nodes||{}).length; }
@@ -1448,12 +1529,12 @@ import { FX } from "./fx.js";
   }
   // 직업 공명 — 자기 계열의 노드는 직업에 따라 더 강하게 발현된다
   const RESONANCE = {
-    war:['rusher','paladin','cheol'],
+    war:['rusher','paladin','cheol','exhero'],
     rng:['archer','sniper','pilot'],
     mag:['manager','voidc'],
-    rog:['ninja','reaper','glitch','blackcat'],
+    rog:['ninja','reaper','glitch','blackcat','shadow'],
     pri:['necro','bard','returner'],
-    mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu'],
+    mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'],
   };
   function resonantCount(classKey){
     let n = 0;
@@ -1465,6 +1546,23 @@ import { FX } from "./fx.js";
   }
   function applyStarBonuses(p){
     const B = starBonuses();
+    // 직업 성단: 해당 계열 직업으로 플레이할 때만 발동
+    if (B.classPerks && B.classPerks.length){
+      const myGroup = classResGroup(p.classKey);
+      let fired = 0;
+      for (const perk of B.classPerks){ if (perk.g===myGroup){ perk.f(p); fired++; } }
+      if (fired>0) setTimeout(()=>toast('⭐ 직업 성단 발동 ×'+fired), 1100);
+    }
+    // 키스톤 시너지: 특정 키스톤 조합이 함께면 추가 효과 (PoE식 빌드 완성 보너스)
+    const syn = [];
+    if (starHasName('광전사의 피') && starHasName('일격필살')){ p.critMult+=0.5; syn.push('사신일격 (치명 배율 +0.5)'); }
+    if (starHasName('유리 그림자') && starHasName('원소 과부하')){ p.procBonus=(p.procBonus||0)+0.06; p.dodge=Math.min(0.7,p.dodge+0.05); syn.push('원소 그림자 (발동 +6%p, 회피 +5%)'); }
+    if (starHasName('검기 방출') && starHasName('광포화')){ p.bladeWaveFast=true; syn.push('참격 폭풍 (검기 주기 절반)'); }
+    if (starHasName('마탄 흡혈') && starHasName('일격필살')){ p.projLeechMult=2; syn.push('흡혈 관통탄 (흡혈량 2배)'); }
+    if (syn.length) setTimeout(()=>toast('✨ 키스톤 시너지: '+syn.join(' · ')), 1300);
+    // 빌드 변형 플래그 전달
+    if (B.bladeWave) p.bladeWave = true;
+    if (B.projLeech) p.projLeech = true;
     // 공명 보너스: 공명 계열 노드 1개당 피해 +1%, 최대체력 +1
     const rc = resonantCount(p.classKey);
     if (rc>0){
@@ -1759,6 +1857,18 @@ import { FX } from "./fx.js";
       weapon:'drone',
       apply:(p)=>{ p.luck*=1.3; p.walkGold=true; p.dmgMult*=0.9; p.speed*=1.08; }
     },
+    stonks: {
+      name:'주식쟁이', tag:'재미', cost:600,
+      desc:'[추적 탄환]으로 시작. 피해가 시장처럼 등락하고(±40% 사이클), 30초마다 보유 골드의 3% 이자.',
+      weapon:'missile',
+      apply:(p)=>{ p.stonks=true; p.goldMult*=1.15; }
+    },
+    gymbro: {
+      name:'헬창', tag:'재미', cost:500,
+      desc:'[역장]으로 시작. 최대체력 +40, 체력이 높을수록 피해 증가. 이동은 조금 느리다 (벌크업).',
+      weapon:'aura',
+      apply:(p)=>{ p.maxHp+=40; p.hp+=40; p.gymbro=true; p.speed*=0.92; }
+    },
     baeksu: {
       name:'백수', tag:'재미', cost:400,
       desc:'[역장]으로 시작. 가만히 서 있으면 재생 3배 + 받는 피해 -20%. 움직이면 평범해진다. 원래 집이 최고다.',
@@ -1779,6 +1889,22 @@ import { FX } from "./fx.js";
       desc:'무작위 무기 2개로 시작. 아이템 드랍 2배, 상자에서 나오는 모든 것이 한 단계 좋아진다.',
       weapon:'random2',
       apply:(p)=>{ p.luck*=2; p.chestPlus=true; }
+    },
+    exhero: {
+      name:'전직 용사', tag:'히든', hidden:true,
+      condDesc:'보스 누적 100회 처치 시 해금',
+      cond:()=> (DB.prog.boss||0)>=100,
+      desc:'마왕을 잡고 은퇴했지만 몸이 기억한다. 레벨 5에 이미 1차 전직 상태로 시작.',
+      weapon:'scythe',
+      apply:(p)=>{ p.dmgMult*=1.1; p.exhero=true; }
+    },
+    shadow: {
+      name:'그림자', tag:'히든', hidden:true,
+      condDesc:'엘리트 누적 150회 처치 시 해금',
+      cond:()=> (DB.prog.elite||0)>=150,
+      desc:'3초간 피격 없이 움직이면 다음 공격이 반드시 치명타가 된다. 회피 +10%.',
+      weapon:'shuriken',
+      apply:(p)=>{ p.shadowStrike=true; p.dodge=Math.min(0.6,p.dodge+0.1); }
     },
     blackcat: {
       name:'검은 고양이', tag:'히든', hidden:true,
@@ -2200,6 +2326,30 @@ import { FX } from "./fx.js";
       { n:'자석 손', lv:8, cd:14, d:'모든 경험치·아이템 흡인', fx:()=>{ for (const o of orbs) o.magnetized=true; addTextNum(player.x,player.y-26,'자석 손!'); } },
       { n:'보존 처리', lv:15, cd:20, d:'4초간 받는 피해 -50%', fx:()=>{ tbuff('dr',0.5,4); addTextNum(player.x,player.y-26,'보존!'); } },
       { n:'개인 창고', lv:25, cd:36, d:'보물상자 1개 소환', fx:()=>{ dropItem(player.x+50,player.y,'chest'); addTextNum(player.x,player.y-26,'창고 개방!'); SFX.play('chest'); } },
+    ],
+    stonks: [
+      { n:'분할 매수', lv:3, cd:14, d:'골드 10 지불 → 4초간 피해 +25%', fx:()=>{ if(runGold>=10){ runGold-=10; tbuff('dmg',1.25,4); addTextNum(player.x,player.y-26,'매수!'); } } },
+      { n:'손절', lv:8, cd:20, d:'체력 12% 회복 (눈물의 손절)', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.12*player.healMult); addTextNum(player.x,player.y-26,'손절...'); SFX.play('pick'); } },
+      { n:'공매도', lv:15, cd:22, d:'5초간 적 이속 -25%', fx:()=>{ for (const e of enemies) e.chillS=Math.max(e.chillS||0,2); addTextNum(player.x,player.y-26,'공매도!'); } },
+      { n:'떡상 기원', lv:25, cd:32, d:'6초간 시장 사이클 최고점 고정', fx:()=>{ tbuff('dmg',1.5,6); addTextNum(player.x,player.y-26,'📈📈📈'); SFX.play('win'); } },
+    ],
+    gymbro: [
+      { n:'3대 500', lv:3, cd:14, d:'4초간 피해 +25%', fx:()=>{ tbuff('dmg',1.25,4); addTextNum(player.x,player.y-26,'흡!'); } },
+      { n:'단백질 보충', lv:8, cd:20, d:'최대체력 +5 (영구) + 10% 회복', fx:()=>{ player.maxHp+=5; player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.1); addTextNum(player.x,player.y-26,'프로틴!'); } },
+      { n:'스쿼트 자세', lv:15, cd:18, d:'4초간 받는 피해 -50% (그러나 이속 -30%)', fx:()=>{ tbuff('dr',0.5,4); tbuff('spd',0.7,4); addTextNum(player.x,player.y-26,'풀 스쿼트'); } },
+      { n:'펌핑', lv:25, cd:30, d:'6초간 피해·공속 +30%', fx:()=>{ tbuff('dmg',1.3,6); tbuff('rate',1.3,6); addTextNum(player.x,player.y-26,'펌핑 왔다!'); SFX.play('fever'); } },
+    ],
+    exhero: [
+      { n:'용사의 검기', lv:3, cd:12, d:'전방위 검기 (피해 28)', fx:()=>{ skNova(110,28); addTextNum(player.x,player.y-26,'하압!'); } },
+      { n:'은퇴 연금', lv:8, cd:24, d:'골드 +20', fx:()=>{ gainGold(20); addTextNum(player.x,player.y-26,'연금 수령'); SFX.play('coin'); } },
+      { n:'왕년의 실력', lv:15, cd:20, d:'5초간 피해 +35%', fx:()=>{ tbuff('dmg',1.35,5); addTextNum(player.x,player.y-26,'몸이 기억한다'); } },
+      { n:'마왕 참살검', lv:25, cd:34, d:'보스에게 500% 일격', fx:()=>{ for (const b of bosses){ if(!b.ghost){ const d2=100*player.dmgMult*(player.bossDmg||1); b.hp-=d2; addDmgNum(b.x,b.y,d2,true); FX.puff(b.x,b.y,0xb8a03f,30); refreshBossBar(); break; } } SFX.play('boom'); } },
+    ],
+    shadow: [
+      { n:'그림자 송곳', lv:3, cd:11, d:'무피격 시간 비례 피해 폭발', fx:()=>{ skNova(100, 15+Math.min(45,noHitT*5)); addTextNum(player.x,player.y-26,'스윽'); } },
+      { n:'은신', lv:8, cd:20, d:'2.5초 무적', fx:()=>{ player.invuln=Math.max(player.invuln,2.5); addTextNum(player.x,player.y-26,'...'); } },
+      { n:'그림자 발걸음', lv:15, cd:16, d:'대시 충전 + 3초 이속 +35%', fx:()=>{ player.dashCd=0; tbuff('spd',1.35,3); } },
+      { n:'암살 선고', lv:25, cd:30, d:'처형 임계 +12%p (6초)', fx:()=>{ player.execThresh+=0.12; setTimeout(()=>{ player.execThresh=Math.max(0,player.execThresh-0.12); },6000); addTextNum(player.x,player.y-26,'선고'); } },
     ],
     baeksu: [
       { n:'낮잠', lv:3, cd:18, d:'2초 무적 (자는 척)', fx:()=>{ player.invuln=Math.max(player.invuln,2); addTextNum(player.x,player.y-26,'Zzz...'); } },
@@ -3082,6 +3232,7 @@ import { FX } from "./fx.js";
     const l = (DB.gweps&&DB.gweps.blade.lv)||1;
     return l>=100?'핏빛 대검·종언' : l>=60?'핏빛 대검·극의' : l>=30?'핏빛 대검·진각성' : l>=15?'핏빛 대검·각성' : '핏빛 대검';
   }});
+  const GROWTH_GATE_LVS = [9,19,34,59,99]; // 이 레벨에서는 각성 의식(영구 강화 탭)으로만 돌파 가능
   function growthTierToast(lv){
     if (lv===10) toast('⚔ 무명검이 각성했다 — [무명검·각성]');
     else if (lv===20) toast('⚔ 검이 이름을 얻었다 — [명검·해방]');
@@ -3096,6 +3247,7 @@ import { FX } from "./fx.js";
     DB.growth.xp += n;
     const need = 20 + DB.growth.lv*15;
     if (DB.growth.xp >= need){
+      if (GROWTH_GATE_LVS.includes(DB.growth.lv)){ DB.growth.xp = need; return; } // 격의 벽 — 각성 의식 필요
       DB.growth.xp -= need;
       DB.growth.lv += 1;
       if (DB.growth.lv >= 20) unlockAch('gw20');
@@ -3244,7 +3396,9 @@ import { FX } from "./fx.js";
             player.techPicks[node.key] = picks + 1;
             if (!DB.seenTech) DB.seenTech = {};
             DB.seenTech[node.key] = true; // 테크 도감 기록
+            if (node.myth) unlockAch('mythtech');
             renderTreeRow();
+            checkComboTitle();
           }
         });
       }
@@ -4051,6 +4205,7 @@ import { FX } from "./fx.js";
       dropItem(player.x+40, player.y, 'chest');
       DB.mats.shard += 1; saveDB();
       const g = gainGold(40+(DB.peril||0)*5);
+      unlockAch('rift1');
       showBossBanner('시련 돌파', '보물상자 + 별의 조각 + '+g+'G', '#d9a53f');
       freeze = Math.max(freeze, 0.2);
       SFX.play('win');
@@ -4334,6 +4489,7 @@ import { FX } from "./fx.js";
 
   // ---------- bosses (15) ----------
   let bossPool = []; // 셔플된 보스 순서 (매판 랜덤)
+  let bleedNext = false; // 차원 침식 표식
   function nextBossKey(){
     const list = MAP.bosses;
     // 차원 침식: 위험도 10+에서는 25% 확률로 다른 맵의 보스가 차원을 넘어 난입한다
@@ -4343,6 +4499,7 @@ import { FX } from "./fx.js";
         const fk = foreign[(Math.random()*foreign.length)|0];
         setTimeout(()=>toast('⚠ 차원 침식 — 다른 세계의 보스가 넘어왔다!'), 600);
         bossOrderIdx += 1;
+        bleedNext = true;
         return fk;
       }
     }
@@ -4434,6 +4591,7 @@ import { FX } from "./fx.js";
       FX.puff(b.x, b.y, ac2, b.r*2);
     }
     if (bountyOn) player.bounty = false; // 현상수배 소모
+    if (bleedNext){ b.bleed = true; bleedNext = false; } // 차원 침식 보스 표식
     showBossBanner(BOSS_TITLES[key]||'', b.name, BOSS_ACCENTS ? BOSS_ACCENTS[key] : null);
     shake = Math.min(20, shake+10);
     SFX.play('warn');
@@ -4454,6 +4612,7 @@ import { FX } from "./fx.js";
     killCount += 1;
     addCombo();
     questAdd('boss', 1);
+    if (b.bleed) unlockAch('bleed1');
     burst(b.x,b.y, 34, 240, 0xe8c56a);
     FX.ring(b.x, b.y, 0xe8c56a, 22);
     effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:20, r1:220 });
@@ -5151,12 +5310,13 @@ import { FX } from "./fx.js";
     player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6*rs;
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
-    const isCrit = Math.random()<player.critChance;
+    const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3); // 그림자: 무피격 3초+ 확정 치명
     let d = dmg * player.projMult * (isCrit?player.critMult:1);
     if (player.goldPower) d *= 1 + Math.min(0.3, runGold*0.0003); // 변혁: 황금 혈맥
     if (player.feverDmg && feverTimer>0) d *= 1.15; // 선율가: 피버 강화
     d *= buffMult('dmg'); // 스킬 버프
     if (player.gambleDmg) d *= (player.gambleFloor?0.8:0.5) + Math.random()*(player.gambleCeil?2.2:2); // 도박사: 피해가 매번 주사위
+    if (player.stonks) d *= 1.1 + 0.4*Math.sin(elapsed/8); // 주식쟁이: 시장 사이클 (±40%)
     const p = {
       x:player.x, y:player.y,
       vx:Math.cos(a)*speed, vy:Math.sin(a)*speed,
@@ -5176,6 +5336,7 @@ import { FX } from "./fx.js";
     // 등급 상대 피해: 보스 / 엘리트·악몽급
     if (t.isBoss) m *= player.bossDmg||1;
     else if (t.elite || t.grade===2) m *= player.eliteDmg||1;
+    if (player.gymbro) m *= 1 + player.maxHp*0.0004; // 헬창: 근육이 곧 화력
     return m;
   }
   function procElement(t, elem, isBoss){
@@ -5265,6 +5426,10 @@ import { FX } from "./fx.js";
     // 혈마: 흡혈 낙인
     if (player.bloodLeechChance>0 && Math.random()<player.bloodLeechChance+pb){
       healCapped((player.bloodMult||1)*player.healMult);
+    }
+    // 변혁: 마탄 흡혈 — 투사체 명중 시 확률 회복
+    if (player.projLeech && Math.random()<0.05){
+      healCapped(1*(player.projLeechMult||1)*player.healMult);
     }
   }
   // 흡혈류 회복 감쇠: 초당 최대체력 4%까지만 — 물량전에서 무한 회복으로 불사가 되는 것 방지
@@ -5606,6 +5771,17 @@ import { FX } from "./fx.js";
     if (player.shockSureT>0) player.shockSureT -= dt;
     if (player.odT>0) player.odT -= dt;
 
+    // 변혁: 검기 방출 — 근접 무기(역장·낫)가 원거리 검기를 쏜다
+    if (player.bladeWave && (ownedWeapon('aura') || ownedWeapon('scythe'))){
+      player.bwT = (player.bwT|| (player.bladeWaveFast?2:4)) - dt;
+      if (player.bwT<=0){
+        const t6 = nearestTarget();
+        const a6 = t6 ? Math.atan2(t6.y-player.y, t6.x-player.x) : player.facing;
+        for (let k=-1;k<=1;k++) fireProjectile(a6+k*0.25, 430, 16*D, 2, 0.9);
+        SFX.play('shoot');
+        player.bwT = (player.bladeWaveFast?2:4) * player.cdr;
+      }
+    }
     // ---- 속성 대확장: 신규 액티브 7종 ----
     // 지옥불: 유성우
     if (player.meteorLv>0){
@@ -6372,6 +6548,15 @@ import { FX } from "./fx.js";
         player.hp = Math.min(player.maxHp, player.hp + player.regen*2*player.healMult*dt); // 재생 3배 (기본+2배 추가)
         if (!player.__baeksuOn){ player.__baeksuOn=true; addTextNum(player.x, player.y-24, '집이 최고다...'); }
       } else if (player.__baeksuOn){ player.__baeksuOn=false; }
+    }
+    // 주식쟁이: 30초마다 보유 골드의 3% 이자
+    if (player.stonks){
+      player.__stonksT = (player.__stonksT||0) + dt;
+      if (player.__stonksT >= 30){
+        player.__stonksT = 0;
+        const interest = Math.floor(runGold*0.03);
+        if (interest>0){ runGold += interest; addTextNum(player.x, player.y-24, '📈 이자 +'+interest+'G'); SFX.play('coin'); }
+      }
     }
     // 관광객: 이동 중 골드가 저절로 모인다
     if (player.walkGold && (dx!==0||dy!==0)){
@@ -7255,7 +7440,8 @@ import { FX } from "./fx.js";
         }
       }
     }
-    // 전직 (레벨 10 / 25 / 40) — 3차까지
+    // 전직 (레벨 10 / 25 / 40) — 3차까지 (전직 용사는 레벨 5부터)
+    if (player.exhero && player.level >= 5 && player.jobs.length < 1 && !pendingJobs.includes(1)) pendingJobs.push(1);
     if (player.level >= 10 && player.jobs.length < 1 && !pendingJobs.includes(1)) pendingJobs.push(1);
     if (player.level >= 25 && player.jobs.length < 2 && !pendingJobs.includes(2)) pendingJobs.push(2);
     if (player.level >= 40 && player.jobs.length < 3 && !pendingJobs.includes(3)) pendingJobs.push(3);
@@ -7292,7 +7478,7 @@ import { FX } from "./fx.js";
   function statsSummary(){
     const p = player;
     const els = activeSpecTrees().map(t=>TREES[t].name).join('·');
-    const path = [CLASSES[p.classKey].name].concat(p.jobs||[]).join(' → ') + (p.awakening ? ' ★'+p.awakening : '');
+    const path = (p.comboTitle ? '『'+p.comboTitle+'』 ' : '') + [CLASSES[p.classKey].name].concat(p.jobs||[]).join(' → ') + (p.awakening ? ' ★'+p.awakening : '');
     return path+'\n속성 ['+(els||'없음')+'] — 공격 '+Math.round(p.dmgMult*100)+'% · 공속 '+Math.round(p.rateMult*100)+'% · 쿨감 '+Math.round((1-p.cdr)*100)+'%'
       + ' · 이속 '+Math.round(p.speed)+' · 치명 '+Math.round(p.critChance*100)+'%/'+p.critMult.toFixed(1)+'배'
       + ' · 관통 '+p.pierce+' · 회피 '+Math.round(p.dodge*100)+'% · 행운 '+p.luck.toFixed(1)
@@ -7389,6 +7575,22 @@ import { FX } from "./fx.js";
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
       else { state='playing'; last = performance.now(); }
     }, 120);
+  }
+  // 3속성 조합 칭호: 속성이 확정되는 순간 조합에 따른 칭호 부여
+  const TITLE_WORD = { fire:'겁화', frost:'설한', volt:'뇌정', acid:'침식', boom:'폭렬', mech:'강철', psi:'염동', holy:'성광', grav:'중천', chrono:'시각(時刻)', blood:'혈혼' };
+  const TITLE_ROLE = { fire:'방화왕', frost:'동토의 주인', volt:'뇌제(雷帝)', acid:'용해자', boom:'파괴자', mech:'기계 군주', psi:'초능력자', holy:'성인(聖人)', grav:'별을 당기는 자', chrono:'시간의 관리자', blood:'피의 군주' };
+  function checkComboTitle(){
+    if (player.comboTitle) return;
+    const actives = activeSpecTrees();
+    if (actives.length < (player.attrLimit||3)) return;
+    const a = actives.slice().sort((x,y)=> (player.tech[y]||0)-(player.tech[x]||0));
+    const title = TITLE_WORD[a[1]]+'·'+TITLE_WORD[a[2]!==undefined?a[2]:a[0]]+'의 '+TITLE_ROLE[a[0]];
+    player.comboTitle = title;
+    unlockAch('title1');
+    showBossBanner('칭호 각성', '『'+title+'』', COLORS[a[0]]||'#e8c56a');
+    toast('🏆 칭호 획득: '+title);
+    FX.ring(player.x, player.y, parseInt((COLORS[a[0]]||'#e8c56a').slice(1),16), 16);
+    SFX.play('win');
   }
   // 테크 현황 (T): 내가 선택한 속성·하위테크 전체 열람
   function openTechView(){
@@ -7715,6 +7917,7 @@ import { FX } from "./fx.js";
 
   function winGame(){
     state = 'win';
+    if (waveModeRun) unlockAch('wave1');
     const isNew = bankRun();
     const firstClear = !DB.mapCleared[selMap];
     DB.mapCleared[selMap] = true;
@@ -8097,7 +8300,7 @@ import { FX } from "./fx.js";
     pilot:'#4fa8c4', glitch:'#3aa895', returner:'#e08a2e',
     cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
     tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f',
-    baeksu:'#9aa0a6', blackcat:'#3a3b40'
+    baeksu:'#9aa0a6', blackcat:'#3a3b40', stonks:'#3fa85f', gymbro:'#c96a3f', exhero:'#b8a03f', shadow:'#55486a'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);

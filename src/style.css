@@ -345,6 +345,19 @@
   .r4{ background:#e08a2e; color:#fff; }
   .r5{ background:#b8362e; color:#fff; outline:1.5px solid #b8362e; outline-offset:1.5px; }
   .r5m{ background:linear-gradient(90deg,#b8362e,#e08a2e); color:#fff; outline:1.5px solid #b8362e; outline-offset:1.5px; }
+  /* 유일 성장무기 전용 — 유니크(적)와 구분되는 은하 그라데이션 + 맥동 */
+  .rgw{
+    background:linear-gradient(90deg,#3aa895,#8b5cf6,#3aa895); background-size:200% 100%;
+    color:#fff; outline:1.5px solid #8b5cf6; outline-offset:1.5px;
+    animation: gwShift 2.4s linear infinite;
+  }
+  @keyframes gwShift{ 0%{ background-position:0% 0; } 100%{ background-position:200% 0; } }
+  .shopItem.gwRow{
+    border:1.5px solid transparent;
+    background: linear-gradient(var(--card),var(--card)) padding-box,
+                linear-gradient(90deg,#3aa895,#8b5cf6) border-box;
+    box-shadow: 0 0 12px rgba(139,92,246,0.18);
+  }
   .r6{ background:linear-gradient(90deg,#b8362e,#8b5cf6,#d9a53f); color:#fff; outline:1.5px solid #d9a53f; outline-offset:1.5px; }
   .rset{ background:#3aa895; color:#fff; }
 
