@@ -3687,7 +3687,10 @@ import { FX } from "./fx.js";
     killCount += 1;
     addCombo();
     questAdd('kill', 1);
-    burst(e.x,e.y, e.elite?20:(e.type==='brute'?16:8), e.elite?230:(e.type==='brute'?200:130));
+    // 사망 버스트: 몹 등급·타입 색으로 (엘리트 금색 / 악몽 보라 / 축복 노랑 / 타입 틴트)
+    const deathTint = e.elite ? 0xd9a53f : e.grade===2 ? 0x5c4a8a : e.blessed ? 0xe8c56a
+      : (ENEMY_TINTS[e.type] ? parseInt(ENEMY_TINTS[e.type].slice(1),16) : 0xbfc2c7);
+    burst(e.x,e.y, e.elite?20:(e.type==='brute'?16:8), e.elite?230:(e.type==='brute'?200:130), deathTint);
     // 망자의 목자: 처치한 적이 유령이 된다
     if (player.necroChance>0 && Math.random()<player.necroChance && player.ghosts.length<player.ghostCap){
       player.ghosts.push({ x:e.x, y:e.y, t:8+(player.ghostDur||0), cd:0 });
@@ -4418,8 +4421,8 @@ import { FX } from "./fx.js";
 
   // ---------- particles / misc ----------
   function burst(x,y,n,spread,fxColor){
-    // WebGL 글로우 파티클 (Pixi 레이어) — 큰 폭발일수록 화려하게
-    if (n>=14) FX.burst(x, y, fxColor||0xffffff, Math.floor(n*0.7), spread||120, 0.5);
+    // WebGL 글로우 파티클 (Pixi 레이어) — 일반 처치도 은은하게, 큰 폭발은 화려하게
+    if (n>=8) FX.burst(x, y, fxColor||0xffffff, Math.floor(n*0.6), spread||120, n>=14?0.5:0.35);
     if (particles.length > 380) return;
     for (let i=0;i<n;i++){
       const a = Math.random()*Math.PI*2;
@@ -8373,8 +8376,10 @@ import { FX } from "./fx.js";
     for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
     return best ? COLORS[best] : null;
   }
+  let fxBulletFrame = [];
   function drawProjectiles(){
-    const fxBullets = [];
+    fxBulletFrame = [];
+    const fxBullets = fxBulletFrame;
     for (const p of projectiles){
       if (p.mega){
         ctx.strokeStyle = PAL.ink;
@@ -8463,10 +8468,11 @@ import { FX } from "./fx.js";
         ctx.globalAlpha = 1;
       }
     }
-    if (FX.enabled) FX.drawBullets(fxBullets);
   }
   function drawHostileShots(){
     for (const p of hostileShots){
+      // 적탄 WebGL 글로우 (위험 적색) — 어두운 맵에서 시인성↑
+      if (FX.enabled && !p.kind) fxBulletFrame.push({ x:p.x, y:p.y, r:p.r*0.9, tint:0xe25a4f });
       ctx.save();
       ctx.translate(p.x, p.y);
       if (p.kind==='tornado'){
@@ -8667,6 +8673,14 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
 
+    // 다크 라이팅: 어두운 맵일수록 앰비언트 암막 — WebGL 광원(오라·장판·탄환)이 어둠을 뚫는다
+    if (FX.enabled && state!=='idle'){
+      const amb = MAP.key==='abyss' ? 0.26 : MAP.key==='archive' ? 0.10 : 0;
+      if (amb>0){
+        ctx.fillStyle = 'rgba(4,5,12,'+amb+')';
+        ctx.fillRect(0,0,W,H);
+      }
+    }
     // 보스 등장 암전
     if (screenDimT>0){
       screenDimT = Math.max(0, screenDimT - dt*1.1);
@@ -8681,6 +8695,16 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 26;
       ctx.strokeRect(-6,-6,W+12,H+12);
       ctx.restore();
+    }
+    // WebGL 탄환 프레임 확정 (플레이어 탄 + 적탄 글로우)
+    if (FX.enabled) FX.drawBullets(fxBulletFrame);
+    // 맵 앰비언트 파티클: 심연 = 청록 글리치 불꽃, 서고 = 먼지
+    if (FX.enabled && state==='playing' && player){
+      if (MAP.key==='abyss' && Math.random()<0.06){
+        FX.burst(player.x+(Math.random()-0.5)*W, player.y+(Math.random()-0.5)*H, 0x3aa895, 1, 20, 1.2);
+      } else if (MAP.key==='archive' && Math.random()<0.04){
+        FX.burst(player.x+(Math.random()-0.5)*W, player.y+(Math.random()-0.5)*H, 0xaaa08b, 1, 12, 1.5);
+      }
     }
   }
 
