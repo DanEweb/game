@@ -320,6 +320,7 @@ import { FX } from "./fx.js";
     }
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (e.code==='KeyT' && state==='playing'){ openTechView(); }
+    if (e.code==='KeyH' && state==='playing'){ keyHintUntil = elapsed + 12; }
     if (state==='levelup'){
       if (['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8'].includes(e.code)) pickUpgrade(parseInt(e.code.slice(-1),10)-1);
       if (e.code==='KeyR') doReroll();
@@ -2503,14 +2504,54 @@ import { FX } from "./fx.js";
   }
   // 봉인 해제: 성장무기는 런 시작 시 봉인 상태 — 이 판의 처치 수로 서서히 본래 힘을 되찾는다
   // (메타 성장이 높을수록 '상한'이 높아질 뿐, 초반 난이도를 부수지 않음)
+  // ---------- 에고 무기: 무명검은 말이 많다 (수백 년 잠들었더니 수다스러움) ----------
+  const EGO_IDLE = [
+    '...심심하다.', '주인. 오늘 저녁 뭐 먹을 거냐.', '방금 그건 좀 위험했다.', '네 등이 너무 허술하다.',
+    '월급날은 아직인가.', '요즘 물가에 비하면 골드가 너무 안 모인다.', '연애는 하고 다니냐.', '어제보다 좀... 무거워진 것 같다. 너 말이다.',
+    '운동 좀 해라. 휘두르는 팔이 후들거린다.', '나 정도 되는 검이 왜 너 같은 놈 손에...', '아니다. 방금 말은 취소한다.',
+    '적이 많다는 건 좋은 거다. 경험치니까.', '왼쪽. 아니 오른쪽. 아무튼 피해라.', '이 속도면 오늘 안에 집에 가긴 글렀군.',
+    '내가 전성기였을 땐 이것보다 100배는 많았다.', '너 지금 도망친 거냐? 전략적 후퇴라고 해두자.',
+    '보험은 들어놨냐. 아, 죽으면 소용없나.', '커피 한 잔 하고 싶군. 검이지만.', '주말에도 일하는 기분이군.',
+    '너의 대시는 예측이 너무 쉽다.', '적금은 붓고 있냐. 골드 말고 현실 돈.', '살려는 의지는 높이 산다.',
+    '슬슬 각성해야 하는데. 나 말고 너.', '엄살 부리지 마라. 아직 체력 남았다.', '방금 스킬은 좀 멋있었다. 조금.',
+    '검한테 말 시키지 말고 앞이나 봐라.', '휴가... 그게 뭐였지.', '네 빌드 그거 맞냐? 인터넷 찾아봐라.',
+    '점심 메뉴 고민할 시간에 한 마리 더 잡아라.', '나를 더 갈아라. 아프지 않다. 아마도.',
+  ];
+  const EGO_LOWHP = [
+    '어이, 죽지 마라. 나 또 땅에 묻히기 싫다.', '체력 관리도 실력이다!', '도망쳐라! 부끄러운 게 아니다!',
+    '이래서 보험 들어두라고 했지 않나!', '숨 쉬어라 주인. 심호흡. 들이쉬고—',
+  ];
+  const EGO_LEVELUP = [
+    '오. 조금은 쓸만해졌군.', '그래도 아직 내 전성기의 3%다.', '좋아. 다음 봉인이 근질거린다.',
+    '이 힘... 그리웠다.', '더. 더 잡아라. 몇백 마리쯤은 잡아야 눈이 떠진다.',
+  ];
+  const EGO_BOSS = [
+    '저놈 이명 봤나? 웃기지도 않는군.', '큰 놈이다. 월급 루팡처럼 생겼군.', '집중해라. 저건 읽씹하면 안 되는 상대다.',
+  ];
+  let egoT = 0, keyHintUntil = 30;
+  function egoSay(pool){
+    const line = pool[(Math.random()*pool.length)|0];
+    toast('⚔ 무명검: "'+line+'"');
+  }
+  function tickEgo(dt){
+    if (!ownedWeapon('nameless')) return;
+    egoT -= dt;
+    if (egoT <= 0){
+      egoT = 26 + Math.random()*30;
+      if (player.hp < player.maxHp*0.3) egoSay(EGO_LOWHP);
+      else if (bosses.length>0 && Math.random()<0.4) egoSay(EGO_BOSS);
+      else egoSay(EGO_IDLE);
+    }
+  }
+  // 봉인 곡선: 레벨이 오를수록 요구 처치 수가 폭증 (2렙 ~55킬 → 5렙 ~880킬 → 7렙 ~2000킬)
   function growthEffLv(){
     const full = DB.growth.lv||1;
     if (!player) return full;
-    return Math.min(full, 1 + Math.floor(killCount/35));
+    return Math.min(full, 1 + Math.floor(Math.sqrt(killCount/55)));
   }
   function gwepEffLv(full){
     if (!player) return full;
-    return Math.min(full, 1 + Math.floor(killCount/30));
+    return Math.min(full, 1 + Math.floor(Math.sqrt(killCount/45)));
   }
   // 유일무기 진화: 성장 레벨에 따라 이름이 바뀐다 (각성 → 진각성)
   Object.defineProperty(WEAPONS.nameless, 'name', { get(){
@@ -3118,6 +3159,7 @@ import { FX } from "./fx.js";
     bossPool = [];
     pendingBranchAsk = true;
     midContractIdx = 0;
+    egoT = 12; keyHintUntil = 30;
     endless = false; rootDefeated = false; nextRootAt = 0;
     currentEvent = null;
     rerollsLeft = 1;
@@ -3139,6 +3181,13 @@ import { FX } from "./fx.js";
     killVal.textContent = killCount;
     goldStatVal.textContent = runGold;
     const wv = $('waveVal'); if (wv) wv.textContent = waveCount;
+    // 키 안내: 초반엔 선명 → 반투명 → 소멸, H로 다시 표시
+    const kh = $('keyHints');
+    if (kh){
+      const show = elapsed < keyHintUntil;
+      kh.style.display = 'block';
+      kh.style.opacity = show ? (elapsed < 18 ? 0.92 : 0.85) : (elapsed < keyHintUntil + 14 ? 0.3 : 0);
+    }
     // 스킬바 (플레이 중 표시)
     const sb = $('skillBar');
     sb.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
@@ -3536,8 +3585,8 @@ import { FX } from "./fx.js";
   function openChest(x, y){
     const candidates = player.weapons.filter(w => w.lv>=5 && !w.evolved);
     effects.push({ type:'rays', x, y, life:0.6, age:0 });
-    // 유일 무기 발견 (4%)
-    if (!DB.growth.found && Math.random()<0.04){
+    // 유일 무기 발견 (0.4% — 극악)
+    if (!DB.growth.found && Math.random()<0.004){
       DB.growth.found = true;
       saveDB();
       addTextNum(x, y-14, '무명검 발견!');
@@ -3564,16 +3613,15 @@ import { FX } from "./fx.js";
     }
     let roll = Math.random();
     if (player.chestPlus) roll *= 0.6; // 수집가: 상자 결과가 한 단계 좋아진다
-    if (roll < 0.45){
-      // 장비 드랍 테이블: 유물 > 유니크 > 세트 > 태초 > 일반 생성
+    if (roll < 0.28){
+      // 장비 드랍 테이블: 유물 > 유니크 > 세트 > 태초 > 일반 생성 (전부 극악 — 위험도가 유일한 지렛대)
       const pr = DB.peril||0;
       let r2 = Math.random();
       if (player.chestPlus) r2 *= 0.6;
-      // 희귀도 재설계: 유니크·태초는 극악 (위험도가 올려주는 구조)
-      if (r2 < 0.04) addEquip(genRelic());
-      else if (r2 < 0.04 + 0.012 + pr*0.004) addEquip(genUnique());
-      else if (r2 < 0.04 + 0.012 + pr*0.004 + 0.05) addEquip(genSetItem());
-      else if (pr>=5 && r2 < 0.04 + 0.012 + pr*0.004 + 0.05 + 0.006 + pr*0.002) addEquip(genPrimal());
+      if (r2 < 0.015) addEquip(genRelic());
+      else if (r2 < 0.015 + 0.003 + pr*0.0015) addEquip(genUnique());
+      else if (r2 < 0.015 + 0.003 + pr*0.0015 + 0.02) addEquip(genSetItem());
+      else if (pr>=5 && r2 < 0.015 + 0.003 + pr*0.0015 + 0.02 + 0.0015 + pr*0.0008) addEquip(genPrimal());
       else addEquip(genEquip(1 + (MAP.mult.reward>1.4?1:0) + (MAP.mult.reward>2?1:0) + Math.floor(pr/2)));
     } else if (roll < 0.75){
       const lvable = player.weapons.filter(w => w.lv<5);
@@ -3693,8 +3741,8 @@ import { FX } from "./fx.js";
         DB.mats.shard += 1;
         toast('★ 별의 조각 획득 ('+DB.mats.shard+')');
       }
-      dropItem(e.x, e.y, 'chest');
-      if (Math.random()<0.16) dropItem(e.x+30, e.y, 'whet'); // 강화석: 런 중 장비를 즉석 강화 (희귀)
+      if (Math.random()<0.55) dropItem(e.x, e.y, 'chest'); // 엘리트 상자도 확정 아님
+      if (Math.random()<0.10) dropItem(e.x+30, e.y, 'whet'); // 강화석 (희귀)
       const g = gainGold(15 + ((Math.random()*10)|0));
       addTextNum(e.x, e.y-16, '+'+g+'G');
       freeze = Math.max(freeze, 0.05);
@@ -4377,6 +4425,11 @@ import { FX } from "./fx.js";
     player.dashDir = {x:dx, y:dy};
     player.dashCd = player.dashCdMax;
     player.invuln = Math.max(player.invuln, player.dashInvuln);
+    // Pixi 4단계: 대시 잔상 (직업색 글로우)
+    if (FX.enabled){
+      const cc = CLASS_COLORS[player.classKey];
+      FX.burst(player.x, player.y, cc ? parseInt(cc.slice(1),16) : 0xffffff, 6, 70, 0.32);
+    }
     if (player.overdrive) player.dashHasteT = 1.5;
     if (player.chargeBoost) player.shockSureT = 2; // 축전: 대시 후 감전 확정
     if (player.bloodRush) dashExplosion(player.x, player.y, 25); // 변혁: 피의 질주
@@ -5465,6 +5518,17 @@ import { FX } from "./fx.js";
         toast('⌛ 시한부 계약 — 최대체력 -5%');
       }
     }
+    // 에고 무기 수다 + 봉인 해제 알림
+    tickEgo(dt);
+    if (ownedWeapon('nameless')){
+      const gel = growthEffLv();
+      if (gel > (player.__gel||1)){
+        player.__gel = gel;
+        toast('⚔ 봉인 해제 — 무명검 위력 단계 '+gel+'/'+(DB.growth.lv||1));
+        egoSay(EGO_LEVELUP);
+        FX.ring(player.x, player.y, 0xb8362e, 12);
+      }
+    }
     // 중간 계약 (4분 / 8분)
     if (midContractIdx < midContractTimes.length && elapsed >= midContractTimes[midContractIdx]){
       midContractIdx += 1;
@@ -6252,7 +6316,7 @@ import { FX } from "./fx.js";
     while (player.xp >= player.xpNext){
       player.xp -= player.xpNext;
       player.level += 1;
-      player.xpNext = Math.floor(10 + player.level*6.5 + player.level*player.level*0.5); // 고레벨 가속 차단 (2차 곡선)
+      player.xpNext = Math.floor(12 + player.level*8 + player.level*player.level*0.9); // 고레벨 가속 강력 차단
       pendingLevelUps += 1;
     }
     if (player.level >= 30) unlockAch('lv30');
@@ -7833,6 +7897,13 @@ import { FX } from "./fx.js";
         const tt = Math.min(1, z.t/z.maxT);
         const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : 0x6faa4e;
         fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:0.22*tt });
+      }
+      // Pixi 4단계: 보스 오라 — 시그니처 색 광원 (분노 시 강렬하게)
+      for (const b of bosses){
+        if (b.ghost) continue;
+        const ac = BOSS_ACCENTS[b.key];
+        const tint = ac ? parseInt(ac.slice(1),16) : 0xb8362e;
+        fxZones.push({ x:b.x, y:b.y, r:b.r*2.1, tint, alpha: b.enraged ? 0.30 : 0.16 });
       }
       FX.drawZones(fxZones);
     }
