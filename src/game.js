@@ -374,7 +374,7 @@ import { FX } from "./fx.js";
   setTimeout(grabFocus,50); setTimeout(grabFocus,300);
 
   // touch: virtual joystick (visualized) + dash button
-  let touchOrigin = null, touchVec = {x:0,y:0}, touchCur = null;
+  let touchOrigin = null, touchVec = {x:0,y:0}, touchCur = null, movePointerId = null;
   function relPos(e){
     const rect = wrap.getBoundingClientRect();
     return { x:e.clientX-rect.left, y:e.clientY-rect.top };
@@ -382,18 +382,24 @@ import { FX } from "./fx.js";
   wrap.addEventListener('pointerdown', (e)=>{
     grabFocus(); SFX.unlock();
     if (state!=='playing') return;
+    if (movePointerId !== null) return; // 이미 이동 손가락이 있음 — 두 번째 손가락은 무시 (대시 버튼 등)
+    movePointerId = e.pointerId;
     touchOrigin = relPos(e);
     touchCur = relPos(e);
   });
   wrap.addEventListener('pointermove', (e)=>{
-    if (!touchOrigin) return;
+    if (!touchOrigin || e.pointerId !== movePointerId) return; // 내 이동 손가락만 추적
     touchCur = relPos(e);
     const dx = touchCur.x-touchOrigin.x, dy = touchCur.y-touchOrigin.y;
     const d = Math.hypot(dx,dy)||1;
     const m = Math.min(1, d/36);
     touchVec = { x: dx/d*m, y: dy/d*m };
   });
-  function endTouch(){ touchOrigin=null; touchCur=null; touchVec={x:0,y:0}; }
+  function endTouch(e){
+    if (e && e.pointerId !== undefined && e.pointerId !== movePointerId) return; // 다른 손가락(대시 등)이 떨어져도 이동 유지
+    movePointerId = null;
+    touchOrigin=null; touchCur=null; touchVec={x:0,y:0};
+  }
   wrap.addEventListener('pointerup', endTouch);
   wrap.addEventListener('pointercancel', endTouch);
   wrap.addEventListener('contextmenu', (e)=> e.preventDefault());
@@ -922,23 +928,40 @@ import { FX } from "./fx.js";
       slotGrid.appendChild(cell);
     });
     invList.innerHTML = '';
-    // 유일·성장무기 현황 (장비탭에서 확인 — 무기라서 장착 슬롯은 아님)
-    const gwOwned = [];
-    if (DB.growth.found) gwOwned.push('⚔ '+WEAPONS.nameless.name+' Lv'+DB.growth.lv);
-    if (DB.gweps.bow.found) gwOwned.push('🏹 '+WEAPONS.gbow.name+' Lv'+DB.gweps.bow.lv);
-    if (DB.gweps.tome.found) gwOwned.push('📖 '+WEAPONS.gtome.name+' Lv'+DB.gweps.tome.lv);
-    if (DB.gweps.blade.found) gwOwned.push('🗡 '+WEAPONS.gblade.name+' Lv'+DB.gweps.blade.lv);
-    if (gwOwned.length){
+    // 유일·성장무기 — 장비탭에서 장착하면 런 시작부터 들고 나간다 (직업 로드아웃별 1개)
+    const GW_LIST = [
+      { key:'nameless', icon:'⚔', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless },
+      { key:'gbow', icon:'🏹', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow },
+      { key:'gtome', icon:'📖', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome },
+      { key:'gblade', icon:'🗡', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade },
+    ].filter(g=>g.found);
+    if (GW_LIST.length){
       const gwRow2 = document.createElement('div');
       gwRow2.className = 'shopItem';
-      gwRow2.innerHTML = '<div class="info"><div class="nm">유일·성장무기 <span style="font-size:9px;color:var(--ink-500);">(런에서 카드로 드는 무기 — 슬롯 장착식 아님)</span></div>'
-        + '<div class="ds">'+gwOwned.join(' · ')+'</div></div>';
+      const cur = lo.gw;
+      const gwHtml = GW_LIST.map(g=>{
+        const on = cur===g.key;
+        return '<button class="miniBtn gwEqBtn" data-gw="'+g.key+'" style="font-size:10px;'+(on?'background:var(--ink-900);color:#fff;':'')+'">'
+          + g.icon+' '+g.def.name+' Lv'+g.lv+(on?' [장착중]':'')+'</button>';
+      }).join(' ');
+      gwRow2.innerHTML = '<div class="info"><div class="nm">유일·성장무기 <span style="font-size:9px;color:var(--ink-500);">장착하면 런 시작부터 들고 시작 (직업당 1개)</span></div>'
+        + '<div class="ds" style="display:flex; gap:5px; flex-wrap:wrap;">'+gwHtml+'</div></div>';
       invList.appendChild(gwRow2);
+      gwRow2.querySelectorAll('.gwEqBtn').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const k2 = b.dataset.gw;
+          lo.gw = (lo.gw===k2) ? null : k2;
+          saveDB(); SFX.play('equip'); renderEquip();
+        });
+      });
     }
     const equippedIds = Object.values(lo);
     const sorted = DB.inv.slice().sort((a,b)=> b.r-a.r);
     if (!sorted.length){
-      invList.innerHTML = '<div style="font-size:11px;color:var(--ink-500);padding:10px;">보유 장비가 없습니다. 보스와 엘리트를 처치해 장비를 모으세요.</div>';
+      const emp = document.createElement('div');
+      emp.style.cssText = 'font-size:11px;color:var(--ink-500);padding:10px;';
+      emp.textContent = '보유 장비가 없습니다. 보스와 엘리트를 처치해 장비를 모으세요.';
+      invList.appendChild(emp);
     }
     sorted.forEach((item)=>{
       const isEq = equippedIds.includes(item.id);
@@ -2859,12 +2882,9 @@ import { FX } from "./fx.js";
       // 성장무기를 들고 있으면 일반 새 무기 제안 중단 (성장무기 중심 빌드로 — 사용자 요청)
       const hasGrowth = ownedWeapon('nameless') || ownedWeapon('gbow') || ownedWeapon('gtome') || ownedWeapon('gblade');
       Object.keys(WEAPONS).forEach((key)=>{
-        if (key==='nameless' && !DB.growth.found) return; // 유일 무기: 발견해야 등장
-        if (key==='gbow' && !DB.gweps.bow.found) return;
-        if (key==='gtome' && !DB.gweps.tome.found) return;
-        if (key==='gblade' && !DB.gweps.blade.found) return;
-        const isGrowthKey = ['nameless','gbow','gtome','gblade'].includes(key);
-        if (hasGrowth && !isGrowthKey) return;
+        // 성장무기는 장비탭에서 장착하는 방식 — 카드로는 등장하지 않음
+        if (['nameless','gbow','gtome','gblade'].includes(key)) return;
+        if (hasGrowth) return; // 성장무기 소지 시 일반 새 무기도 미등장
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
           pool.push({
@@ -7209,6 +7229,13 @@ import { FX } from "./fx.js";
         addWeapon(cls.weapon);
       }
     }
+    // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
+    const gwSel = loadoutFor(classKey).gw;
+    const gwFound = { nameless: DB.growth.found, gbow: DB.gweps.bow.found, gtome: DB.gweps.tome.found, gblade: DB.gweps.blade.found };
+    if (gwSel && gwFound[gwSel] && !ownedWeapon(gwSel)){
+      addWeapon(gwSel);
+      toast('장착 무기와 함께 출전: '+WEAPONS[gwSel].name);
+    }
     applyEquipBonuses(player, classKey);
     applyStarBonuses(player);
     // 소모품 사용 (리롤 토큰·부활 보험)
@@ -8969,9 +8996,14 @@ import { FX } from "./fx.js";
                  : p.kind==='icelance' ? COLORS.frost
                  : (p.imbue && COLORS[p.imbue]) ? COLORS[p.imbue]
                  : dominantElemColor() || (CLASS_COLORS[player.classKey] || PAL.ink);
-        // Pixi 2단계: 일반 탄환은 WebGL 글로우 스프라이트로 렌더 (캔버스 드로우 스킵)
+        // 탄환 = 캔버스 솔리드 코어(모든 맵에서 확실히 보임) + WebGL 글로우(어두운 맵에서 빛남)
         if (FX.enabled && !p.kind){
           fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
+          ctx.fillStyle = pc;
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.85,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = 'rgba(32,33,36,0.35)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.85,0,Math.PI*2); ctx.stroke();
           continue;
         }
         // 글로우 헤일로 (폴백: WebGL 미지원)
