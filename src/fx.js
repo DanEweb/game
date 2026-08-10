@@ -69,6 +69,7 @@ export const FX = {
       }
       const a = Math.random()*Math.PI*2;
       const v = (speed||120) * (0.4+Math.random()*0.8);
+      s.__grow = false;
       s.__vx = Math.cos(a)*v; s.__vy = Math.sin(a)*v;
       s.__wx = wx; s.__wy = wy;
       s.__life = s.__maxLife = (life||0.5)*(0.7+Math.random()*0.6);
@@ -81,6 +82,22 @@ export const FX = {
       active.push(s);
     }
   },
+  // 디졸브 퍼프: 한 장의 광원이 부풀며 사라진다 (처치·소멸 연출)
+  puff(wx, wy, color, r){
+    if (!ready) return;
+    let s = pool.pop();
+    if (!s){ s = new Sprite(dotTex); s.anchor.set(0.5); s.blendMode='add'; }
+    s.__vx = 0; s.__vy = -14;
+    s.__wx = wx; s.__wy = wy;
+    s.__life = s.__maxLife = 0.45;
+    s.tint = color; s.alpha = 0.6;
+    const sc = (r||12)/10;
+    s.scale.set(sc);
+    s.__baseScale = sc;
+    s.__grow = true; // 시간이 지나며 커지는 타입
+    layer.addChild(s);
+    active.push(s);
+  },
   ring(wx, wy, color, n){
     if (!ready) return;
     n = Math.min(n||14, 28);
@@ -89,6 +106,7 @@ export const FX = {
       if (!s){ s = new Sprite(dotTex); s.anchor.set(0.5); s.blendMode='add'; }
       const a = (Math.PI*2/n)*i;
       const v = 210;
+      s.__grow = false;
       s.__vx = Math.cos(a)*v; s.__vy = Math.sin(a)*v;
       s.__wx = wx; s.__wy = wy;
       s.__life = s.__maxLife = 0.45;
@@ -159,7 +177,7 @@ export const FX = {
       s.__vx *= (1-2.2*dt); s.__vy *= (1-2.2*dt);
       const t = s.__life / s.__maxLife;
       s.alpha = t*0.9;
-      s.scale.set(s.__baseScale * (0.5+t*0.8));
+      s.scale.set(s.__baseScale * (s.__grow ? (2.2 - t*1.4) : (0.5+t*0.8)));
       s.x = s.__wx - camX + viewW/2;
       s.y = s.__wy - camY + viewH/2;
     }

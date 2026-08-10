@@ -3692,6 +3692,7 @@ import { FX } from "./fx.js";
     const deathTint = e.elite ? 0xd9a53f : e.grade===2 ? 0x5c4a8a : e.blessed ? 0xe8c56a
       : (ENEMY_TINTS[e.type] ? parseInt(ENEMY_TINTS[e.type].slice(1),16) : 0xbfc2c7);
     burst(e.x,e.y, e.elite?20:(e.type==='brute'?16:8), e.elite?230:(e.type==='brute'?200:130), deathTint);
+    FX.puff(e.x, e.y, deathTint, e.r); // 디졸브 퍼프
     // 망자의 목자: 처치한 적이 유령이 된다
     if (player.necroChance>0 && Math.random()<player.necroChance && player.ghosts.length<player.ghostCap){
       player.ghosts.push({ x:e.x, y:e.y, t:8+(player.ghostDur||0), cd:0 });
@@ -3880,6 +3881,12 @@ import { FX } from "./fx.js";
     refreshBossBar();
     screenDimT = 0.9; // 보스 등장 암전 연출
     freeze = Math.max(freeze, 0.3); // 등장 순간 정지
+    // 등장 충격파 (시그니처 색)
+    if (FX.enabled){
+      const ac2 = (BOSS_ACCENTS && BOSS_ACCENTS[key]) ? parseInt(BOSS_ACCENTS[key].slice(1),16) : 0xb8362e;
+      FX.ring(b.x, b.y, ac2, 22);
+      FX.puff(b.x, b.y, ac2, b.r*2);
+    }
     showBossBanner(BOSS_TITLES[key]||'', b.name, BOSS_ACCENTS ? BOSS_ACCENTS[key] : null);
     shake = Math.min(20, shake+10);
     SFX.play('warn');
@@ -5335,6 +5342,11 @@ import { FX } from "./fx.js";
   function triggerUltimate(){
     const D = player.dmgMult;
     const ck = player.classKey;
+    // 궁극 시전 충격파 (직업색)
+    if (FX.enabled){
+      const uc = CLASS_COLORS[ck];
+      if (uc){ const ti = parseInt(uc.slice(1),16); FX.ring(player.x, player.y, ti, 16); FX.puff(player.x, player.y, ti, 26); }
+    }
     if (ck==='manager'){
       friendlyBlast(player.x, player.y, 108, player.ultDamage*D, true);
       burst(player.x,player.y,26,230);
@@ -6319,7 +6331,8 @@ import { FX } from "./fx.js";
     player.invuln = invulnTime;
     player.hitFlash = 0.25;
     shake = Math.min(22, shake+shakeAmt);
-    burst(player.x,player.y,12,160);
+    burst(player.x,player.y,12,160,0xd9534f);
+    FX.puff(player.x, player.y, 0xd9534f, 16); // 피격 적색 섬광
     SFX.play('hurt');
     // 서리 갑옷: 피격 시 주변 빙결
     if (player.frostArmor>0){
