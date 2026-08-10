@@ -1686,10 +1686,10 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.critChance=0.20; p.critMult=3.0; p.rateMult*=0.55; p.projMult*=2.5; p.recoilScale=3; }
     },
     rusher: {
-      name:'돌격병', tag:'속도 & 흡혈',
-      desc:'[역장]으로 시작. 이동 +20%, 처치 시 회복. [중갑 가능]',
+      name:'돌격병', tag:'돌진 베기',
+      desc:'[역장]으로 시작. 이동 +20%, 처치 시 회복, 대시가 곧 공격 — 돌파 폭발 기본 장착. [중갑 가능]',
       weapon:'aura',
-      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; }
+      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; p.dashBlast=(p.dashBlast||0)+18; }
     },
     archer: {
       name:'궁수', tag:'속사',
@@ -1710,16 +1710,16 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.goldMult*=1.25; p.luck*=2; }
     },
     paladin: {
-      name:'성기사', tag:'방어', cost:600,
-      desc:'[역장]으로 시작. 받는 피해 -20%, 최대체력 +25. [중갑 가능]',
+      name:'성기사', tag:'방패 반격', cost:600,
+      desc:'[역장]으로 시작. 받는 피해 -20%, 최대체력 +25, 접촉 피해의 40%를 방패로 반격. [중갑 가능]',
       weapon:'aura',
-      apply:(p)=>{ p.dmgTaken=0.8; p.maxHp+=25; p.hp+=25; }
+      apply:(p)=>{ p.dmgTaken=0.8; p.maxHp+=25; p.hp+=25; p.thorns=Math.max(p.thorns||0, 0.4); }
     },
     reaper: {
-      name:'사신', tag:'처형', cost:800,
-      desc:'[낫]으로 시작. 체력 12% 이하 일반 적 즉사, 흡혈 1.',
+      name:'사신', tag:'대낫 · 처형', cost:800,
+      desc:'[낫]으로 시작. 낫이 크고 무겁게 휘둘러지며(피해 +25%), 체력 12% 이하 일반 적 즉사, 흡혈 1.',
       weapon:'scythe',
-      apply:(p)=>{ p.execThresh=Math.max(p.execThresh,0.12); p.lifesteal+=1; }
+      apply:(p)=>{ p.execThresh=Math.max(p.execThresh,0.12); p.lifesteal+=1; p.scytheBoost=(p.scytheBoost||1)*1.25; }
     },
     pilot: {
       name:'파일럿', tag:'드론', cost:700,
@@ -3133,12 +3133,22 @@ import { FX } from "./fx.js";
         if (hasGrowth) return; // 성장무기 소지 시 일반 새 무기도 미등장
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
+          // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
+          const wri = rollCardRarity();
+          const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
+          // 속성 각인 무기: 강림 속성이 각인 가능 원소면 그 속성이 깃든 채로 나온다
+          const imbEl = (focusTree && {fire:1,frost:1,volt:1,acid:1,boom:1}[focusTree]) ? focusTree : null;
           pool.push({
-            key:'wn_'+key, kind:'weaponnew',
-            name: key==='nameless' ? def.name+' Lv'+DB.growth.lv : def.name,
-            tag: key==='nameless' ? '유일 무기' : '새 무기',
-            desc:def.desc,
-            apply:()=>{ addWeapon(key); }
+            key:'wn_'+key, kind:'weaponnew', rarity:wri, elc: imbEl,
+            name: (imbEl ? TREES[imbEl].name+' ' : '') + def.name + (startLv>1 ? ' Lv'+startLv : ''),
+            tag: imbEl ? TREES[imbEl].name+' 병기' : '새 무기',
+            desc: def.desc + (imbEl ? ' ['+TREES[imbEl].name+' 각인 상태로 획득]' : '') + (startLv>1 ? ' (등급 보너스: Lv'+startLv+' 시작)' : ''),
+            apply:()=>{
+              addWeapon(key);
+              const w2 = player.weapons[player.weapons.length-1];
+              if (w2){ w2.lv = Math.min(5, startLv); if (imbEl){ w2.imbue = imbEl; w2.imbueDmg = 1.1; } }
+              renderWeaponRow();
+            }
           });
         }
       });
@@ -4326,6 +4336,16 @@ import { FX } from "./fx.js";
   let bossPool = []; // 셔플된 보스 순서 (매판 랜덤)
   function nextBossKey(){
     const list = MAP.bosses;
+    // 차원 침식: 위험도 10+에서는 25% 확률로 다른 맵의 보스가 차원을 넘어 난입한다
+    if ((DB.peril||0) >= 10 && Math.random() < 0.25){
+      const foreign = Object.keys(BOSS_TYPES).filter(k=> !BOSS_TYPES[k].finale && k!=='gatekeeper' && !list.includes(k));
+      if (foreign.length){
+        const fk = foreign[(Math.random()*foreign.length)|0];
+        setTimeout(()=>toast('⚠ 차원 침식 — 다른 세계의 보스가 넘어왔다!'), 600);
+        bossOrderIdx += 1;
+        return fk;
+      }
+    }
     // 랜덤 출현: 한 바퀴를 셔플해서 소진 — 같은 보스 연속 방지하면서 순서는 매판 다르게
     if (!bossPool.length){
       bossPool = list.slice();
@@ -4352,6 +4372,9 @@ import { FX } from "./fx.js";
     goDokGeun:['마흔살까지 장가 못 간','소개팅 100번 실패한','명절마다 추궁당하는'],
     monday:['주말을 순삭시키고 나타난','알람 5개를 뚫고 오는','출근길을 지배하는'],
     deadline:['어제까지였다고 말하는','금요일 6시에 일을 주는','내일의 나에게 미룬'],
+    overtime:['저녁 약속을 증발시키는','내일 아침에도 남아 있는','수당 없이 반복되는'],
+    rentday:['보증금을 야금야금 먹는','월급날 직후에 오는','계약 갱신을 노리는'],
+    aiface:['자소서를 3초 만에 거른','표정 관리가 완벽한','탈락 사유를 안 알려주는'],
   };
   function isEmpoweredCycle(){
     return bossOrderIdx > MAP.bosses.length; // 한 바퀴 다 만난 뒤부터는 강화형
@@ -8559,6 +8582,7 @@ import { FX } from "./fx.js";
     yuJinKong:'폭풍을 부르는 콩', jungWoo:'등 뒤의 배신자', seonJeong:'지뢰밭의 공병', spaceStar:'추락한 별',
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
+    overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -8577,6 +8601,7 @@ import { FX } from "./fx.js";
     yuJinKong:'#4fa8c4', jungWoo:'#7a8a99', seonJeong:'#e2823f', spaceStar:'#e0b73d',
     nukNukEX:'#9a6fc4', goDokGeun:'#3aa895',
     monday:'#5c6a8a', deadline:'#c9403a', gatekeeper:'#5c4a8a',
+    overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
