@@ -339,6 +339,10 @@ import { FX } from "./fx.js";
     }
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (e.code==='KeyT' && state==='playing'){ openTechView(); }
+    if (e.code==='KeyJ'){
+      if (state==='playing') openAsc();
+      else if (state==='inv') closeInv();
+    }
     if (e.code==='KeyH' && state==='playing'){ keyHintUntil = elapsed + 12; }
     if (state==='levelup'){
       if (['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8'].includes(e.code)) pickUpgrade(parseInt(e.code.slice(-1),10)-1);
@@ -1652,15 +1656,28 @@ import { FX } from "./fx.js";
         add('cs_'+ck+'_n', Math.cos(a2)*r2, Math.sin(a2)*r2, 'notable', cs.n, cs.d,
             (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:cs.f }); }, [sid], br2.color);
         // 승천 웹: 소성단 노터블에서 3갈래 분기 — [소형 → 사이드스톤(변형) → 키스톤(대변형+심화)]
+        // 직업별 이름 스킨: 같은 엔진이라도 직업의 정체성에 맞는 이름을 쓴다 (저격수에게 '화살'은 없다)
+        const CSKIN = {
+          archer:[{sn:'갈래 화살',kn:'화살 폭풍'},{sn:'관통 살촉',kn:'꿰뚫는 화살'},{sn:'매의 눈',kn:'심장 사격'}],
+          sniper:[{sn:'확장 탄창',kn:'연발 사격'},{sn:'철갑탄',kn:'관통 탄도'},{sn:'조준경 보정',kn:'헤드샷'}],
+          pilot:[{sn:'보조 포드',kn:'미사일 폭풍'},{sn:'레일 코일',kn:'레일건 관통'},{sn:'조준 컴퓨터',kn:'정밀 폭격'}],
+          necro:[{sn:'원혼의 불씨',kn:'망령의 보복'},{sn:'사령 순환',kn:'불사의 성소'},{sn:'명계 서약',kn:'명계의 길'}],
+          bard:[{sn:'불협화음',kn:'절규의 반격'},{sn:'치유의 선율',kn:'생명의 합창'},{sn:'수호 화음',kn:'앙코르의 기적'}],
+          returner:[{sn:'인과 기록',kn:'인과응보'},{sn:'회귀 보정',kn:'생환의 법칙'},{sn:'예지 방어',kn:'두 번째 기회'}],
+          manager:[{sn:'결재 이중화',kn:'전결 남발'},{sn:'업무 과부하',kn:'권한 폭주'},{sn:'칼퇴 본능',kn:'시간 외 수당'}],
+          voidc:[{sn:'공허 영창',kn:'이중 균열'},{sn:'심연 친화',kn:'공허 폭주'},{sn:'차원 감각',kn:'시공 왜곡'}],
+          commander:[{sn:'예비 편대',kn:'전 부대 일제사격'},{sn:'화망 구성',kn:'집중 포화'},{sn:'긴급 재배치',kn:'전술 시간표'}],
+        };
         const web = WEB[brKey]||[];
         web.forEach((wb, wi)=>{
           const wa = a2 + (wi-1)*0.085;
           const wr0 = r2 + STEP*0.85, wr1 = wr0 + STEP*0.85, wr2 = wr1 + STEP*0.9;
+          const skin = (CSKIN[ck]||[])[wi] || {};
           const w0 = 'csw_'+ck+'_'+wi+'_0';
           add(w0, Math.cos(wa)*wr0, Math.sin(wa)*wr0, 'small', br2.small.n, br2.small.d, br2.small.ap, ['cs_'+ck+'_n'], br2.color);
-          add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
+          add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', skin.sn||wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.sf }); }, [w0], br2.color);
-          add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key', wb.kn, wb.kd,
+          add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key', skin.kn||wb.kn, wb.kd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.kf, deep:wb.df }); }, ['csw_'+ck+'_'+wi+'_1'], '#e8e8e6');
         });
       });
@@ -3067,6 +3084,7 @@ import { FX } from "./fx.js";
           j.fx(player); player.jobs.push(j.n);
           if (resonant){ player.dmgMult *= 1 + 0.004*rc; }
           evolveClassStar(1);
+          setTimeout(()=>toast('🌌 승천반 개방 — J 키(전장에서)로 성반을 열어 승천석을 사용하라'), 900);
           toast('1차 전직 — '+j.n+'!'+(resonant?' (성도 공명 ×'+rc+')':''));
           effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
           SFX.play('win');
@@ -5175,6 +5193,7 @@ import { FX } from "./fx.js";
       orbs.push({ x:b.x+Math.cos(a)*14, y:b.y+Math.sin(a)*14, value:Math.ceil(b.xpValue/n), r:6 });
     }
     dropItem(b.x, b.y, 'chest');
+    if (player){ player.ascStones = (player.ascStones||0)+1; addTextNum(b.x, b.y-40, '◈ 승천석 +1'); }
     const essN = (b.finale ? 1 : (Math.random()<0.5?1:0)) + Math.floor((DB.peril||0)/4); // 정수 드랍 하향 (일반 보스 50%)
     DB.mats.essence += essN;
     toast('◆ 보스의 정수 +'+essN+' ('+DB.mats.essence+')');
@@ -9566,6 +9585,7 @@ import { FX } from "./fx.js";
       if (player.level >= 60){ player.xp = 0; break; }
       player.xp -= player.xpNext;
       player.level += 1;
+      if (player.level % 3 === 0){ player.ascStones = (player.ascStones||0)+1; addTextNum(player.x, player.y-52, '◈ 승천석 +1'); }
       player.xpNext = Math.floor(16 + player.level*11 + player.level*player.level*1.9); // 5차 하향 — 레벨은 더 귀하다 (장비 지배 견제)
       pendingLevelUps += 1;
     }
@@ -9900,6 +9920,103 @@ import { FX } from "./fx.js";
     setTimeout(()=>{ state='playing'; last=performance.now(); updateHud(); resumeGrace(); }, 120);
   }
 
+  // ---------- 승천반 (J) — 런 내 전직 성반: 6방위 × [소석→사이드스톤→키스톤], 승천석으로 구매 ----------
+  // 변형 방위는 직업 계열에 맞는 호환 효과를 자동 지급 (태그 충돌 원천 차단)
+  const ASC_DIRS = [
+    { n:'공격', c:'#c94f4f', nodes:[
+      { n:'공세', d:'피해 +6%', cost:1, f:(p)=>{p.dmgMult*=1.06;} },
+      { n:'맹공', d:'피해 +9%, 치명 +4%', cost:1, f:(p)=>{p.dmgMult*=1.09;p.critChance=Math.min(0.9,p.critChance+0.04);} },
+      { n:'섬멸자', d:'[키스톤] 피해 +16%, 처형 임계 +5%p', cost:2, f:(p)=>{p.dmgMult*=1.16;p.execThresh=Math.min(0.5,(p.execThresh||0)+0.05);} } ] },
+    { n:'연사', c:'#4c9a55', nodes:[
+      { n:'속사', d:'공속 +6%', cost:1, f:(p)=>{p.rateMult*=1.06;} },
+      { n:'과열 기관', d:'공속 +10%, 피해 -3%', cost:1, f:(p)=>{p.rateMult*=1.1;p.dmgMult*=0.97;} },
+      { n:'폭주 엔진', d:'[키스톤] 공속 +16%, 추가 투사체 +10%', cost:2, f:(p)=>{p.rateMult*=1.16;p.multishotCh=(p.multishotCh||0)+0.10;} } ] },
+    { n:'수비', c:'#3b82c4', nodes:[
+      { n:'견갑', d:'받는 피해 -5%', cost:1, f:(p)=>{p.dmgTaken*=0.95;} },
+      { n:'재생 조직', d:'재생 +0.6, 최대체력 +8%', cost:1, f:(p)=>{p.regen+=0.6;p.maxHp=Math.round(p.maxHp*1.08);p.hp=Math.min(p.maxHp,p.hp+15);} },
+      { n:'불괴', d:'[키스톤] 받는 피해 -12%, 피격 무적 +0.2초', cost:2, f:(p)=>{p.dmgTaken*=0.88;p.hitInvuln=(p.hitInvuln||0)+0.2;} } ] },
+    { n:'이동', c:'#8b5cf6', nodes:[
+      { n:'질주', d:'이속 +6%', cost:1, f:(p)=>{p.speed*=1.06;} },
+      { n:'잔상', d:'대시 쿨 -15%', cost:1, f:(p)=>{p.dashCdMax*=0.85;} },
+      { n:'섬광 보법', d:'[키스톤] 이속 +10%, 대시 무적 +0.15초, 회피 +5%', cost:2, f:(p)=>{p.speed*=1.1;p.dashInvuln=(p.dashInvuln||0)+0.15;p.dodge=Math.min(0.75,p.dodge+0.05);} } ] },
+    { n:'변형 · 무장', c:'#d9b23d', nodes:[
+      { n:'무장 개조', d:'계열 맞춤: 근접=반사 +30% / 원거리=관통 +1 / 술법·지원=발동 +5%p', cost:1, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war') p.thorns=(p.thorns||0)+0.3;
+          else if (g==='rng'||g==='rog') p.pierce+=1;
+          else p.procBonus=(p.procBonus||0)+0.05; } },
+      { n:'무장 진화', d:'계열 맞춤 강화 (2중첩)', cost:1, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war'){ p.thorns=(p.thorns||0)+0.4; p.dmgMult*=1.05; }
+          else if (g==='rng'||g==='rog'){ p.critMult+=0.3; }
+          else { p.cdr*=0.94; } } },
+      { n:'무장 초월', d:'[키스톤] 근접=대시 학살 돌진 / 원거리=마탄 흡혈 / 술법·지원=이중 시전', cost:2, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war') p.bloodRush=true;
+          else if (g==='rng'||g==='rog') p.projLeech=true;
+          else p.ultEcho=true;
+          toast('⚜ 무장 초월 — 계열에 맞는 형태로 각인되었다'); } } ] },
+    { n:'변형 · 이능', c:'#d9a53f', nodes:[
+      { n:'이능 개화', d:'스킬 20% 확률 쿨 환급', cost:1, f:(p)=>{p.echoCast=true;} },
+      { n:'이능 심화', d:'쿨다운 -8%', cost:1, f:(p)=>{p.cdr*=0.92;} },
+      { n:'이능 해방', d:'[키스톤] 근접·지원=피격 신성 폭발 / 원거리·술법=대시 분신 사격', cost:2, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war'||g==='pri'||g==='mer') p.holyRet=true;
+          else p.shadowClone=true;
+          toast('⚜ 이능 해방 — 계열에 맞는 형태로 각인되었다'); } } ] },
+  ];
+  const ascBoxEl = $('ascBox'), ascDial = $('ascDial'), ascInfo = $('ascInfo');
+  function renderAscDial(){
+    if (!ascDial || !player) return;
+    ascDial.innerHTML = '';
+    const cx=170, cy=170;
+    const core = document.createElement('div');
+    core.style.cssText = 'position:absolute; left:'+(cx-46)+'px; top:'+(cy-46)+'px; width:92px; height:92px; border-radius:50%;'
+      + 'background:rgba(32,33,36,0.9); color:#e8e8e6; display:flex; flex-direction:column; align-items:center; justify-content:center;'
+      + 'font-family:"IBM Plex Mono",monospace; font-size:11px; border:2px solid #8f9194;';
+    core.innerHTML = '<div style="font-size:9px;opacity:0.7;">근본석</div><div>'+(player.jobs[0]||CLASSES[player.classKey].name)+'</div><div style="font-size:14px;">◈ '+(player.ascStones||0)+'</div>';
+    ascDial.appendChild(core);
+    ASC_DIRS.forEach((dir, di)=>{
+      const a = -Math.PI/2 + di*(Math.PI*2/6);
+      const bx = cx + Math.cos(a)*118, by = cy + Math.sin(a)*118;
+      const depth = (player.ascTaken&&player.ascTaken[di])||0;
+      const next = dir.nodes[depth];
+      const done = !next;
+      const btn = document.createElement('button');
+      btn.style.cssText = 'position:absolute; left:'+(bx-42)+'px; top:'+(by-42)+'px; width:84px; height:84px; border-radius:50%;'
+        + 'background:rgba(32,33,36,'+(done?'0.95':'0.75')+'); color:#e8e8e6; cursor:pointer;'
+        + 'border:2.5px solid '+dir.c+'; font-size:10.5px; line-height:1.25; font-family:"IBM Plex Sans KR",sans-serif;'
+        + (done?'box-shadow:0 0 14px '+dir.c+';':'');
+      btn.innerHTML = '<b style="color:'+dir.c+';">'+dir.n+'</b><br>'+depth+'/'+dir.nodes.length + (done?'<br>✦완성':'<br>◈'+next.cost);
+      btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = done ? '<b>'+dir.n+'</b> — 이 방위는 완성되었다' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d; });
+      btn.addEventListener('click', ()=>{
+        const dep = (player.ascTaken&&player.ascTaken[di])||0;
+        const nd = dir.nodes[dep];
+        if (!nd){ SFX.play('hit'); return; }
+        if ((player.ascStones||0) < nd.cost){ toast('승천석 부족 (◈'+nd.cost+' 필요)'); SFX.play('hit'); return; }
+        player.ascStones -= nd.cost;
+        player.ascTaken = player.ascTaken||[0,0,0,0,0,0];
+        player.ascTaken[di] = dep+1;
+        nd.f(player);
+        toast('승천: ['+dir.n+'] '+nd.n);
+        SFX.play('quest');
+        renderAscDial();
+      });
+      ascDial.appendChild(btn);
+    });
+  }
+  function openAsc(){
+    if (state!=='playing' || !player) return;
+    if (!player.jobs || !player.jobs.length){ toast('승천반은 1차 전직 후에 열린다'); return; }
+    state = 'inv';
+    renderAscDial();
+    if (ascInfo) ascInfo.textContent = '방위를 클릭해 승천석을 사용하라 — 승천석은 레벨 3마다·보스 처치로 얻는다';
+    ascBoxEl.style.display = 'flex';
+    overlay.classList.remove('hidden');
+  }
+  const ascCB = $('ascCloseBtn');
+  if (ascCB) ascCB.addEventListener('click', ()=>{ ascBoxEl.style.display='none'; closeInv(); });
+
   // ---------- 인게임 장비창 (I) ----------
   function openInv(){
     if (state!=='playing') return;
@@ -9924,6 +10041,7 @@ import { FX } from "./fx.js";
     if (state!=='inv') return;
     overlay.classList.add('hidden');
     equipBox.style.display='none';
+    const ab = $('ascBox'); if (ab) ab.style.display='none';
     state = 'playing';
     last = performance.now();
     resumeGrace();
@@ -9933,6 +10051,8 @@ import { FX } from "./fx.js";
   if (mobK) mobK.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openSkillBook(); });
   if (mobT) mobT.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openTechView(); });
   if (mobI) mobI.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openInv(); else if (state==='inv') closeInv(); });
+  const mobJ = $('mobJBtn');
+  if (mobJ) mobJ.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openAsc(); else if (state==='inv') closeInv(); });
 
   // ---------- NPC 의뢰인 (런 중 퀘스트) ----------
   let clients = [], clientCount = 0, runQuest = null;
