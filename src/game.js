@@ -1329,15 +1329,19 @@ import { FX } from "./fx.js";
         const plus = item.plus||0;
         // 강화 = 핵심 골드 소모처: 지수 곡선 — 고강은 수천 골드를 태운다
         const cost = Math.round(((item.r+1)*40 + plus*30) * Math.pow(1.55, plus) / 5) * 5;
-        const needShard = (plus+1)%2===0 ? 1 : 0; // 경제 대개편: 2강마다 별의 조각 — 재료 경제 활성화
+        // 성장 제한 돌파식: +3까지 골드만 → +4~6은 ★조각 → +7~9는 ★+◆정수 (일정 강화 이상 = 재료 관문)
+        const nx = plus+1;
+        const needShard = nx>=4 ? 1 : 0;
+        const needEss = nx>=7 ? 1 : 0;
         const enhBtn = document.createElement('button');
         enhBtn.className = 'buy sec';
-        enhBtn.textContent = '+'+(plus+1)+' ('+cost+'G'+(needShard?'+★':'')+')';
-        enhBtn.disabled = DB.gold<cost || DB.mats.shard<needShard;
+        enhBtn.textContent = '+'+nx+' ('+cost+'G'+(needShard?'+★':'')+(needEss?'+◆':'')+')';
+        enhBtn.disabled = DB.gold<cost || DB.mats.shard<needShard || DB.mats.essence<needEss;
         enhBtn.addEventListener('click', ()=>{
-          if (DB.gold<cost || DB.mats.shard<needShard) return;
+          if (DB.gold<cost || DB.mats.shard<needShard || DB.mats.essence<needEss) return;
           DB.gold -= cost;
           DB.mats.shard -= needShard;
+          DB.mats.essence -= needEss;
           item.plus = plus+1;
           saveDB(); SFX.play('equip');
           toast(item.name+' +'+item.plus+' 강화!');
@@ -3776,8 +3780,8 @@ import { FX } from "./fx.js";
       baseCd:(w)=> w.evolved ? 0.95 : 1.2,
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.bow.lv||1);
-        const g = 2 + gl*1.4;
-        const tier = gl>=30?1.4 : gl>=15?1.2 : 1; // 각성/진각성
+        const g = 1 + gl*0.9; // 초반 하향 — 성장의 서사
+        const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
         return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
       },
       count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + (w.evolved?1:0)
@@ -3789,8 +3793,8 @@ import { FX } from "./fx.js";
       baseCd:(w)=> w.evolved ? 1.1 : 1.4,
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.tome.lv||1);
-        const g = 1.5 + gl*1.1;
-        const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
+        const g = 0.8 + gl*0.7; // 초반 하향
+        const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
         return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
       },
       count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + (w.evolved?2:0)
@@ -4248,8 +4252,9 @@ import { FX } from "./fx.js";
         lvDesc:['','강화','피해 +25%','강화','강화'],
         baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
         dmg:(w)=>{
+          // 성장 곡선 재설계: 초반엔 일반 무기보다 약하다 — 키우는 재미, 만렙 근처에서 최고 무기
           const gl = (DB.pgw && DB.pgw[ck+'_'+i] && DB.pgw[ck+'_'+i].lv)||1;
-          return (2 + gl*1.0) * [1,1.25,1.55,1.9,2.3][w.lv-1] * (gl>=25?1.3: gl>=12?1.15:1) * (w.evolved?1.5:1);
+          return (1 + gl*0.55) * [1,1.25,1.55,1.9,2.3][w.lv-1] * (gl>=35?2.2: gl>=25?1.6: gl>=12?1.2:1) * (w.evolved?1.5:1);
         },
         count:(w)=> (arch==='nova'?7 : arch==='spread'?3 : arch==='homing'?2 : 1) + (w.lv>=3?1:0) + (w.evolved?1:0)
       };
@@ -4738,6 +4743,41 @@ import { FX } from "./fx.js";
 
   // ---------- 조사 이벤트 (필드 탐색 선택지) ----------
   const FIELD_EVENTS = [
+    // v6.45 신규 이벤트 5종
+    { t:'떠돌이 검은 고양이', d:'재수 없기로 소문난 검은 고양이가 발밑을 맴돈다.', opts:[
+      { l:'쓰다듬는다', d:'70% 행운 +15% / 30% 할큄 (체력 -10%)', fx:()=>{
+          if (Math.random()<0.7){ player.luck*=1.15; toast('고양이가 가르랑거린다 — 행운 +15%'); SFX.play('quest'); }
+          else { player.hp=Math.max(1,player.hp-player.maxHp*0.1); toast('할퀴었다!'); SFX.play('hit'); } } },
+      { l:'생선을 준다', d:'골드 -20 → 확정 행운 +10% + 수집 +20', fx:()=>{ const pay=Math.min(runGold,20); runGold-=pay; player.luck*=1.1; player.magnet+=20; toast('고양이의 가호'); SFX.play('quest'); } },
+      { l:'못 본 척한다', d:'아무 일도 없다... 아마도', fx:()=>{ if (Math.random()<0.1){ player.dodge=Math.min(0.75,player.dodge+0.03); toast('...뒤에서 지켜봐 준다 (회피 +3%)'); } } },
+    ]},
+    { t:'수상한 자판기', d:'전원이 들어오지 않는 자판기. 동전 투입구만 빛난다.', opts:[
+      { l:'30G를 넣는다', d:'40% 회복 음료(체력 30%) / 35% 꽝 / 25% 잭팟(골드 3배 환급)', fx:()=>{
+          const pay=Math.min(runGold,30); runGold-=pay;
+          const r2=Math.random();
+          if (r2<0.4){ player.hp=Math.min(player.maxHp, player.hp+player.maxHp*0.3); toast('시원한 회복 음료!'); SFX.play('quest'); }
+          else if (r2<0.75){ toast('덜컹... 아무것도 안 나왔다'); SFX.play('hit'); }
+          else { const back=gainGold(90); toast('잭팟! +'+back+'G'); SFX.play('win'); } } },
+      { l:'발로 찬다', d:'50% 음료수 굴러나옴(체력 15%) / 50% 경보(몹 유인)', fx:()=>{
+          if (Math.random()<0.5){ player.hp=Math.min(player.maxHp, player.hp+player.maxHp*0.15); toast('음료수 겟!'); }
+          else { for (let k=0;k<8;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('swarm', player.x+Math.cos(a)*350, player.y+Math.sin(a)*350, false)); } toast('삐––! 경보가 울린다!'); SFX.play('warn'); } } },
+    ]},
+    { t:'파묻힌 타임캡슐', d:'녹슨 캡슐이 반쯤 파묻혀 있다. 열어볼까.', opts:[
+      { l:'연다', d:'즉시 레벨업 1회 분량 경험치', fx:()=>{ player.xp += player.xpNext; toast('과거의 유산 — 경험치 대량 획득!'); SFX.play('win'); } },
+      { l:'도로 묻는다', d:'덕을 쌓는다 (재생 +0.3)', fx:()=>{ player.regen+=0.3; toast('마음이 편안하다 (+재생)'); } },
+    ]},
+    { t:'창백한 유령', d:'유령이 거래를 제안한다. "생명을... 나눠줘..."', opts:[
+      { l:'체력 30%를 준다', d:'→ 골드 +120', fx:()=>{ player.hp=Math.max(1,player.hp-player.maxHp*0.3); const g=gainGold(120); toast('유령의 사례 +'+g+'G'); SFX.play('coin'); } },
+      { l:'골드 80을 준다', d:'→ 최대체력 +10%', fx:()=>{ const pay=Math.min(runGold,80); if (pay<80){ toast('골드 부족...'); return; } runGold-=80; player.maxHp=Math.round(player.maxHp*1.1); player.hp=Math.min(player.maxHp,player.hp+20); toast('생기가 돈다 (+체력 10%)'); } },
+      { l:'성불을 권한다', d:'50% 축복(피해 +6%) / 50% 분노(유령 몹 6기)', fx:()=>{
+          if (Math.random()<0.5){ player.dmgMult*=1.06; toast('유령이 웃으며 사라졌다 (+피해 6%)'); SFX.play('quest'); }
+          else { for (let k=0;k<6;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('normal', player.x+Math.cos(a)*320, player.y+Math.sin(a)*320, false)); } toast('유령의 분노!'); SFX.play('warn'); } } },
+    ]},
+    { t:'낡은 라디오', d:'지직거리는 라디오에서 익숙한 멜로디가 흘러나온다.', opts:[
+      { l:'볼륨을 올린다', d:'10초 피버 (골드 2배) — 대신 몹도 몰려온다', fx:()=>{ feverTimer=Math.max(feverTimer,10); for (let k=0;k<10;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('swarm', player.x+Math.cos(a)*380, player.y+Math.sin(a)*380, false)); } toast('🎵 페스티벌 타임!'); SFX.play('fever'); } },
+      { l:'주파수를 맞춘다', d:'쿨다운 -5% (좋은 음악은 집중력을 높인다)', fx:()=>{ player.cdr*=0.95; toast('🎵 리듬을 탄다 (쿨다운 -5%)'); } },
+      { l:'끈다', d:'정적... 3초 무적', fx:()=>{ player.invuln=Math.max(player.invuln,3); toast('고요 속의 안식'); } },
+    ]},
     { t:'떠돌이 서기관', d:'너덜너덜한 두루마리 뭉치를 든 서기관이 서 있다.', opts:[
       { l:'두루마리를 산다', d:'골드 -25 → 리롤 +2', fx:()=>{ if (runGold>=25){ runGold-=25; } else { DB.gold=Math.max(0,DB.gold-25); } rerollsLeft+=2; toast('리롤 +2!'); SFX.play('quest'); } },
       { l:'도장을 산다', d:'골드 -25 → 제외 +2', fx:()=>{ if (runGold>=25){ runGold-=25; } else { DB.gold=Math.max(0,DB.gold-25); } banishLeft+=2; toast('제외 +2!'); SFX.play('quest'); } },
@@ -5125,7 +5165,7 @@ import { FX } from "./fx.js";
 
   function gainGold(v){
     // 경제 조정 2차: 전역 수급 -75% + 무한 모드(클리어 후)는 추가 -70% — 붕괴 상태 파밍 방지
-    const g = Math.max(1, Math.round(v * 0.25 * (endless?0.3:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
+    const g = Math.max(1, Math.round(v * 0.25 * (endless?0.3:1) * (trialT>0&&trialKind==='gold'?2:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
     return g;
   }
@@ -5189,7 +5229,7 @@ import { FX } from "./fx.js";
     } else {
       e = { type:'normal', x,y, r:13, hp:16*s, maxHp:16*s, speed:54+Math.random()*20, dmg:9*ds, xpValue:2, hitCd:0 };
     }
-    e.speed *= spdScale() * (player && player.enemySpdMod ? player.enemySpdMod : 1);
+    e.speed *= spdScale() * (player && player.enemySpdMod ? player.enemySpdMod : 1) * (trialT>0 && trialKind==='haste' ? 1.3 : 1);
     e.skin = MAP.skins[e.type] || e.type;
     // 축복받은 몹 (1.5%): 금빛 오라, 처치 시 무작위 축복
     if (!elite && type!=='treasure' && Math.random()<0.015){
@@ -5444,6 +5484,7 @@ import { FX } from "./fx.js";
 
   // ---------- treasure chest ----------
   function openChest(x, y){
+    player.chestOpenN = (player.chestOpenN||0)+1;
     const candidates = player.weapons.filter(w => w.lv>=5 && !w.evolved);
     effects.push({ type:'rays', x, y, life:0.6, age:0 });
     // 유일 무기 발견 (0.001% & 위험도 40+ — 사실상 전설의 목격담)
@@ -5614,6 +5655,7 @@ import { FX } from "./fx.js";
     }
     if (e.elite){
       questAdd('elite', 1);
+      player.eliteKillN = (player.eliteKillN||0)+1;
       if (Math.random()<0.12){
         DB.mats.shard += 1;
         toast('★ 별의 조각 획득 ('+DB.mats.shard+')');
@@ -7974,6 +8016,7 @@ import { FX } from "./fx.js";
       if (sc) FX.ring(player.x, player.y, parseInt(sc.slice(1),16), 10);
     }
     sk.fx();
+    player.skillCastN = (player.skillCastN||0)+1;
     player.skCds[i] = sk.cd * 1.35 * player.cdr; // 전역 쿨타임 +35% — 스킬은 강하되 아껴 써야 한다
     if (player.echoCast && Math.random() < (0.3 + (player.echoBoost?0.1:0))){ player.skCds[i] *= 0.1; addTextNum(player.x, player.y-46, '메아리!'); }
     addTextNum(player.x, player.y-34, sk.n);
@@ -9426,6 +9469,10 @@ import { FX } from "./fx.js";
     }
     if (player.invuln>0) player.invuln -= dt;
     if (player.zoneSilenceT>0) player.zoneSilenceT -= dt;
+    // 의뢰용 카운터: 이동 거리·회복 감지
+    player.moveDist = (player.moveDist||0) + Math.hypot(player.x-(player._lx===undefined?player.x:player._lx), player.y-(player._ly===undefined?player.y:player._ly));
+    if (runQuest && runQuest.type==='noheal' && player.hp > (player._lastHp===undefined?player.hp:player._lastHp) + 0.01) player.qNoHealHit = true;
+    player._lx = player.x; player._ly = player.y; player._lastHp = player.hp;
     updateGateObjs(dt);
     tickGatePending(dt);
     if (player.moonlight) screenDimT = Math.max(screenDimT, 0.22); // 월광 계약 — 상시 어둑
@@ -9490,7 +9537,7 @@ import { FX } from "./fx.js";
     // spawns — 난이도 상향 곡선
     spawnTimer += dt;
     let interval = elapsed < 8 ? 1.15 : Math.max(0.15, 1.0 - (elapsed-8)*0.018);
-    if (trialT > 0) interval *= (trialKind==='frenzy' ? 0.33 : 0.5); // 시련: 스폰 2배 (광란은 3배)
+    if (trialT > 0) interval *= (trialKind==='frenzy' ? 0.33 : (trialKind==='horde'||trialKind==='gold') ? 0.5 : 1); // 시련: 종류별 스폰 배율
     if (waveModeRun) interval *= 0.78; // 웨이브 모드: 밀도 강화
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
     const cap = Math.min(190, 20 + Math.floor(elapsed/2.6));
@@ -9605,10 +9652,23 @@ import { FX } from "./fx.js";
       }
     }
 
-    // 시련 진행 — 60초간 스폰 2배, 버티면 대박 보상
+    // 시련 진행 — 종류별 규칙 적용, 버티면 대박 보상
     if (trialT > 0){
       trialT -= dt;
+      // 시련별 지속 효과
+      if (trialKind==='dark') screenDimT = Math.max(screenDimT, 0.45);
+      else if (trialKind==='silence') player.zoneSilenceT = 0.3;
+      else if (trialKind==='bleed'){
+        player.trialBleedT = (player.trialBleedT||0) + dt;
+        if (player.trialBleedT >= 1){ player.trialBleedT = 0; player.hp = Math.max(1, player.hp - player.maxHp*0.012); addTextNum(player.x, player.y-26, '🩸'); }
+      }
+      else if (trialKind==='bombard'){
+        player.trialBombT = (player.trialBombT||0) - dt;
+        if ((player.trialBombT||0) <= 0){ player.trialBombT = 2.0; for (let k=0;k<3;k++) addHazard(player.x+(Math.random()-0.5)*300, player.y+(Math.random()-0.5)*300, 52, 1.0, 14*dmgScale(), false); }
+      }
       if (trialT <= 0){
+        if (trialKind==='gravity') player.speed /= 0.8; // 중력 해제
+        if (trialKind==='gold'){ const bonus = gainGold(150); addTextNum(player.x, player.y-46, '황금 시련 보너스 +'+bonus+'G'); }
         questAdd('trial', 1);
         dropItem(player.x+40, player.y-30, 'chest');
         if (trialKind==='elite') dropItem(player.x-40, player.y-30, 'whet');
@@ -10185,19 +10245,23 @@ import { FX } from "./fx.js";
       if (Math.hypot(player.x-al.x, player.y-al.y) > 1400){ altars.splice(i,1); continue; }
       if (Math.hypot(player.x-al.x, player.y-al.y) < player.r+al.r+4){
         altars.splice(i,1);
-        // 제단 시련도 매번 다르게: 물량 / 정예 습격 / 광란 (짧고 격렬)
-        const tr = Math.random();
-        if (tr < 0.4){
-          trialT = 60; trialKind = 'horde';
-          bossWarn.textContent = '⚔ 물량 시련! 60초를 버텨라 (적 스폰 2배)';
-        } else if (tr < 0.7){
-          trialT = 45; trialKind = 'elite';
-          for (let k=0;k<3;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('brute', player.x+Math.cos(a)*340, player.y+Math.sin(a)*340, true)); }
-          bossWarn.textContent = '⚔ 정예 습격! 45초를 버텨라 (정예 3기 출현)';
-        } else {
-          trialT = 30; trialKind = 'frenzy';
-          bossWarn.textContent = '⚔ 광란의 시련! 30초를 버텨라 (스폰 3배)';
-        }
+        // 제단 시련 10종 — 매번 다른 규칙으로 짧고 격렬하게
+        const TRIALS = [
+          { k:'horde',   t:60, w:'⚔ 물량 시련! 60초를 버텨라 (적 스폰 2배)' },
+          { k:'elite',   t:45, w:'⚔ 정예 습격! 45초를 버텨라 (정예 3기)', f:()=>{ for (let k=0;k<3;k++){ const a=Math.random()*Math.PI*2; enemies.push(makeEnemy('brute', player.x+Math.cos(a)*340, player.y+Math.sin(a)*340, true)); } } },
+          { k:'frenzy',  t:30, w:'⚔ 광란의 시련! 30초를 버텨라 (스폰 3배)' },
+          { k:'dark',    t:45, w:'🌑 암흑 시련! 어둠 속에서 45초 (시야 제한)' },
+          { k:'haste',   t:40, w:'💨 질주 시련! 적 이동속도 +30% — 40초' },
+          { k:'silence', t:35, w:'🤐 침묵 시련! 스킬 봉인 상태로 35초' },
+          { k:'bombard', t:40, w:'☄ 폭격 시련! 하늘에서 폭격이 쏟아진다 — 40초' },
+          { k:'bleed',   t:40, w:'🩸 출혈 시련! 초당 체력이 새어나간다 — 40초' },
+          { k:'gold',    t:45, w:'💰 황금 시련! 골드 2배 — 대신 적이 굶주렸다 (스폰 2배)' },
+          { k:'gravity', t:40, w:'🕸 중력 시련! 몸이 무겁다 (이속 -20%) — 40초', f:()=>{ player.speed*=0.8; } },
+        ];
+        const TD = TRIALS[(Math.random()*TRIALS.length)|0];
+        trialT = TD.t; trialKind = TD.k;
+        if (TD.f) TD.f();
+        bossWarn.textContent = TD.w;
         bossWarn.style.opacity = '1';
         setTimeout(()=>{ bossWarn.style.opacity='0'; }, 2000);
         shake = Math.min(16, shake+8);
@@ -10350,6 +10414,7 @@ import { FX } from "./fx.js";
 
   // ---------- level up flow ----------
   function grantXp(v){
+    player.orbN = (player.orbN||0)+1;
     player.xp += v * MAP.mult.reward * perilR() * (player.xpMult||1);
     if (player.level >= 60){ player.xp = 0; return; } // 런 내 레벨 상한 — 무한 성장 차단
     while (player.xp >= player.xpNext){
@@ -11159,12 +11224,27 @@ import { FX } from "./fx.js";
         q:{ type:'combo', goal:30, t:45, gold:100, chest:false } },
       { l:'생존 의뢰', d:'40초 무피격 생존 → 보물상자 + 60G',
         q:{ type:'nohit', goal:0, t:40, gold:60, chest:true } },
+      // v6.45 신규 의뢰 10종 — 플레이 스타일을 바꾸는 주문들
+      { l:'수금 의뢰', d:'50초 안에 골드 60 벌기 → 120G', q:{ type:'gold', goal:60, t:50, gold:120, chest:false } },
+      { l:'질주 의뢰', d:'40초 안에 대시 8회 → 70G + 상자', q:{ type:'dash', goal:8, t:40, gold:70, chest:true } },
+      { l:'기교 의뢰', d:'45초 안에 스킬 6회 시전 → 90G', q:{ type:'skill', goal:6, t:45, gold:90, chest:false } },
+      { l:'정예 청부', d:'50초 안에 엘리트 1기 처치 → 150G', q:{ type:'elite', goal:1, t:50, gold:150, chest:true } },
+      { l:'개봉 의뢰', d:'60초 안에 보물상자 2개 열기 → 100G', q:{ type:'chest', goal:2, t:60, gold:100, chest:false } },
+      { l:'대량 학살', d:'30초 안에 25마리 → 100G (짧고 굵게)', q:{ type:'kill', goal:25, t:30, start:killCount, gold:100, chest:false } },
+      { l:'유랑 의뢰', d:'40초 안에 거리 1500 이동 → 80G + 상자', q:{ type:'move', goal:1500, t:40, gold:80, chest:true } },
+      { l:'냉혈 의뢰', d:'콤보 50 달성 (60초) → 180G', q:{ type:'combo', goal:50, t:60, gold:180, chest:true } },
+      { l:'금욕 의뢰', d:'45초간 회복 없이 생존 → 130G', q:{ type:'noheal', goal:0, t:45, gold:130, chest:true } },
+      { l:'수확 의뢰', d:'55초 안에 경험치 오브 40개 → 90G', q:{ type:'orb', goal:40, t:55, gold:90, chest:false } },
     ];
     const pick2 = [];
     while (pick2.length<2 && offers.length){ pick2.push(offers.splice((Math.random()*offers.length)|0,1)[0]); }
     const opts = pick2.map(o=>({ l:o.l, d:o.d, fx:()=>{
       runQuest = o.q;
       runQuest.start = killCount;
+      runQuest.g0 = runGold; runQuest.d0 = dashCount; runQuest.s0 = (player.skillCastN||0);
+      runQuest.e0 = (player.eliteKillN||0); runQuest.c0 = (player.chestOpenN||0);
+      runQuest.m0 = (player.moveDist||0); runQuest.o0 = (player.orbN||0);
+      if (o.q.type==='noheal') player.qNoHealHit = false;
       toast('의뢰 수락: '+o.l);
       SFX.play('quest');
     } }));
@@ -11208,6 +11288,22 @@ import { FX } from "./fx.js";
       else if (runQuest.t<=0) fail = true;
     } else if (runQuest.type==='nohit'){
       if (runQuest.t<=0) done = true; // 실패는 playerHit에서 처리
+    } else if (runQuest.type==='gold'){
+      if (runGold - runQuest.g0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='dash'){
+      if (dashCount - runQuest.d0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='skill'){
+      if ((player.skillCastN||0) - runQuest.s0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='elite'){
+      if ((player.eliteKillN||0) - runQuest.e0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='chest'){
+      if ((player.chestOpenN||0) - runQuest.c0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='move'){
+      if ((player.moveDist||0) - runQuest.m0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='orb'){
+      if ((player.orbN||0) - runQuest.o0 >= runQuest.goal) done = true; else if (runQuest.t<=0) fail = true;
+    } else if (runQuest.type==='noheal'){
+      if (player.qNoHealHit){ fail = true; } else if (runQuest.t<=0) done = true;
     } else if (runQuest.type==='gwkill'){
       if (killCount - runQuest.start >= runQuest.goal) done = true; // 실패 없음 — 런이 끝나면 무효
     } else if (runQuest.type==='gwboss'){
@@ -11399,10 +11495,10 @@ import { FX } from "./fx.js";
         const rec2 = pgwRec(pw2.key.slice(4));
         rec2.xp = (rec2.xp||0) + killCount;
         let walled = false;
-        while (rec2.lv < 40 && rec2.xp >= 60 + rec2.lv*45){
+        while (rec2.lv < 40 && rec2.xp >= 140 + rec2.lv*85){ // 초반 성장 대폭 어렵게 — 긴 여정 끝의 왕귀
           const need = {10:1,20:2,30:3}[rec2.lv];
           if (need && (rec2.awk||0) < need){ walled = true; break; } // 격(格)의 벽 — 장비창에서 격 돌파 의식 필요
-          rec2.xp -= (60 + rec2.lv*45);
+          rec2.xp -= (140 + rec2.lv*85);
           rec2.lv += 1;
         }
         toast('⚒ ['+WEAPONS[pw2.key].name+'] 성장 — Lv'+rec2.lv + (walled?' (격의 벽 — 돌파 의식 필요)':''));
