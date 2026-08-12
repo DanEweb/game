@@ -8445,7 +8445,7 @@ import { FX } from "./fx.js";
           b.trPrep = 0.9;
           // 선로 예고: 경로에 하자드 라인
           for (let k=1;k<=6;k++) addHazard(b.x+Math.cos(b.trA)*k*110, b.y+Math.sin(b.trA)*k*110, 46, 0.9, 16*ds, false);
-          addTextNum(b.x, b.y-b.r-14, '🚂 기적 소리 — 선로를 벗어나라!');
+          addTextNum(b.x, b.y-b.r-14, '"뿌우----"');
           SFX.play('warn');
           b.trT = 5.5;
         }
@@ -8466,10 +8466,12 @@ import { FX } from "./fx.js";
       const flTarget = b.flFast>0 ? 128 : 70;
       b.flR += (flTarget - b.flR) * Math.min(1, dt*3);
       b.flSpinT = (b.flSpinT===undefined?7:b.flSpinT) - dt;
+      // v6.70 전조 방식: 텍스트 대신 가속 0.8초 전 철퇴가 붉게 맥동한다
+      if (b.flSpinT<=0.8 && b.flSpinT>0) b.flWarn = true; else if (b.flFast>0) b.flWarn = false;
       if (b.flSpinT<=0){
         b.flSpinT = 9.5;
         b.flFast = 3.5;
-        addTextNum(b.x, b.y-b.r-16, '⛓ 회전 가속!');
+        b.flWarn = false;
         SFX.play('warn');
         shake = Math.min(10, shake+4);
       }
@@ -13209,6 +13211,71 @@ import { FX } from "./fx.js";
           ctx.lineWidth = 1;
           ctx.strokeRect(px-12, py-16, 24, 32);
           for (let k=1;k<4;k++){ ctx.fillRect(px-10, py-16+k*8, 20, 1.5); }
+        } else if (MAP.key==='office'){ // v6.70 만성 야근 사옥: 책상+모니터+서류 더미
+          ctx.lineWidth = 1.2;
+          ctx.fillRect(px-14, py-2, 28, 4);                       // 책상
+          ctx.strokeRect(px-6, py-13, 12, 9);                     // 모니터
+          if (h<0.12){ ctx.fillRect(px+10, py-8, 7, 6); ctx.fillRect(px+11, py-10, 7, 2); } // 서류 더미
+          ctx.fillRect(px-2, py-4, 4, 2);                         // 받침대
+        } else if (MAP.key==='market'){ // 명절 대목 시장: 좌판 천막+진열대
+          ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(px-16, py-8); ctx.lineTo(px, py-16); ctx.lineTo(px+16, py-8); ctx.stroke(); // 천막 지붕
+          ctx.strokeRect(px-13, py-8, 26, 10);                    // 좌판
+          for (let k=0;k<3;k++){ ctx.beginPath(); ctx.arc(px-7+k*7, py-3, 2.2, 0, Math.PI*2); ctx.fill(); } // 진열 과일
+        } else if (MAP.key==='tariffLine'){ // 관세 전선: 컨테이너+바리케이드
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(px-16, py-9, 32, 18);                    // 컨테이너
+          for (let k=1;k<4;k++){ ctx.beginPath(); ctx.moveTo(px-16+k*8, py-9); ctx.lineTo(px-16+k*8, py+9); ctx.stroke(); }
+          if (h<0.12){ ctx.beginPath(); ctx.moveTo(px-22, py+12); ctx.lineTo(px-12, py+6); ctx.moveTo(px-20, py+6); ctx.lineTo(px-14, py+12); ctx.stroke(); } // X 바리케이드
+        } else if (MAP.key==='frontline'){ // 동토의 전선: 참호 말뚝+철조망+눈더미
+          ctx.lineWidth = 1.3;
+          for (let k=0;k<3;k++){ ctx.fillRect(px-12+k*12, py-7, 2.5, 14); }   // 말뚝
+          ctx.beginPath();
+          for (let k=0;k<6;k++){ const wx2=px-14+k*5.6; ctx.moveTo(wx2, py-2+((k%2)?3:-3)); ctx.lineTo(wx2+5.6, py-2+((k%2)?-3:3)); }
+          ctx.stroke();                                           // 철조망
+          if (h<0.1){ ctx.beginPath(); ctx.ellipse(px+16, py+8, 8, 4, 0, Math.PI, 0); ctx.fill(); } // 눈더미
+        } else if (MAP.key==='towers'){ // 깡통 전세 타워: 빌딩 실루엣+균열
+          ctx.lineWidth = 1.2;
+          const bh = 26 + Math.floor(h*40);
+          ctx.strokeRect(px-9, py-bh, 18, bh);                    // 빌딩
+          for (let k=0;k<3;k++) for (let k2=0;k2<Math.floor(bh/9);k2++){ if (hash2(cx*3+k, cy*5+k2)<0.5) ctx.fillRect(px-6+k*5, py-bh+4+k2*9, 3, 4); } // 창
+          if (h<0.1){ ctx.beginPath(); ctx.moveTo(px-9, py-6); ctx.lineTo(px-3, py-12); ctx.lineTo(px+2, py-4); ctx.stroke(); } // 균열
+        } else if (MAP.key==='feed'){ // 무한 스크롤 피드: 게시물 카드+하트
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(px-13, py-16, 26, 32);                   // 카드
+          ctx.fillRect(px-10, py-13, 20, 12);                     // 썸네일
+          ctx.fillRect(px-10, py+2, 14, 2);                       // 텍스트 줄
+          ctx.fillRect(px-10, py+7, 9, 2);
+          if (h<0.12){ ctx.beginPath(); ctx.arc(px+16,py-14,1.8,0,Math.PI*2); ctx.arc(px+19.4,py-14,1.8,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(px+14.4,py-13); ctx.lineTo(px+17.7,py-9.5); ctx.lineTo(px+21,py-13); ctx.fill(); } // 하트
+        } else if (MAP.key==='heatisland'){ // 폭염 열섬: 갈라진 땅+아지랑이
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(px-14, py); ctx.lineTo(px-5, py-3); ctx.lineTo(px+2, py+4); ctx.lineTo(px+12, py-1);
+          ctx.moveTo(px-4, py-2); ctx.lineTo(px-2, py-11);
+          ctx.moveTo(px+1, py+3); ctx.lineTo(px+5, py+11);
+          ctx.stroke();                                            // 균열
+          if (h<0.12){ ctx.beginPath(); for (let k=0;k<3;k++){ ctx.moveTo(px+18, py-4+k*5); ctx.quadraticCurveTo(px+22, py-6+k*5, px+26, py-4+k*5); } ctx.stroke(); } // 아지랑이
+        } else if (MAP.key==='nightnoise'){ // 소음의 밤: 스피커+음표+지그재그 소음선
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(px-8, py-12, 16, 24);                    // 스피커 박스
+          ctx.beginPath(); ctx.arc(px, py-5, 3.4, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(px, py+5, 5, 0, Math.PI*2); ctx.stroke();
+          if (h<0.12){ ctx.fillRect(px+14, py-14, 2, 9); ctx.beginPath(); ctx.arc(px+13, py-4.5, 2.4, 0, Math.PI*2); ctx.fill(); } // 음표
+        } else if (MAP.key==='exchange'){ // 영끌 거래소: 차트 캔들
+          ctx.lineWidth = 1.2;
+          for (let k=0;k<4;k++){
+            const chh = 6+hash2(cx*7+k, cy*11)*14;
+            const up2 = hash2(cx*5+k, cy*3) < 0.45;
+            ctx.fillRect(px-14+k*8, py-(up2?chh:0), 4.5, chh);
+            ctx.fillRect(px-12.2+k*8, py-(up2?chh+5:5), 1, chh+10);
+          }
+        } else if (MAP.key==='grayend'){ // 잿빛 끝자락: 부서진 파편+재
+          ctx.lineWidth = 1.2;
+          ctx.save(); ctx.translate(px, py); ctx.rotate(h*6);
+          ctx.beginPath(); ctx.moveTo(-10,6); ctx.lineTo(0,-12); ctx.lineTo(10,6); ctx.lineTo(3,2); ctx.lineTo(-4,7); ctx.closePath(); ctx.stroke();
+          ctx.restore();
+          for (let k=0;k<3;k++){ ctx.beginPath(); ctx.arc(px+hash2(cx+k,cy)*30-15, py+14+k*3, 1.1, 0, Math.PI*2); ctx.fill(); }
         } else {
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -15007,7 +15074,8 @@ import { FX } from "./fx.js";
         ctx.setLineDash([4,4]);
         ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(fx2,fy2); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#4a4f58';
+        // v6.70 전조: 가속 직전 철퇴가 붉게 맥동 — 텍스트 없이 몸으로 읽는 예고
+        ctx.fillStyle = (b.flWarn && Math.floor(performance.now()/110)%2===0) ? '#c9403a' : '#4a4f58';
         ctx.beginPath(); ctx.arc(fx2,fy2,10,0,Math.PI*2); ctx.fill();
         ctx.strokeStyle = PAL.ink;
         ctx.lineWidth = 1.4;
@@ -15134,11 +15202,14 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r+16, 0, Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
     }
-    // 이름표 (시그니처 색)
-    ctx.fillStyle = BOSS_ACCENTS[b.key] || PAL.ink;
+    // 이름표 (시그니처 색) — v6.70 위로 분리 + 헤일로 스트로크 (핍·엠블럼·몸에 안 가려진다)
     ctx.font = "700 11px 'IBM Plex Sans KR', sans-serif";
     ctx.textAlign = 'center';
-    ctx.fillText(b.name, b.x, b.y-b.r-20);
+    ctx.strokeStyle = MAP.key==='abyss' ? 'rgba(18,19,22,0.85)' : 'rgba(246,246,244,0.92)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(b.name, b.x, b.y-b.r-40);
+    ctx.fillStyle = BOSS_ACCENTS[b.key] || PAL.ink;
+    ctx.fillText(b.name, b.x, b.y-b.r-40);
     ctx.restore();
   }
 
