@@ -1761,6 +1761,41 @@ import { FX } from "./fx.js";
           stonks:{d:'다이아몬드 핸드 (골드 +25%, 받는 피해 -5%)',f:(p)=>{p.goldMult*=1.25;p.dmgTaken*=0.95;}},
           gymbro:{d:'3대 500 완성 (피해 +10%, 최대체력 +10%)',f:(p)=>{p.dmgMult*=1.1;p.maxHp=Math.round(p.maxHp*1.1);p.hp=p.maxHp;}},
         };
+        // 시그니처 3호 (갈래 2): 마지막 키스톤까지 32직업 전부 고유 — 웹의 세 극의 완성
+        const SIGKEY3 = {
+          rusher:{d:'멈추지 않는 전차 (이속 +8%, 피해 +10%)',f:(p)=>{p.speed*=1.08;p.dmgMult*=1.1;}},
+          paladin:{d:'천벌 선고 (피해 +12%, 발동 +6%p)',f:(p)=>{p.dmgMult*=1.12;p.procBonus=(p.procBonus||0)+0.06;}},
+          cheol:{d:'뼈를 부수는 자 (피해 +14%, 처형 +5%p)',f:(p)=>{p.dmgMult*=1.14;p.execThresh=Math.min(0.6,(p.execThresh||0)+0.05);}},
+          exhero:{d:'마지막 필살기 (전용기 이중 시전)',f:(p)=>{p.ultEcho=true;}},
+          madman:{d:'붉은 절정 (치명 +10%, 배율 +0.5)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.10);p.critMult+=0.5;}},
+          monk:{d:'무념무상 (쿨 -12%, 회피 +6%)',f:(p)=>{p.cdr*=0.88;p.dodge=Math.min(0.75,p.dodge+0.06);}},
+          archer:{d:'심장 사격 (치명 +10%, 배율 +0.4)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.10);p.critMult+=0.4;}},
+          sniper:{d:'헤드샷 프로토콜 (치명 +12%, 처형 +6%p)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.12);p.execThresh=Math.min(0.6,(p.execThresh||0)+0.06);}},
+          pilot:{d:'정밀 폭격 (피해 +12%, 발동 +5%p)',f:(p)=>{p.dmgMult*=1.12;p.procBonus=(p.procBonus||0)+0.05;}},
+          manager:{d:'시간 외 수당 (쿨 -10%, 골드 +12%)',f:(p)=>{p.cdr*=0.9;p.goldMult*=1.12;}},
+          voidc:{d:'시공 왜곡 (쿨 -12%, 이속 +6%)',f:(p)=>{p.cdr*=0.88;p.speed*=1.06;}},
+          commander:{d:'전술 시간표 (쿨 -10%, 위성 피해 +15%)',f:(p)=>{p.cdr*=0.9;p.satDmg=(p.satDmg||1)*1.15;}},
+          ninja:{d:'무음 암살 (무피격 3초 후 확정 치명)',f:(p)=>{p.shadowStrike=true;}},
+          reaper:{d:'대낫 회전참 (피해 +12%, 공속 +8%)',f:(p)=>{p.dmgMult*=1.12;p.rateMult*=1.08;}},
+          glitch:{d:'렉 순간이동 (대시 쿨 -20%, 회피 +6%)',f:(p)=>{p.dashCdMax*=0.8;p.dodge=Math.min(0.75,p.dodge+0.06);}},
+          blackcat:{d:'검은 질주 (이속 +10%, 대시 무적 +0.15초)',f:(p)=>{p.speed*=1.1;p.dashInvuln=(p.dashInvuln||0)+0.15;}},
+          shadow:{d:'적막의 일격 (처형 +8%p, 치명 배율 +0.3)',f:(p)=>{p.execThresh=Math.min(0.6,(p.execThresh||0)+0.08);p.critMult+=0.3;}},
+          tombraider:{d:'저주받은 보물 (상자 상향, 행운 +15%)',f:(p)=>{p.chestPlus=true;p.luck*=1.15;}},
+          mumyeong:{d:'공(空)의 일격 (피해 +10%, 치명 +8%)',f:(p)=>{p.dmgMult*=1.1;p.critChance=Math.min(0.9,p.critChance+0.08);}},
+          necro:{d:'명계의 길 (부활 +1)',f:(p)=>{p.reviveLeft=(p.reviveLeft||0)+1;}},
+          bard:{d:'앙코르의 기적 (스킬 환급 +10%p, 회복 +15%)',f:(p)=>{p.echoBoost=true;p.healMult*=1.15;}},
+          returner:{d:'두 번째 기회 (부활 +1)',f:(p)=>{p.reviveLeft=(p.reviveLeft||0)+1;}},
+          engineer:{d:'풀가동 프로토콜 (위성 피해 +20%, 공속 +6%)',f:(p)=>{p.satDmg=(p.satDmg||1)*1.2;p.rateMult*=1.06;}},
+          debug:{d:'긴급 롤백 (부활 +1)',f:(p)=>{p.reviveLeft=(p.reviveLeft||0)+1;}},
+          tourist:{d:'현지인 루트 (이속 +10%, 회피 +5%)',f:(p)=>{p.speed*=1.1;p.dodge=Math.min(0.75,p.dodge+0.05);}},
+          slime:{d:'슬라임 쓰나미 (최대체력 +15%, 피해 +8%)',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.15);p.hp=p.maxHp;p.dmgMult*=1.08;}},
+          gambler:{d:'하우스 엣지 (행운 +25%, 골드 +15%)',f:(p)=>{p.luck*=1.25;p.goldMult*=1.15;}},
+          collector:{d:'풀세트 컬렉션 (수집 +60, 골드 +12%)',f:(p)=>{p.magnet+=60;p.goldMult*=1.12;}},
+          contributor:{d:'천 개의 스타 (피해 +10%, 경험치 +10%)',f:(p)=>{p.dmgMult*=1.1;p.xpMult=(p.xpMult||1)*1.1;}},
+          baeksu:{d:'프로 정보수집러 (경험치 +15%, 행운 +12%)',f:(p)=>{p.xpMult=(p.xpMult||1)*1.15;p.luck*=1.12;}},
+          stonks:{d:'상한가 신공 (골드 +20%, 피해 +8%)',f:(p)=>{p.goldMult*=1.2;p.dmgMult*=1.08;}},
+          gymbro:{d:'헬스장 지박령 (재생 +1, 최대체력 +12%)',f:(p)=>{p.regen+=1;p.maxHp=Math.round(p.maxHp*1.12);p.hp=p.maxHp;}},
+        };
         const web = WEB[brKey]||[];
         web.forEach((wb, wi)=>{
           const wa = a2 + (wi-1)*0.085;
@@ -1770,7 +1805,7 @@ import { FX } from "./fx.js";
           add(w0, Math.cos(wa)*wr0, Math.sin(wa)*wr0, 'small', br2.small.n, br2.small.d, br2.small.ap, ['cs_'+ck+'_n'], br2.color);
           add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', skin.sn||wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.sf }); }, [w0], br2.color);
-          const sig = wi===0 ? SIGKEY[ck] : (wi===1 ? SIGKEY2[ck] : null);
+          const sig = wi===0 ? SIGKEY[ck] : (wi===1 ? SIGKEY2[ck] : SIGKEY3[ck]);
           const sigName = sig ? (sig.n || skin.kn || wb.kn) : (skin.kn||wb.kn);
           add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key',
               sigName,
@@ -5366,6 +5401,11 @@ import { FX } from "./fx.js";
         gatePending = { peril: b.gateChain, stage: nextStage, t: 2.8 }; // 게임 루프에서 소환 (레벨업 중에도 유실 없음)
       } else {
         DB.gateProg[b.gateChain] = 0; // 완주 — 재도전은 처음부터 (위험도는 이미 해금)
+        // 진행감 보상의 축: 관문보스 완주 = 운명 포인트 대량 지급 (관문이 높을수록 크다)
+        const gateP = 6 + Math.floor((b.gateChain||0)/4);
+        DB.star.pts = (DB.star.pts||0) + gateP;
+        toast('⚔ 관문 완전 돌파 보상: 운명 포인트 +'+gateP+'P');
+        SFX.play('win');
         saveDB();
       }
     }
@@ -10540,9 +10580,8 @@ import { FX } from "./fx.js";
     const firstClear = !DB.mapCleared[selMap];
     DB.mapCleared[selMap] = true;
     unlockAch('clear_'+selMap);
-    const clearP = 3 + Math.floor((DB.peril||0)/5); // 고위험 클리어일수록 별이 쏟아진다 (방대해진 성도 대응)
-    DB.star.pts = (DB.star.pts||0) + clearP;
-    toast('클리어 보너스: 운명 포인트 +'+clearP+'P'+(clearP>3?' (위험도 보정)':''));
+    DB.star.pts = (DB.star.pts||0) + 3; // 일반 클리어는 기본 3P — 큰 별은 관문에서 쏟아진다
+    toast('클리어 보너스: 운명 포인트 +3P');
     // 대장장이 최종 시험: 위험도 15+ 완주 → 무명검
     if (DB.gwq && DB.gwq.stage===2 && (DB.peril||0)>=15 && !DB.growth.found){
       DB.gwq.stage = 3;
