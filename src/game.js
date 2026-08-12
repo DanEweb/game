@@ -1887,6 +1887,32 @@ import { FX } from "./fx.js";
     drawStarTree();
   });
 
+  // 성도 프리셋: 빌드 저장/전환 — 리스펙 없이 두 빌드를 오간다 (적용 500G)
+  function starPresetSave(slot){
+    DB.star.presets = DB.star.presets||{};
+    DB.star.presets[slot] = Object.assign({}, DB.star.nodes);
+    saveDB();
+    toast('성도 프리셋 '+slot+' 저장 ('+Object.keys(DB.star.nodes).length+'노드)');
+    SFX.play('quest');
+  }
+  function starPresetLoad(slot){
+    const ps = DB.star.presets && DB.star.presets[slot];
+    if (!ps || !Object.keys(ps).length){ toast('프리셋 '+slot+'이 비어있다'); SFX.play('hit'); return; }
+    if (DB.gold < 500){ toast('프리셋 적용 비용 500G 부족'); SFX.play('hit'); return; }
+    DB.gold -= 500;
+    DB.star.nodes = Object.assign({}, ps);
+    saveDB();
+    toast('성도 프리셋 '+slot+' 적용 완료');
+    SFX.play('coin');
+    goldVal.textContent = DB.gold;
+    drawStarTree();
+  }
+  const spA=$('starSaveA'), slA=$('starLoadA'), spB=$('starSaveB'), slB=$('starLoadB');
+  if (spA) spA.addEventListener('click', ()=>starPresetSave('A'));
+  if (slA) slA.addEventListener('click', ()=>starPresetLoad('A'));
+  if (spB) spB.addEventListener('click', ()=>starPresetSave('B'));
+  if (slB) slB.addEventListener('click', ()=>starPresetLoad('B'));
+
   // ---------- classes (9) ----------
   const CLASSES = {
     manager: {
@@ -3566,9 +3592,10 @@ import { FX } from "./fx.js";
         const gate = tree.common ? COMMON_GATE : TIER_GATE;
         if (node.tier>=2 && pts < (gate[node.tier]||99)) continue;
         // 신화 노드: 등급 고정 (트리당 유일한 빌드 정점)
-        // 희귀도 고정: 한 번 얻은 노드는 그 희귀도로 잠긴다 — '숙련'(25% 한 등급 상승)만이 유일한 승급 경로
+        // 희귀도 바닥 잠금: 한 번 얻은 등급 아래로는 다시 안 나온다 — 위 등급은 확률대로 등장 가능
         const locked = player.cardRLock && player.cardRLock[node.key];
-        let ri = node.myth ? 5 : (locked!==undefined && picks>0 ? locked : rollCardRarity());
+        let ri = node.myth ? 5 : rollCardRarity();
+        if (!node.myth && locked!==undefined && picks>0 && ri<locked) ri = locked;
         let honed = false;
         if (!node.myth && picks>0 && ri<4 && Math.random()<0.25){ ri+=1; honed=true; }
         // 수확 체감: 같은 테크를 반복해서 찍을수록 효율이 65%씩 감소 (무한 성장 차단)
@@ -3602,7 +3629,8 @@ import { FX } from "./fx.js";
         const picks = player.techPicks[ct.key]||0;
         if (picks >= 4) continue;
         const lockedC = player.cardRLock && player.cardRLock[ct.key];
-        const ri = (lockedC!==undefined && picks>0) ? lockedC : rollCardRarity();
+        let ri = rollCardRarity();
+        if (lockedC!==undefined && picks>0 && ri<lockedC) ri = lockedC;
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:ct.key, kind:'ctech', rarity:ri, ctag:true,
@@ -3626,7 +3654,8 @@ import { FX } from "./fx.js";
         const picks = player.techPicks[gt.key]||0;
         if (picks >= gt.max) continue;
         const lockedG = player.cardRLock && player.cardRLock[gt.key];
-        const ri = (lockedG!==undefined && picks>0) ? lockedG : rollCardRarity();
+        let ri = rollCardRarity();
+        if (lockedG!==undefined && picks>0 && ri<lockedG) ri = lockedG;
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
