@@ -444,7 +444,7 @@ import { FX } from "./fx.js";
         showIdle();
       });
     }
-    else if (!p && state==='paused'){ state='playing'; pausedTag.style.display='none'; last=performance.now(); }
+    else if (!p && state==='paused'){ state='playing'; pausedTag.style.display='none'; last=performance.now(); resumeGrace(); }
   }
   wrap.addEventListener('click', ()=>{ if (state==='paused') setPaused(false); });
 
@@ -654,9 +654,19 @@ import { FX } from "./fx.js";
   }
 
   // ---------- equipment ----------
+  // 계열 각인: 절반의 유니크·태초는 특정 직업군 전용으로 떨어진다 (원거리템은 원거리군만)
+  const GRP_NAME = { war:'전사군', rng:'원거리군', mag:'마법군', rog:'도적군', pri:'사제군', mer:'상인군' };
+  function rollEquipGrp(it){
+    if (Math.random()<0.5){
+      const gs = Object.keys(GRP_NAME);
+      it.grp = gs[(Math.random()*gs.length)|0];
+      it.name += ' ⟨'+GRP_NAME[it.grp]+'⟩';
+    }
+    return it;
+  }
   function genUnique(){
     const u = UNIQUE_POOL[(Math.random()*UNIQUE_POOL.length)|0];
-    return { id:DB.nextId++, slot:u.slot, r:5, name:u.name, stats:u.stats.map(s=>({k:s.k,v:s.v})), affix:u.affix, unique:true };
+    return rollEquipGrp({ id:DB.nextId++, slot:u.slot, r:5, name:u.name, stats:u.stats.map(s=>({k:s.k,v:s.v})), affix:u.affix, unique:true });
   }
   function genSetItem(){
     const keys = Object.keys(SET_DEFS);
@@ -681,7 +691,7 @@ import { FX } from "./fx.js";
     it.affix = af.splice((Math.random()*af.length)|0,1)[0].k;
     it.affix2 = af[(Math.random()*af.length)|0].k;
     it.curse = null;
-    return it;
+    return rollEquipGrp(it);
   }
   function genRelic(){
     const keys = Object.keys(RELICS);
@@ -796,6 +806,7 @@ import { FX } from "./fx.js";
         continue;
       }
       if (item.wt==='heavy' && !HEAVY_OK[classKey] && !starHasName('중갑 숙련')){ out.inactive += 1; continue; }
+      if (item.grp && !(RESONANCE[item.grp]||[]).includes(classKey)){ out.inactive += 1; continue; } // 계열 각인 불일치 — 효과 정지
       const plusMult = 1 + (item.plus||0)*0.06; // 강화 보너스
       for (const st of item.stats) out[st.k] += st.v * plusMult;
       if (item.affix) out.affixes[item.affix] = true;
@@ -1514,8 +1525,39 @@ import { FX } from "./fx.js";
     });
   })();
   function starAllocated(id){ return id==='center' || !!(DB.star && DB.star.nodes[id]); }
-  function starSpent(){ return Object.keys(DB.star.nodes||{}).length; }
+  // 티어 비용: 소형 1P / 노터블 3P / 키스톤 5P — 위로 갈수록 비싸진다 (급성장 제어)
+  function starCost(id){
+    const n = STAR_NODES[id];
+    if (!n) return 1;
+    return n.tier==='key' ? 5 : n.tier==='notable' ? 3 : 1;
+  }
+  function starSpent(){ let s=0; for (const id in (DB.star.nodes||{})) s += starCost(id); return s; }
   function starAvailPts(){ return (DB.star.pts||0) - starSpent(); }
+  function starBranchSpent(pref){
+    let s=0;
+    for (const id in (DB.star.nodes||{})){ if (id.indexOf(pref+'_')===0) s += starCost(id); }
+    return s;
+  }
+  // 투자 게이트: 노터블은 해당 계열 5P, 키스톤은 12P 투자 필요 (공유 구역은 총 투자 20P/35P)
+  function starGateReq(id){
+    const n = STAR_NODES[id];
+    if (!n || (n.tier!=='notable' && n.tier!=='key')) return null;
+    const pref = id.split('_')[0];
+    const isBranch = STAR_BRANCHES.some(b=>b.key===pref);
+    if (n.tier==='notable') return isBranch ? {branch:pref, need:5} : {total:20};
+    return isBranch ? {branch:pref, need:12} : {total:35};
+  }
+  function starGateOk(id){
+    const g = starGateReq(id);
+    if (!g) return true;
+    if (g.branch) return starBranchSpent(g.branch) >= g.need;
+    return starSpent() >= g.total;
+  }
+  function starCanBuy(id){
+    const n = STAR_NODES[id];
+    return n && !starAllocated(id) && starAvailPts() >= starCost(id)
+      && n.links.some(l=>starAllocated(l)) && starGateOk(id);
+  }
   function starHasName(name){
     for (const id in DB.star.nodes){ if (STAR_NODES[id] && STAR_NODES[id].name===name) return true; }
     return false;
@@ -1662,7 +1704,7 @@ import { FX } from "./fx.js";
       const p = starToScreen(n);
       if (p.x<-30||p.x>w+30||p.y<-30||p.y>h+30) continue;
       const alloc = starAllocated(id);
-      const canBuy = !alloc && starAvailPts()>0 && n.links.some(l=>starAllocated(l));
+      const canBuy = starCanBuy(id);
       const R2 = (n.tier==='key'?13 : n.tier==='notable'?9.5 : n.tier==='start'?11 : 6) * starView.scale;
       // 글로우
       if (alloc){
@@ -1702,13 +1744,25 @@ import { FX } from "./fx.js";
     if (!id){ info.style.display='none'; return; }
     const n = STAR_NODES[id];
     const alloc = starAllocated(id);
-    const canBuy = !alloc && starAvailPts()>0 && n.links.some(l=>starAllocated(l));
+    const canBuy = starCanBuy(id);
     const tierName = n.tier==='key' ? '★ 키스톤' : n.tier==='notable' ? '◆ 노터블' : n.tier==='start' ? '기원' : '· 소형';
     const prefix = id.split('_')[0];
     const resCls = RESONANCE[prefix] ? RESONANCE[prefix].map(k=>CLASSES[k]?CLASSES[k].name:k).join('·') : '';
-    info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b><br>'+n.desc
+    const cost = starCost(id);
+    const gate = starGateReq(id);
+    let lockMsg = '연결된 노드를 먼저 습득하세요';
+    if (!alloc && !canBuy && n.links.some(l=>starAllocated(l))){
+      if (gate && !starGateOk(id)){
+        lockMsg = gate.branch
+          ? '이 계열에 '+gate.need+'P 투자 필요 (현재 '+starBranchSpent(gate.branch)+'P)'
+          : '성도 총 '+gate.total+'P 투자 필요 (현재 '+starSpent()+'P)';
+      } else if (starAvailPts() < cost){
+        lockMsg = '포인트 부족 ('+cost+'P 필요)';
+      }
+    }
+    info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b> <span style="opacity:0.8;">['+cost+'P]</span><br>'+n.desc
       + (resCls ? '<br><span style="opacity:0.75;">공명 직업: '+resCls+' (공명 시 추가 보너스)</span>' : '')
-      + '<br><span style="opacity:0.7;">'+(alloc?'습득 완료':(canBuy?'클릭하여 습득 (1P)':'연결된 노드를 먼저 습득하세요'))+'</span>';
+      + '<br><span style="opacity:0.7;">'+(alloc?'습득 완료':(canBuy?'클릭하여 습득 ('+cost+'P)':lockMsg))+'</span>';
     info.style.display = 'block';
   }
   starC.addEventListener('pointerdown', (e)=>{
@@ -1742,8 +1796,7 @@ import { FX } from "./fx.js";
     const hit = starHitTest(mx,my);
     starShowInfo(hit);
     if (hit){
-      const n = STAR_NODES[hit];
-      const canBuy = !starAllocated(hit) && starAvailPts()>0 && n.links.some(l=>starAllocated(l));
+      const canBuy = starCanBuy(hit);
       if (canBuy){
         DB.star.nodes[hit] = true;
         saveDB();
@@ -1764,8 +1817,8 @@ import { FX } from "./fx.js";
   $('starZoomOut').addEventListener('click', ()=>{ starView.scale = Math.max(0.5, starView.scale*0.83); drawStarTree(); });
   $('starResetBtn').addEventListener('click', ()=>{
     if (starSpent()===0) return;
-    if (DB.gold < 200){ toast('리스펙 비용 200G 부족'); SFX.play('hit'); return; }
-    DB.gold -= 200;
+    if (DB.gold < 500){ toast('리스펙 비용 500G 부족'); SFX.play('hit'); return; }
+    DB.gold -= 500;
     DB.star.nodes = {};
     saveDB();
     toast('운명 성도 리스펙 완료');
@@ -2812,7 +2865,7 @@ import { FX } from "./fx.js";
     { n:'현자', d:'쿨다운 -12%, 리롤 +2', fx:(p)=>{ p.cdr*=0.88; rerollsLeft+=2; } },
   ];
   function classResGroup(classKey){
-    for (const g in RESONANCE) if (RESONANCE[g].includes(classKey)) return g;
+    for (const g in RESONANCE) if (RESONANCE[g].includes(classKey)) return g==='mag2'?'mag':g; // 지휘관(mag2)도 마법군 성단에 공명
     return 'war';
   }
   function openAwakening(){
@@ -3655,9 +3708,9 @@ import { FX } from "./fx.js";
   function openMerchant(){
     const pool = MERCHANT_OFFERS.slice();
     const opts = [];
-    // 유일 무기: 우연이 겹쳐야만 나타나는 물건 — 위험도 3+ & 업적 6+ & 8% 확률, 단서 없는 이름
-    if (!DB.growth.found && (DB.peril||0)>=3 && achCount()>=6 && Math.random()<0.08){
-      const cost0 = Math.round(150 * (player.merchantDisc||1));
+    // 유일 무기: 우연이 겹쳐야만 나타나는 물건 — 위험도 6+ & 업적 10+ & 3% 확률, 단서 없는 이름
+    if (!DB.growth.found && (DB.peril||0)>=6 && achCount()>=10 && Math.random()<0.03){
+      const cost0 = Math.round(400 * (player.merchantDisc||1));
       opts.push({
         l:'고철 뭉치 ('+cost0+'G)', d:'상인도 이게 뭔지 모른다. "창고 정리하다 나온 건데... 살 거요?"',
         fx:()=>{
@@ -3978,6 +4031,8 @@ import { FX } from "./fx.js";
     // 스킬바 (플레이 중 표시)
     const sb = $('skillBar');
     sb.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
+    const mm = $('mobMenu');
+    if (mm) mm.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
     const chips = sb.querySelectorAll('.skillChip');
     const cds = [player.ultReady ? player.ultCooldown : -1, player.skCds[0], player.skCds[1], player.skCds[2]];
     chips.forEach((ch,i)=>{
@@ -4072,7 +4127,8 @@ import { FX } from "./fx.js";
   }
 
   function gainGold(v){
-    const g = Math.max(1, Math.round(v * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
+    // 경제 조정: 전역 수급 -20% (골드가 귀해야 소모처가 의미를 가진다)
+    const g = Math.max(1, Math.round(v * 0.8 * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
     return g;
   }
@@ -4417,10 +4473,11 @@ import { FX } from "./fx.js";
       const pr = DB.peril||0;
       let r2 = Math.random();
       if (player.chestPlus) r2 *= 0.6;
-      if (r2 < 0.015) addEquip(genRelic());
-      else if (r2 < 0.015 + 0.003 + pr*0.0015) addEquip(genUnique());
-      else if (r2 < 0.015 + 0.003 + pr*0.0015 + 0.02) addEquip(genSetItem());
-      else if (pr>=5 && r2 < 0.015 + 0.003 + pr*0.0015 + 0.02 + 0.0015 + pr*0.0008) addEquip(genPrimal());
+      // 상위 장비 드랍 반토막 + 유니크·태초는 고위험도 전용 — 장비가 게임을 지배하지 못하게
+      if (r2 < 0.008) addEquip(genRelic());
+      else if (pr>=4 && r2 < 0.008 + 0.0012 + pr*0.0006) addEquip(genUnique());
+      else if (r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012) addEquip(genSetItem());
+      else if (pr>=8 && r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012 + 0.0008 + pr*0.0004) addEquip(genPrimal());
       else addEquip(genEquip(1 + (MAP.mult.reward>1.4?1:0) + (MAP.mult.reward>2?1:0) + Math.floor(pr/2)));
     } else if (roll < 0.75){
       const lvable = player.weapons.filter(w => w.lv<5);
@@ -7738,7 +7795,7 @@ import { FX } from "./fx.js";
     while (player.xp >= player.xpNext){
       player.xp -= player.xpNext;
       player.level += 1;
-      player.xpNext = Math.floor(14 + player.level*9 + player.level*player.level*1.4); // 4차 하향 — 레벨은 귀하다
+      player.xpNext = Math.floor(16 + player.level*11 + player.level*player.level*1.9); // 5차 하향 — 레벨은 더 귀하다 (장비 지배 견제)
       pendingLevelUps += 1;
     }
     if (player.level >= 30) unlockAch('lv30');
@@ -7892,8 +7949,14 @@ import { FX } from "./fx.js";
       else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
-      else { state='playing'; last = performance.now(); }
+      else { state='playing'; last = performance.now(); resumeGrace(); }
     }, 120);
+  }
+  // UI에서 전장 복귀 시 잠깐의 유예 — 복귀하자마자 탄막에 맞아 죽는 억울함 방지
+  function resumeGrace(){
+    if (!player) return;
+    player.invuln = Math.max(player.invuln||0, 1.6);
+    freeze = Math.max(freeze, 0.3);
   }
   // ---------- 📚 도감 (별도 탭) ----------
   function renderDex(){
@@ -8063,7 +8126,7 @@ import { FX } from "./fx.js";
     currentEvent = null;
     overlay.classList.add('hidden');
     eventBox.style.display='none';
-    setTimeout(()=>{ state='playing'; last=performance.now(); updateHud(); }, 120);
+    setTimeout(()=>{ state='playing'; last=performance.now(); updateHud(); resumeGrace(); }, 120);
   }
 
   // ---------- 인게임 장비창 (I) ----------
@@ -8092,7 +8155,13 @@ import { FX } from "./fx.js";
     equipBox.style.display='none';
     state = 'playing';
     last = performance.now();
+    resumeGrace();
   }
+  // 모바일 보조 메뉴: 터치로 스킬북/테크/장비 열기 (키보드 없는 환경 대응)
+  const mobK = $('mobKBtn'), mobT = $('mobTBtn'), mobI = $('mobIBtn');
+  if (mobK) mobK.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openSkillBook(); });
+  if (mobT) mobT.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openTechView(); });
+  if (mobI) mobI.addEventListener('click', (e)=>{ e.stopPropagation(); if (state==='playing') openInv(); else if (state==='inv') closeInv(); });
 
   // ---------- NPC 의뢰인 (런 중 퀘스트) ----------
   let clients = [], clientCount = 0, runQuest = null;
@@ -8247,7 +8316,7 @@ import { FX } from "./fx.js";
   function bankRun(){
     DB.gold += runGold;
     // 운명 포인트: 도달 레벨 4당 1P
-    const starGain = Math.floor(player.level/4);
+    const starGain = Math.floor(player.level/6); // 운명 수급 하향 — 성도 완주 방지
     if (starGain>0){
       DB.star.pts = (DB.star.pts||0) + starGain;
       toast('운명 포인트 +'+starGain+'P');
@@ -8297,8 +8366,8 @@ import { FX } from "./fx.js";
     const firstClear = !DB.mapCleared[selMap];
     DB.mapCleared[selMap] = true;
     unlockAch('clear_'+selMap);
-    DB.star.pts = (DB.star.pts||0) + 5;
-    toast('클리어 보너스: 운명 포인트 +5P');
+    DB.star.pts = (DB.star.pts||0) + 3;
+    toast('클리어 보너스: 운명 포인트 +3P');
     // 위험도 해금: 현재 위험도로 클리어 시 다음 단계 개방
     if ((DB.peril||0) >= (DB.perilMax||0) && (DB.perilMax||0) < 60){
       DB.perilMax = (DB.perilMax||0) + 1;
