@@ -3263,38 +3263,38 @@ import { FX } from "./fx.js";
                 { n:'감사관', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
                 { n:'보안 책임자', d:'받는 피해 -10%, 방벽 충전 시간 -20%', fx:(p)=>{ p.dmgTaken*=0.9; if(p.shieldCdMax) p.shieldCdMax*=0.8; } },
                 { n:'아키텍트', d:'모든 피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } } ],
-    sniper:   [ { n:'헤드헌터', d:'치명 확률 +10%, 배율 +0.3', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.critMult+=0.3; } },
-                { n:'유격수', d:'이동 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
-                { n:'중화기병', d:'투사체 피해 +15%, 관통 +1', fx:(p)=>{ p.projMult*=1.15; p.pierce+=1; } },
+    sniper:   [ { n:'건슬링어', d:'치명 확률 +10%, 배율 +0.3', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.critMult+=0.3; } },
+                { n:'레인저', d:'이동 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
+                { n:'헤비 배럴', d:'투사체 피해 +15%, 관통 +1', fx:(p)=>{ p.projMult*=1.15; p.pierce+=1; } },
                 { n:'탄도학자', d:'⚙ 관통을 다한 탄환이 근처 적에게 도탄한다 (피해 85%) + 관통 +1', fx:(p)=>{ p.ricochet=true; p.pierce+=1; } } ],
-    rusher:   [ { n:'광전사', d:'피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; } },
-                { n:'선봉장', d:'이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; } },
+    rusher:   [ { n:'버서커', d:'피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; } },
+                { n:'뱅가드', d:'이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; } },
                 { n:'수호기사', d:'받는 피해 -12%, 체력 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.15); } },
-                { n:'결투가', d:'치명 확률 +12%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); } } ],
-    archer:   [ { n:'질풍 사수', d:'공속 +12%, 이동 +6%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.06; } },
-                { n:'명궁', d:'치명 +8%, 관통 +2', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.08); p.pierce+=2; } },
-                { n:'사냥주술사', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
-                { n:'유랑 궁사', d:'이동 +8%, 행운 +25%', fx:(p)=>{ p.speed*=1.08; p.luck*=1.25; } } ],
-    ninja:    [ { n:'암살자', d:'치명 +10%, 처형 임계 +5%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.05); } },
-                { n:'환영술사', d:'회피 +8%, 대시 시 분신', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.shadowClone=true; } },
-                { n:'질주자', d:'대시 쿨 -25%, 이동 +8%', fx:(p)=>{ p.dashCdMax*=0.75; p.speed*=1.08; } },
-                { n:'독인', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } } ],
-    engineer: [ { n:'발명가', d:'드론·터렛 피해 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||10)*1.25; } },
-                { n:'금융공학자', d:'골드 +25%, 아이템 드랍 +30%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.3; } },
-                { n:'뇌격술사', d:'낙뢰 피해 +25%', fx:(p)=>{ p.boltBoost=(p.boltBoost||1)*1.25; } },
-                { n:'정비공', d:'쿨다운 -10%, 재생 +0.5', fx:(p)=>{ p.cdr*=0.9; p.regen+=0.5; } } ],
-    paladin:  [ { n:'성전사', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } },
-                { n:'수호성인', d:'받는 피해 -12%, 회복 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.2; } },
+                { n:'글래디에이터', d:'치명 확률 +12%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); } } ],
+    archer:   [ { n:'헌터', d:'공속 +12%, 이동 +6%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.06; } },
+                { n:'마크스맨', d:'치명 +8%, 관통 +2', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.08); p.pierce+=2; } },
+                { n:'와일드헌터', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
+                { n:'패스파인더', d:'이동 +8%, 행운 +25%', fx:(p)=>{ p.speed*=1.08; p.luck*=1.25; } } ],
+    ninja:    [ { n:'어쌔신', d:'치명 +10%, 처형 임계 +5%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.05); } },
+                { n:'나이트워커', d:'회피 +8%, 대시 시 분신', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.shadowClone=true; } },
+                { n:'시노비', d:'대시 쿨 -25%, 이동 +8%', fx:(p)=>{ p.dashCdMax*=0.75; p.speed*=1.08; } },
+                { n:'베놈 블레이드', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } } ],
+    engineer: [ { n:'메카닉', d:'드론·터렛 피해 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||10)*1.25; } },
+                { n:'캐피탈리스트', d:'골드 +25%, 아이템 드랍 +30%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.3; } },
+                { n:'테슬라', d:'낙뢰 피해 +25%', fx:(p)=>{ p.boltBoost=(p.boltBoost||1)*1.25; } },
+                { n:'필드 엔지니어', d:'쿨다운 -10%, 재생 +0.5', fx:(p)=>{ p.cdr*=0.9; p.regen+=0.5; } } ],
+    paladin:  [ { n:'크루세이더', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } },
+                { n:'세인트', d:'받는 피해 -12%, 회복 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.2; } },
                 { n:'심판관', d:'처형 임계 +8%p, 치명 +6%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.critChance=Math.min(0.85,p.critChance+0.06); } },
                 { n:'순례자', d:'이동 +10%, 재생 +0.6', fx:(p)=>{ p.speed*=1.1; p.regen+=0.6; } } ],
     reaper:   [ { n:'수확자', d:'처형 임계 +8%p, 낫 피해 +15%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.scytheBoost=(p.scytheBoost||1)*1.15; } },
-                { n:'원혼술사', d:'처치 시 15% 유령 소환', fx:(p)=>{ p.necroChance=Math.max(p.necroChance,0.15); } },
+                { n:'소울브링어', d:'처치 시 15% 유령 소환', fx:(p)=>{ p.necroChance=Math.max(p.necroChance,0.15); } },
                 { n:'침묵', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
                 { n:'재앙', d:'모든 피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } } ],
     pilot:    [ { n:'에이스', d:'공속 +12%, 드론 +15%', fx:(p)=>{ p.rateMult*=1.12; p.droneBoost+=0.15; } },
                 { n:'폭격수', d:'폭발·궁극 피해 +20%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.2); p.explodeDmg=(p.explodeDmg||18)*1.2; } },
-                { n:'정찰병', d:'이동 +10%, 수집 범위 +40', fx:(p)=>{ p.speed*=1.1; p.magnet+=40; } },
-                { n:'군수담당', d:'아이템 드랍 +50%, 골드 +15%', fx:(p)=>{ p.luck*=1.5; p.goldMult*=1.15; } } ],
+                { n:'스카우트', d:'이동 +10%, 수집 범위 +40', fx:(p)=>{ p.speed*=1.1; p.magnet+=40; } },
+                { n:'보급 사령', d:'아이템 드랍 +50%, 골드 +15%', fx:(p)=>{ p.luck*=1.5; p.goldMult*=1.15; } } ],
     glitch:   [ { n:'바이러스', d:'부식 발동 +12%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.12); } },
                 { n:'오버클럭', d:'공속 +10%, 쿨다운 -8%', fx:(p)=>{ p.rateMult*=1.1; p.cdr*=0.92; } },
                 { n:'랜덤 포인터', d:'무작위 스탯 대폭 강화 ×2', fx:(p)=>{ for(let k=0;k<2;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.15; else if(r<0.66) p.rateMult*=1.15; else p.speed*=1.15; } } },
@@ -3367,10 +3367,10 @@ import { FX } from "./fx.js";
   };
   JOB_TREES.cheolhyeol = JOB_TREES.cheol;
   const JOB2_OPTIONS = [
-    { n:'극의', d:'피해 +15%, 공속 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.rateMult*=1.1; } },
-    { n:'수호', d:'체력 +20%, 받는 피해 -8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); p.dmgTaken*=0.92; } },
-    { n:'쇄도', d:'공속 +14%, 이동 +10%, 대시 쿨 -12%', fx:(p)=>{ p.rateMult*=1.14; p.speed*=1.1; p.dashCdMax*=0.88; } },
-    { n:'탐구', d:'쿨다운 -10%, 행운 +25%, 리롤 +1', fx:(p)=>{ p.cdr*=0.9; p.luck*=1.25; rerollsLeft+=1; } },
+    { n:'그랜드 마스터', d:'피해 +15%, 공속 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.rateMult*=1.1; } },
+    { n:'가디언', d:'체력 +20%, 받는 피해 -8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); p.dmgTaken*=0.92; } },
+    { n:'스톰브링어', d:'공속 +14%, 이동 +10%, 대시 쿨 -12%', fx:(p)=>{ p.rateMult*=1.14; p.speed*=1.1; p.dashCdMax*=0.88; } },
+    { n:'세이지', d:'쿨다운 -10%, 행운 +25%, 리롤 +1', fx:(p)=>{ p.cdr*=0.9; p.luck*=1.25; rerollsLeft+=1; } },
   ];
   // v6-1차: 2차 전직 — 직업별 고유 4택 (공용 4택은 폴백)
   const JOB2_BY_CLASS = {
@@ -3378,38 +3378,38 @@ import { FX } from "./fx.js";
                 { n:'감찰관', d:'엘리트·보스 피해 +12%', fx:(p)=>{ p.eliteDmg*=1.12; p.bossDmg*=1.12; } },
                 { n:'전산 총괄', d:'스킬 쿨다운 -15%', fx:(p)=>{ p.cdr*=0.85; } },
                 { n:'경영의 신', d:'골드 +30%, 행운 +25%', fx:(p)=>{ p.goldMult*=1.3; p.luck*=1.25; } } ],
-    sniper:   [ { n:'원샷원킬', d:'치명 배율 +0.5', fx:(p)=>{ p.critMult+=0.5; } },
-                { n:'속사수', d:'공속 +16%', fx:(p)=>{ p.rateMult*=1.16; } },
+    sniper:   [ { n:'데드아이', d:'치명 배율 +0.5', fx:(p)=>{ p.critMult+=0.5; } },
+                { n:'스핏파이어', d:'공속 +16%', fx:(p)=>{ p.rateMult*=1.16; } },
                 { n:'대물 저격수', d:'보스 피해 +15%, 관통 +1', fx:(p)=>{ p.bossDmg*=1.15; p.pierce+=1; } },
-                { n:'유령 위장', d:'회피 +10%, 이동 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.speed*=1.08; } } ],
-    rusher:   [ { n:'혈전사', d:'흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
-                { n:'철벽 기사', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
-                { n:'질풍 창기병', d:'⚙ 대시가 창격 돌진이 된다 — 경로의 적을 꿰뚫어 피해 + 이속 +12%', fx:(p)=>{ p.speed*=1.12; p.dashRam=true; p.dashBlast=(p.dashBlast||20)+15; } },
-                { n:'검투사', d:'치명 +10%, 처형 임계 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
-    archer:   [ { n:'폭풍 궁수', d:'공속 +14%, 화살 +1', fx:(p)=>{ p.rateMult*=1.14; } },
-                { n:'관통왕', d:'관통 +2, 투사체 +10%', fx:(p)=>{ p.pierce+=2; p.projMult*=1.1; } },
-                { n:'정령 사수', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
-                { n:'추격자', d:'이동 +10%, 엘리트 피해 +10%', fx:(p)=>{ p.speed*=1.1; p.eliteDmg*=1.1; } } ],
-    ninja:    [ { n:'그림자 무희', d:'회피 +10%, 분신 강화', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.shadowClone=true; } },
-                { n:'맹독 인술사', d:'부식 +10%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.1); } },
+                { n:'고스트 스나이퍼', d:'회피 +10%, 이동 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.speed*=1.08; } } ],
+    rusher:   [ { n:'블러드 나이트', d:'흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
+                { n:'아이언 월', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'드라군', d:'⚙ 대시가 창격 돌진이 된다 — 경로의 적을 꿰뚫어 피해 + 이속 +12%', fx:(p)=>{ p.speed*=1.12; p.dashRam=true; p.dashBlast=(p.dashBlast||20)+15; } },
+                { n:'슬레이어', d:'치명 +10%, 처형 임계 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
+    archer:   [ { n:'보우마스터', d:'공속 +14%, 화살 +1', fx:(p)=>{ p.rateMult*=1.14; } },
+                { n:'크로스보우 마스터', d:'관통 +2, 투사체 +10%', fx:(p)=>{ p.pierce+=2; p.projMult*=1.1; } },
+                { n:'스피릿 아처', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
+                { n:'체이서', d:'이동 +10%, 엘리트 피해 +10%', fx:(p)=>{ p.speed*=1.1; p.eliteDmg*=1.1; } } ],
+    ninja:    [ { n:'섀도어', d:'회피 +10%, 분신 강화', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.shadowClone=true; } },
+                { n:'베놈 마스터', d:'부식 +10%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.1); } },
                 { n:'섬광', d:'대시 쿨 -20%, 대시 무적 +0.1초', fx:(p)=>{ p.dashCdMax*=0.8; p.dashInvuln+=0.1; } },
-                { n:'절명자', d:'치명 +12%, 처형 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
-    engineer: [ { n:'수석 개발자', d:'터렛·드론 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||7)*1.25; } },
-                { n:'투자의 귀재', d:'골드 +30%', fx:(p)=>{ p.goldMult*=1.3; } },
-                { n:'낙뢰 기술자', d:'낙뢰 +25%', fx:(p)=>{ p.boltBoost=(p.boltBoost||1)*1.25; } },
+                { n:'나이트로드', d:'치명 +12%, 처형 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
+    engineer: [ { n:'마이스터', d:'터렛·드론 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||7)*1.25; } },
+                { n:'골드 배런', d:'골드 +30%', fx:(p)=>{ p.goldMult*=1.3; } },
+                { n:'뇌격사(雷擊士)', d:'낙뢰 +25%', fx:(p)=>{ p.boltBoost=(p.boltBoost||1)*1.25; } },
                 { n:'오버클러커', d:'쿨다운 -12%, 공속 +8%', fx:(p)=>{ p.cdr*=0.88; p.rateMult*=1.08; } } ],
-    paladin:  [ { n:'성기사단장', d:'받는 피해 -12%, 회복 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.15; } },
+    paladin:  [ { n:'홀리 나이트', d:'받는 피해 -12%, 회복 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.15; } },
                 { n:'퇴마사', d:'악몽·엘리트 피해 +15%', fx:(p)=>{ p.eliteDmg*=1.15; } },
-                { n:'빛의 집행자', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'루미너스', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
                 { n:'수호천사', d:'재생 +1, 부활 시 체력 +25%p', fx:(p)=>{ p.regen+=1; } } ],
     reaper:   [ { n:'절망의 낫', d:'처형 임계 +6%p, 낫 +12%', fx:(p)=>{ p.execThresh=Math.min(0.4,p.execThresh+0.06); p.scytheBoost=(p.scytheBoost||1)*1.12; } },
-                { n:'혼령 인도자', d:'유령 소환 +8%p', fx:(p)=>{ p.necroChance=(p.necroChance||0)+0.08; } },
-                { n:'어둠 상인', d:'처치 골드 확률 상승, 골드 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.15; } },
-                { n:'죽음 그 자체', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } } ],
-    pilot:    [ { n:'곡예 비행사', d:'회피 +8%, 이속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.speed*=1.1; } },
-                { n:'폭장량 증가', d:'궁극·폭발 +18%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.18); p.explodeDmg=(p.explodeDmg||18)*1.18; } },
-                { n:'드론 군단장', d:'드론 +30%', fx:(p)=>{ p.droneBoost+=0.3; } },
-                { n:'보급 전문가', d:'아이템 드랍 +40%', fx:(p)=>{ p.luck*=1.4; } } ],
+                { n:'혼령사(魂靈士)', d:'유령 소환 +8%p', fx:(p)=>{ p.necroChance=(p.necroChance||0)+0.08; } },
+                { n:'다크 머천트', d:'처치 골드 확률 상승, 골드 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.15; } },
+                { n:'타나토스', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } } ],
+    pilot:    [ { n:'스턴트 에이스', d:'회피 +8%, 이속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.speed*=1.1; } },
+                { n:'풀 페이로드', d:'궁극·폭발 +18%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.18); p.explodeDmg=(p.explodeDmg||18)*1.18; } },
+                { n:'드론 마스터', d:'드론 +30%', fx:(p)=>{ p.droneBoost+=0.3; } },
+                { n:'물류왕', d:'아이템 드랍 +40%', fx:(p)=>{ p.luck*=1.4; } } ],
     glitch:   [ { n:'커널 패닉', d:'무작위 강화 ×3', fx:(p)=>{ for(let k=0;k<3;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.1; else if(r<0.66) p.rateMult*=1.1; else p.maxHp=Math.round(p.maxHp*1.1); } } },
                 { n:'제로데이', d:'부식 +10%p', fx:(p)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.1); } },
                 { n:'램 오버플로', d:'카드 +1장', fx:(p)=>{ p.cardSlots=(p.cardSlots||6)+1; } },
@@ -3454,29 +3454,29 @@ import { FX } from "./fx.js";
                 { n:'최종 결재권자', d:'모든 피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } },
                 { n:'무정전 시스템', d:'체력 +25%, 방벽 강화', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); if(p.shieldCdMax) p.shieldCdMax*=0.7; } } ],
     sniper:   [ { n:'신살자(神殺)', d:'보스 피해 +25% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.25+0.004*rc; } },
-                { n:'탄도의 종언', d:'치명 배율 +1.0', fx:(p,rc)=>{ p.critMult+=1.0+0.01*Math.min(20,rc); } },
-                { n:'바람의 저격수', d:'공속 +15%, 이속 +10% (묵직함 완화)', fx:(p,rc)=>{ p.rateMult*=1.15; p.speed*=1.1; } } ],
-    rusher:   [ { n:'전장의 폭군', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
-                { n:'불사의 선봉', d:'체력 +30%, 부활 +1', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.reviveLeft+=1; } },
-                { n:'폭풍의 인도자', d:'이속 +15%, 대시 쿨 -20%', fx:(p,rc)=>{ p.speed*=1.15; p.dashCdMax*=0.8; } } ],
-    archer:   [ { n:'화살비의 주인', d:'공속 +20% + 공명', fx:(p,rc)=>{ p.rateMult*=1.2+0.003*rc; } },
-                { n:'별 사수', d:'관통 +3, 투사체 +15%', fx:(p,rc)=>{ p.pierce+=3; p.projMult*=1.15; } },
-                { n:'정령왕의 계약자', d:'원소 발동 +12%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.12; } } ],
+                { n:'제로 디스턴스', d:'치명 배율 +1.0', fx:(p,rc)=>{ p.critMult+=1.0+0.01*Math.min(20,rc); } },
+                { n:'신궁(神弓)', d:'공속 +15%, 이속 +10% (묵직함 완화)', fx:(p,rc)=>{ p.rateMult*=1.15; p.speed*=1.1; } } ],
+    rusher:   [ { n:'워로드', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
+                { n:'불사왕(不死王)', d:'체력 +30%, 부활 +1', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.reviveLeft+=1; } },
+                { n:'스톰 로드', d:'이속 +15%, 대시 쿨 -20%', fx:(p,rc)=>{ p.speed*=1.15; p.dashCdMax*=0.8; } } ],
+    archer:   [ { n:'애로우 템페스트', d:'공속 +20% + 공명', fx:(p,rc)=>{ p.rateMult*=1.2+0.003*rc; } },
+                { n:'성궁(星弓)', d:'관통 +3, 투사체 +15%', fx:(p,rc)=>{ p.pierce+=3; p.projMult*=1.15; } },
+                { n:'엘븐 킹', d:'원소 발동 +12%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.12; } } ],
     ninja:    [ { n:'그림자의 왕', d:'회피 +15%, 분신 강화', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.shadowClone=true; } },
                 { n:'일섬(一閃)', d:'치명 +15%, 처형 +6%p', fx:(p,rc)=>{ p.critChance=Math.min(0.9,p.critChance+0.15); p.execThresh=Math.min(0.4,p.execThresh+0.06); } },
                 { n:'만천화우', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
-    engineer: [ { n:'특이점 발명가', d:'터렛·드론 +40%', fx:(p,rc)=>{ p.droneBoost+=0.4; p.turretDmg=(p.turretDmg||7)*1.4; } },
+    engineer: [ { n:'싱귤래리티', d:'터렛·드론 +40%', fx:(p,rc)=>{ p.droneBoost+=0.4; p.turretDmg=(p.turretDmg||7)*1.4; } },
                 { n:'재벌 총수', d:'골드 +50%, 골드가 곧 힘', fx:(p,rc)=>{ p.goldMult*=1.5; p.goldPower=true; } },
-                { n:'뇌신의 대리인', d:'⚙ 낙뢰가 근처 적에게 연쇄한다 + 낙뢰 피해 +40%', fx:(p,rc)=>{ p.boltChain=true; p.boltBoost=(p.boltBoost||1)*(1.4+0.004*rc); } } ],
+                { n:'뇌신(雷神)', d:'⚙ 낙뢰가 근처 적에게 연쇄한다 + 낙뢰 피해 +40%', fx:(p,rc)=>{ p.boltChain=true; p.boltBoost=(p.boltBoost||1)*(1.4+0.004*rc); } } ],
     paladin:  [ { n:'수호신', d:'⚙ 역장이 방패 벽이 된다 — 역장 안의 적 탄환 소멸 + 받는 피해 -20%', fx:(p,rc)=>{ p.shieldWall=true; p.dmgTaken*=0.8; p.maxHp=Math.round(p.maxHp*(1.1+0.005*rc)); } },
-                { n:'천벌 대행자', d:'피해 +20%, 신성 강화', fx:(p,rc)=>{ p.dmgMult*=1.2; p.holyAmp=(p.holyAmp||1)*1.2; } },
-                { n:'영생의 성자', d:'재생 +1.5, 회복 +30%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.3; } } ],
-    reaper:   [ { n:'종말', d:'처형 임계 +12%p', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.12); } },
-                { n:'명계의 군주', d:'유령 +3, 유령 피해 +40%', fx:(p,rc)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.4; } },
-                { n:'낫의 극의', d:'낫 피해 +30% + 공명', fx:(p,rc)=>{ p.scytheBoost=(p.scytheBoost||1)*(1.3+0.004*rc); } } ],
-    pilot:    [ { n:'하늘의 왕', d:'궁극 폭격 +50%', fx:(p,rc)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.5); } },
-                { n:'무한 드론', d:'드론 +50% + 공명', fx:(p,rc)=>{ p.droneBoost+=0.5+0.004*rc; } },
-                { n:'음속 돌파', d:'공속 +20%, 이속 +15%', fx:(p,rc)=>{ p.rateMult*=1.2; p.speed*=1.15; } } ],
+                { n:'세라핌', d:'피해 +20%, 신성 강화', fx:(p,rc)=>{ p.dmgMult*=1.2; p.holyAmp=(p.holyAmp||1)*1.2; } },
+                { n:'대천사', d:'재생 +1.5, 회복 +30%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.3; } } ],
+    reaper:   [ { n:'아포칼립스', d:'처형 임계 +12%p', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.12); } },
+                { n:'하데스', d:'유령 +3, 유령 피해 +40%', fx:(p,rc)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.4; } },
+                { n:'그림 리퍼', d:'낫 피해 +30% + 공명', fx:(p,rc)=>{ p.scytheBoost=(p.scytheBoost||1)*(1.3+0.004*rc); } } ],
+    pilot:    [ { n:'스카이 로드', d:'궁극 폭격 +50%', fx:(p,rc)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.5); } },
+                { n:'스웜 마스터', d:'드론 +50% + 공명', fx:(p,rc)=>{ p.droneBoost+=0.5+0.004*rc; } },
+                { n:'마하 브레이커', d:'공속 +20%, 이속 +15%', fx:(p,rc)=>{ p.rateMult*=1.2; p.speed*=1.15; } } ],
     glitch:   [ { n:'시스템 붕괴', d:'대혼돈 강화 ×4', fx:(p,rc)=>{ for(let k=0;k<4;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.12; else if(r<0.66) p.rateMult*=1.12; else p.luck*=1.25; } } },
                 { n:'관리자 탈취', d:'카드 +2장', fx:(p,rc)=>{ p.cardSlots=(p.cardSlots||6)+2; } },
                 { n:'바이러스 창궐', d:'부식 극대화', fx:(p,rc)=>{ p.corrodeChance=Math.min(0.8,p.corrodeChance+0.15); p.corrodeAmp=Math.max(p.corrodeAmp,0.28); } } ],
@@ -3507,18 +3507,146 @@ import { FX } from "./fx.js";
   };
   JOB3_BY_CLASS.cheolhyeol = JOB3_BY_CLASS.cheol;
   const JOB3_OPTIONS = [
-    { n:'초월', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:(p,rc)=>{
+    { n:'어센던트', d:'모든 스탯 +10% + 공명 노드당 +0.5%', fx:(p,rc)=>{
       const m = 1.10 + 0.005*rc;
       p.dmgMult*=m; p.rateMult*=1.1; p.speed*=1.08;
       p.maxHp=Math.round(p.maxHp*1.1); p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.1);
     } },
-    { n:'멸살', d:'피해 +22% + 엘리트·보스 피해 +10% + 공명 노드당 +0.4%', fx:(p,rc)=>{
+    { n:'디스트로이어', d:'피해 +22% + 엘리트·보스 피해 +10% + 공명 노드당 +0.4%', fx:(p,rc)=>{
       p.dmgMult*=1.22+0.004*rc; p.eliteDmg*=1.1; p.bossDmg*=1.1;
     } },
-    { n:'불멸', d:'체력 +25%, 받는 피해 -12%, 재생 +1 + 공명 노드당 체력 +0.5%', fx:(p,rc)=>{
+    { n:'임모탈', d:'체력 +25%, 받는 피해 -12%, 재생 +1 + 공명 노드당 체력 +0.5%', fx:(p,rc)=>{
       p.maxHp=Math.round(p.maxHp*(1.25+0.005*rc)); p.dmgTaken*=0.88; p.regen+=1; p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.15);
     } },
   ];
+  // v6.52: 신규·히든 11직업 전용 전직 트리 — 관리자 트리 폴백 제거 (메이플/던파식 명명)
+  Object.assign(JOB_TREES, {
+    samurai:  [ { n:'무사도(武士道)', d:'피해 +12%, 치명 +6%', fx:(p)=>{ p.dmgMult*=1.12; p.critChance=Math.min(0.85,p.critChance+0.06); } },
+                { n:'발도가(拔刀家)', d:'치명 +10%, 공속 +8%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.rateMult*=1.08; } },
+                { n:'수라(修羅)', d:'피해 +16% / 받는 피해 +6%', fx:(p)=>{ p.dmgMult*=1.16; p.dmgTaken*=1.06; } },
+                { n:'검막(劍幕)', d:'받는 피해 -12%, 회피 +6%', fx:(p)=>{ p.dmgTaken*=0.88; p.dodge=Math.min(0.6,p.dodge+0.06); } } ],
+    duelist:  [ { n:'펜서', d:'치명 +10%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); } },
+                { n:'마타도르', d:'회피 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); } },
+                { n:'챌린저', d:'엘리트·보스 피해 +12%', fx:(p)=>{ p.eliteDmg*=1.12; p.bossDmg*=1.12; } },
+                { n:'레이피어 마스터', d:'공속 +12%', fx:(p)=>{ p.rateMult*=1.12; } } ],
+    specialist:[{ n:'코만도', d:'피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } },
+                { n:'포인트맨', d:'이속 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
+                { n:'데몰리션', d:'궁극·폭발 피해 +15%', fx:(p)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.15); p.explodeDmg=(p.explodeDmg||18)*1.15; } },
+                { n:'서바이벌리스트', d:'재생 +0.8, 받는 피해 -8%', fx:(p)=>{ p.regen+=0.8; p.dmgTaken*=0.92; } } ],
+    runeknight:[{ n:'룬 블레이더', d:'피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } },
+                { n:'스펠 브레이커', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
+                { n:'엘레멘탈 나이트', d:'받는 피해 -10%, 체력 +10%', fx:(p)=>{ p.dmgTaken*=0.9; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'각인사(刻印士)', d:'쿨다운 -10%', fx:(p)=>{ p.cdr*=0.9; } } ],
+    exhero:   [ { n:'리즈 시절', d:'모든 스탯 +8%', fx:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.08); } },
+                { n:'노장의 관록', d:'받는 피해 -10%, 재생 +0.6', fx:(p)=>{ p.dmgTaken*=0.9; p.regen+=0.6; } },
+                { n:'녹슨 검의 달인', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'컴백 히어로', d:'경험치 +15%, 행운 +15%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.15; p.luck*=1.15; } } ],
+    blackcat: [ { n:'검은 발톱', d:'치명 +10%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); } },
+                { n:'나인 라이브즈', d:'회피 +8%, 재생 +0.5', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.regen+=0.5; } },
+                { n:'섀도 캣', d:'이속 +12%, 대시 쿨 -12%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.88; } },
+                { n:'캣 버글러', d:'행운 +30%', fx:(p)=>{ p.luck*=1.3; } } ],
+    shadow:   [ { n:'다크 스토커', d:'치명 +10%, 이속 +6%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.speed*=1.06; } },
+                { n:'섀도우 블레이드', d:'피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } },
+                { n:'야행자(夜行者)', d:'회피 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); } },
+                { n:'이클립스', d:'처형 임계 +5%p', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.05); } } ],
+    druid:    [ { n:'약초학자', d:'재생 +0.8, 회복 +15%', fx:(p)=>{ p.regen+=0.8; p.healMult*=1.15; } },
+                { n:'야수의 벗', d:'피해 +10%, 이속 +8%', fx:(p)=>{ p.dmgMult*=1.1; p.speed*=1.08; } },
+                { n:'스톰 콜러', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
+                { n:'숲의 수호자', d:'받는 피해 -10%, 체력 +10%', fx:(p)=>{ p.dmgTaken*=0.9; p.maxHp=Math.round(p.maxHp*1.1); } } ],
+    baeksu:   [ { n:'프리랜서(자칭)', d:'쿨다운 -10%', fx:(p)=>{ p.cdr*=0.9; } },
+                { n:'집콕 마스터', d:'받는 피해 -10%, 재생 +0.6', fx:(p)=>{ p.dmgTaken*=0.9; p.regen+=0.6; } },
+                { n:'이불 밖 위험러', d:'회피 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); } },
+                { n:'유튜브 박사', d:'행운 +30%', fx:(p)=>{ p.luck*=1.3; } } ],
+    stonks:   [ { n:'단타 전사', d:'공속 +12%', fx:(p)=>{ p.rateMult*=1.12; } },
+                { n:'가치 투자자', d:'경험치 +18%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.18; } },
+                { n:'공매도 헌터', d:'처형 임계 +5%p', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.05); } },
+                { n:'배당주 농부', d:'재생 +0.8, 골드 +15%', fx:(p)=>{ p.regen+=0.8; p.goldMult*=1.15; } } ],
+    gymbro:   [ { n:'벌크업 비스트', d:'체력 +15%, 피해 +8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.15); p.dmgMult*=1.08; } },
+                { n:'스쿼트 마스터', d:'체력 +20%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); } },
+                { n:'유산소 러너', d:'이속 +12%, 재생 +0.5', fx:(p)=>{ p.speed*=1.12; p.regen+=0.5; } },
+                { n:'식단 관리자', d:'회복 +20%, 재생 +0.6', fx:(p)=>{ p.healMult*=1.2; p.regen+=0.6; } } ],
+  });
+  Object.assign(JOB2_BY_CLASS, {
+    samurai:  [ { n:'검호(劍豪)', d:'치명 배율 +0.5', fx:(p)=>{ p.critMult+=0.5; } },
+                { n:'거합술사(居合術士)', d:'⚙ 대시 직후 1.2초간 공격이 확정 치명 + 대시 쿨 -15%', fx:(p)=>{ p.dashCrit=true; p.dashCdMax*=0.85; } },
+                { n:'오니(鬼)', d:'피해 +14%, 흡혈 +1', fx:(p)=>{ p.dmgMult*=1.14; p.lifesteal+=1; } },
+                { n:'이도류(二刀流)', d:'공속 +16%', fx:(p)=>{ p.rateMult*=1.16; } } ],
+    duelist:  [ { n:'듀얼 마스터', d:'치명 배율 +0.4, 치명 +6%', fx:(p)=>{ p.critMult+=0.4; p.critChance=Math.min(0.85,p.critChance+0.06); } },
+                { n:'에스파다', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'미라지 스텝', d:'회피 +8%, 대시 쿨 -15%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.08); p.dashCdMax*=0.85; } },
+                { n:'벤데타', d:'처형 임계 +5%p, 치명 +8%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.05); p.critChance=Math.min(0.85,p.critChance+0.08); } } ],
+    specialist:[{ n:'고스트', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
+                { n:'워머신', d:'공속 +14%, 투사체 +8%', fx:(p)=>{ p.rateMult*=1.14; p.projMult*=1.08; } },
+                { n:'택티컬 마스터', d:'쿨다운 -14%', fx:(p)=>{ p.cdr*=0.86; } },
+                { n:'나이트 스토커', d:'엘리트 피해 +14%, 이속 +8%', fx:(p)=>{ p.eliteDmg*=1.14; p.speed*=1.08; } } ],
+    runeknight:[{ n:'마검사(魔劍士)', d:'원소 발동 +10%p, 피해 +8%', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.10; p.dmgMult*=1.08; } },
+                { n:'룬 가디언', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'아크 블레이더', d:'치명 +10%, 공속 +8%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.rateMult*=1.08; } },
+                { n:'룬 마스터', d:'쿨다운 -12%, 원소 발동 +6%p', fx:(p)=>{ p.cdr*=0.88; p.procBonus=(p.procBonus||0)+0.06; } } ],
+    exhero:   [ { n:'2회차 용사', d:'리롤 +2, 행운 +25%', fx:(p)=>{ rerollsLeft+=2; p.luck*=1.25; } },
+                { n:'베테랑 히어로', d:'피해 +12%, 받는 피해 -8%', fx:(p)=>{ p.dmgMult*=1.12; p.dmgTaken*=0.92; } },
+                { n:'전설의 귀환', d:'피해 +15%, 치명 +6%', fx:(p)=>{ p.dmgMult*=1.15; p.critChance=Math.min(0.85,p.critChance+0.06); } },
+                { n:'황혼의 기사', d:'체력 +18%, 재생 +0.8', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.18); p.regen+=0.8; } } ],
+    blackcat: [ { n:'팬텀 캣', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
+                { n:'불운의 사자(使者)', d:'적 이속 -6%, 피해 +10%', fx:(p)=>{ p.slowAll*=0.94; p.dmgMult*=1.1; } },
+                { n:'밤의 사냥꾼', d:'처형 임계 +5%p, 치명 +8%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.05); p.critChance=Math.min(0.85,p.critChance+0.08); } },
+                { n:'캣 워커', d:'이속 +12%, 회피 +6%', fx:(p)=>{ p.speed*=1.12; p.dodge=Math.min(0.6,p.dodge+0.06); } } ],
+    shadow:   [ { n:'섀도우 댄서', d:'대시 시 그림자 분신 + 회피 +8%', fx:(p)=>{ p.shadowClone=true; p.dodge=Math.min(0.6,p.dodge+0.08); } },
+                { n:'보이드 워커', d:'받는 피해 -10%, 회피 +8%', fx:(p)=>{ p.dmgTaken*=0.9; p.dodge=Math.min(0.6,p.dodge+0.08); } },
+                { n:'무성(無聲)', d:'치명 +12%, 처형 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); p.execThresh=Math.min(0.35,p.execThresh+0.04); } },
+                { n:'나이트메어', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } } ],
+    druid:    [ { n:'비스트 로드', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'숲의 현자', d:'쿨다운 -12%, 회복 +15%', fx:(p)=>{ p.cdr*=0.88; p.healMult*=1.15; } },
+                { n:'가이아의 사도', d:'재생 +1, 체력 +15%', fx:(p)=>{ p.regen+=1; p.maxHp=Math.round(p.maxHp*1.15); } },
+                { n:'아크 드루이드', d:'원소 발동 +10%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.10; } } ],
+    baeksu:   [ { n:'고인물 게이머', d:'치명 +10%, 쿨다운 -8%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.cdr*=0.92; } },
+                { n:'배달앱 VIP', d:'회복 +20%, 골드 +15%', fx:(p)=>{ p.healMult*=1.2; p.goldMult*=1.15; } },
+                { n:'낮잠 소믈리에', d:'재생 +1.2', fx:(p)=>{ p.regen+=1.2; } },
+                { n:'취준 N년차', d:'경험치 +20%, 리롤 +1', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.2; rerollsLeft+=1; } } ],
+    stonks:   [ { n:'스윙 마스터', d:'피해 +12%, 공속 +8%', fx:(p)=>{ p.dmgMult*=1.12; p.rateMult*=1.08; } },
+                { n:'존버 마스터', d:'체력 +20%, 받는 피해 -8%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.2); p.dmgTaken*=0.92; } },
+                { n:'풀레버리지', d:'피해 +20% / 받는 피해 +8%', fx:(p)=>{ p.dmgMult*=1.2; p.dmgTaken*=1.08; } },
+                { n:'리스크 매니저', d:'받는 피해 -12%', fx:(p)=>{ p.dmgTaken*=0.88; } } ],
+    gymbro:   [ { n:'파워리프터', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } },
+                { n:'보디빌더', d:'체력 +22%, 받는 피해 -6%', fx:(p)=>{ p.maxHp=Math.round(p.maxHp*1.22); p.dmgTaken*=0.94; } },
+                { n:'크로스핏터', d:'공속 +12%, 이속 +8%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.08; } },
+                { n:'PT 선생님', d:'경험치 +15%, 회복 +15%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.15; p.healMult*=1.15; } } ],
+  });
+  Object.assign(JOB3_BY_CLASS, {
+    samurai:  [ { n:'검신(劍神)', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
+                { n:'무쌍(無雙)', d:'치명 +15%, 처형 임계 +6%p', fx:(p,rc)=>{ p.critChance=Math.min(0.9,p.critChance+0.15); p.execThresh=Math.min(0.4,p.execThresh+0.06); } },
+                { n:'천하제일검(天下第一劍)', d:'보스 피해 +25% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.25+0.004*rc; } } ],
+    duelist:  [ { n:'결투의 신', d:'보스 피해 +30% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.3+0.004*rc; } },
+                { n:'언터처블', d:'회피 +15%, 받는 피해 -8%', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.dmgTaken*=0.92; } },
+                { n:'일기당천(一騎當千)', d:'⚙ 대시가 창격 돌진이 된다 — 경로의 적을 꿰뚫어 피해 + 피해 +12%', fx:(p,rc)=>{ p.dashRam=true; p.dmgMult*=1.12; } } ],
+    specialist:[{ n:'원 맨 아미', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'블랙 옵스', d:'치명 +12%, 처형 임계 +5%p', fx:(p,rc)=>{ p.critChance=Math.min(0.9,p.critChance+0.12); p.execThresh=Math.min(0.4,p.execThresh+0.05); } },
+                { n:'전쟁의 유령', d:'회피 +12%, 공속 +12%', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.12); p.rateMult*=1.12; } } ],
+    runeknight:[{ n:'검마(劍魔)', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'룬 로드', d:'원소 발동 +15%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.15; } },
+                { n:'고대의 계승자', d:'체력 +25%, 받는 피해 -10%', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); p.dmgTaken*=0.9; } } ],
+    exhero:   [ { n:'진(眞) 용사', d:'모든 스탯 +12% + 공명', fx:(p,rc)=>{ const m=1.12+0.004*rc; p.dmgMult*=m; p.rateMult*=1.12; p.speed*=1.1; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'영웅왕(英雄王)', d:'피해 +22%', fx:(p,rc)=>{ p.dmgMult*=1.22; } },
+                { n:'라스트 히어로', d:'부활 +1, 체력 +20%', fx:(p,rc)=>{ p.reviveLeft+=1; p.maxHp=Math.round(p.maxHp*1.2); } } ],
+    blackcat: [ { n:'묘왕(猫王)', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } },
+                { n:'검은 재앙', d:'치명 +15%, 치명 배율 +0.4', fx:(p,rc)=>{ p.critChance=Math.min(0.9,p.critChance+0.15); p.critMult+=0.4; } },
+                { n:'아홉 개의 운명', d:'부활 +1, 행운 +40%', fx:(p,rc)=>{ p.reviveLeft+=1; p.luck*=1.4; } } ],
+    shadow:   [ { n:'진(眞) 그림자', d:'회피 +15%, 치명 +12%', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.critChance=Math.min(0.9,p.critChance+0.12); } },
+                { n:'절대 어둠', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'무영(無影)', d:'처형 임계 +8%p, 흡혈 +2', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.08); p.lifesteal+=2; } } ],
+    druid:    [ { n:'세계수의 화신', d:'체력 +30%, 재생 +1.5', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.regen+=1.5; } },
+                { n:'자연재해(自然災害)', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'가이아', d:'회복 +35%, 받는 피해 -12%', fx:(p,rc)=>{ p.healMult*=1.35; p.dmgTaken*=0.88; } } ],
+    baeksu:   [ { n:'진(眞) 백수', d:'쿨다운 -15%, 회피 +12% + 공명', fx:(p,rc)=>{ p.cdr*=0.85-0.002*Math.min(20,rc); p.dodge=Math.min(0.65,p.dodge+0.12); } },
+                { n:'한량왕(閑良王)', d:'행운 +50%, 골드 +30%', fx:(p,rc)=>{ p.luck*=1.5; p.goldMult*=1.3; } },
+                { n:'득도한 자', d:'모든 스탯 +10%', fx:(p,rc)=>{ p.dmgMult*=1.1; p.rateMult*=1.1; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.1); } } ],
+    stonks:   [ { n:'월가의 늑대', d:'골드 +40%, 피해 +12%', fx:(p,rc)=>{ p.goldMult*=1.4; p.dmgMult*=1.12; } },
+                { n:'오마하의 현인', d:'행운 +50% + 공명', fx:(p,rc)=>{ p.luck*=1.5+0.005*rc; } },
+                { n:'상한가 신선(神仙)', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
+    gymbro:   [ { n:'미스터 올림피아', d:'체력 +30%, 피해 +12%', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.dmgMult*=1.12; } },
+                { n:'근신(筋神)', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'리미트 브레이커', d:'체력 +25%, 받는 피해 -10%', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); p.dmgTaken*=0.9; } } ],
+  });
   // 소성단 진화: 직업 전용 별을 찍어뒀다면, 이 런의 전직·각성 순간마다 그 별이 한 단계 진화한다
   function evolveClassStar(stage){
     if (!player) return;
@@ -4346,7 +4474,7 @@ import { FX } from "./fx.js";
     tourist:['기념품 투척','엽서 살포','여행가방 유도탄'], slime:['점액 낙하','산성 분사','점착 추적구'], gambler:['칩 폭격','카드 스프레이','주사위 유도탄'],
     collector:['진열장 낙하','파편 컬렉션','한정판 추적구'], contributor:['커밋 폭격','풀리퀘 스프레이','머지 유도탄'], baeksu:['이불 폭탄','낮잠 파동','리모컨 유도탄'],
     stonks:['차트 낙하','손절 스프레이','물타기 유도탄'], gymbro:['덤벨 투하','프로틴 셰이크','바벨 유도탄'],
-    samurai:['발도 일섬','잔심 베기','츠바메가에시'], specialist:['크로스파이어','섬광 세례','정밀 타격 요청'],
+    samurai:['도지기리 야스츠나','오니마루 쿠니츠나','미카즈키 무네치카'], specialist:['크로스파이어','섬광 세례','정밀 타격 요청'],
     runeknight:['룬 랜스','룬 문양 잔향','마검 나선파'], druid:['가시덩굴 융기','자연의 비','숲의 원진'],
     duelist:['플레슈 찌르기','십자 검격','일점 관통'],
   };
@@ -4385,13 +4513,15 @@ import { FX } from "./fx.js";
     war:['그람','뒤랑달','아론다이트'], rng:['간디바','이치이발','아르테미스의 시위'], mag:['클라우 솔라스','네크로노미콘','카두케우스'],
     rog:['카른웬난','미스틸테인','티르빙'], pri:['롱기누스','아스칼론','가브리엘의 나팔'], mer:['드라우프니르','황금양털','미다스의 저울'],
   };
+  // v6.52: 직업별 전설 무기명 오버라이드 — 사무라이는 일본 요도·명도 실명 (사용자 지시)
+  const PGW_SUFFIX_OVR = { samurai:['무라마사','마사무네','코테츠'] };
   function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
   // 원형별 밸런스 계수: 발사 주기·발수·판정을 반영해 3종의 DPS가 동일하도록 — 성능은 같고 손맛만 다르다
   const ARCH_BAL = { pierce:1.2, wave:1.15, snipe:2.0, spread:0.42, homing:0.6, mortar:1.9, nova:0.22,
                      spiral:0.55, quake:0.32, burst:0.85, lance:0.9, cross:0.32, rain:0.45, orbitb:0.28, echo:0.6 };
   Object.keys(CGW_NAMES).forEach((ck)=>{
     const g = CGW_CLASS_GROUP(ck);
-    PGW_SUFFIX[g].forEach((sfx, i)=>{
+    (PGW_SUFFIX_OVR[ck]||PGW_SUFFIX[g]).forEach((sfx, i)=>{
       const key = 'pgw_'+ck+'_'+i;
       const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3]; // 유일무기와 다른 원형 배치
       const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
@@ -8357,16 +8487,18 @@ import { FX } from "./fx.js";
       player.dashTime = 0.18;
       SFX.play('dash');
     }
+    if (player.dashCrit) player.dashCritT = 1.2; // v6.52 거합술사: 대시 직후 1.2초 확정 치명
   }
   function dashExplosion(x, y, dmg){
     const d = dmg*player.dmgMult;
     effects.push({ type:'ring', x, y, life:0.3, age:0, r0:10, r1:100 });
     for (let i=enemies.length-1;i>=0;i--){
       const e = enemies[i];
+      if (!e) continue; // v6.52 가드: 처치 연쇄(혈폭 등) 재귀 splice 대비
       if (Math.hypot(e.x-x, e.y-y) < 100+e.r){
         e.hp -= d;
         addDmgNum(e.x,e.y,d,false);
-        if (e.hp<=0) defeatEnemy(i);
+        if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
       }
     }
     for (let i=bosses.length-1;i>=0;i--){
@@ -8433,7 +8565,7 @@ import { FX } from "./fx.js";
     player.swingT = 0.16; // v6.48 공격 스윙 모션 (무기 프롭이 실제로 휘둘러진다)
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
-    const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3); // 그림자: 무피격 3초+ 확정 치명
+    const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3) || (player.dashCritT>0); // 그림자: 무피격 3초+ 확정 치명 / v6.52 거합: 대시 직후 확정 치명
     let d = dmg * player.projMult * (isCrit?player.critMult:1);
     if (player.goldPower) d *= 1 + Math.min(0.3, runGold*0.0003); // 변혁: 황금 혈맥
     if (player.feverDmg && feverTimer>0) d *= 1.15; // 선율가: 피버 강화
@@ -8902,18 +9034,20 @@ import { FX } from "./fx.js";
     if (showRing) effects.push({ type:'ring', x, y, life:0.35, age:0, r0:radius*0.2, r1:radius });
     for (let i=enemies.length-1;i>=0;i--){
       const e = enemies[i];
+      if (!e) continue; // v6.52 가드: 혈폭 연쇄(처치→혈폭→처치)가 재귀로 배열을 줄이면 옛 인덱스가 빌 수 있다
       if (Math.hypot(e.x-x, e.y-y) < radius+e.r){
         e.hp -= dmg;
         addDmgNum(e.x,e.y,dmg,false);
-        if (e.hp<=0) defeatEnemy(i);
+        if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
       }
     }
     for (let i=bosses.length-1;i>=0;i--){
       const b = bosses[i];
+      if (!b) continue;
       if (!b.ghost && Math.hypot(b.x-x, b.y-y) < radius+b.r){
         b.hp -= dmg;
         addDmgNum(b.x,b.y,dmg,false);
-        if (b.hp<=0) defeatBoss(i); else refreshBossBar();
+        if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
       }
     }
   }
@@ -9726,6 +9860,7 @@ import { FX } from "./fx.js";
       if (player.dashRam){
         for (let ri2=enemies.length-1;ri2>=0;ri2--){
           const er = enemies[ri2];
+          if (!er) continue; // 처치 연쇄 재귀 splice 가드
           if (er.__ramT && er.__ramT > elapsed) continue;
           if (Math.hypot(er.x-player.x, er.y-player.y) < er.r+player.r+6){
             er.__ramT = elapsed + 0.5;
@@ -9734,7 +9869,7 @@ import { FX } from "./fx.js";
             const ka = Math.atan2(er.y-player.y, er.x-player.x);
             er.x += Math.cos(ka)*14; er.y += Math.sin(ka)*14;
             burst(er.x, er.y, 3, 90);
-            if (er.hp<=0) defeatEnemy(ri2);
+            if (er.hp<=0 && enemies[ri2]===er) defeatEnemy(ri2);
           }
         }
       }
@@ -9800,6 +9935,7 @@ import { FX } from "./fx.js";
     // 발사 반동 감쇠
     if (player.recoilX){ player.recoilX *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilX)<0.1) player.recoilX=0; }
     if (player.swingT>0) player.swingT -= dt;
+    if (player.dashCritT>0) player.dashCritT -= dt; // v6.52 거합 확정 치명 창
     // v6.49 역장·근접형 모션: 투사체를 안 쏘는 직업(성기사 역장 등)도 실제로 휘두른다
     // — 역장 가동 중이거나, 근접 계열이 적과 붙어 있으면 리듬 스윙
     {
@@ -11167,7 +11303,15 @@ import { FX } from "./fx.js";
     currentEvent = null;
     overlay.classList.add('hidden');
     eventBox.style.display='none';
-    setTimeout(()=>{ state='playing'; last=performance.now(); updateHud(); resumeGrace(); }, 120);
+    // v6.52: 이벤트(전직 포함)가 닫혀도 대기 큐를 이어서 연다 — 레벨을 한 번에 여러 개 건너뛰면
+    // (타임캡슐·경험치 폭발) 2·3차 전직이 큐에 쌓인 채 다음 레벨업까지 잠겨버리던 문제 수정
+    setTimeout(()=>{
+      if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
+      else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
+      else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
+      else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
+      else { state='playing'; last=performance.now(); updateHud(); resumeGrace(); }
+    }, 120);
   }
 
   // ---------- 승천반 (J) — 런 내 전직 성반: 6방위 × [소석→사이드스톤→키스톤], 승천석으로 구매 ----------
