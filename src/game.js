@@ -13420,6 +13420,72 @@ import { FX } from "./fx.js";
 
   // ---------- 인간형 캐릭터 ----------
   // 옆모습 치비: 다리(걷기 스윙) + 몸통 + 머리 + 직업 장비
+  // v6.73 도트 버퍼 풀 — 크기별로 오프스크린 한 쌍(본체·아웃라인)을 재사용
+  const DOT_BUFS = {};
+  function dotBuf(sz){
+    let b = DOT_BUFS[sz];
+    if (!b){
+      const c = document.createElement('canvas'); c.width = c.height = sz;
+      const o = document.createElement('canvas'); o.width = o.height = sz;
+      b = DOT_BUFS[sz] = { c, cx: c.getContext('2d', { willReadFrequently:true }), o, ox: o.getContext('2d') };
+    }
+    return b;
+  }
+  // 알파 임계 + 색 16단 양자화 — 반투명 가장자리를 없애고 셰이딩을 밴드로 끊는다
+  function dotPosterize(dx, sz){
+    const im = dx.getImageData(0,0,sz,sz), d8 = im.data;
+    for (let i=0; i<d8.length; i+=4){
+      if (d8[i+3] < 70){ d8[i+3] = 0; continue; }
+      d8[i+3] = 255;
+      d8[i]   = Math.min(255,(d8[i]  +8>>4)<<4);
+      d8[i+1] = Math.min(255,(d8[i+1]+8>>4)<<4);
+      d8[i+2] = Math.min(255,(d8[i+2]+8>>4)<<4);
+    }
+    dx.putImageData(im,0,0);
+  }
+  // 4방향 실루엣 합성 → 단색 아웃라인
+  function dotOutline(b, sz, color){
+    b.ox.setTransform(1,0,0,1,0,0);
+    b.ox.clearRect(0,0,sz,sz);
+    b.ox.drawImage(b.c,-1,0); b.ox.drawImage(b.c,1,0);
+    b.ox.drawImage(b.c,0,-1); b.ox.drawImage(b.c,0,1);
+    b.ox.save();
+    b.ox.globalCompositeOperation = 'source-in';
+    b.ox.fillStyle = color;
+    b.ox.fillRect(0,0,sz,sz);
+    b.ox.restore();
+  }
+  // v6.73 범용 도트 래퍼: dotPush~dotPop 사이의 드로잉을 오프스크린에 받아 픽셀 스프라이트로 블릿.
+  // 현재 변환의 선형부를 그대로 물려받아(1 로컬 유닛 = 1 화면 px) 몹·보스도 플레이어와 같은 픽셀 격자에 놓인다.
+  const DOTW = { st: [] };
+  function dotPush(span, ink){
+    if (localStorage.gs_dot === '0') return false;
+    const m = ctx.getTransform();
+    const lin = Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d));
+    const need = span*lin*2 + 10;
+    const sz = need <= 128 ? 128 : need <= 256 ? 256 : need <= 384 ? 384 : need <= 512 ? 512 : 0;
+    if (!sz) return false;                       // 버퍼보다 큰 대상은 기존 벡터 렌더로
+    const b = dotBuf(sz);
+    b.cx.setTransform(1,0,0,1,0,0);
+    b.cx.clearRect(0,0,sz,sz);
+    b.cx.setTransform(m.a, m.b, m.c, m.d, sz/2, sz/2);
+    DOTW.st.push({ main: ctx, m, sz, b, ink: ink || PAL.ink });
+    ctx = b.cx;
+    return true;
+  }
+  function dotPop(){
+    const s = DOTW.st.pop();
+    if (!s) return;
+    ctx = s.main;
+    dotPosterize(s.b.cx, s.sz);
+    dotOutline(s.b, s.sz, s.ink);
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(s.b.o, Math.round(s.m.e - s.sz/2), Math.round(s.m.f - s.sz/2));
+    ctx.drawImage(s.b.c, Math.round(s.m.e - s.sz/2), Math.round(s.m.f - s.sz/2));
+    ctx.restore();
+  }
   // v6.73 도트 렌더 파이프라인: 휴머노이드를 저해상 오프스크린에 벡터로 그린 뒤 최근접 확대로 블릿 —
   // 실루엣 아웃라인 + 상하 2톤 셰이딩 + 걸음 6프레임 양자화가 합쳐져 도트 게임 스프라이트 질감이 난다.
   // localStorage.gs_dot='0' 으로 끄면 기존 벡터 렌더 (검수용)
@@ -13428,10 +13494,8 @@ import { FX } from "./fx.js";
     const D = drawHumanoid;
     if (!D._c){
       D.PPU = 1.2; D.SZ = 128;
-      D._c = document.createElement('canvas'); D._c.width = D._c.height = D.SZ;
-      D._cx = D._c.getContext('2d', { willReadFrequently:true });
-      D._o = document.createElement('canvas'); D._o.width = D._o.height = D.SZ;
-      D._ox = D._o.getContext('2d');
+      const b = dotBuf(D.SZ);
+      D._c = b.c; D._cx = b.cx; D._o = b.o; D._ox = b.ox;
     }
     const PPU = D.PPU, SZ = D.SZ, dc = D._cx, oc = D._ox;
     // 스프라이트 해상도는 캐릭터 크기와 무관하게 고정(PPU) — 커질수록 픽셀이 굵어지는 진짜 도트 확대 질감
@@ -13459,27 +13523,8 @@ import { FX } from "./fx.js";
     dc.fillStyle = gd;
     dc.fillRect(0,0,SZ,SZ);
     dc.restore();
-    // 포스터라이즈: 알파 임계(반투명 가장자리 제거) + 색 밴드 양자화 — 도트 특유의 쨍한 픽셀·셰이딩 밴드
-    const im = dc.getImageData(0,0,SZ,SZ), d8 = im.data;
-    for (let i=0; i<d8.length; i+=4){
-      const a = d8[i+3];
-      if (a < 70){ d8[i+3] = 0; continue; }
-      d8[i+3] = 255;
-      d8[i]   = Math.min(255,(d8[i]  +8>>4)<<4);
-      d8[i+1] = Math.min(255,(d8[i+1]+8>>4)<<4);
-      d8[i+2] = Math.min(255,(d8[i+2]+8>>4)<<4);
-    }
-    dc.putImageData(im,0,0);
-    // 아웃라인: 4방향 실루엣 합성 → 잉크색 — 스프라이트 테두리
-    oc.setTransform(1,0,0,1,0,0);
-    oc.clearRect(0,0,SZ,SZ);
-    oc.drawImage(D._c,-1,0); oc.drawImage(D._c,1,0);
-    oc.drawImage(D._c,0,-1); oc.drawImage(D._c,0,1);
-    oc.save();
-    oc.globalCompositeOperation = 'source-in';
-    oc.fillStyle = o.ink || PAL.ink;
-    oc.fillRect(0,0,SZ,SZ);
-    oc.restore();
+    dotPosterize(dc, SZ);
+    dotOutline({ c:D._c, ox:oc }, SZ, o.ink || PAL.ink);
     const half = SZ/2/PPU*s;
     const sm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
@@ -14375,6 +14420,8 @@ import { FX } from "./fx.js";
     ctx.save();
     ctx.translate(0, -Math.max(0,hop)*e.r*0.14);
     ctx.scale(1 - Math.abs(hop)*0.05, 1 + Math.abs(hop)*0.07);
+    // v6.73 몹도 같은 픽셀 격자로 — 플레이어만 도트고 몹은 매끈한 벡터인 불일치 제거
+    const eDot = dotPush(e.r*2.1 + 16);
 
     if (sk==='moth'){
       ctx.fillStyle = soft;
@@ -14672,6 +14719,7 @@ import { FX } from "./fx.js";
         ctx.closePath(); ctx.fill();
       }
     }
+    if (eDot) dotPop();
     ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
 
     // v6.58 엘리트 마커 — 텍스트 라벨 대신 시각 표시: 점선 링(기존) + 어픽스 아이콘 배지
