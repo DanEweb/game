@@ -8483,11 +8483,10 @@ import { FX } from "./fx.js";
     const i = n-1;
     const sk = player.skills[i];
     if (!sk || player.skCds[i] > 0) return;
-    // 스킬 시전 이펙트: 주력 속성 > 직업색 링
-    if (FX.enabled){
-      const sc = dominantElemColor() || CLASS_COLORS[player.classKey];
-      if (sc) FX.ring(player.x, player.y, parseInt(sc.slice(1),16), 10);
-    }
+    // 스킬 시전 이펙트: 주력 속성 > 직업색 — 발밑 시전 마법진 (v6.56, 캔버스라 단일 빌드에서도 보임)
+    const scC = dominantElemColor() || CLASS_COLORS[player.classKey];
+    if (FX.enabled && scC) FX.ring(player.x, player.y, parseInt(scC.slice(1),16), 10);
+    effects.push({ type:'sigil', x:player.x, y:player.y+12, life:0.45, age:0, r0:10, r1:32, col:scC });
     sk.fx();
     // v6.49 스킬 각인 재작업: 직업 계열(6군) × 선택한 길(3) = 18종 — 각인이 걸어온 길의 이름을 갖는다
     const jp1 = player.jobPicks && player.jobPicks[0];
@@ -10333,6 +10332,10 @@ import { FX } from "./fx.js";
         // Q 수동 시전 — 1초 안에 안 누르면 자동 발동 (기존 4초는 자동이 멈춘 것처럼 느껴졌음)
         player.ultChargedT = (player.ultChargedT||0) + dt;
         if (player.ultFireReq || player.ultChargedT > 1.0){
+          // v6.56 궁극 시전 연출: 대형 마법진 + 속성색 방사광
+          const ucol = dominantElemColor() || CLASS_COLORS[player.classKey];
+          effects.push({ type:'sigil', x:player.x, y:player.y+12, life:0.7, age:0, r0:16, r1:64, col:ucol });
+          effects.push({ type:'rays', x:player.x, y:player.y, life:0.5, age:0, col:ucol });
           triggerUltimate();
           if (player.ultEcho){ // 변혁: 이중 시전
             setTimeout(()=>{ if (state==='playing') triggerUltimate(); }, 300);
@@ -14519,6 +14522,25 @@ import { FX } from "./fx.js";
         ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*0.7, start+0.12, end); ctx.stroke();
         ctx.lineCap = 'butt';
+      } else if (fx.type==='sigil'){
+        // v6.56 시전 마법진 — 점선 룬 링 + 4방위 글리프가 돌며 펼쳐진다
+        const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
+        const rot = fx.age*3;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6,7]);
+        ctx.lineDashOffset = -fx.age*40;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        for (let k=0;k<4;k++){
+          const a = rot + k*Math.PI/2;
+          ctx.save();
+          ctx.translate(fx.x+Math.cos(a)*r, fx.y+Math.sin(a)*r);
+          ctx.rotate(a+Math.PI/4);
+          ctx.strokeRect(-2.4,-2.4,4.8,4.8);
+          ctx.restore();
+        }
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, r*0.65, 0, Math.PI*2); ctx.stroke();
       } else if (fx.type==='rays'){
         ctx.lineWidth = 2;
         for (let k=0;k<7;k++){
@@ -14542,6 +14564,13 @@ import { FX } from "./fx.js";
     let best=null, bp=0; // 1포인트만 투자해도 즉시 발현
     for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
     return best ? COLORS[best] : null;
+  }
+  // v6.56 주력 속성 키 — 비각인 탄환도 주력 속성의 '모양'을 입는다
+  function dominantElemKey(){
+    if (!player) return null;
+    let best=null, bp=0;
+    for (const tk of SPEC_TREES){ const p2=player.tech[tk]||0; if (p2>bp){ bp=p2; best=tk; } }
+    return best;
   }
   let fxBulletFrame = [];
   // v6.55 속성별 탄환 형태 — 색만이 아니라 '모양'으로 구분된다 (Canvas2D, 단일 빌드 호환)
@@ -14616,10 +14645,106 @@ import { FX } from "./fx.js";
       }
       ctx.restore();
     },
+    holy(p, pc){ // 십자 광휘 — 금빛 십자가가 후광을 두르고 천천히 돈다
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(performance.now()/700);
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = pc;
+      ctx.beginPath(); ctx.arc(0,0,p.r*1.7,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      const w2 = p.r*0.42;
+      ctx.fillRect(-w2/2, -p.r*1.25, w2, p.r*2.5);
+      ctx.fillRect(-p.r*1.25, -w2/2, p.r*2.5, w2);
+      ctx.fillStyle = '#fff7dd';
+      ctx.beginPath(); ctx.arc(0,0,p.r*0.35,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    grav(p, pc){ // 미니 블랙홀 — 검은 핵 + 빨려드는 나선
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      const rot = performance.now()/160;
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 1.6;
+      for (let k=0;k<2;k++){
+        ctx.beginPath();
+        ctx.arc(0,0,p.r*(1.5-k*0.45), rot+k*2.4, rot+k*2.4+3.6);
+        ctx.stroke();
+      }
+      ctx.fillStyle = PAL.ink;
+      ctx.beginPath(); ctx.arc(0,0,p.r*0.75,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(0,0,p.r*0.75,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    },
+    chrono(p, pc){ // 시계 룬 — 바늘이 도는 태엽 탄
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.stroke();
+      for (let k=0;k<4;k++){
+        const a=(Math.PI/2)*k;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a)*p.r*0.75, Math.sin(a)*p.r*0.75); ctx.lineTo(Math.cos(a)*p.r, Math.sin(a)*p.r); ctx.stroke();
+      }
+      const ha = performance.now()/300;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha)*p.r*0.6, Math.sin(ha)*p.r*0.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(ha*0.4)*p.r*0.4, Math.sin(ha*0.4)*p.r*0.4); ctx.stroke();
+      ctx.restore();
+    },
+    blood(p, pc){ // 핏방울 — 꼬리를 끄는 붉은 물방울
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      ctx.fillStyle = pc;
+      ctx.beginPath();
+      ctx.moveTo(p.r*1.4, 0);
+      ctx.quadraticCurveTo(0, -p.r, -p.r*1.3, 0);
+      ctx.quadraticCurveTo(0, p.r, p.r*1.4, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(-p.r*1.9, 0, p.r*0.4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#7a1f1f';
+      ctx.beginPath(); ctx.arc(p.r*0.1, 0, p.r*0.4, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    mech(p, pc){ // 리벳 캡슐 탄 — 기계식 탄피 + 예광 스트라이프
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      ctx.fillStyle = pc;
+      ctx.beginPath();
+      ctx.moveTo(p.r*1.5,0);
+      ctx.lineTo(p.r*0.5,-p.r*0.75); ctx.lineTo(-p.r*1.2,-p.r*0.75);
+      ctx.lineTo(-p.r*1.2,p.r*0.75); ctx.lineTo(p.r*0.5,p.r*0.75);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e0b73d';
+      ctx.fillRect(-p.r*1.2, -p.r*0.18, p.r*1.7, p.r*0.36);
+      ctx.fillStyle = PAL.ink;
+      ctx.beginPath(); ctx.arc(-p.r*0.8,-p.r*0.45,1,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-p.r*0.8,p.r*0.45,1,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    psi(p, pc){ // 사이오닉 렌즈 — 맥동하는 제3의 눈
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      const pu = 0.75 + Math.sin(performance.now()/120)*0.25;
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r*1.5,p.r*0.9,0,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle = pc;
+      ctx.beginPath(); ctx.arc(0,0,p.r*0.55*pu,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r*2.1,p.r*1.2,0,0.6,Math.PI-0.6); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0,0,p.r*2.1,p.r*1.2,0,Math.PI+0.6,-0.6); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    },
   };
   function drawProjectiles(){
     fxBulletFrame = [];
     const fxBullets = fxBulletFrame;
+    const domKey = dominantElemKey(); // v6.56: 프레임당 1회만 계산
     for (const p of projectiles){
       if (p.mega){
         ctx.strokeStyle = PAL.ink;
@@ -14670,7 +14795,8 @@ import { FX } from "./fx.js";
                  : (p.imbue && COLORS[p.imbue]) ? COLORS[p.imbue]
                  : dominantElemColor() || (CLASS_COLORS[player.classKey] || PAL.ink);
         // v6.55 속성별 탄환 형태: 각인/속성탄은 색뿐 아니라 모양으로 구분된다
-        const elShape = p.kind==='fireball' ? 'fire' : p.kind==='icelance' ? 'frost' : p.imbue;
+        // v6.56: 각인이 없어도 주력 속성이 있으면 그 형태를 입는다 (11속성 전부)
+        const elShape = p.kind==='fireball' ? 'fire' : p.kind==='icelance' ? 'frost' : (p.imbue || domKey);
         if (elShape && ELEM_BULLET[elShape]){
           if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
           ELEM_BULLET[elShape](p, pc);

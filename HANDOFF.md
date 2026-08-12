@@ -1,10 +1,10 @@
 # Gray Survivor — 세션 핸드오프 (다른 데스크탑에서 이어가기)
 
-> 마지막 갱신: 2026-08-13 · 현재 버전 **v6.55**
+> 마지막 갱신: 2026-08-13 · 현재 버전 **v6.56**
 
-## ⚡ 차기 세션 1순위 (v6.55 시점 — 진행 순서 사용자 확정: ①비주얼 ②무기 직업군화 ③전향 확장)
-1. **비주얼 마스터플랜 계속** — v6.55에서 이펙트 1차(속성 탄환 형태 5종 + 속성 발동 컬러 피드백) 완료. 다음:
-   나머지 속성(신성/중력/시간/혈마/기계/염동) 탄환 형태 → 스킬·궁극기 이펙트 → 몹·보스 리디자인 → 맵 리얼화 → 일러스트 2단계(의상·얼굴).
+## ⚡ 차기 세션 1순위 (v6.56 시점 — 진행 순서 사용자 확정: ①비주얼 ②무기 직업군화 ③전향 확장)
+1. **비주얼 마스터플랜 계속** — 이펙트 1·2차 완료(11속성 탄환 형태 + 주력 속성 형태 입힘 + 스킬/궁극 시전 마법진). 다음 순서:
+   **몹·보스 리디자인 → 맵 리얼화 → 일러스트 2단계(의상·얼굴)**.
    전직 외형 대변화(전직명 따라 외형 자체 변화 + 룬링·견갑·문장석·오라오브 전직별 차별화)는 ROADMAP 🎨 1-b 참조. 검수: dist/efftest.html·bodytest.html + 스냅 서버 :8124
 2. **무기 직업군화 전면 재편** — ROADMAP "📐 확정 설계" 5항목: 저희귀도 무기 직업군별 재제작(+전용 제한) / 크로스 장착 전수 차단(장비창 버그 포함) /
    근접 무기 테크 신설 + 전사군 근접 전용 카드(성도 원거리 투자 시 해제 — 전향 무기 v6.54 구현과 연동) / 근접·돌격 리스크 보상 / 각인·오라 외형 장식
@@ -32,8 +32,9 @@
 - 배포: npm run build → node build-single.mjs → dist/gray_survivor_single.html을
   "C:\Users\paku\OneDrive\Documents\카카오톡 받은 파일\gray_survivor_v3.html"로 복사 →
   git commit/push → GitHub Actions 성공 + https://daneweb.github.io/game/ 200 확인
-- QA: node serve.mjs (포트 8123) → dist/qa.html 접속(rAF shim 주입본 — sed로 재생성).
-  브라우저 패널 blur 시 게임 일시정지됨. 훅: __qaGate(key|peril)/__qaBoss(frac)/__qaGod()/__qaState()
+- QA: node serve.mjs (포트 8123) → node make-qa.mjs → dist/qa.html 접속.
+  ⚠ 숨김 탭은 setTimeout 1초 클램프로 게임 심이 멈춰 보임(0킬·보스 타이머 정지 = 코드 버그 아님) — make-qa.mjs의 MessageChannel 펌프 심이 이를 우회.
+  훅: __qaGate(key|peril)/__qaBoss(frac)/__qaGod()/__qaState()/__qaSet(k,v)/__qaWeapon(key)
 - ⚠ PowerShell Get-Content/-replace는 UTF-8 한글 파괴 — Edit 도구나 python/sed만 사용
 - ⚠ buildStarTree IIFE는 RESONANCE/CLASSES/JOBVAR보다 먼저 실행 — 내부에서 직접 참조 금지(런타임 함수는 OK)
 - ⚠ 신규 직업 추가 시 7곳 동기화: CLASSES, RESONANCE, RES_LOCAL, CGW_CLASS_GROUP RL, CS, SIGKEY/2/3, CGW_NAMES(+CSKIN, CLASS_COLORS, AWAKEN_BY_CLASS, drawHumanoid gear)
