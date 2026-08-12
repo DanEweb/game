@@ -25,7 +25,7 @@ export const BOSS_TYPES = {
     aialgoEx:    { name:'AI 알고리즘', kind:'aialgo', r:27, hp:9800, speed:44, contactDmg:26, xpValue:700, finale:true },
     // 국제·사회 관문 레이드 (풀 기믹)
     chinaEx:     { name:'중화 대연회', kind:'chinafeast', r:28, hp:12000, speed:46, contactDmg:28, xpValue:800, finale:true },
-    tariffEx2:   { name:'관세 전쟁 · 트럼프', kind:'tariffwar', r:28, hp:13500, speed:50, contactDmg:28, xpValue:850, finale:true },
+    tariffEx2:   { name:'관세 전쟁 · 트황상', kind:'tariffwar', r:28, hp:13500, speed:50, contactDmg:28, xpValue:850, finale:true },
     warzoneEx:   { name:'동원령', kind:'warzone', r:30, hp:15000, speed:40, contactDmg:30, xpValue:900, finale:true },
     yeongkkeulEx:{ name:'영끌 폭주 연합', kind:'yeongkkeul', r:26, hp:16500, speed:56, contactDmg:30, xpValue:950, finale:true },
     // 관문 8·9·10호
@@ -38,9 +38,9 @@ export const BOSS_TYPES = {
     gkTrain:     { name:'수문장 · 궤도 기관차', kind:'gktrain', r:29, hp:2900, speed:40, contactDmg:24, xpValue:220 },
     // 국제·사회 코믹 보스 (필드 순환 보스)
     xiPingping:  { name:'시진핑핑이', kind:'esper', r:26, hp:520, speed:44, contactDmg:16, xpValue:95 },
-    maoJu:       { name:'마오쩌둥', kind:'summoner', r:26, hp:560, speed:40, contactDmg:15, xpValue:100 },
+    maoJu:       { name:'마오쩌뚱', kind:'summoner', r:26, hp:560, speed:40, contactDmg:15, xpValue:100 },
     eggRice:     { name:'황금 계란볶음밥', kind:'mortar', r:24, hp:480, speed:46, contactDmg:14, xpValue:90 },
-    trumpTariff: { name:'트럼프 관세왕', kind:'charger', r:27, hp:540, speed:48, contactDmg:17, xpValue:100,
+    trumpTariff: { name:'트황상 관세대제', kind:'charger', r:27, hp:540, speed:48, contactDmg:17, xpValue:100,
                    gaugeTime:2.2, telegraph:0.5, chargeSpeed:700, chargeDuration:0.9, chargeDamage:30, recover:1.0 },
     moscowBear:  { name:'모스크바의 곰', kind:'berserk', r:28, hp:620, speed:50, contactDmg:18, xpValue:110 },
     kyivDrone:   { name:'키이우의 드론', kind:'ranged', r:22, hp:460, speed:70, contactDmg:12, xpValue:95,

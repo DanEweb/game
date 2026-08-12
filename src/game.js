@@ -727,7 +727,15 @@ import { FX } from "./fx.js";
   }
   function genUnique(){
     const u = UNIQUE_POOL[(Math.random()*UNIQUE_POOL.length)|0];
-    return rollEquipGrp({ id:DB.nextId++, slot:u.slot, r:5, name:u.name, stats:u.stats.map(s=>({k:s.k,v:s.v})), affix:u.affix, unique:true });
+    const it = { id:DB.nextId++, slot:u.slot, r:5, name:u.name, stats:u.stats.map(s=>({k:s.k,v:s.v})), affix:u.affix, unique:true };
+    // v6-3차: 직업 전용 유니크 — 25% 확률로 지금 뛰는 직업의 비전 장비로 강림 (스탯 +30%, 그 직업만 착용 효과)
+    if (player && player.classKey && CLASSES[player.classKey] && Math.random()<0.25){
+      it.cls = player.classKey;
+      it.name = CLASSES[player.classKey].name+'의 비전 · '+u.name;
+      it.stats = it.stats.map(s=>({ k:s.k, v: Math.round(s.v*1.3*10)/10 }));
+      return it; // 전용 장비는 계열 각인과 중복 없음
+    }
+    return rollEquipGrp(it);
   }
   function genSetItem(){
     const keys = Object.keys(SET_DEFS);
@@ -762,8 +770,9 @@ import { FX } from "./fx.js";
   function genEquip(bias){
     // bias 1~4 nudges the rarity roll upward
     let r = 0;
-    const roll = Math.random()*100 + (bias||0)*9;
-    if (roll>=104) r=4; else if (roll>=94) r=3; else if (roll>=78) r=2; else if (roll>=52) r=1; else r=0;
+    // 경제 대개편: 확률표 상향 조정 — 상위 등급이 더 귀하다 (전설 ~2%→소수점, 희귀 구간 압축)
+    const roll = Math.random()*100 + (bias||0)*8;
+    if (roll>=106) r=4; else if (roll>=97) r=3; else if (roll>=84) r=2; else if (roll>=58) r=1; else r=0;
     const slot = NORMAL_SLOTS[(Math.random()*NORMAL_SLOTS.length)|0];
     // 방어구(머리/몸통)는 경갑·중갑으로 나뉜다 — 중갑은 스탯 +30%지만 일부 직업만 착용 가능
     const wt = (slot==='head'||slot==='body') ? (Math.random()<0.45 ? 'heavy' : 'light') : null;
@@ -868,6 +877,7 @@ import { FX } from "./fx.js";
       }
       if (item.wt==='heavy' && !HEAVY_OK[classKey] && !starHasName('중갑 숙련')){ out.inactive += 1; continue; }
       if (item.grp && !(RESONANCE[item.grp]||[]).includes(classKey)){ out.inactive += 1; continue; } // 계열 각인 불일치 — 효과 정지
+      if (item.cls && item.cls!==classKey){ out.inactive += 1; continue; } // 직업 전용 장비 — 그 직업만
       const plusMult = 1 + (item.plus||0)*0.06; // 강화 보너스
       out.power = (out.power||0) + (item.r+1)*0.010 + (item.plus||0)*0.005; // 파워 지수 기여 (관문 보정용)
       for (const st of item.stats) out[st.k] += st.v * plusMult;
@@ -1115,7 +1125,7 @@ import { FX } from "./fx.js";
         const plus = item.plus||0;
         // 강화 = 핵심 골드 소모처: 지수 곡선 — 고강은 수천 골드를 태운다
         const cost = Math.round(((item.r+1)*40 + plus*30) * Math.pow(1.55, plus) / 5) * 5;
-        const needShard = (plus+1)%3===0 ? 1 : 0;
+        const needShard = (plus+1)%2===0 ? 1 : 0; // 경제 대개편: 2강마다 별의 조각 — 재료 경제 활성화
         const enhBtn = document.createElement('button');
         enhBtn.className = 'buy sec';
         enhBtn.textContent = '+'+(plus+1)+' ('+cost+'G'+(needShard?'+★':'')+')';
@@ -1184,9 +1194,9 @@ import { FX } from "./fx.js";
   }
   // 성장 무기 도감 (직업군별 파밍 무기)
   const GWEP_DEFS = {
-    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:3, group:'원거리 계열 (궁수·저격수·파일럿)' },
-    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:5, group:'술법 계열 (관리자·기술자·공허술사)' },
-    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:4, group:'근접 계열 (돌격병·성기사·사신·철혈)' },
+    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'원거리 계열 (궁수·저격수·파일럿)' },
+    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'술법 계열 (관리자·기술자·공허술사)' },
+    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'근접 계열 (돌격병·성기사·사신·철혈)' },
   };
   function renderShop(){
     goldVal.textContent = DB.gold;
@@ -6586,7 +6596,7 @@ import { FX } from "./fx.js";
       const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
       if (ph !== b.jPhase){
         b.jPhase = ph;
-        if (ph===2){ b.name='중화 대연회 · 마오쩌둥'; showBossBanner('2페르소나 — 인민의 파도', '"인민의 바다에 빠뜨려라."', '#b8362e'); refreshBossBar(); SFX.play('warn'); }
+        if (ph===2){ b.name='중화 대연회 · 마오쩌뚱'; showBossBanner('2페르소나 — 인민의 파도', '"인민의 바다에 빠뜨려라."', '#b8362e'); refreshBossBar(); SFX.play('warn'); }
         if (ph===3){ b.name='중화 대연회 · 시진핑핑이'; showBossBanner('3페르소나 — 검열', '"이 전투 기록은 존재하지 않는다."', '#c9a13f'); refreshBossBar(); SFX.play('warn'); }
       }
       const enrage = b.hp < b.maxHp*0.12;
