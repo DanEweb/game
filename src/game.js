@@ -4703,8 +4703,8 @@ import { FX } from "./fx.js";
   }
 
   function gainGold(v){
-    // 경제 조정 2차: 전역 수급 -75% (골드는 벌기 어렵고 쓸 곳은 많아야 한다)
-    const g = Math.max(1, Math.round(v * 0.25 * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
+    // 경제 조정 2차: 전역 수급 -75% + 무한 모드(클리어 후)는 추가 -70% — 붕괴 상태 파밍 방지
+    const g = Math.max(1, Math.round(v * 0.25 * (endless?0.3:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
     return g;
   }
@@ -5053,10 +5053,11 @@ import { FX } from "./fx.js";
       let r2 = Math.random();
       if (player.chestPlus) r2 *= 0.6;
       // 상위 장비 드랍 반토막 + 유니크·태초는 위험도 30+ 전용 — 장비가 게임을 지배하지 못하게
-      if (r2 < 0.008) addEquip(genRelic());
-      else if (pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006) addEquip(genUnique());
+      // 무한 모드(클리어 후)에는 유물·유니크·태초 봉인 — 붕괴 상태에서 상위템 파밍 금지
+      if (!endless && r2 < 0.008) addEquip(genRelic());
+      else if (!endless && pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006) addEquip(genUnique());
       else if (r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012) addEquip(genSetItem());
-      else if (pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012 + 0.0008 + pr*0.0004) addEquip(genPrimal());
+      else if (!endless && pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012 + 0.0008 + pr*0.0004) addEquip(genPrimal());
       else addEquip(genEquip(1 + (MAP.mult.reward>1.4?1:0) + (MAP.mult.reward>2?1:0) + Math.floor(pr/2)));
     } else if (roll < 0.75){
       const lvable = player.weapons.filter(w => w.lv<5);
@@ -5363,7 +5364,8 @@ import { FX } from "./fx.js";
     }
     dropItem(b.x, b.y, 'chest');
     if (player){ player.ascStones = (player.ascStones||0)+1; addTextNum(b.x, b.y-40, '◈ 승천석 +1'); }
-    const essN = (b.finale ? 1 : (Math.random()<0.5?1:0)) + Math.floor((DB.peril||0)/4); // 정수 드랍 하향 (일반 보스 50%)
+    let essN = (b.finale ? 1 : (Math.random()<0.5?1:0)) + Math.floor((DB.peril||0)/4); // 정수 드랍 하향 (일반 보스 50%)
+    if (endless) essN = Math.random()<0.3 ? 1 : 0; // 무한 모드: 재료도 체감
     DB.mats.essence += essN;
     toast('◆ 보스의 정수 +'+essN+' ('+DB.mats.essence+')');
     let goldBase = b.finale ? 200 : 45;
@@ -10530,7 +10532,7 @@ import { FX } from "./fx.js";
   function bankRun(){
     DB.gold += runGold;
     // 운명 포인트: 도달 레벨 4당 1P
-    const starGain = Math.floor(player.level/6); // 운명 수급 하향 — 성도 완주 방지
+    const starGain = Math.floor(Math.min(player.level, player.winLevel||player.level)/6); // 운명 수급 하향 — 무한 모드 레벨 미산입
     if (starGain>0){
       DB.star.pts = (DB.star.pts||0) + starGain;
       toast('운명 포인트 +'+starGain+'P');
@@ -10576,6 +10578,7 @@ import { FX } from "./fx.js";
   function winGame(){
     state = 'win';
     if (waveModeRun) unlockAch('wave1');
+    player.winLevel = player.level; // 무한 모드에서 올린 레벨은 운명 포인트에 미산입
     const isNew = bankRun();
     const firstClear = !DB.mapCleared[selMap];
     DB.mapCleared[selMap] = true;
@@ -10634,6 +10637,7 @@ import { FX } from "./fx.js";
     e.stopPropagation(); grabFocus();
     if (state==='win'){
       endless = true;
+      toast('♾ 무한 모드 — 보상 체감 적용 (골드 -70%, 상위 장비·재료 봉인, 운명 포인트 미산입)');
       state = 'playing';
       overlay.classList.add('hidden');
       resultBox.style.display='none';
