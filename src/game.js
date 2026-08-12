@@ -453,14 +453,57 @@ import { FX } from "./fx.js";
     if (!tapInfo || e.pointerId!==tapInfo.id) return;
     const dp = Math.hypot(e.clientX-tapInfo.x, e.clientY-tapInfo.y);
     const held = performance.now()-tapInfo.t;
+    const sx0 = tapInfo.x, sy0 = tapInfo.y;
     tapInfo = null;
-    if (state!=='playing' || dp>9 || held>320 || !player) return;
+    if (state!=='playing' || !player) return;
+    // v6.68 드래그 밀치기 인터랙션: [밀쳐내기] 기믹 중, 보스 방향으로 힘껏 드래그하면 밀쳐낸다
+    if (player.gimShoveT>0 && dp>60 && held<650){
+      const bbS = player.gimShoveBoss;
+      if (bbS && bosses.includes(bbS)){
+        const dragA = Math.atan2(e.clientY-sy0, e.clientX-sx0);
+        const toB = Math.atan2(bbS.y-player.y, bbS.x-player.x);
+        let dA = dragA - toB;
+        while (dA>Math.PI) dA -= Math.PI*2;
+        while (dA<-Math.PI) dA += Math.PI*2;
+        if (Math.abs(dA) < 0.7){
+          player.gimShoveT = 0; player.gimShoveBoss = null;
+          bbS.x += Math.cos(toB)*150; bbS.y += Math.sin(toB)*150;
+          bbS.hp -= bbS.maxHp*0.05;
+          addDmgNum(bbS.x, bbS.y, bbS.maxHp*0.05, true);
+          addTextNum(bbS.x, bbS.y-bbS.r-16, '밀쳐냈다!');
+          effects.push({ type:'ring', x:bbS.x, y:bbS.y, life:0.4, age:0, r0:bbS.r*0.5, r1:bbS.r*2, col:'#e2823f' });
+          refreshBossBar();
+          if (bbS.hp<=0){ const bi=bosses.indexOf(bbS); if (bi>=0) defeatBoss(bi); }
+          SFX.play('boom');
+          return;
+        }
+      }
+    }
+    if (dp>9 || held>320) return;
     const rect = c.getBoundingClientRect();
     const wx = (e.clientX-rect.left)*(W/rect.width) - W/2 + player.x;
     const wy = (e.clientY-rect.top)*(H/rect.height) - H/2 + player.y;
     // 관문 QTE 오브젝트 우선: 탭하면 즉시 해제/발동
     for (let i=gateObjs.length-1;i>=0;i--){
       const o = gateObjs[i];
+      // v6.68 리듬 인터랙션: 수축하는 링이 코어에 닿는 순간에 맞춰 탭 — 이르면 실패
+      if (o.kind==='rhythm' && (o.x-wx)**2+(o.y-wy)**2 < (o.r+40)**2){
+        gateObjs.splice(i,1);
+        if (o.t <= (o.window||0.45)){ if (o.onTap) o.onTap(); SFX.play('quest'); }
+        else { addTextNum(o.x, o.y-o.r-8, '너무 이르다!'); if (o.onFail) o.onFail(); SFX.play('warn'); }
+        return;
+      }
+      // v6.68 진짜 찾기(find) 인터랙션: 미세하게 빛나는 진짜를 간파하라 — 허상을 고르면 반격
+      if (o.kind==='find' && (o.x-wx)**2+(o.y-wy)**2 < (o.r+34)**2){
+        const wasReal = !!o.real;
+        const cbT = o.onTap, cbW = o.onWrong;
+        for (let k2=gateObjs.length-1;k2>=0;k2--){
+          if (gateObjs[k2].kind==='find' && gateObjs[k2].grp===o.grp) gateObjs.splice(k2,1);
+        }
+        if (wasReal){ if (cbT) cbT(); SFX.play('quest'); }
+        else { if (cbW) cbW(); SFX.play('warn'); }
+        return;
+      }
       // v6.67 순서(seq) 인터랙션: ①→②→③ 순서대로 탭 — 틀리면 봉인이 뒤틀린다
       if (o.kind==='seq' && (o.x-wx)**2+(o.y-wy)**2 < (o.r+34)**2){
         const grpObjs = gateObjs.filter(g2=>g2.kind==='seq' && g2.grp===o.grp);
@@ -5638,7 +5681,12 @@ import { FX } from "./fx.js";
   }
   function addTextNum(x, y, text){
     if (dmgNums.length > 80) dmgNums.shift();
-    dmgNums.push({ x, y:y-6, vy:-40, life:0.9, age:0, text, crit:false, label:true });
+    // v6.68 겹침 분산: 근처에 살아있는 라벨이 있으면 위로 밀어 세로 쌓임을 줄인다 (모바일 가독)
+    let stack = 0;
+    for (const n of dmgNums){
+      if (n.label && n.age < 0.45 && Math.abs(n.x-x) < 90 && Math.abs(n.y-(y-6)) < 34) stack++;
+    }
+    dmgNums.push({ x, y:y-6-stack*15, vy:-40, life:0.9, age:0, text, crit:false, label:true });
   }
 
   function gainGold(v){
@@ -6521,7 +6569,7 @@ import { FX } from "./fx.js";
           refreshBossBar();
           if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); }
         },
-        onFail:()=>{ for (let k=0;k<12;k++){ const a3=(Math.PI*2/12)*k; hostileShot(b.x, b.y, a3, 190, 6, 20*ds2, 2.4); } addTextNum(player.x, player.y-40, '파훼 실패 — 반격!'); } });
+        onFail:()=>{ for (let k=0;k<12;k++){ const a3=(Math.PI*2/12)*k; hostileShot(b.x, b.y, a3, 190, 6, 20*ds2, 2.4); } addTextNum(player.x, player.y-40, '파훼 실패 — 반격!'); gimFail(b, ds2); } });
     } else if (type==='mash'){
       showBossBanner('집중', '"...정신이 한 점으로 모인다."', '#3f7a5c');
       addGateObj({ kind:'mash', icon:'❗', x:ox, y:oy, r:30, maxT:4.5, need:5,
@@ -6533,7 +6581,7 @@ import { FX } from "./fx.js";
           refreshBossBar();
           if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); }
         },
-        onFail:()=>{ for (let k=0;k<16;k++){ const a3=(Math.PI*2/16)*k; hostileShot(b.x, b.y, a3, 170, 6, 22*ds2, 2.6); } addTextNum(player.x, player.y-40, '집중 실패 — 광역 폭발!'); } });
+        onFail:()=>{ for (let k=0;k<16;k++){ const a3=(Math.PI*2/16)*k; hostileShot(b.x, b.y, a3, 170, 6, 22*ds2, 2.6); } addTextNum(player.x, player.y-40, '집중 실패 — 광역 폭발!'); gimFail(b, ds2); } });
     } else {
       showBossBanner('최후의 계약', '"선택하라."', '#8a6a3f');
       b.gexPactDone = false;
@@ -6546,6 +6594,7 @@ import { FX } from "./fx.js";
             refreshBossBar();
             addTextNum(b.x, b.y-b.r-16, '계약 결렬 — 보스가 회복한다');
             SFX.play('warn');
+            gimFail(b, ds2);
           }
         } });
       mkPact('🗡', -95, ()=>{ b.hp -= b.maxHp*0.04; player.dmgMult *= 1.12; addTextNum(player.x, player.y-30, '🗡 공세 계약 — 피해 +12%'); refreshBossBar(); });
@@ -6588,6 +6637,7 @@ import { FX } from "./fx.js";
           if (wrongFired) return; wrongFired = true;
           for (let k2=0;k2<14;k2++){ const a3=(Math.PI*2/14)*k2; hostileShot(b.x, b.y, a3, 180, 6, 22*ds2, 2.4); }
           addTextNum(player.x, player.y-40, '봉인이 뒤틀렸다!');
+          gimFail(b, ds2);
         },
         onFail:()=>{} });
     }
@@ -6598,6 +6648,173 @@ import { FX } from "./fx.js";
     player.gimBombT = 5;
     player.gimBombBoss = b;
     SFX.play('warn');
+  }
+  function spGimMark(b, ds2){ // WoW 죽음의 낙인풍: 낙인이 찍히면 발밑이 계속 썩는다 — 멈추지 마라
+    showBossBanner('낙인', '"...발밑이 썩어간다."', '#7a4fa8');
+    player.gimMarkT = 5;
+    SFX.play('warn');
+  }
+  function spGimGravity(b, ds2){ // WoW 중력탄풍: 보스가 끌어당긴다 — 필사적으로 벗어나라
+    showBossBanner('인력', '"...이리 와."', '#6a5acd');
+    player.gimGravT = 3;
+    player.gimGravBoss = b;
+    SFX.play('warn');
+  }
+  function spGimStill(b, ds2){ // 로아 일리아칸풍 '멈춰라': 시선이 꽂히면 움직임이 곧 상처
+    showBossBanner('정지 명령', '"움직이지 마라."', '#b8362e');
+    player.gimStillT = 2.5;
+    SFX.play('warn');
+  }
+  function spGimAdds(b, ds2){ // WoW 애드 페이즈풍: 그림자를 시간 내 정화하라 — 남기면 보스가 흡수한다
+    showBossBanner('그림자 소환', '"나의 그림자들이여."', '#55486a');
+    for (let k=0;k<3;k++){
+      const a2 = (Math.PI*2/3)*k;
+      const ad = makeEnemy('swarm', b.x+Math.cos(a2)*150, b.y+Math.sin(a2)*150, false);
+      ad.spAdd = true; ad.name = '정화되지 않은 그림자';
+      ad.hp *= 8; ad.maxHp *= 8; ad.grade = 0; ad.xpValue = 0;
+      enemies.push(ad);
+    }
+    b.spAddT = 9;
+    SFX.play('warn');
+  }
+  function spGimCross(b, ds2){ // FF14 십자 장판풍: 십자를 벗어나 대각으로
+    showBossBanner('십자 포화', '"피할 곳은 모서리뿐."', '#c9403a');
+    addHazard(player.x, player.y, 52, 1.1, 22*ds2, false);
+    for (let d2=0;d2<4;d2++){
+      const a2 = d2*Math.PI/2;
+      for (let k=1;k<=5;k++) addHazard(player.x+Math.cos(a2)*k*80, player.y+Math.sin(a2)*k*80, 52, 1.1+k*0.08, 22*ds2, false);
+    }
+    SFX.play('warn');
+  }
+  function spGimSweep(b, ds2){ // FF14 회전초침풍: 부채꼴이 시계방향으로 차례로 터진다 — 함께 돌아라
+    showBossBanner('회전 초침', '"시간은 돌고 돈다."', '#5ab8c9');
+    for (let k=0;k<8;k++){
+      const a2 = (Math.PI*2/8)*k;
+      for (let r2=1;r2<=2;r2++) addHazard(b.x+Math.cos(a2)*r2*95, b.y+Math.sin(a2)*r2*95, 56, 0.8+k*0.35, 24*ds2, false);
+    }
+    SFX.play('warn');
+  }
+  function spGimDist(b, ds2){ // 로아 카양겔풍 거리 심판: 판정 순간 곁에 있으면 벌을 받는다
+    showBossBanner('심판 — 거리', '"내 곁은 지옥이다."', '#8a6a3f');
+    b.spDistT = 2.5;
+    SFX.play('warn');
+  }
+  function spGimAltar(b, ds2){ // 디아블로풍 피의 제단: 내 피를 바쳐 적의 격을 꺾는다 (선택)
+    showBossBanner('피의 제단', '"바칠 것인가."', '#c9403a');
+    const a2 = Math.random()*Math.PI*2;
+    addGateObj({ kind:'pick', icon:'🩸', x:player.x+Math.cos(a2)*200, y:player.y+Math.sin(a2)*200, r:24, maxT:5,
+      onPick:()=>{
+        const cost = Math.round(player.maxHp*0.2);
+        player.hp = Math.max(1, player.hp - cost);
+        b.hp -= b.maxHp*0.12;
+        addDmgNum(b.x, b.y, b.maxHp*0.12, true);
+        addTextNum(player.x, player.y-30, '-'+cost+' 피의 대가');
+        refreshBossBar();
+        if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); }
+      },
+      onFail:()=>{} });
+    SFX.play('warn');
+  }
+  function spGimThunder(b, ds2){ // WoW 유도 낙뢰풍: 내 자리에 떨어진다 — 보스 곁으로 유도해 같이 맞혀라
+    showBossBanner('천벌', '"하늘이 겨눈다."', '#e0b73d');
+    b.spThunN = 3; b.spThunT = 1.2;
+    SFX.play('warn');
+  }
+  function spGimGaze(b, ds2){ // 시선 사격풍: 조준선이 그어진다 — 조준이 끝나기 전에 측면으로
+    showBossBanner('응시', '"보고 있다."', '#9a6fc4');
+    b.spGazeT = 1.2;
+    b.spGazeA = Math.atan2(player.y-b.y, player.x-b.x);
+    SFX.play('warn');
+  }
+  function spGimRSeq(b, ds2){ // 역순의 인장: 끝 번호부터 — 순서 감각을 뒤집는다
+    showBossBanner('역순의 인장', '"끝에서부터."', '#8a6a3f');
+    const grp = 'rs'+Math.floor(performance.now());
+    let wrongFired = false;
+    for (let k=0;k<3;k++){
+      const a2 = Math.random()*Math.PI*2;
+      addGateObj({ kind:'seq', grp, seq:3-k, icon:['①','②','③'][k],
+        x:player.x+Math.cos(a2)*(120+k*60), y:player.y+Math.sin(a2)*(120+k*60), r:24, maxT:8,
+        onTap:()=>{ b.hp -= b.maxHp*0.07; addDmgNum(b.x, b.y, b.maxHp*0.07, true); addTextNum(b.x, b.y-b.r-16, '역봉인 파훼!'); refreshBossBar(); if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); } },
+        onWrong:()=>{ if (wrongFired) return; wrongFired = true; for (let k2=0;k2<14;k2++){ const a3=(Math.PI*2/14)*k2; hostileShot(b.x, b.y, a3, 180, 6, 22*ds2, 2.4); } addTextNum(player.x, player.y-40, '봉인이 뒤틀렸다!'); gimFail(b, ds2); },
+        onFail:()=>{} });
+    }
+    SFX.play('warn');
+  }
+  function spGimDefuse(b, ds2){ // 폭탄 해체풍: 두 곳의 폭탄을 시간 내 전부 — 동선 설계
+    showBossBanner('이중 폭탄', '"어느 쪽부터?"', '#b8362e');
+    let left = 2, failed = false;
+    for (let k=0;k<2;k++){
+      const a2 = Math.random()*Math.PI + k*Math.PI;
+      addGateObj({ kind:'qte', icon:'💣', x:player.x+Math.cos(a2)*190, y:player.y+Math.sin(a2)*190, r:22, maxT:5,
+        onTap:()=>{ left--; if (left===0){ b.hp -= b.maxHp*0.06; addDmgNum(b.x, b.y, b.maxHp*0.06, true); addTextNum(player.x, player.y-30, '해체 완료!'); refreshBossBar(); if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); } } },
+        onFail:()=>{ if (failed) return; failed = true; for (let k2=0;k2<18;k2++){ const a3=(Math.PI*2/18)*k2; hostileShot(player.x, player.y, a3, 190, 6, 24*ds2, 2.2); } addTextNum(player.x, player.y-40, '폭탄이 터졌다!'); gimFail(b, ds2); } });
+    }
+    SFX.play('warn');
+  }
+  function spGimRhythm(b, ds2){ // 리듬 탭풍: 링이 닿는 정박에 맞춰
+    showBossBanner('박자', '"...하나, 둘."', '#c9895a');
+    const a2 = Math.random()*Math.PI*2;
+    addGateObj({ kind:'rhythm', icon:'♪', x:player.x+Math.cos(a2)*160, y:player.y+Math.sin(a2)*160, r:22, maxT:2.4, window:0.45,
+      onTap:()=>{ b.hp -= b.maxHp*0.07; addDmgNum(b.x, b.y, b.maxHp*0.07, true); addTextNum(player.x, player.y-30, '퍼펙트!'); refreshBossBar(); if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); } },
+      onFail:()=>{ for (let k2=0;k2<10;k2++){ const a3=(Math.PI*2/10)*k2; hostileShot(b.x, b.y, a3, 175, 6, 20*ds2, 2.2); } gimFail(b, ds2); } });
+    SFX.play('warn');
+  }
+  function spGimFind(b, ds2){ // 로아 아브렐풍 진짜 찾기: 미세한 금빛 맥동이 단서
+    showBossBanner('허상', '"어느 쪽이 진짜인가."', '#55486a');
+    const grp = 'fd'+Math.floor(performance.now());
+    const realIdx = (Math.random()*3)|0;
+    for (let k=0;k<3;k++){
+      const a2 = (Math.PI*2/3)*k + Math.random()*0.4;
+      addGateObj({ kind:'find', grp, real:k===realIdx, icon:'👁',
+        x:player.x+Math.cos(a2)*180, y:player.y+Math.sin(a2)*180, r:22, maxT:6,
+        onTap:()=>{ b.hp -= b.maxHp*0.07; addDmgNum(b.x, b.y, b.maxHp*0.07, true); addTextNum(player.x, player.y-30, '간파!'); refreshBossBar(); if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); } },
+        onWrong:()=>{ for (let k2=0;k2<12;k2++){ const a3=(Math.PI*2/12)*k2; hostileShot(b.x, b.y, a3, 180, 6, 22*ds2, 2.4); } addTextNum(player.x, player.y-40, '허상이었다!'); gimFail(b, ds2); },
+        onFail:()=>{} });
+    }
+    SFX.play('warn');
+  }
+  function spGimShove(b, ds2){ // 드래그 밀치기풍: 힘 대 힘 — 보스 쪽으로 화면을 힘껏 그어라
+    showBossBanner('힘겨루기', '"밀리지 마라."', '#e2823f');
+    player.gimShoveT = 4;
+    player.gimShoveBoss = b;
+    SFX.play('warn');
+  }
+  // v6.68 스페셜 기믹 풀(18종) — 전투당 2회(100초/140초), 같은 것 반복 없음. 풀은 계속 확장한다
+  function runSpecialGim(b, ds2){
+    const pool = ['dark','seq','bomb','mark','grav','still','adds','cross','sweep','dist','altar','thunder','gaze','rseq','defuse','rhythm','find','shove']
+      .filter(k=>!(b.spUsed||[]).includes(k));
+    const pick = pool[(Math.random()*pool.length)|0];
+    (b.spUsed = b.spUsed||[]).push(pick);
+    if (pick==='dark') spGimDarkness(b, ds2);
+    else if (pick==='seq') spGimSeq(b, ds2);
+    else if (pick==='bomb') spGimBomb(b, ds2);
+    else if (pick==='mark') spGimMark(b, ds2);
+    else if (pick==='grav') spGimGravity(b, ds2);
+    else if (pick==='still') spGimStill(b, ds2);
+    else if (pick==='adds') spGimAdds(b, ds2);
+    else if (pick==='cross') spGimCross(b, ds2);
+    else if (pick==='sweep') spGimSweep(b, ds2);
+    else if (pick==='dist') spGimDist(b, ds2);
+    else if (pick==='altar') spGimAltar(b, ds2);
+    else if (pick==='thunder') spGimThunder(b, ds2);
+    else if (pick==='gaze') spGimGaze(b, ds2);
+    else if (pick==='rseq') spGimRSeq(b, ds2);
+    else if (pick==='defuse') spGimDefuse(b, ds2);
+    else if (pick==='rhythm') spGimRhythm(b, ds2);
+    else if (pick==='find') spGimFind(b, ds2);
+    else spGimShove(b, ds2);
+  }
+  // v6.68 기믹 실패 스택제: 단발 실패는 용서하되, 3회 쌓이면 '한계'가 온다
+  function gimFail(b, ds2){
+    b.gimFailN = (b.gimFailN||0)+1;
+    if (b.gimFailN>=3 && !b.gimLimitFired){
+      b.gimLimitFired = true;
+      showBossBanner('한계', '"세 번이나 놓쳤다."', '#b8362e');
+      for (let k=0;k<36;k++){ const a3=(Math.PI*2/36)*k; hostileShot(b.x, b.y, a3, 165, 7, 30*ds2, 3.4); }
+      b.dmg = Math.round(b.dmg*1.25);
+      shake = Math.min(22, shake+12);
+      SFX.play('boom');
+    }
   }
   function tickGateCore(b, dt){
     const ds2 = dmgScale();
@@ -6632,14 +6849,74 @@ import { FX } from "./fx.js";
       if (frac2<=0.75 && !b.gexDone.a){ b.gexDone.a = true; gateHpEvent(b, 'hold', ds2); }
       if (frac2<=0.5  && !b.gexDone.b){ b.gexDone.b = true; gateHpEvent(b, 'mash', ds2); }
       if (frac2<=0.25 && !b.gexDone.c){ b.gexDone.c = true; gateHpEvent(b, 'choice', ds2); }
-      // v6.67 스페셜 기믹 (타 게임 오마주): 100초 시점 1회 — 암전 세이프존 / 봉인 순서 / 시한폭탄
-      if ((b.aliveT||0) > 100 && !b.spGimDone){
-        b.spGimDone = true;
-        const roll2 = Math.random();
-        if (roll2 < 0.34) spGimDarkness(b, ds2);
-        else if (roll2 < 0.67) spGimSeq(b, ds2);
-        else spGimBomb(b, ds2);
+      // v6.68 공통 압박 탄막: 페이즈가 깊어질수록 조준 부채살 + 링 탄막이 거세진다 (전 본보스 난이도 상향)
+      b.gcPressT = (b.gcPressT===undefined?5:b.gcPressT) - dt;
+      if (b.gcPressT<=0){
+        const frac3 = b.hp/(b.maxHp||1);
+        const tier = frac3<0.33?3 : frac3<0.66?2 : 1;
+        const aim3 = Math.atan2(player.y-b.y, player.x-b.x);
+        for (let k=-tier;k<=tier;k++) hostileShot(b.x, b.y, aim3+k*0.14, 250+tier*15, 6, 16*ds2, 2.4);
+        if (tier>=2){
+          const nR = 8+tier*4;
+          for (let k=0;k<nR;k++){ const a4=(Math.PI*2/nR)*k + Math.random()*0.2; hostileShot(b.x, b.y, a4, 150+tier*12, 6, 14*ds2, 3); }
+        }
+        b.gcPressT = 6.5 - tier*1.2;
       }
+      // v6.68 그림자 정화 판정: 시간 내 전멸 = 보스 5% 삭제 / 실패 = 보스가 그림자를 흡수해 8% 회복
+      if (b.spAddT>0){
+        b.spAddT -= dt;
+        const alive2 = enemies.some(e2=>e2.spAdd);
+        if (!alive2){
+          b.spAddT = 0;
+          b.hp -= b.maxHp*0.05;
+          addDmgNum(b.x, b.y, b.maxHp*0.05, true);
+          addTextNum(b.x, b.y-b.r-16, '정화 완료!');
+          refreshBossBar();
+        } else if (b.spAddT<=0){
+          b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.08);
+          addTextNum(b.x, b.y-b.r-16, '그림자를 흡수했다...');
+          refreshBossBar();
+          gimFail(b, ds2);
+        }
+      }
+      // v6.68 거리 심판 판정
+      if (b.spDistT>0){
+        b.spDistT -= dt;
+        if (b.spDistT<=0){
+          if (Math.hypot(player.x-b.x, player.y-b.y) < 240){
+            addTextNum(player.x, player.y-40, '심판 — 너무 가까웠다!');
+            playerHit(35*ds2, 0.5, 12);
+          } else addTextNum(player.x, player.y-40, '심판 회피!');
+        }
+      }
+      // v6.68 천벌 3연: 내 자리에 낙뢰 — 보스 곁이면 보스도 같이 맞는다
+      if (b.spThunN>0){
+        b.spThunT -= dt;
+        if (b.spThunT<=0){
+          b.spThunN--; b.spThunT = 1.4;
+          addHazard(player.x, player.y, 70, 0.8, 26*ds2, false);
+          effects.push({ type:'bolt', x:player.x, y:player.y, life:0.22, age:0 });
+          if (Math.hypot(player.x-b.x, player.y-b.y) < 160){
+            b.hp -= b.maxHp*0.04;
+            addDmgNum(b.x, b.y, b.maxHp*0.04, true);
+            addTextNum(b.x, b.y-b.r-16, '같이 맞았다!');
+            refreshBossBar();
+            if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); return; }
+          }
+          SFX.play('warn');
+        }
+      }
+      // v6.68 응시 발사: 조준선이 사라지는 순간 관통 5연
+      if (b.spGazeT>0){
+        b.spGazeT -= dt;
+        if (b.spGazeT<=0){
+          for (let k=0;k<5;k++) hostileShot(b.x, b.y, b.spGazeA + (Math.random()-0.5)*0.05, 420+k*30, 7, 26*ds2, 1.6);
+          SFX.play('sweep');
+        }
+      }
+      // v6.68 스페셜 기믹 (타 게임 오마주 18종 로테이션): 100초 / 140초 — 전투당 2회, 반복 없음
+      if ((b.aliveT||0) > 100 && !b.spGimDone){ b.spGimDone = true; runSpecialGim(b, ds2); }
+      if ((b.aliveT||0) > 140 && !b.spGim2Done){ b.spGim2Done = true; runSpecialGim(b, ds2); }
       // v6.67 광폭화 (180초 — 150초에 사전 경고): 시간을 끌면 사실상 못 깨는 수준으로 강화 + 체력 10% 회복
       if ((b.aliveT||0) > 150 && !b.frenzyWarn){
         b.frenzyWarn = true;
@@ -6770,6 +7047,22 @@ import { FX } from "./fx.js";
       ctx.setLineDash(o.kind==='qte'||o.kind==='mash' ? [5,4] : []);
       ctx.beginPath(); ctx.arc(0,0,o.r*pulse,0,Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
+      // v6.68 리듬: 수축하는 가이드 링 — 코어에 닿는 순간이 정박
+      if (o.kind==='rhythm'){
+        const gr = o.r + (o.t/o.maxT)*46;
+        const inWin = o.t <= (o.window||0.45);
+        ctx.strokeStyle = inWin ? '#3f7a5c' : 'rgba(226,178,63,0.7)';
+        ctx.lineWidth = inWin ? 3 : 1.6;
+        ctx.beginPath(); ctx.arc(0,0,gr,0,Math.PI*2); ctx.stroke();
+      }
+      // v6.68 진짜 찾기: 진짜에만 흐르는 미세한 금빛 맥동 — 단서는 시각뿐
+      if (o.kind==='find' && o.real){
+        ctx.globalAlpha = 0.25 + 0.15*Math.sin(performance.now()/210);
+        ctx.strokeStyle = '#e8c56a';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(0,0,o.r*0.6,0,Math.PI*2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       // v6.67 홀드: 채널링 게이지 (초록 내부 원판이 차오른다)
       if (o.kind==='hold'){
         const hf = Math.min(1, (o.held||0)/(o.holdNeed||1.2));
@@ -10457,6 +10750,42 @@ import { FX } from "./fx.js";
     if (player.recoilX){ player.recoilX *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilX)<0.1) player.recoilX=0; }
     if (player.swingT>0) player.swingT -= dt;
     if (player.dashCritT>0) player.dashCritT -= dt; // v6.52 거합 확정 치명 창
+    // v6.68 낙인: 찍혀 있는 동안 발밑이 계속 썩는다 — 멈추면 그대로 맞는다
+    if (player.gimMarkT>0){
+      player.gimMarkT -= dt;
+      player.__markHz = (player.__markHz||0) - dt;
+      if (player.__markHz<=0){
+        addHazard(player.x, player.y, 48, 0.8, 20*dmgScale(), false);
+        player.__markHz = 0.55;
+      }
+    }
+    // v6.68 인력: 보스가 끌어당긴다 — 이동으로 저항하라
+    if (player.gimGravT>0){
+      player.gimGravT -= dt;
+      const gb3 = player.gimGravBoss;
+      if (gb3 && bosses.includes(gb3)){
+        const gd3 = Math.hypot(gb3.x-player.x, gb3.y-player.y) || 1;
+        player.x += (gb3.x-player.x)/gd3 * 135*dt;
+        player.y += (gb3.y-player.y)/gd3 * 135*dt;
+      } else player.gimGravT = 0;
+      if (player.gimGravT<=0) player.gimGravBoss = null;
+    }
+    // v6.68 정지 명령: 시선이 꽂힌 동안 움직이면 다친다
+    if (player.gimStillT>0){
+      player.gimStillT -= dt;
+      const movingNow = Math.hypot(player.vx||0, player.vy||0) > 25 || player.dashTime>0;
+      player.__stillHitT = (player.__stillHitT||0) - dt;
+      if (movingNow && player.__stillHitT<=0){
+        player.__stillHitT = 0.4;
+        addTextNum(player.x, player.y-40, '"움직였군."');
+        if (playerHit(10*dmgScale(), 0.15, 6)) return;
+      }
+    }
+    // v6.68 힘겨루기: 시간 내 보스 방향 드래그 필요 (미수행 시 자연 소멸)
+    if (player.gimShoveT>0){
+      player.gimShoveT -= dt;
+      if (player.gimShoveT<=0) player.gimShoveBoss = null;
+    }
     // v6.67 시한폭탄 기믹: 보스 곁에서 터뜨리면 되돌려주고, 멀리서 터지면 내가 다친다
     if (player.gimBombT>0){
       player.gimBombT -= dt;
@@ -13442,6 +13771,15 @@ import { FX } from "./fx.js";
       ctx.lineTo(player.x-5, player.y-3);
       ctx.closePath(); ctx.fill();
     }
+    // v6.68 힘겨루기 마커: 보스 쪽으로 화면을 그어라
+    if (player.gimShoveT>0){
+      ctx.save();
+      ctx.fillStyle = '#e2823f';
+      ctx.font = "800 12px 'IBM Plex Sans KR', sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('✋⇢ '+player.gimShoveT.toFixed(1), player.x, player.y-58);
+      ctx.restore();
+    }
     // v6.67 시한폭탄 카운트다운 마커
     if (player.gimBombT>0){
       ctx.save();
@@ -14154,6 +14492,9 @@ import { FX } from "./fx.js";
         effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:b.r*0.6, r1:b.r*3, col:ac0 });
         effects.push({ type:'rays', x:b.x, y:b.y, life:0.5, age:0, col:ac0 });
         shake = Math.min(14, shake+6);
+        // v6.68 페이즈 전환 연출 컷: 짧은 정지 + 암전 — "국면이 바뀐다"
+        freeze = Math.max(freeze, 0.5);
+        screenDimT = Math.max(screenDimT, 0.6);
       }
       b._pipPrev = pipN;
       // 빈사(25% 미만): 붉은 균열 파편
@@ -14180,23 +14521,7 @@ import { FX } from "./fx.js";
         freeze = Math.max(freeze, 0.22);
       }
     }
-    // 시그니처 악센트 외곽 링: 평시 은은, 분노 시 붉게 맥동
-    if (!b.ghost){
-      const ac = BOSS_ACCENTS[b.key] || '#b8362e';
-      ctx.save();
-      if (b.enraged){
-        const ep = 0.45 + 0.3*Math.sin(performance.now()/110);
-        ctx.strokeStyle = '#c9403a';
-        ctx.globalAlpha = ep;
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.r+7+Math.sin(performance.now()/110)*2, 0, Math.PI*2); ctx.stroke();
-      }
-      ctx.strokeStyle = ac;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r+4, 0, Math.PI*2); ctx.stroke();
-      ctx.restore();
-    }
+    // v6.68 오라 정리: 몸 주위 이중 링 제거 — 바닥 그라운드 링(후단)과 분노 펄스만 남겨 위엄을 살린다
 
     // 돌진 텔레그래프
     if ((b.kind==='charger'||b.kind==='root') && b.chargeState==='telegraph'){
@@ -14675,6 +15000,24 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(b.x,b.y,(b.flR||70)+16,0,Math.PI*2); ctx.stroke();
         ctx.restore();
       }
+    }
+    // v6.68 거리 심판: 붉은 위험 반경 — 판정 순간 안에 있으면 벌
+    if (b.spDistT>0 && !b.ghost){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(184,54,46,'+(0.35+0.25*Math.sin(performance.now()/90)).toFixed(2)+')';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 240, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+    // v6.68 응시: 점선 조준선 — 사라지기 전에 측면으로
+    if (b.spGazeT>0 && !b.ghost){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(154,111,196,0.65)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8,6]);
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x+Math.cos(b.spGazeA)*900, b.y+Math.sin(b.spGazeA)*900); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
     }
     // v6.65 거울 위병: 플레이어를 향한 거울 패널 — 반사 자세 중 빛난다
     if (b.kind==='gkmirror' && !b.ghost){
@@ -15710,7 +16053,11 @@ import { FX } from "./fx.js";
       const tt = 1 - n.age/n.life;
       ctx.globalAlpha = Math.min(1, tt*1.6);
       if (n.label){
+        // v6.68 가독성: 배경·오라 위에서도 읽히게 헤일로 스트로크
         ctx.font = "700 12px 'IBM Plex Sans KR', sans-serif";
+        ctx.strokeStyle = MAP.key==='abyss' ? 'rgba(18,19,22,0.85)' : 'rgba(246,246,244,0.9)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(n.text, n.x, n.y);
         ctx.fillStyle = PAL.ink;
       } else if (n.crit){
         ctx.font = "700 14px 'IBM Plex Mono', monospace";
