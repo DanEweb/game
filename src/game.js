@@ -1726,6 +1726,41 @@ import { FX } from "./fx.js";
           stonks:{n:'가즈아',d:'골드가 곧 화력 (황금 혈맥) + 골드 +20%',f:(p)=>{p.goldPower=true;p.goldMult*=1.2;}},
           gymbro:{n:'무한 벌크업',d:'최대체력 +20%, 피해 +12%, 몸집 +10%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.2);p.hp=p.maxHp;p.dmgMult*=1.12;p.r*=1.1;}},
         };
+        // 시그니처 2호 (갈래 1): 32직업 고유 효과 — 갈래 1 키스톤도 직업마다 완전히 다르다
+        const SIGKEY2 = {
+          rusher:{d:'돌진 경로에 화상 (반사 +50%, 피해 +6%)',f:(p)=>{p.thorns=(p.thorns||0)+0.5;p.dmgMult*=1.06;}},
+          paladin:{d:'수호 성역 (받는 피해 -10%, 회복 +20%)',f:(p)=>{p.dmgTaken*=0.9;p.healMult*=1.2;}},
+          cheol:{d:'철벽 요새 (최대체력 +18%, 반사 +40%)',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.18);p.hp=p.maxHp;p.thorns=(p.thorns||0)+0.4;}},
+          exhero:{d:'노장의 관록 (받는 피해 -8%, 피해 +8%)',f:(p)=>{p.dmgTaken*=0.92;p.dmgMult*=1.08;}},
+          madman:{d:'고통 흡수 (흡혈 +2, 받는 피해 +5%)',f:(p)=>{p.lifesteal+=2;p.dmgTaken*=1.05;}},
+          monk:{d:'호신강기 (받는 피해 -8%, 반사 +40%)',f:(p)=>{p.dmgTaken*=0.92;p.thorns=(p.thorns||0)+0.4;}},
+          archer:{d:'이중 관통 (관통 +2)',f:(p)=>{p.pierce+=2;}},
+          sniper:{d:'철갑 관통탄 (관통 +1, 피해 +10%)',f:(p)=>{p.pierce+=1;p.dmgMult*=1.1;}},
+          pilot:{d:'레일건 코일 (관통 +1, 공속 +8%)',f:(p)=>{p.pierce+=1;p.rateMult*=1.08;}},
+          manager:{d:'권한 남용 (원소 발동 +10%p)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.10;}},
+          voidc:{d:'공허 침식 (원소 발동 +8%p, 피해 +8%)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.08;p.dmgMult*=1.08;}},
+          commander:{d:'집중 포화 명령 (위성·소환 피해 +25%)',f:(p)=>{p.satDmg=(p.satDmg||1)*1.25;}},
+          ninja:{d:'급소 표창 (치명 +10%, 처형 +4%p)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.10);p.execThresh=Math.min(0.55,(p.execThresh||0)+0.04);}},
+          reaper:{d:'명부 소환장 (처형 +8%p, 피해 +6%)',f:(p)=>{p.execThresh=Math.min(0.6,(p.execThresh||0)+0.08);p.dmgMult*=1.06;}},
+          glitch:{d:'널 포인터 (치명 배율 +0.6)',f:(p)=>{p.critMult+=0.6;}},
+          blackcat:{d:'재앙의 발톱 (치명 +8%, 회피 +6%)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.08);p.dodge=Math.min(0.75,p.dodge+0.06);}},
+          shadow:{d:'그림자 잠행 (회피 +8%, 치명 배율 +0.3)',f:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.08);p.critMult+=0.3;}},
+          tombraider:{d:'파라오의 금고 (행운 +20%, 골드 +15%)',f:(p)=>{p.luck*=1.2;p.goldMult*=1.15;}},
+          mumyeong:{d:'형태 없는 방어 (회피 +8%, 받는 피해 -6%)',f:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.08);p.dmgTaken*=0.94;}},
+          necro:{d:'불사의 성소 (재생 +1, 소환 피해 +12%)',f:(p)=>{p.regen+=1;p.satDmg=(p.satDmg||1)*1.12;}},
+          bard:{d:'생명의 합창 (회복 +30%, 재생 +0.6)',f:(p)=>{p.healMult*=1.3;p.regen+=0.6;}},
+          returner:{d:'생환의 법칙 (최대체력 +12%, 회복 +15%)',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.12);p.hp=Math.min(p.maxHp,p.hp+20);p.healMult*=1.15;}},
+          engineer:{d:'무인 공장 (위성 피해 +18%, 쿨 -6%)',f:(p)=>{p.satDmg=(p.satDmg||1)*1.18;p.cdr*=0.94;}},
+          debug:{d:'런타임 조작 (쿨 -10%, 행운 +10%)',f:(p)=>{p.cdr*=0.9;p.luck*=1.1;}},
+          tourist:{d:'만국 컬렉션 (수집 +70, 골드 +12%)',f:(p)=>{p.magnet+=70;p.goldMult*=1.12;}},
+          slime:{d:'산성 점막 (반사 +50%, 재생 +0.8)',f:(p)=>{p.thorns=(p.thorns||0)+0.5;p.regen+=0.8;}},
+          gambler:{d:'더블 오어 낫싱 (행운 +30%, 치명 배율 +0.4)',f:(p)=>{p.luck*=1.3;p.critMult+=0.4;}},
+          collector:{d:'위작 감별 (행운 +25%, 수집 +40)',f:(p)=>{p.luck*=1.25;p.magnet+=40;}},
+          contributor:{d:'LGTM 연타 (골드 +12%, 쿨 -6%)',f:(p)=>{p.goldMult*=1.12;p.cdr*=0.94;}},
+          baeksu:{d:'무소유의 경지 (회피 +8%, 경험치 +10%)',f:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.08);p.xpMult=(p.xpMult||1)*1.1;}},
+          stonks:{d:'다이아몬드 핸드 (골드 +25%, 받는 피해 -5%)',f:(p)=>{p.goldMult*=1.25;p.dmgTaken*=0.95;}},
+          gymbro:{d:'3대 500 완성 (피해 +10%, 최대체력 +10%)',f:(p)=>{p.dmgMult*=1.1;p.maxHp=Math.round(p.maxHp*1.1);p.hp=p.maxHp;}},
+        };
         const web = WEB[brKey]||[];
         web.forEach((wb, wi)=>{
           const wa = a2 + (wi-1)*0.085;
@@ -1735,9 +1770,10 @@ import { FX } from "./fx.js";
           add(w0, Math.cos(wa)*wr0, Math.sin(wa)*wr0, 'small', br2.small.n, br2.small.d, br2.small.ap, ['cs_'+ck+'_n'], br2.color);
           add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', skin.sn||wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.sf }); }, [w0], br2.color);
-          const sig = wi===0 ? SIGKEY[ck] : null;
+          const sig = wi===0 ? SIGKEY[ck] : (wi===1 ? SIGKEY2[ck] : null);
+          const sigName = sig ? (sig.n || skin.kn || wb.kn) : (skin.kn||wb.kn);
           add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key',
-              sig ? sig.n : (skin.kn||wb.kn),
+              sigName,
               sig ? '[시그니처 키스톤 — 이 직업만의 극의] '+sig.d+' · 심화(2차 전직): 추가 강화' : wb.kd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:(sig?sig.f:wb.kf), deep:wb.df }); }, ['csw_'+ck+'_'+wi+'_1'], sig ? '#e8c56a' : '#e8e8e6');
         });
@@ -4650,9 +4686,10 @@ import { FX } from "./fx.js";
     let tpts = 0; for (const k in player.tech) tpts += player.tech[k];
     pw += Math.max(0, tpts - 5) * 0.022;                          // 테크를 찍을수록
     if (ownedWeapon('nameless')) pw += growthEffLv() * 0.012;     // 성장무기가 깨어날수록
-    pw += starSpent() * 0.004;                                    // 성도를 찍을수록 (메타 파워도 세상이 반응)
+    pw += starSpent() * 0.006;                                    // 성도를 찍을수록 (승천 웹·시그니처 시대에 맞춰 반응 강화)
     pw += player.equipPower || 0;                                 // 장비를 갖출수록 (희귀도·강화 반영)
-    return 1 + Math.min(2.0, pw);                                 // 최대 +200%
+    pw += (player.csEvo||0) * 0.03 + ((player.ascTaken&&player.ascTaken.reduce((s,v)=>s+v,0))||0) * 0.015; // 성단 진화·승천반 투자도 세상이 지켜본다
+    return 1 + Math.min(2.3, pw);                                 // 최대 +230% — 운명이 커질수록 세상도 커진다
   }
   // v6.13 난이도 재상향: 웨이브 3부터는 무빙·기믹 없이는 절대 못 버틴다 (자동사냥 사형선고)
   function hpScale(){ return (1 + elapsed*0.027 + Math.pow(Math.max(0,elapsed-240)*0.0070,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
@@ -10503,8 +10540,9 @@ import { FX } from "./fx.js";
     const firstClear = !DB.mapCleared[selMap];
     DB.mapCleared[selMap] = true;
     unlockAch('clear_'+selMap);
-    DB.star.pts = (DB.star.pts||0) + 3;
-    toast('클리어 보너스: 운명 포인트 +3P');
+    const clearP = 3 + Math.floor((DB.peril||0)/5); // 고위험 클리어일수록 별이 쏟아진다 (방대해진 성도 대응)
+    DB.star.pts = (DB.star.pts||0) + clearP;
+    toast('클리어 보너스: 운명 포인트 +'+clearP+'P'+(clearP>3?' (위험도 보정)':''));
     // 대장장이 최종 시험: 위험도 15+ 완주 → 무명검
     if (DB.gwq && DB.gwq.stage===2 && (DB.peril||0)>=15 && !DB.growth.found){
       DB.gwq.stage = 3;
