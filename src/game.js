@@ -1091,6 +1091,48 @@ import { FX } from "./fx.js";
       emp.textContent = '보유 장비가 없습니다. 보스와 엘리트를 처치해 장비를 모으세요.';
       invList.appendChild(emp);
     }
+    // 하급 장비 일괄 처리: 창고 청소 + 골드/검 성장 회수
+    {
+      const junk = DB.inv.filter(i=>!allEquippedIds().has(i.id) && (i.r||0)<=1 && !i.unique && !i.set && i.slot!=='relic');
+      if (junk.length>=2){
+        const bulkRow = document.createElement('div');
+        bulkRow.className = 'shopItem';
+        bulkRow.innerHTML = '<div class="info"><div class="nm">🧹 하급 장비 정리</div><div class="ds">일반·고급 '+junk.length+'개 (미장착) 일괄 처리</div></div>';
+        const sellAll = document.createElement('button');
+        sellAll.className = 'buy';
+        const total = junk.reduce((s,i)=>s+SELL_PRICE[i.r||0],0);
+        sellAll.textContent = '일괄 판매 +'+total+'G';
+        sellAll.addEventListener('click', ()=>{
+          DB.gold += total;
+          const ids = new Set(junk.map(i=>i.id));
+          DB.inv = DB.inv.filter(i=>!ids.has(i.id));
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          toast('🧹 '+junk.length+'개 정리 +'+total+'G'); SFX.play('coin');
+        });
+        bulkRow.appendChild(sellAll);
+        if (DB.growth.found){
+          const absAll = document.createElement('button');
+          absAll.className = 'buy sec';
+          absAll.textContent = '검에 일괄 흡수';
+          absAll.addEventListener('click', ()=>{
+            let xp = junk.reduce((s,i)=>s+SELL_PRICE[i.r||0]*2,0);
+            const ids = new Set(junk.map(i=>i.id));
+            DB.inv = DB.inv.filter(i=>!ids.has(i.id));
+            DB.growth.xp += xp;
+            while (DB.growth.xp >= 20 + DB.growth.lv*15){
+              if (GROWTH_GATE_LVS.includes(DB.growth.lv)){ toast('⚔ 격(格)의 벽 — 각성 의식 필요'); break; }
+              DB.growth.xp -= (20 + DB.growth.lv*15);
+              DB.growth.lv += 1;
+              growthTierToast(DB.growth.lv);
+            }
+            saveDB(); renderEquip();
+            toast('🗡 '+junk.length+'개를 검이 삼켰다'); SFX.play('sweep');
+          });
+          bulkRow.appendChild(absAll);
+        }
+        invList.appendChild(bulkRow);
+      }
+    }
     sorted.forEach((item)=>{
       const isEq = equippedIds.includes(item.id);
       const row = document.createElement('div');
@@ -1211,6 +1253,20 @@ import { FX } from "./fx.js";
     [
       { nm:'리롤 토큰', ds:'다음 런에서 리롤 +1 (1회용, 누적 가능)', cost:30, fx:()=>{ DB.consum.reroll+=1; } },
       { nm:'부활 보험', ds:'다음 런에서 부활 1회 (1회용)', cost:150, fx:()=>{ DB.consum.revive+=1; } },
+      // 골드 소모처: 도박 — 기대값은 언제나 하우스 편 (0.4% 유니크의 꿈)
+      { nm:'🎰 수상한 장비 상자', ds:'무엇이 들었는지 아무도 모른다 — 대부분 잡동사니, 0.4% 유니크 · 1.6% 세트', cost:400, fx:()=>{
+          const r = Math.random();
+          if (r<0.004){ addEquip(genUnique()); toast('🎰 ...유니크다!! 장비함 확인!'); SFX.play('evolve'); }
+          else if (r<0.02){ addEquip(genSetItem()); toast('🎰 세트 장비! 나쁘지 않다'); SFX.play('win'); }
+          else if (r<0.12){ addEquip(genEquip(3)); toast('🎰 쓸만한 물건'); SFX.play('chest'); }
+          else { addEquip(genEquip(0)); toast('🎰 ...잡동사니'); SFX.play('hit'); }
+        } },
+      { nm:'🎲 뒷골목 복권', ds:'60% 꽝 / 30% +300G / 9% +1000G / 1% +3000G — 수학은 하우스 편', cost:200, fx:()=>{
+          const r = Math.random();
+          const win = r<0.01?3000 : r<0.10?1000 : r<0.40?300 : 0;
+          if (win){ DB.gold += win; toast('🎲 당첨! +'+win+'G'); SFX.play('win'); }
+          else { toast('🎲 꽝. 그럴 줄 알았다.'); SFX.play('hit'); }
+        } },
     ].forEach((c)=>{
       const row = document.createElement('div');
       row.className = 'shopItem';
