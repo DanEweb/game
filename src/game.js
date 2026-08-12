@@ -8440,14 +8440,14 @@ import { FX } from "./fx.js";
   }
 
   // ---------- particles / misc ----------
-  function burst(x,y,n,spread,fxColor){
+  function burst(x,y,n,spread,fxColor,col){
     // WebGL 글로우 파티클 (Pixi 레이어) — 일반 처치도 은은하게, 큰 폭발은 화려하게
     if (n>=8) FX.burst(x, y, fxColor||0xffffff, Math.floor(n*0.6), spread||120, n>=14?0.5:0.35);
     if (particles.length > 380) return;
     for (let i=0;i<n;i++){
       const a = Math.random()*Math.PI*2;
       const s = (spread||120)*(0.4+Math.random()*0.8);
-      particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.35+Math.random()*0.25, age:0, r:1.5+Math.random()*2 });
+      particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.35+Math.random()*0.25, age:0, r:1.5+Math.random()*2, col });
     }
   }
   function nearestTarget(){
@@ -8712,12 +8712,15 @@ import { FX } from "./fx.js";
         addTextNum(t.x, t.y-22, '융해!');
         unlockAch('melt');
       }
+      if ((t.chillS>0 || t.frozenT>0)) effects.push({ type:'ring', x:t.x, y:t.y, life:0.25, age:0, r0:8, r1:44, col:COLORS.fire }); // 융해 섬광
       t.burnT = 3;
       t.burnDps = Math.max(t.burnDps||0, (player.burnDps||6) * D * (isBoss?0.5:1));
+      burst(t.x, t.y-4, 3, 90, 0xe2603f, COLORS.fire); // v6.55 발화 피드백
     } else if (elem==='frost'){
       if (isBoss) return;
       t.chillS = Math.min(3, (t.chillS||0)+1);
       t.chillT = 2.5;
+      burst(t.x, t.y-4, 2, 60, 0x7ec8e3, COLORS.frost); // 냉기 결정 파편
     } else if (elem==='volt'){
       let d = (player.shockDmg||10) * D;
       if (t.corrodeS>0) d *= 1.5;
@@ -8751,9 +8754,11 @@ import { FX } from "./fx.js";
     } else if (elem==='acid'){
       t.corrodeS = Math.min(player.corrodeMaxS, (t.corrodeS||0)+1);
       t.corrodeT = 5;
+      burst(t.x, t.y, 2, 50, 0x6faa4e, COLORS.acid); // 부식 거품
     } else if (elem==='boom'){
       const d = 15*D;
-      effects.push({ type:'ring', x:t.x, y:t.y, life:0.22, age:0, r0:8, r1:50 });
+      effects.push({ type:'ring', x:t.x, y:t.y, life:0.22, age:0, r0:8, r1:50, col:COLORS.boom });
+      burst(t.x, t.y, 4, 130, 0xe2823f, COLORS.boom);
       for (const e of enemies){
         if (e===t) continue;
         if (Math.hypot(e.x-t.x,e.y-t.y) < 50+e.r){
@@ -8811,7 +8816,7 @@ import { FX } from "./fx.js";
     if (t.burnT>0){
       t.burnT -= dt;
       t.hp -= t.burnDps*dt;
-      if (Math.random()<dt*4) particles.push({ x:t.x+(Math.random()*10-5), y:t.y-6, vx:(Math.random()-0.5)*20, vy:-40, life:0.35, age:0, r:2 });
+      if (Math.random()<dt*4) particles.push({ x:t.x+(Math.random()*10-5), y:t.y-6, vx:(Math.random()-0.5)*20, vy:-40, life:0.35, age:0, r:2, col:COLORS.fire });
       if (Math.random()<dt*1.2) addDmgNum(t.x, t.y, t.burnDps, false);
     }
     if (t.corrodeT>0){
@@ -14461,6 +14466,7 @@ import { FX } from "./fx.js";
       ctx.save();
       ctx.globalAlpha = Math.max(0,tt);
       ctx.strokeStyle = PAL.ink;
+      if (fx.col) ctx.strokeStyle = fx.col; // v6.55 속성색 이펙트
       if (fx.type==='bolt' || fx.type==='chain') ctx.strokeStyle = COLORS.volt;
       if (fx.type==='psywave') ctx.strokeStyle = COLORS.psi;
       if (fx.type==='bolt'){
@@ -14538,6 +14544,79 @@ import { FX } from "./fx.js";
     return best ? COLORS[best] : null;
   }
   let fxBulletFrame = [];
+  // v6.55 속성별 탄환 형태 — 색만이 아니라 '모양'으로 구분된다 (Canvas2D, 단일 빌드 호환)
+  const ELEM_BULLET = {
+    fire(p, pc){ // 불꽃 물방울 — 진행 방향으로 뾰족, 노란 심지가 일렁인다
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      const fl = 1 + Math.sin(performance.now()/60 + p.x)*0.18;
+      ctx.fillStyle = pc;
+      ctx.beginPath();
+      ctx.moveTo(p.r*1.9*fl, 0);
+      ctx.quadraticCurveTo(0, -p.r*1.05, -p.r*1.1, 0);
+      ctx.quadraticCurveTo(0, p.r*1.05, p.r*1.9*fl, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f6c96b';
+      ctx.beginPath(); ctx.arc(p.r*0.15, 0, p.r*0.5*fl, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    frost(p, pc){ // 육각 얼음 결정 — 천천히 회전, 흰 코어
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(performance.now()/500 + p.x*0.01);
+      ctx.fillStyle = pc;
+      ctx.beginPath();
+      for (let k=0;k<6;k++){ const a=(Math.PI/3)*k; ctx.lineTo(Math.cos(a)*p.r*1.25, Math.sin(a)*p.r*1.25); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      for (let k=0;k<3;k++){ const a=(Math.PI/3)*k; ctx.beginPath(); ctx.moveTo(Math.cos(a)*p.r, Math.sin(a)*p.r); ctx.lineTo(-Math.cos(a)*p.r, -Math.sin(a)*p.r); ctx.stroke(); }
+      ctx.restore();
+    },
+    volt(p, pc){ // 지그재그 스파크 — 매 프레임 미세하게 튄다
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 2.2;
+      const j = ()=> (Math.random()-0.5)*p.r*1.2;
+      ctx.beginPath();
+      ctx.moveTo(-p.r*1.7, j());
+      ctx.lineTo(-p.r*0.5, j());
+      ctx.lineTo(p.r*0.4, j());
+      ctx.lineTo(p.r*1.7, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#fff8d9';
+      ctx.beginPath(); ctx.arc(0,0,p.r*0.45,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    acid(p, pc){ // 흔들리는 산성 방울 + 뒤로 떨어지는 거품
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
+      const wob = Math.sin(performance.now()/90 + p.y)*0.2;
+      ctx.fillStyle = pc;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r*1.15,p.r*(0.85+wob),0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.arc(-p.r*1.8, wob*6, p.r*0.4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.arc(-p.r*0.3,-p.r*0.3,p.r*0.3,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    },
+    boom(p, pc){ // 심지 달린 폭탄 구체 — 심지 불꽃이 깜빡인다
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.fillStyle = PAL.ink;
+      ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = pc;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.r*0.3,-p.r*0.8); ctx.quadraticCurveTo(p.r*0.9,-p.r*1.5,p.r*0.5,-p.r*1.9); ctx.stroke();
+      if (Math.floor(performance.now()/90)%2===0){
+        ctx.fillStyle = '#f6c96b';
+        ctx.beginPath(); ctx.arc(p.r*0.5,-p.r*1.9,2,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    },
+  };
   function drawProjectiles(){
     fxBulletFrame = [];
     const fxBullets = fxBulletFrame;
@@ -14590,6 +14669,13 @@ import { FX } from "./fx.js";
                  : p.kind==='icelance' ? COLORS.frost
                  : (p.imbue && COLORS[p.imbue]) ? COLORS[p.imbue]
                  : dominantElemColor() || (CLASS_COLORS[player.classKey] || PAL.ink);
+        // v6.55 속성별 탄환 형태: 각인/속성탄은 색뿐 아니라 모양으로 구분된다
+        const elShape = p.kind==='fireball' ? 'fire' : p.kind==='icelance' ? 'frost' : p.imbue;
+        if (elShape && ELEM_BULLET[elShape]){
+          if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
+          ELEM_BULLET[elShape](p, pc);
+          continue;
+        }
         // 탄환 = 캔버스 솔리드 코어(모든 맵에서 확실히 보임) + WebGL 글로우(어두운 맵에서 빛남)
         if (FX.enabled && !p.kind){
           fxBullets.push({ x:p.x, y:p.y, r:p.r, tint: parseInt((pc[0]==='#'?pc.slice(1):'ffffff'),16) });
@@ -14771,8 +14857,8 @@ import { FX } from "./fx.js";
         ctx.fillRect(-p.r,-p.r*0.6,p.r*2,p.r*1.2);
         ctx.restore();
       } else {
-        ctx.globalAlpha = a*0.5;
-        ctx.fillStyle = PAL.ink;
+        ctx.globalAlpha = a*(p.col?0.8:0.5);
+        ctx.fillStyle = p.col || PAL.ink;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
       }
     }
