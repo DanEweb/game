@@ -1576,6 +1576,58 @@ import { FX } from "./fx.js";
       stonks:{n:'존버 정신',d:'[스톤크스 전용] 골드 +15%, 이자 강화',f:(p)=>{p.goldMult*=1.15;}},
       gymbro:{n:'3대 500',d:'[헬창 전용] 최대체력 +12%, 피해 +8%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.12);p.hp=p.maxHp;p.dmgMult*=1.08;}},
     };
+    // v6.22: 직업 승천 웹 — 소성단 너머로 3갈래 분기, 사이드스톤(변형 중)·키스톤(변형 대)이
+    // 캐릭터의 메커니즘 자체를 바꾼다. 키스톤은 2차 전직 도달 시 '심화'가 추가 개방된다.
+    const WEB = {
+      war:[
+        { sn:'혈기 충전', sd:'피해 +8%, 최대체력 +8%', sf:(p)=>{p.dmgMult*=1.08;p.maxHp=Math.round(p.maxHp*1.08);p.hp=p.maxHp;},
+          kn:'피의 질주', kd:'[변형] 대시가 학살 돌진이 된다 (시작·종료 폭발) · 심화(2차 전직): 피해 +10%', kf:(p)=>{p.bloodRush=true;}, df:(p)=>{p.dmgMult*=1.1;} },
+        { sn:'가시 돋친 살갗', sd:'가시 반사 +40%', sf:(p)=>{p.thorns=(p.thorns||0)+0.4;},
+          kn:'가시 성채', kd:'[변형] 가시 반사 120% — 맞는 것이 곧 공격 · 심화: 받는 피해 -8%', kf:(p)=>{p.thorns=Math.max(p.thorns||0,1.2);}, df:(p)=>{p.dmgTaken*=0.92;} },
+        { sn:'망나니의 눈', sd:'처형 임계 +4%p', sf:(p)=>{p.execThresh=Math.min(0.45,(p.execThresh||0)+0.04);},
+          kn:'수급 사냥꾼', kd:'[변형] 처형 임계 +10%p — 빈사는 곧 죽음 · 심화: 처형 시 회복 +2', kf:(p)=>{p.execThresh=Math.min(0.5,(p.execThresh||0)+0.10);}, df:(p)=>{p.lifesteal+=2;} },
+      ],
+      rng:[
+        { sn:'갈래 화살', sd:'추가 투사체 확률 +12%', sf:(p)=>{p.multishotCh=(p.multishotCh||0)+0.12;},
+          kn:'화살 폭풍', kd:'[변형] 추가 투사체 확률 +30% · 심화: 공속 +10%', kf:(p)=>{p.multishotCh=(p.multishotCh||0)+0.30;}, df:(p)=>{p.rateMult*=1.1;} },
+        { sn:'관통 촉', sd:'관통 +1', sf:(p)=>{p.pierce+=1;},
+          kn:'꿰뚫는 자', kd:'[변형] 관통 +2 — 탄환이 벽처럼 뚫는다 · 심화: 피해 +8%', kf:(p)=>{p.pierce+=2;}, df:(p)=>{p.dmgMult*=1.08;} },
+        { sn:'맹금의 시야', sd:'치명 배율 +0.3', sf:(p)=>{p.critMult+=0.3;},
+          kn:'급소 파괴자', kd:'[변형] 치명 배율 +0.8 · 심화: 치명 확률 +8%', kf:(p)=>{p.critMult+=0.8;}, df:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.08);} },
+      ],
+      mag:[
+        { sn:'이중 영창 준비', sd:'쿨다운 -6%', sf:(p)=>{p.cdr*=0.94;},
+          kn:'이중 시전', kd:'[변형] 전용기가 2연속 발동한다 · 심화: 쿨다운 -10%', kf:(p)=>{p.ultEcho=true;}, df:(p)=>{p.cdr*=0.9;} },
+        { sn:'원소 친화', sd:'원소 발동 +5%p', sf:(p)=>{p.procBonus=(p.procBonus||0)+0.05;},
+          kn:'원소 폭주', kd:'[변형] 원소 발동 +12%p — 손끝마다 재해 · 심화: 피해 +8%', kf:(p)=>{p.procBonus=(p.procBonus||0)+0.12;}, df:(p)=>{p.dmgMult*=1.08;} },
+        { sn:'메아리 감지', sd:'스킬 20% 확률 쿨 환급', sf:(p)=>{p.echoCast=true;},
+          kn:'시간 왜곡자', kd:'[변형] 쿨다운 -15% · 심화: 이속 +8%', kf:(p)=>{p.cdr*=0.85;}, df:(p)=>{p.speed*=1.08;} },
+      ],
+      rog:[
+        { sn:'그림자 호흡', sd:'회피 +5%', sf:(p)=>{p.dodge=Math.min(0.7,p.dodge+0.05);},
+          kn:'그림자 분신', kd:'[변형] 대시 시 3초간 분신이 함께 사격 · 심화: 대시 쿨 -15%', kf:(p)=>{p.shadowClone=true;}, df:(p)=>{p.dashCdMax*=0.85;} },
+        { sn:'급소 지식', sd:'처형 임계 +4%p', sf:(p)=>{p.execThresh=Math.min(0.45,(p.execThresh||0)+0.04);},
+          kn:'밤의 처형인', kd:'[변형] 처형 임계 +8%p, 치명 +6% · 심화: 치명 배율 +0.4', kf:(p)=>{p.execThresh=Math.min(0.5,(p.execThresh||0)+0.08);p.critChance=Math.min(0.9,p.critChance+0.06);}, df:(p)=>{p.critMult+=0.4;} },
+        { sn:'유령 걸음', sd:'이속 +5%, 회피 +3%', sf:(p)=>{p.speed*=1.05;p.dodge=Math.min(0.7,p.dodge+0.03);},
+          kn:'실체 없는 자', kd:'[변형] 회피 +12% · 심화: 대시 무적 +0.2초', kf:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.12);}, df:(p)=>{p.dashInvuln=(p.dashInvuln||0)+0.2;} },
+      ],
+      pri:[
+        { sn:'응보의 불씨', sd:'가시 반사 +30%', sf:(p)=>{p.thorns=(p.thorns||0)+0.3;},
+          kn:'성스러운 보복', kd:'[변형] 피격 시 신성 폭발이 주변을 불태운다 · 심화: 받는 피해 -6%', kf:(p)=>{p.holyRet=true;}, df:(p)=>{p.dmgTaken*=0.94;} },
+        { sn:'생명 순환', sd:'회복 효과 +15%', sf:(p)=>{p.healMult*=1.15;},
+          kn:'생명의 성소', kd:'[변형] 회복 +35%, 재생 +1 · 심화: 최대체력 +10%', kf:(p)=>{p.healMult*=1.35;p.regen+=1;}, df:(p)=>{p.maxHp=Math.round(p.maxHp*1.1);p.hp=p.maxHp;} },
+        { sn:'수호 기도', sd:'받는 피해 -5%', sf:(p)=>{p.dmgTaken*=0.95;},
+          kn:'순교의 길', kd:'[변형] 부활 +1회 · 심화: 부활 시 5초 무적', kf:(p)=>{p.reviveLeft=(p.reviveLeft||0)+1;}, df:(p)=>{p.reviveInvuln=5;} },
+      ],
+      mer:[
+        { sn:'금전 감각', sd:'골드 +10%', sf:(p)=>{p.goldMult*=1.1;},
+          kn:'황금 혈맥', kd:'[변형] 런 골드 100당 투사체 피해 +3% (최대 +30%) · 심화: 골드 +15%', kf:(p)=>{p.goldPower=true;}, df:(p)=>{p.goldMult*=1.15;} },
+        { sn:'행운의 동전', sd:'행운 +12%', sf:(p)=>{p.luck*=1.12;},
+          kn:'운명 조작사', kd:'[변형] 행운 +35% — 상위 카드가 쏟아진다 · 심화: 리롤 +2', kf:(p)=>{p.luck*=1.35;}, df:(p)=>{rerollsLeft+=2;} },
+        { sn:'피의 장사', sd:'흡혈 +1', sf:(p)=>{p.lifesteal+=1;},
+          kn:'마탄 흡혈귀', kd:'[변형] 투사체 명중 5% 확률 체력 +1 · 심화: 흡혈 +2', kf:(p)=>{p.projLeech=true;}, df:(p)=>{p.lifesteal+=2;} },
+      ],
+    };
     // RESONANCE는 이 IIFE보다 뒤에 선언되므로 로컬 사본 사용 (동기화 주의)
     const RES_LOCAL = {
       war:['rusher','paladin','cheol','exhero','madman','monk'],
@@ -1599,6 +1651,18 @@ import { FX } from "./fx.js";
         add(sid, Math.cos(a2)*r1, Math.sin(a2)*r1, 'small', br2.small.n, br2.small.d, br2.small.ap, [brKey+'_clk'], br2.color);
         add('cs_'+ck+'_n', Math.cos(a2)*r2, Math.sin(a2)*r2, 'notable', cs.n, cs.d,
             (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:cs.f }); }, [sid], br2.color);
+        // 승천 웹: 소성단 노터블에서 3갈래 분기 — [소형 → 사이드스톤(변형) → 키스톤(대변형+심화)]
+        const web = WEB[brKey]||[];
+        web.forEach((wb, wi)=>{
+          const wa = a2 + (wi-1)*0.085;
+          const wr0 = r2 + STEP*0.85, wr1 = wr0 + STEP*0.85, wr2 = wr1 + STEP*0.9;
+          const w0 = 'csw_'+ck+'_'+wi+'_0';
+          add(w0, Math.cos(wa)*wr0, Math.sin(wa)*wr0, 'small', br2.small.n, br2.small.d, br2.small.ap, ['cs_'+ck+'_n'], br2.color);
+          add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
+              (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.sf }); }, [w0], br2.color);
+          add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key', wb.kn, wb.kd,
+              (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.kf, deep:wb.df }); }, ['csw_'+ck+'_'+wi+'_1'], '#e8e8e6');
+        });
       });
     }
 
@@ -1674,10 +1738,18 @@ import { FX } from "./fx.js";
     if (g.branch) return starBranchSpent(g.branch) >= g.need;
     return starSpent() >= g.total;
   }
+  function starClassLock(id){
+    // 직업 대성단(cs_/csw_)은 '최근 그 직업으로 출전'해야 찍을 수 있다 — 별은 주인을 기다린다
+    if (id.indexOf('cs_')===0 || id.indexOf('csw_')===0){
+      const ck = id.split('_')[1];
+      return DB.lastClass === ck;
+    }
+    return true;
+  }
   function starCanBuy(id){
     const n = STAR_NODES[id];
     return n && !starAllocated(id) && starAvailPts() >= starCost(id)
-      && n.links.some(l=>starAllocated(l)) && starGateOk(id);
+      && n.links.some(l=>starAllocated(l)) && starGateOk(id) && starClassLock(id);
   }
   function starHasName(name){
     for (const id in DB.star.nodes){ if (STAR_NODES[id] && STAR_NODES[id].name===name) return true; }
@@ -1719,7 +1791,12 @@ import { FX } from "./fx.js";
       const myGroup = classResGroup(p.classKey);
       let fired = 0, dim = 0;
       for (const perk of B.classPerks){
-        if (perk.cls){ if (perk.cls===p.classKey){ perk.f(p); fired++; } else dim++; } // 32직업 개별 소성단 — 정확히 그 직업만
+        if (perk.cls){
+          if (perk.cls===p.classKey){
+            perk.f(p); fired++;
+            if (perk.deep) (p.csDeep=p.csDeep||[]).push(perk.deep); // 승천 키스톤 심화 — 2차 전직에서 개방
+          } else dim++;
+        } // 32직업 개별 소성단 — 정확히 그 직업만
         else if (perk.g===myGroup){ perk.f(p); fired++; }
         else dim++;
       }
@@ -1883,7 +1960,10 @@ import { FX } from "./fx.js";
     const gate = starGateReq(id);
     let lockMsg = '연결된 노드를 먼저 습득하세요';
     if (!alloc && !canBuy && n.links.some(l=>starAllocated(l))){
-      if (gate && !starGateOk(id)){
+      if (!starClassLock(id)){
+        const ck2 = id.split('_')[1];
+        lockMsg = '['+(CLASSES[ck2]?CLASSES[ck2].name:ck2)+'](으)로 출전한 뒤에만 밝힐 수 있는 별';
+      } else if (gate && !starGateOk(id)){
         lockMsg = gate.branch
           ? '이 계열에 '+gate.need+'P 투자 필요 (현재 '+starBranchSpent(gate.branch)+'P)'
           : '성도 총 '+gate.total+'P 투자 필요 (현재 '+starSpent()+'P)';
@@ -2900,6 +2980,12 @@ import { FX } from "./fx.js";
     const nd = STAR_NODES[nid];
     player.csEvo = (player.csEvo||0)+1;
     const roman = ['','Ⅱ','Ⅲ','Ⅳ','✦'][Math.min(player.csEvo,4)];
+    // 승천 키스톤 심화: 2차 전직(또는 그 이후 첫 진화)에 한 번 개방
+    if (stage>=2 && player.csDeep && player.csDeep.length && !player.csDeepDone){
+      player.csDeepDone = true;
+      for (const df of player.csDeep) df(player);
+      toast('🌠 승천 키스톤 심화 개방 ×'+player.csDeep.length+' — 별의 이면이 드러난다');
+    }
     if (stage>=4){
       player.dmgMult *= 1.10; player.dmgTaken *= 0.94;
       player.maxHp = Math.round(player.maxHp*1.06); player.hp = Math.min(player.maxHp, player.hp+20);
@@ -9930,6 +10016,7 @@ import { FX } from "./fx.js";
     resetWorld();
     toast((dailyRun?'📅 일일 도전 — ':'')+'출격: '+MAP.name+' (위험도 '+(DB.peril||0)+')');
     player.classKey = classKey;
+    DB.lastClass = classKey; saveDB(); // 직업 대성단 해금 기준 — 이 직업의 별을 밝힐 자격
     const cls = CLASSES[classKey];
     if (cls){
       cls.apply(player);
