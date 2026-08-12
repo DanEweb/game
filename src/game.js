@@ -14087,6 +14087,72 @@ import { FX } from "./fx.js";
         ctx.strokeStyle = '#5ab8c9'; ctx.lineWidth=1.6; ctx.strokeRect(-6,-17,15,11);
         ctx.beginPath(); ctx.arc(1.5,-11.5,3.2, t*4, t*4+Math.PI*1.4); ctx.stroke();
       }
+      // v6.61 보스 KEY별 정체성 프롭 — kind 공용 장식 위에 '그 보스'만의 상징을 얹는다
+      {
+        const bk = b.key;
+        ctx.lineWidth = 1.4;
+        if (bk==='trumpTariff' || bk==='tariffEx2'){ // 트황상: 금발 스윕 + 붉은 넥타이
+          ctx.fillStyle = '#e8c56a';
+          ctx.beginPath(); ctx.moveTo(-6,-14); ctx.quadraticCurveTo(0,-20.5,8,-15); ctx.quadraticCurveTo(9,-12,6,-13); ctx.quadraticCurveTo(0,-17,-4,-11.5); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#c9403a';
+          ctx.beginPath(); ctx.moveTo(1,-5); ctx.lineTo(3.6,-5); ctx.lineTo(2.8,4.5); ctx.lineTo(1.8,4.5); ctx.closePath(); ctx.fill();
+        } else if (bk==='xiPingping'){ // 시진핑핑이: 단정한 검은 머리 + 붉은 가슴 배지
+          ctx.fillStyle = ink;
+          ctx.beginPath(); ctx.arc(0.5,-13.2,5.8,Math.PI*0.95,Math.PI*2.05); ctx.fill();
+          ctx.fillStyle = '#c9403a';
+          ctx.fillRect(-4.6,-4.5,2.8,2);
+        } else if (bk==='maoJu'){ // 마오쩌뚱: 인민모 + 붉은 별
+          ctx.fillStyle = '#6a7a5a';
+          ctx.fillRect(-6.5,-14.6,14,2.4);
+          ctx.beginPath(); ctx.arc(0.5,-14.6,5.2,Math.PI,0); ctx.fill();
+          ctx.fillStyle = '#c9403a';
+          ctx.save(); ctx.translate(0.5,-17);
+          ctx.beginPath();
+          for (let k2=0;k2<10;k2++){ const a3=(Math.PI/5)*k2-Math.PI/2; const rr2=k2%2?0.9:2.1; ctx.lineTo(Math.cos(a3)*rr2, Math.sin(a3)*rr2); }
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+        } else if (bk==='eggRice'){ // 계란볶음밥: 웍 + 튀어오르는 밥알
+          ctx.strokeStyle = ink; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(10,-1,5,Math.PI*0.05,Math.PI*0.95,true); ctx.stroke();
+          ctx.fillStyle = '#e2b23f';
+          ctx.beginPath(); ctx.arc(10,-4+Math.sin(t*8)*1.5,2.2,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(7.5,-6+Math.sin(t*8+1)*1.5,1.4,0,Math.PI*2); ctx.fill();
+        } else if (bk==='moscowBear'){ // 모스크바 곰: 곰귀 + 털모자
+          ctx.fillStyle = '#7a5c52';
+          ctx.beginPath(); ctx.arc(-4,-16.5,2.6,0,Math.PI*2); ctx.arc(6,-16.5,2.6,0,Math.PI*2); ctx.fill();
+          ctx.fillRect(-6,-15.2,14,3.4);
+        } else if (bk==='kyivDrone'){ // 드론 조종수: 머리 위를 맴도는 미니 드론
+          const dz = Math.sin(t*3)*2;
+          ctx.fillStyle = '#4c7ab8';
+          ctx.fillRect(-1.5,-26+dz,6,3);
+          ctx.strokeStyle = '#4c7ab8'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(-4.5,-26+dz); ctx.lineTo(9.5,-26+dz); ctx.stroke();
+        } else if (bk==='kickboard'){ // 킥보드 폭주: 헬멧 + 발밑 데크
+          ctx.fillStyle = '#6a6c70';
+          ctx.beginPath(); ctx.arc(1,-13.5,6,Math.PI,0); ctx.fill();
+          ctx.fillRect(3,8.5,11,2.2);
+          ctx.beginPath(); ctx.arc(13,11.6,2,0,Math.PI*2); ctx.fill();
+        } else if (bk==='loanRate'){ // 대출 이자: 지폐 뭉치 + % 각인
+          ctx.fillStyle = '#8a6a3f';
+          ctx.fillRect(6,-3,9,5.5);
+          ctx.strokeStyle = '#f6f6f4'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(7.5,1); ctx.lineTo(13.5,-8); ctx.stroke();
+          ctx.beginPath(); ctx.arc(8.4,-6.8,1.3,0,Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(12.6,-0.6,1.3,0,Math.PI*2); ctx.stroke();
+        } else if (bk==='relativesEx'){ // 명절 친척 연합: 등에 멘 선물 보따리
+          ctx.fillStyle = '#a3653f';
+          ctx.beginPath(); ctx.arc(-10,0,4.6,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = ink; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(-12.4,-3.4); ctx.lineTo(-7.6,-3.4); ctx.stroke();
+        } else if (bk==='burnoutEx' || bk==='grayoneEx'){ // 번아웃·회색 군주: 흘러내리는 잿빛 그림자
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = ink;
+          for (let k2=0;k2<3;k2++){
+            ctx.beginPath(); ctx.arc(-6+k2*6, 12+Math.sin(t*2+k2)*2.2, 2.5, 0, Math.PI*2); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
       ctx.restore();
     }
 
