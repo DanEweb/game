@@ -1714,15 +1714,22 @@ import { FX } from "./fx.js";
   }
   function applyStarBonuses(p){
     const B = starBonuses();
-    // 직업 성단: 해당 계열 직업으로 플레이할 때만 발동
+    // 직업 성단: 해당 계열 직업으로 플레이할 때만 발동 — 타 계열 별은 '흐릿한 공명'으로 약하게 빛난다
     if (B.classPerks && B.classPerks.length){
       const myGroup = classResGroup(p.classKey);
-      let fired = 0;
+      let fired = 0, dim = 0;
       for (const perk of B.classPerks){
-        if (perk.cls){ if (perk.cls===p.classKey){ perk.f(p); fired++; } } // 32직업 개별 소성단 — 정확히 그 직업만
+        if (perk.cls){ if (perk.cls===p.classKey){ perk.f(p); fired++; } else dim++; } // 32직업 개별 소성단 — 정확히 그 직업만
         else if (perk.g===myGroup){ perk.f(p); fired++; }
+        else dim++;
       }
       if (fired>0) setTimeout(()=>toast('⭐ 직업 성단 발동 ×'+fired), 1100);
+      if (dim>0){
+        const dc = Math.min(dim, 4);
+        p.dmgMult *= 1 + 0.02*dc;
+        p.maxHp = Math.round(p.maxHp*(1 + 0.01*dc)); p.hp = Math.min(p.hp, p.maxHp);
+        setTimeout(()=>toast('🌫 흐릿한 공명 ×'+dc+' — 타 계열의 별도 희미하게 힘을 보탠다 (피해 +'+(2*dc)+'%)'), 1500);
+      }
     }
     // 키스톤 시너지: 특정 키스톤 조합이 함께면 추가 효과 (PoE식 빌드 완성 보너스)
     const syn = [];
@@ -1885,6 +1892,7 @@ import { FX } from "./fx.js";
       }
     }
     info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b> <span style="opacity:0.8;">['+cost+'P]</span><br>'+n.desc
+      + (id.indexOf('cs_')===0 && n.tier==='notable' ? '<br><span style="color:#e2b23f;">⭐ 진화하는 별 — 런 중 전직(1·2·3차)·각성 순간마다 한 단계씩 강해진다 (최대 Ⅳ→✦)</span>' : '')
       + (resCls ? '<br><span style="opacity:0.75;">공명 직업: '+resCls+' (공명 시 추가 보너스)</span>' : '')
       + '<br><span style="opacity:0.7;">'+(alloc?'습득 완료':(canBuy?'클릭하여 습득 ('+cost+'P)':lockMsg))+'</span>';
     info.style.display = 'block';
@@ -2884,6 +2892,26 @@ import { FX } from "./fx.js";
       p.maxHp=Math.round(p.maxHp*(1.25+0.005*rc)); p.dmgTaken*=0.88; p.regen+=1; p.hp=Math.min(p.maxHp,p.hp+p.maxHp*0.15);
     } },
   ];
+  // 소성단 진화: 직업 전용 별을 찍어뒀다면, 이 런의 전직·각성 순간마다 그 별이 한 단계 진화한다
+  function evolveClassStar(stage){
+    if (!player) return;
+    const nid = 'cs_'+player.classKey+'_n';
+    if (!starAllocated(nid)) return;
+    const nd = STAR_NODES[nid];
+    player.csEvo = (player.csEvo||0)+1;
+    const roman = ['','Ⅱ','Ⅲ','Ⅳ','✦'][Math.min(player.csEvo,4)];
+    if (stage>=4){
+      player.dmgMult *= 1.10; player.dmgTaken *= 0.94;
+      player.maxHp = Math.round(player.maxHp*1.06); player.hp = Math.min(player.maxHp, player.hp+20);
+      toast('🌌 소성단 대공명 — ['+nd.name+' '+roman+'] 피해 +10%, 받는 피해 -6%, 체력 +6%');
+    } else {
+      player.dmgMult *= 1.05;
+      player.maxHp = Math.round(player.maxHp*1.04); player.hp = Math.min(player.maxHp, player.hp+10);
+      toast('⭐ 소성단 진화 — ['+nd.name+' '+roman+'] 피해 +5%, 체력 +4%');
+    }
+    effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
+    SFX.play('evolve');
+  }
   function openJobChoice(tier){
     if (tier===1){
       const list = JOB_TREES[player.classKey] || JOB_TREES.manager;
@@ -2896,6 +2924,7 @@ import { FX } from "./fx.js";
         fx:()=>{
           j.fx(player); player.jobs.push(j.n);
           if (resonant){ player.dmgMult *= 1 + 0.004*rc; }
+          evolveClassStar(1);
           toast('1차 전직 — '+j.n+'!'+(resonant?' (성도 공명 ×'+rc+')':''));
           effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
           SFX.play('win');
@@ -2907,6 +2936,7 @@ import { FX } from "./fx.js";
       const list2 = JOB2_BY_CLASS[player.classKey] || JOB2_OPTIONS;
       const opts = list2.map(j=>({ l:'2차 전직: '+j.n, d:j.d + (base?' — ['+base+']의 길이 깊어진다':''), fx:()=>{
         j.fx(player); player.jobs.push(j.n);
+        evolveClassStar(2);
         toast('2차 전직 — '+j.n+'!');
         SFX.play('win');
       } }));
@@ -2917,6 +2947,7 @@ import { FX } from "./fx.js";
       const opts = list3.map(j=>({ l:'3차 전직: '+j.n, d:j.d, fx:()=>{
         j.fx(player, rc);
         player.jobs.push(j.n);
+        evolveClassStar(3);
         toast('3차 전직 — '+j.n+'! (공명 ×'+rc+')');
         freeze=Math.max(freeze,0.25);
         SFX.play('win');
@@ -3029,6 +3060,7 @@ import { FX } from "./fx.js";
       // 성도 공명 연동: 공명 노드가 많을수록 각성이 강해진다
       if (rc>0) player.dmgMult *= 1 + 0.005*rc;
       player.awakening = a.n;
+      evolveClassStar(4);
       toast('각성 — '+a.n+'!'+(rc>0?' (공명 ×'+rc+')':''));
       effects.push({ type:'rays', x:player.x, y:player.y, life:0.8, age:0 });
       freeze = Math.max(freeze, 0.2);
