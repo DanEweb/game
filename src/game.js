@@ -4930,6 +4930,62 @@ import { FX } from "./fx.js";
     50:['gkShield','gkTwin','gkTrain','burnoutEx'],
     52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkTrain','yeongkkeulEx']
   };
+  // 수문장 테마: 관문보스의 세계관에 맞는 이름 + 전용 추가 패턴 (엔진은 3종 공유, 얼굴과 한 수는 관문마다 다르다)
+  // [stage0 테마, stage1 테마(3단 이상일 때)]
+  const GATE_MID_THEME = {
+    8:[{n:'수문장 · 미련의 자물쇠', f:'sns'}],
+    12:[{n:'수문장 · 선봉 피켓조', f:'picket'}],
+    16:[{n:'수문장 · 아스팔트 아지랑이', f:'sun'}],
+    20:[{n:'수문장 · 주선자의 비서', f:'heart'}],
+    24:[{n:'수문장 · 복도의 발소리', f:'noise'}],
+    28:[{n:'수문장 · 바지사장', f:'money'},{n:'수문장 · 근저당 문서', f:'money'}],
+    32:[{n:'수문장 · 추천 피드', f:'ad'},{n:'수문장 · 팝업 광고', f:'ad'}],
+    36:[{n:'수문장 · 사수', f:'work'},{n:'수문장 · 인사팀 대리', f:'work'}],
+    40:[{n:'수문장 · 첫째 이모', f:'family'},{n:'수문장 · 옆집 아줌마', f:'family'}],
+    44:[{n:'수문장 · 홍위병', f:'red'},{n:'수문장 · 정찰풍선', f:'red'}],
+    48:[{n:'수문장 · 국경 순찰대', f:'wall'},{n:'수문장 · 관세 감사관', f:'wall'}],
+    50:[{n:'수문장 · 월요일 아침', f:'tired'},{n:'수문장 · 밀린 빨래', f:'tired'},{n:'수문장 · 읽지 않은 메일 99+', f:'tired'}],
+    52:[{n:'수문장 · 정찰 드론', f:'war'},{n:'수문장 · 포병 관측수', f:'war'}],
+    56:[{n:'수문장 · 불법 주차 킥보드', f:'money'},{n:'수문장 · 중도상환 수수료', f:'money'}],
+  };
+  function applyGateTheme(gb, peril, stage){
+    if (!gb || gb.finale) return;
+    const ths = GATE_MID_THEME[peril];
+    const th = ths && ths[Math.min(stage, ths.length-1)];
+    if (th){ gb.name = th.n; gb.flav = th.f; refreshBossBar(); }
+  }
+  // 관문 보정: 플레이어가 과성장했으면 관문도 함께 단단해진다 (웨이브 파밍으로 밸런스 붕괴 방지)
+  function applyGateScale(gb){
+    if (!gb) return;
+    const gs = 0.6 + 0.5*powerScale(); // 초반 1.1× ~ 풀성장 1.6×
+    gb.maxHp = Math.round(gb.maxHp * gs);
+    gb.hp = gb.maxHp;
+    gb.dmg = Math.round(gb.dmg * (0.85 + 0.2*powerScale()));
+    refreshBossBar();
+  }
+  // 수문장 테마 전용 한 수 — 3종 엔진 공통으로 호출
+  function tickMidFlavor(b, dt, ds){
+    b.mfT = (b.mfT===undefined?5:b.mfT) - dt;
+    if (b.mfT>0) return;
+    b.mfT = 6.5;
+    const aim = Math.atan2(player.y-b.y, player.x-b.x);
+    switch (b.flav){
+      case 'sns': for (let k=0;k<3;k++) addHazard(player.x+(Math.random()-0.5)*140, player.y+(Math.random()-0.5)*140, 52, 1.0, 18*ds, false); addTextNum(player.x, player.y-40, '읽음 1'); break;
+      case 'picket': for (let k=-2;k<=2;k++) hostileShot(b.x, b.y, aim+k*0.2, 210, 6, 15*ds, 2.4); break;
+      case 'sun': for (let k=0;k<3;k++) addHazard(player.x+(Math.random()-0.5)*220, player.y+(Math.random()-0.5)*220, 58, 1.2, 18*ds, false); break;
+      case 'heart': for (let k=0;k<3;k++) hostileShot(b.x, b.y, aim+(k-1)*0.3, 165, 7, 15*ds, 3.2, {kind:'tornado',curve:(k%2?1:-1)*1.2}); break;
+      case 'noise': { const pa=aim; player.knockX+=Math.cos(pa)*380; player.knockY+=Math.sin(pa)*380; for (let k=0;k<8;k++){ const a2=(Math.PI*2/8)*k; hostileShot(b.x,b.y,a2,150,6,13*ds,2.2);} SFX.play('sweep'); break; }
+      case 'money': { const take=Math.min(runGold,10); if (take>0){ runGold-=take; addTextNum(player.x, player.y-30, '-'+take+'G 수수료'); } for (let k=0;k<3;k++) hostileShot(b.x, b.y, aim+(k-1)*0.15, 230, 6, 15*ds, 2.2); break; }
+      case 'ad': { const lead=0.5; hostileShot(b.x, b.y, Math.atan2(player.y+((b.mvY||0)*lead)-b.y, player.x+((b.mvX||0)*lead)-b.x), 290, 6, 16*ds, 2.2); for (let k=0;k<2;k++) hostileShot(b.x, b.y, aim+(k?0.12:-0.12), 290, 6, 16*ds, 2.2); break; }
+      case 'work': for (let k=0;k<4;k++) addHazard(player.x+(Math.random()-0.5)*280, player.y+(Math.random()-0.5)*280, 54, 1.2, 19*ds, false); addTextNum(player.x, player.y-40, '"이것도 오늘까지"'); break;
+      case 'family': for (let k=0;k<8;k++){ const a2=(Math.PI*2/8)*k; const sx=player.x+Math.cos(a2)*300, sy=player.y+Math.sin(a2)*300; hostileShot(sx, sy, Math.atan2(player.y-sy,player.x-sx), 155, 6, 15*ds, 2.4); } break;
+      case 'red': for (let k=0;k<12;k++){ const a2=(Math.PI*2/12)*k; hostileShot(b.x, b.y, a2, 165, 6, 14*ds, 2.6); } break;
+      case 'wall': if (zones.length<38){ const a2=Math.random()*Math.PI*2; zones.push({ x:player.x+Math.cos(a2)*120, y:player.y+Math.sin(a2)*120, r:24, dps:0, t:10, maxT:10, type:'block', hostile:true, hitT:0 }); } break;
+      case 'war': for (let k=0;k<5;k++) addHazard(player.x+(Math.random()-0.5)*360, player.y+(Math.random()-0.5)*360, 56, 0.9+Math.random()*0.6, 20*ds, false); break;
+      case 'tired': if (zones.length<40){ zones.push({ x:player.x, y:player.y, r:110, dps:0, t:4, maxT:4, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '...5분만'); } break;
+    }
+  }
+
   let gatePending = null; // 다음 관문 지연 소환 (수문장 돌파 후)
   function tickGatePending(dt){
     if (!gatePending) return;
@@ -4941,7 +4997,7 @@ import { FX } from "./fx.js";
     if (!key) return;
     spawnBoss(key);
     const gb = bosses[bosses.length-1];
-    if (gb){ gb.gate = true; gb.gateChain = gp.peril; gb.gateStage = gp.stage; }
+    if (gb){ gb.gate = true; gb.gateChain = gp.peril; gb.gateStage = gp.stage; applyGateTheme(gb, gp.peril, gp.stage); applyGateScale(gb); }
     for (let i2=enemies.length-1;i2>=0;i2--) enemies.splice(i2,1);
   }
   function spawnGateStage(peril){
@@ -4951,7 +5007,7 @@ import { FX } from "./fx.js";
     const prog = Math.min(DB.gateProg[peril]||0, chain.length-1);
     spawnBoss(chain[prog]);
     const gb = bosses[bosses.length-1];
-    if (gb){ gb.gate = true; gb.gateChain = peril; gb.gateStage = prog; }
+    if (gb){ gb.gate = true; gb.gateChain = peril; gb.gateStage = prog; applyGateTheme(gb, peril, prog); applyGateScale(gb); }
     for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1);
     toast('⚔ 관문 '+(prog+1)+'/'+chain.length+(prog<chain.length-1 ? ' — 수문장이 길을 막는다' : ' — 관문의 주인이 왔다'));
     return true;
@@ -6258,6 +6314,7 @@ import { FX } from "./fx.js";
         for (let k=-1;k<=1;k++) hostileShot(b.x, b.y, aim+k*0.16, 230, 8, 18*ds, 2.2);
         b.gsPushT = 3.2;
       }
+      if (b.flav && !(b.gsGroggy>0)) tickMidFlavor(b, dt, ds);
     } else if (b.kind==='gktwin'){
       // 수문장 · 쌍둥이 그림자: 분신이 살아있는 동안 화력 2배 — 분신부터 처리하라
       bossMoveToward(b, player.x, player.y, b.speed, dt);
@@ -6292,6 +6349,7 @@ import { FX } from "./fx.js";
         addTextNum(player.x, player.y-40, '교차 베기!');
         b.gtCrossT = 7;
       }
+      if (b.flav) tickMidFlavor(b, dt, ds);
     } else if (b.kind==='gktrain'){
       // 수문장 · 궤도 기관차: 선로 예고 후 관통 돌진 — 선로 밖으로!
       if (b.trDashing){
@@ -6322,6 +6380,7 @@ import { FX } from "./fx.js";
           for (let k=0;k<4;k++) hostileShot(b.x, b.y, Math.random()*Math.PI*2, 150+Math.random()*80, 6, 14*ds, 2.6);
           b.trCoalT = 3.4;
         }
+        if (b.flav) tickMidFlavor(b, dt, ds);
       }
     } else if (b.kind==='teamlead'){
       // 관문 36: 퇴사 막는 팀장 — 사직서 3장을 보스보다 먼저 회수하라
