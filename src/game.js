@@ -4945,6 +4945,49 @@ import { FX } from "./fx.js";
         b.fireTimer = 2.6;
       }
 
+    } else if (b.kind==='jealous'){
+      // 관문 보스 1호: 의부증 전여친 은재 — 최병우를 놓지 못한 자 (3페이즈 + 발악 + 전멸기)
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 의심', '"...나 몰래 최병우 만났지?"', '#c94f8a'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 확신', '"통화 목록 다 봤어."', '#b8362e'); screenDimT=Math.max(screenDimT,0.5); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage){
+        if (!b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 집 앞이야', '"문 열어."', '#b8362e'); shake=Math.min(24,shake+14); }
+        bossMoveToward(b, player.x, player.y, b.speed*2.4, dt);
+      } else {
+        bossMoveToward(b, player.x, player.y, b.speed*(ph===3?1.4:1), dt);
+      }
+      // 추궁 장판 '지금 어디야?': 플레이어 위치에 경고 후 폭발 (페이즈별 강화)
+      b.jHazT = (b.jHazT===undefined?2.5:b.jHazT) - dt;
+      if (b.jHazT<=0){
+        for (let k=0;k<ph;k++){
+          const ox = ph===3 ? 0 : (Math.random()-0.5)*120;
+          const oy = ph===3 ? 0 : (Math.random()-0.5)*120;
+          addHazard(player.x+ox, player.y+oy, 62, 1.5, 16*ds, false);
+        }
+        addTextNum(player.x, player.y-40, '"지금 어디야?"');
+        b.jHazT = (ph===1?3.2 : ph===2?2.2 : 1.6) - empN*0.3;
+      }
+      // 통화 목록 검사: 2페+ 부채꼴 스캔 탄막
+      if (ph>=2){
+        b.jScanT = (b.jScanT===undefined?4:b.jScanT) - dt;
+        if (b.jScanT<=0){
+          const base = Math.atan2(player.y-b.y, player.x-b.x);
+          for (let k=-2;k<=2;k++) hostileShot(b.x, b.y, base+k*0.18, 210, 5.5, 10*ds, 2.4);
+          addTextNum(b.x, b.y-b.r-14, '통화 목록 검사');
+          b.jScanT = ph===3 ? 2.6 : 3.8;
+        }
+      }
+      // 전멸기 '읽씹의 대가': 110초 초과 시 전방위 즉사급 탄막 + 영구 강화
+      if ((b.aliveT||0) > 110 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 읽씹의 대가', '"...그래. 너도 똑같네."', '#b8362e');
+        for (let k=0;k<24;k++){ const a2=(Math.PI*2/24)*k; hostileShot(b.x, b.y, a2, 150, 7, 60*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
       const rage = b.hp < b.maxHp*0.25 ? 2 : (b.hp < b.maxHp*0.5 ? 1 : 0);
@@ -6651,13 +6694,14 @@ import { FX } from "./fx.js";
     if (waveModeRun) interval *= 0.78; // 웨이브 모드: 밀도 강화
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
     const cap = Math.min(150, 18 + Math.floor(elapsed/3.5));
-    if (spawnTimer >= interval){
+    const gateActive = bosses.some(b=>b.gate); // 관문 레이드 중엔 잔몹 스폰 전면 금지
+    if (spawnTimer >= interval && !gateActive){
       spawnTimer = 0;
       const burstN = 1 + (elapsed>60?1:0) + (elapsed>150?1:0) + (elapsed>360?1:0);
       for (let k=0;k<burstN;k++){ if (enemies.length < cap) spawnEnemy(); }
     }
-    if (elapsed >= ELITE_FIRST_AT + eliteCount*ELITE_INTERVAL){ eliteCount+=1; spawnElite(); }
-    if (elapsed >= WAVE_FIRST_AT + waveCount*WAVE_INTERVAL*(player.stormCall?0.7:1)){ waveCount+=1; spawnWave(); if (player.stormCall){ const g=gainGold(15); addTextNum(player.x, player.y-24, '폭풍 +'+g+'G'); } }
+    if (!gateActive && elapsed >= ELITE_FIRST_AT + eliteCount*ELITE_INTERVAL){ eliteCount+=1; spawnElite(); }
+    if (!gateActive && elapsed >= WAVE_FIRST_AT + waveCount*WAVE_INTERVAL*(player.stormCall?0.7:1)){ waveCount+=1; spawnWave(); if (player.stormCall){ const g=gainGold(15); addTextNum(player.x, player.y-24, '폭풍 +'+g+'G'); } }
     // 시간의 압박: 60초마다 살아있는 모든 적이 강해진다 (필드에 오래 남은 몹도 위협 유지)
     eraTimer += dt;
     if (eraTimer >= 60){
@@ -7133,7 +7177,15 @@ import { FX } from "./fx.js";
     const finalAlive = bosses.some(b=>b.finale);
     if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
-      spawnBoss(MAP.final);
+      // 관문 보스: 위험도 8에서는 최종 보스 대신 관문 레이드 (오직 일대일)
+      const gateKey = (DB.peril===8) ? 'jealousEx' : null;
+      spawnBoss(gateKey || MAP.final);
+      if (gateKey){
+        const gb = bosses[bosses.length-1];
+        if (gb) gb.gate = true;
+        for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1); // 전장 정리 — 보스와 나뿐
+        toast('⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.');
+      }
     } else if (!finalAlive && rootDefeated && endless && nextRootAt>0 && elapsed>=nextRootAt){
       spawnBoss(MAP.final, true);
     }
@@ -8941,6 +8993,7 @@ import { FX } from "./fx.js";
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
+    jealousEx:'관문 — 최병우를 놓지 못한 자',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -8959,7 +9012,7 @@ import { FX } from "./fx.js";
     yuJinKong:'#4fa8c4', jungWoo:'#7a8a99', seonJeong:'#e2823f', spaceStar:'#e0b73d',
     nukNukEX:'#9a6fc4', goDokGeun:'#3aa895',
     monday:'#5c6a8a', deadline:'#c9403a', gatekeeper:'#5c4a8a',
-    overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9',
+    overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9', jealousEx:'#c94f8a',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
