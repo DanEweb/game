@@ -1666,6 +1666,11 @@ import { FX } from "./fx.js";
       baeksu:{n:'프로 백수',d:'[백수 전용] 경험치 +12%',f:(p)=>{p.xpMult=(p.xpMult||1)*1.12;}},
       stonks:{n:'존버 정신',d:'[스톤크스 전용] 골드 +15%, 이자 강화',f:(p)=>{p.goldMult*=1.15;}},
       gymbro:{n:'3대 500',d:'[헬창 전용] 최대체력 +12%, 피해 +8%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.12);p.hp=p.maxHp;p.dmgMult*=1.08;}},
+      samurai:{n:'잔심(殘心)',d:'[사무라이 전용] 치명 배율 +0.4',f:(p)=>{p.critMult+=0.4;}},
+      specialist:{n:'전술 교본',d:'[스페셜리스트 전용] 쿨다운 -8%, 공속 +5%',f:(p)=>{p.cdr*=0.92;p.rateMult*=1.05;}},
+      runeknight:{n:'룬 각인',d:'[룬 기사 전용] 원소 발동 +6%p, 피해 +5%',f:(p)=>{p.procBonus=(p.procBonus||0)+0.06;p.dmgMult*=1.05;}},
+      druid:{n:'숲의 가호',d:'[드루이드 전용] 재생 +0.5, 회복 +15%',f:(p)=>{p.regen+=0.5;p.healMult*=1.15;}},
+      duelist:{n:'결투의 예법',d:'[결투가 전용] 보스·엘리트 피해 +12%',f:(p)=>{p.bossDmg=(p.bossDmg||1)*1.12;p.eliteDmg=(p.eliteDmg||1)*1.12;}},
     };
     // v6.22: 직업 승천 웹 — 소성단 너머로 3갈래 분기, 사이드스톤(변형 중)·키스톤(변형 대)이
     // 캐릭터의 메커니즘 자체를 바꾼다. 키스톤은 2차 전직 도달 시 '심화'가 추가 개방된다.
@@ -1721,11 +1726,11 @@ import { FX } from "./fx.js";
     };
     // RESONANCE는 이 IIFE보다 뒤에 선언되므로 로컬 사본 사용 (동기화 주의)
     const RES_LOCAL = {
-      war:['rusher','paladin','cheol','exhero','madman','monk'],
-      rng:['archer','sniper','pilot'],
-      mag:['manager','voidc','commander'],
+      war:['rusher','paladin','cheol','exhero','madman','monk','samurai','duelist'],
+      rng:['archer','sniper','pilot','specialist'],
+      mag:['manager','voidc','commander','runeknight'],
       rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
-      pri:['necro','bard','returner'],
+      pri:['necro','bard','returner','druid'],
       mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'],
     };
     for (const g in RES_LOCAL){
@@ -1812,6 +1817,11 @@ import { FX } from "./fx.js";
           baeksu:{n:'무직의 여유',d:'경험치 +20%, 회피 +6%',f:(p)=>{p.xpMult=(p.xpMult||1)*1.2;p.dodge=Math.min(0.75,p.dodge+0.06);}},
           stonks:{n:'가즈아',d:'골드가 곧 화력 (황금 혈맥) + 골드 +20%',f:(p)=>{p.goldPower=true;p.goldMult*=1.2;}},
           gymbro:{n:'무한 벌크업',d:'최대체력 +20%, 피해 +12%, 몸집 +10%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.2);p.hp=p.maxHp;p.dmgMult*=1.12;p.r*=1.1;}},
+          samurai:{n:'오의 · 일도양단',d:'무피격 확정 치명 + 치명 배율 +1.0',f:(p)=>{p.shadowStrike=true;p.critMult+=1.0;}},
+          specialist:{n:'풀 로드아웃',d:'스킬 20% 쿨 환급 + 쿨다운 -10%',f:(p)=>{p.echoCast=true;p.cdr*=0.9;}},
+          runeknight:{n:'마검 해방',d:'전용기 이중 시전 + 원소 발동 +8%p',f:(p)=>{p.ultEcho=true;p.procBonus=(p.procBonus||0)+0.08;}},
+          druid:{n:'세계수의 숨',d:'부활 +1, 재생 +1',f:(p)=>{p.reviveLeft=(p.reviveLeft||0)+1;p.regen+=1;}},
+          duelist:{n:'천하무쌍',d:'보스 피해 +30%, 치명 배율 +0.5',f:(p)=>{p.bossDmg=(p.bossDmg||1)*1.3;p.critMult+=0.5;}},
         };
         // 시그니처 2호 (갈래 1): 32직업 고유 효과 — 갈래 1 키스톤도 직업마다 완전히 다르다
         const SIGKEY2 = {
@@ -1847,6 +1857,11 @@ import { FX } from "./fx.js";
           baeksu:{d:'무소유의 경지 (회피 +8%, 경험치 +10%)',f:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.08);p.xpMult=(p.xpMult||1)*1.1;}},
           stonks:{d:'다이아몬드 핸드 (골드 +25%, 받는 피해 -5%)',f:(p)=>{p.goldMult*=1.25;p.dmgTaken*=0.95;}},
           gymbro:{d:'3대 500 완성 (피해 +10%, 최대체력 +10%)',f:(p)=>{p.dmgMult*=1.1;p.maxHp=Math.round(p.maxHp*1.1);p.hp=p.maxHp;}},
+          samurai:{d:'거합 연마 (치명 +8%, 이속 +5%)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.08);p.speed*=1.05;}},
+          specialist:{d:'예비 탄창 (공속 +8%, 관통 +1)',f:(p)=>{p.rateMult*=1.08;p.pierce+=1;}},
+          runeknight:{d:'이중 룬 (원소 발동 +8%p)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.08;}},
+          druid:{d:'대지의 품 (최대체력 +12%, 회복 +15%)',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.12);p.hp=Math.min(p.maxHp,p.hp+15);p.healMult*=1.15;}},
+          duelist:{d:'카운터 자세 (받는 피해 -8%, 반사 +30%)',f:(p)=>{p.dmgTaken*=0.92;p.thorns=(p.thorns||0)+0.3;}},
         };
         // 시그니처 3호 (갈래 2): 마지막 키스톤까지 32직업 전부 고유 — 웹의 세 극의 완성
         const SIGKEY3 = {
@@ -1882,6 +1897,11 @@ import { FX } from "./fx.js";
           baeksu:{d:'프로 정보수집러 (경험치 +15%, 행운 +12%)',f:(p)=>{p.xpMult=(p.xpMult||1)*1.15;p.luck*=1.12;}},
           stonks:{d:'상한가 신공 (골드 +20%, 피해 +8%)',f:(p)=>{p.goldMult*=1.2;p.dmgMult*=1.08;}},
           gymbro:{d:'헬스장 지박령 (재생 +1, 최대체력 +12%)',f:(p)=>{p.regen+=1;p.maxHp=Math.round(p.maxHp*1.12);p.hp=p.maxHp;}},
+          samurai:{d:'무사도 (피해 +12%, 회피 +5%)',f:(p)=>{p.dmgMult*=1.12;p.dodge=Math.min(0.75,p.dodge+0.05);}},
+          specialist:{d:'전장 지배 (피해 +10%, 쿨 -8%)',f:(p)=>{p.dmgMult*=1.1;p.cdr*=0.92;}},
+          runeknight:{d:'룬 폭주 (피해 +12%, 발동 +6%p)',f:(p)=>{p.dmgMult*=1.12;p.procBonus=(p.procBonus||0)+0.06;}},
+          druid:{d:'자연의 분노 (피해 +10%, 재생 +0.8)',f:(p)=>{p.dmgMult*=1.1;p.regen+=0.8;}},
+          duelist:{d:'피니시 블로우 (처형 +8%p, 치명 +8%)',f:(p)=>{p.execThresh=Math.min(0.6,(p.execThresh||0)+0.08);p.critChance=Math.min(0.9,p.critChance+0.08);}},
         };
         const web = WEB[brKey]||[];
         web.forEach((wb, wi)=>{
@@ -2004,12 +2024,12 @@ import { FX } from "./fx.js";
   }
   // 직업 공명 — 자기 계열의 노드는 직업에 따라 더 강하게 발현된다
   const RESONANCE = {
-    war:['rusher','paladin','cheol','exhero','madman','monk'],
-    rng:['archer','sniper','pilot'],
-    mag:['manager','voidc'],
+    war:['rusher','paladin','cheol','exhero','madman','monk','samurai','duelist'],
+    rng:['archer','sniper','pilot','specialist'],
+    mag:['manager','voidc','runeknight'],
     rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
     mag2:['commander'],
-    pri:['necro','bard','returner'],
+    pri:['necro','bard','returner','druid'],
     mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'],
   };
   function resonantCount(classKey){
@@ -2388,6 +2408,36 @@ import { FX } from "./fx.js";
 
   // ---------- classes (9) ----------
   const CLASSES = {
+    samurai: {
+      name:'사무라이', tag:'발도 일섬', cost:600,
+      desc:'[역장]으로 시작. 무피격 2초 유지 후 첫 타격은 확정 치명 + 치명 배율 +0.5. 정중동(靜中動)의 검.',
+      weapon:'aura',
+      apply:(p)=>{ p.shadowStrike=true; p.critMult+=0.5; p.rateMult*=0.92; }
+    },
+    specialist: {
+      name:'스페셜리스트', tag:'전술 만능', cost:600,
+      desc:'[추적 탄환]으로 시작. 쿨다운 -15%, 공속 +5% — 모든 장비를 다루는 전술 요원.',
+      weapon:'missile',
+      apply:(p)=>{ p.cdr*=0.85; p.rateMult*=1.05; }
+    },
+    runeknight: {
+      name:'룬 기사', tag:'마검 융합', cost:700,
+      desc:'[위성]으로 시작. 원소 발동 +8%p, 피해 +5% — 검에 룬을 새긴 마검사.',
+      weapon:'satellite',
+      apply:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; p.dmgMult*=1.05; }
+    },
+    druid: {
+      name:'드루이드', tag:'자연의 벗', cost:600,
+      desc:'[위성]으로 시작. 재생 +0.8, 회복 효과 +20% — 숲이 함께 싸운다.',
+      weapon:'satellite',
+      apply:(p)=>{ p.regen+=0.8; p.healMult*=1.2; }
+    },
+    duelist: {
+      name:'결투가', tag:'일대일 오의', cost:700,
+      desc:'[추적 탄환]으로 시작. 보스·엘리트 피해 +25% / 잡몹 피해 -10%. 강자만 상대한다.',
+      weapon:'missile',
+      apply:(p)=>{ p.bossDmg=(p.bossDmg||1)*1.25; p.eliteDmg=(p.eliteDmg||1)*1.25; p.dmgMult*=0.9; }
+    },
     manager: {
       name:'관리자', tag:'위성 & 쿨감',
       desc:'[위성]으로 시작. 모든 쿨다운 -10%.',
@@ -3961,6 +4011,8 @@ import { FX } from "./fx.js";
     glitch:['spiral','burst','homing'], monk:['quake','wave','burst'], commander:['burst','mortar','homing'],
     stonks:['burst','spread','mortar'], tombraider:['quake','spread','burst'], bard:['spiral','nova','homing'],
     pilot:['snipe','spiral','mortar'], madman:['quake','spiral','pierce'], voidc:['spiral','burst','mortar'],
+    samurai:['lance','wave','echo'], specialist:['cross','rain','burst'], runeknight:['lance','echo','spiral'],
+    druid:['quake','rain','orbitb'], duelist:['lance','cross','snipe'],
   };
   const CGW_NAMES = {
     rusher:['파성추','진각 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
@@ -3974,11 +4026,14 @@ import { FX } from "./fx.js";
     tourist:['기념품 투척','엽서 살포','여행가방 유도탄'], slime:['점액 낙하','산성 분사','점착 추적구'], gambler:['칩 폭격','카드 스프레이','주사위 유도탄'],
     collector:['진열장 낙하','파편 컬렉션','한정판 추적구'], contributor:['커밋 폭격','풀리퀘 스프레이','머지 유도탄'], baeksu:['이불 폭탄','낮잠 파동','리모컨 유도탄'],
     stonks:['차트 낙하','손절 스프레이','물타기 유도탄'], gymbro:['덤벨 투하','프로틴 셰이크','바벨 유도탄'],
+    samurai:['발도 일섬','잔심 베기','츠바메가에시'], specialist:['크로스파이어','섬광 세례','정밀 타격 요청'],
+    runeknight:['룬 랜스','룬 문양 잔향','마검 나선파'], druid:['가시덩굴 융기','자연의 비','숲의 원진'],
+    duelist:['플레슈 찌르기','십자 검격','일점 관통'],
   };
   const CGW_CLASS_GROUP = (ck)=>{
-    const RL = { war:['rusher','paladin','cheol','exhero','madman','monk'], rng:['archer','sniper','pilot'],
-      mag:['manager','voidc','commander'], rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
-      pri:['necro','bard','returner'], mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'] };
+    const RL = { war:['rusher','paladin','cheol','exhero','madman','monk','samurai','duelist'], rng:['archer','sniper','pilot','specialist'],
+      mag:['manager','voidc','commander','runeknight'], rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
+      pri:['necro','bard','returner','druid'], mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'] };
     for (const g in RL) if (RL[g].includes(ck)) return g;
     return 'war';
   };
@@ -3993,7 +4048,7 @@ import { FX } from "./fx.js";
         desc:'[직업 유일] '+nm+' — 이 직업만의 성장무기 (보스를 잡을수록 성장)',
         evName: nm+'·극', evDesc:'무기가 주인의 경지에 응답합니다',
         lvDesc:['','강화','피해 +25%','강화','강화'],
-        baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'?1.8 : arch==='nova'?1.5 : 1.1) * (w.evolved?0.8:1),
+        baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'?1.8 : arch==='rain'?2.0 : arch==='echo'?1.7 : arch==='lance'?1.6 : arch==='nova'?1.5 : arch==='orbitb'?1.4 : arch==='cross'?1.3 : 1.1) * (w.evolved?0.8:1),
         dmg:(w)=>{
           const gl = (DB.cgw && DB.cgw[ck+'_'+i] && DB.cgw[ck+'_'+i].lv)||1;
           const base = (arch==='snipe'?8:arch==='mortar'?5:3) + gl*1.2;
@@ -8083,6 +8138,25 @@ import { FX } from "./fx.js";
           } else if (arch==='burst'){
             // 즉발 폭발: 표적 자리에서 곧장 터진다 — 조준 불필요한 확정타
             addHazard(t.x, t.y, 62, 0.25, dmg*1.4, true);
+          } else if (arch==='lance'){
+            // 장창 돌격격: 굵고 긴 관통 일격 — 한 줄을 꿰뚫는다
+            projectiles.push({ x:player.x, y:player.y, vx:Math.cos(baseA)*760, vy:Math.sin(baseA)*760, r:9, damage:dmg*1.3, crit:Math.random()<player.critChance, pierce:9, life:0.9, arrow:true });
+          } else if (arch==='cross'){
+            // 십자포화: 4방향 동시 관통
+            for (let i=0;i<4;i++){ const a=baseA + i*Math.PI/2;
+              projectiles.push({ x:player.x, y:player.y, vx:Math.cos(a)*560, vy:Math.sin(a)*560, r:5, damage:dmg, crit:Math.random()<player.critChance, pierce:3, life:0.9, tracer:true }); }
+          } else if (arch==='rain'){
+            // 하늘비: 내 주변 광역에 낙하 세례
+            for (let i=0;i<n+3;i++){ const a=Math.random()*Math.PI*2, d2=40+Math.random()*180;
+              addHazard(player.x+Math.cos(a)*d2, player.y+Math.sin(a)*d2, 44, 0.4+Math.random()*0.5, dmg*0.8, true); }
+          } else if (arch==='orbitb'){
+            // 수호탄: 내 주위를 감싸며 바깥으로 퍼지는 원진
+            for (let i=0;i<n+4;i++){ const a=(Math.PI*2/(n+4))*i;
+              projectiles.push({ x:player.x+Math.cos(a)*30, y:player.y+Math.sin(a)*30, vx:Math.cos(a)*180, vy:Math.sin(a)*180, r:5, damage:dmg*0.9, crit:false, pierce:2, life:1.1, tracer:true }); }
+          } else if (arch==='echo'){
+            // 잔향격: 표적을 치고, 반 박자 뒤 같은 자리가 다시 터진다
+            addHazard(t.x, t.y, 50, 0.2, dmg, true);
+            addHazard(t.x, t.y, 66, 0.75, dmg*0.9, true);
           }
         }
         SFX.play('shoot');
@@ -10190,6 +10264,24 @@ import { FX } from "./fx.js";
     ];
     row('<div class="nm">⚔ 성장무기 도감 ('+gwDex.filter(g=>g.found).length+'/4)</div><div class="ds">'
       + gwDex.map(g=> g.found ? '<b style="color:#8b5cf6;">'+g.name+' ✓</b> — '+g.hint : '??? — <span style="opacity:0.6;">'+g.hint+'</span>').join('<br>')+'</div>');
+    // 직업 유일무기 도감 (37직업 × 3 = 111종): 발견한 것만 이름 공개, 나머지는 ???
+    {
+      let cgwFoundN = 0, cgwTotal = 0;
+      const lines = [];
+      Object.keys(CGW_NAMES).forEach(ck=>{
+        const cn = CLASSES[ck] ? CLASSES[ck].name : ck;
+        const parts = CGW_NAMES[ck].map((nm,i)=>{
+          cgwTotal++;
+          const rec = (DB.cgw||{})[ck+'_'+i];
+          if (rec && rec.found){ cgwFoundN++; return '<b style="color:#e8c56a;">'+nm+' Lv'+rec.lv+'</b>'; }
+          return '<span style="opacity:0.45;">???</span>';
+        });
+        if (parts.some(p2=>p2.indexOf('???')<0)) lines.push('<b>'+cn+'</b>: '+parts.join(' · '));
+      });
+      row('<div class="nm">🗡 직업 유일무기 도감 ('+cgwFoundN+'/'+cgwTotal+')</div><div class="ds">'
+        + (lines.length ? lines.join('<br>') : '아직 발견한 직업 유일무기가 없다 — 그 직업으로 보스를 잡다 보면, 언젠가.')
+        + '<br><span style="opacity:0.6;">획득: 보스 처치 1.5% · 상인의 흐릿한 도면(위험도 8+) · 대장장이의 덤</span></div>');
+    }
     // 테크 도감 — 처음부터 전체 공개 (획득한 것은 속성색 강조)
     const seen = DB.seenTech||{};
     for (const tk of SPEC_TREES){
