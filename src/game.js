@@ -10202,6 +10202,21 @@ import { FX } from "./fx.js";
   ];
   // 각성 문장 — 각성한 자만 밟는 마지막 한 수
   const ASC_AWAKEN = { n:'각성 문장', d:'[각성 전용] 모든 피해 +12%, 받는 피해 -6%, 최대체력 +8%', cost:4, f:(p)=>{p.dmgMult*=1.12;p.dmgTaken*=0.94;p.maxHp=Math.round(p.maxHp*1.08);p.hp=Math.min(p.maxHp,p.hp+20);} };
+  // 전직 문장 — 2차·3차 전직 순간 열리는 각인석: 내가 고른 전직의 이름이 그대로 새겨진다
+  function ascSealEffect(p, stage){
+    const g = classResGroup(p.classKey);
+    if (stage===2){
+      p.dmgMult *= 1.06;
+      if (g==='war'){ p.thorns=(p.thorns||0)+0.25; }
+      else if (g==='rng'||g==='rog'){ p.critChance=Math.min(0.9,p.critChance+0.05); }
+      else { p.cdr*=0.95; }
+    } else {
+      p.dmgMult *= 1.08; p.maxHp = Math.round(p.maxHp*1.06); p.hp = Math.min(p.maxHp, p.hp+15);
+      if (g==='war'){ p.dmgTaken*=0.95; }
+      else if (g==='rng'||g==='rog'){ p.critMult+=0.3; }
+      else { p.procBonus=(p.procBonus||0)+0.05; }
+    }
+  }
   const ascBoxEl = $('ascBox'), ascDial = $('ascDial'), ascInfo = $('ascInfo');
   let ascSel = null; // 터치 2탭: 첫 탭 = 정보 보기, 같은 버튼 재탭 = 습득
   function renderAscDial(){
@@ -10253,6 +10268,37 @@ import { FX } from "./fx.js";
     }
     ring(ASC_DIRS2, 'ascTaken2', 158, 58, Math.PI/6, player.jobs&&player.jobs.length>=2, '2차 전직에서 열린다');
     ring(ASC_DIRS3, 'ascTaken3', 196, 52, 0, player.jobs&&player.jobs.length>=3, '3차 전직에서 열린다');
+    // 전직 문장 2·3차: 고른 전직의 이름이 새겨지는 각인석 (중앙 좌우 아래)
+    [[2,'ascSeal2',-76],[3,'ascSeal3',76]].forEach(([stage, key, ox])=>{
+      const unlocked = player.jobs && player.jobs.length>=stage;
+      const taken = !!player[key];
+      const jobName = unlocked ? (player.jobs[stage-1]||(stage+'차')) : stage+'차 전직';
+      const cost = stage===2?2:3;
+      const btn = document.createElement('button');
+      btn.style.cssText = 'position:absolute; left:'+(cx+ox-27)+'px; top:'+(cy+72)+'px; width:54px; height:54px; border-radius:50%;'
+        + 'background:rgba(26,30,40,'+(unlocked?'0.9':'0.45')+'); color:'+(unlocked?'#9ecbe8':'#5c5e61')+';'
+        + 'border:2px '+(taken?'solid':'dashed')+' '+(unlocked?'#5a8cc8':'#4a4c50')+'; font-size:8.5px; cursor:pointer; line-height:1.2;'
+        + (taken?'box-shadow:0 0 12px #5a8cc8;':'');
+      btn.innerHTML = unlocked ? (taken?'✦<br>'+jobName:'📜<br>'+jobName+'<br>◈'+cost) : '🔒<br><span style="font-size:8px;">'+stage+'차 문장</span>';
+      btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = !unlocked
+        ? '🔒 '+stage+'차 전직 문장 — '+stage+'차 전직을 마치면 그 전직의 이름이 새겨진다'
+        : (taken ? '<b>['+jobName+'] 문장</b> — 새겨짐' : '<b>['+jobName+'] 문장</b> (◈'+cost+') — 걷는 길을 각인: 피해 강화 + 계열 보너스'); });
+      btn.addEventListener('click', ()=>{
+        if (!unlocked){ toast(stage+'차 전직을 마쳐야 새길 수 있다'); SFX.play('hit'); return; }
+        if (player[key]){ SFX.play('hit'); return; }
+        const selKey = 'seal'+stage;
+        if (IS_TOUCH && ascSel !== selKey){ ascSel = selKey; if (ascInfo) ascInfo.innerHTML = '<b>['+jobName+'] 문장</b> (◈'+cost+') — 한 번 더 탭하면 각인'; SFX.play('tele'); return; }
+        ascSel = null;
+        if ((player.ascStones||0) < cost){ toast('승천석 부족 (◈'+cost+')'); SFX.play('hit'); return; }
+        player.ascStones -= cost;
+        player[key] = true;
+        ascSealEffect(player, stage);
+        toast('📜 ['+jobName+'] 문장이 새겨졌다');
+        SFX.play('evolve');
+        renderAscDial();
+      });
+      ascDial.appendChild(btn);
+    });
     // 각성 문장: 각성한 자만 — 중앙 위
     {
       const aw = ASC_AWAKEN;
