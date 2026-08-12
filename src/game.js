@@ -1541,6 +1541,67 @@ import { FX } from "./fx.js";
             (B)=>{ (B.classPerks=B.classPerks||[]).push({ g:br.key, f:CL.kF }); }, [br.key+'_cln'], br.color);
       }
     });
+    // v6.20: 32직업 개별 소성단 — 직업 성단 키스톤 너머, 그 직업으로 플레이할 때만 발동하는 전용 별
+    const CS = {
+      rusher:{n:'맹진',d:'[돌격병 전용] 피해 +8%, 이속 +5%',f:(p)=>{p.dmgMult*=1.08;p.speed*=1.05;}},
+      paladin:{n:'서약의 방패',d:'[성기사 전용] 받는 피해 -8%, 재생 +0.4',f:(p)=>{p.dmgTaken*=0.92;p.regen+=0.4;}},
+      cheol:{n:'철혈의 심장',d:'[철혈 전용] 최대체력 +15%, 가시 +30%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.15);p.hp=p.maxHp;p.thorns=(p.thorns||0)+0.3;}},
+      exhero:{n:'전성기의 기억',d:'[전직 용사 전용] 피해 +10%, 경험치 +8%',f:(p)=>{p.dmgMult*=1.1;p.xpMult=(p.xpMult||1)*1.08;}},
+      madman:{n:'더 깊은 광기',d:'[광인 전용] 피해 +12%, 받는 피해 +5%',f:(p)=>{p.dmgMult*=1.12;p.dmgTaken*=1.05;}},
+      monk:{n:'백팔번뇌',d:'[수도승 전용] 1번 무기 강화 상한 +10%p',f:(p)=>{p.weaponCap1=(p.weaponCap1||1.3)+0.10;}},
+      archer:{n:'폭풍 시위',d:'[궁수 전용] 공속 +8%, 투사체 +1 (10% 확률)',f:(p)=>{p.rateMult*=1.08;p.multishotCh=(p.multishotCh||0)+0.10;}},
+      sniper:{n:'단 한 발',d:'[저격수 전용] 치명 배율 +0.5',f:(p)=>{p.critMult+=0.5;}},
+      pilot:{n:'에이스 기동',d:'[파일럿 전용] 이속 +8%, 회피 +4%',f:(p)=>{p.speed*=1.08;p.dodge=Math.min(0.7,p.dodge+0.04);}},
+      manager:{n:'결재 전결권',d:'[관리자 전용] 쿨다운 -10%',f:(p)=>{p.cdr*=0.9;}},
+      voidc:{n:'심연 응시',d:'[공허술사 전용] 원소 발동 +7%p',f:(p)=>{p.procBonus=(p.procBonus||0)+0.07;}},
+      ninja:{n:'그림자 여덟',d:'[닌자 전용] 회피 +6%, 대시 쿨 -12%',f:(p)=>{p.dodge=Math.min(0.7,p.dodge+0.06);p.dashCdMax*=0.88;}},
+      reaper:{n:'수확의 계절',d:'[사신 전용] 처형 임계 +6%p',f:(p)=>{p.execThresh=Math.min(0.45,(p.execThresh||0)+0.06);}},
+      glitch:{n:'세그폴트',d:'[글리치 전용] 치명 +8%, 피해 +6%',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.08);p.dmgMult*=1.06;}},
+      blackcat:{n:'아홉 목숨',d:'[흑묘 전용] 회피 +8%',f:(p)=>{p.dodge=Math.min(0.7,p.dodge+0.08);}},
+      shadow:{n:'일격의 정적',d:'[그림자 전용] 치명 배율 +0.4, 이속 +4%',f:(p)=>{p.critMult+=0.4;p.speed*=1.04;}},
+      tombraider:{n:'유물 감식안',d:'[도굴꾼 전용] 수집 범위 +50, 행운 +15%',f:(p)=>{p.magnet+=50;p.luck*=1.15;}},
+      mumyeong:{n:'무명의 깨달음',d:'[무명자 전용] 피해 +8%, 쿨다운 -6%',f:(p)=>{p.dmgMult*=1.08;p.cdr*=0.94;}},
+      commander:{n:'총지휘',d:'[지휘관 전용] 위성·소환 피해 +18%',f:(p)=>{p.satDmg=(p.satDmg||1)*1.18;}},
+      necro:{n:'망자의 군단',d:'[강령술사 전용] 소환수 피해 +15%, 재생 +0.3',f:(p)=>{p.satDmg=(p.satDmg||1)*1.15;p.regen+=0.3;}},
+      bard:{n:'앙코르',d:'[음유시인 전용] 쿨다운 -8%, 회복 +15%',f:(p)=>{p.cdr*=0.92;p.healMult*=1.15;}},
+      returner:{n:'회귀자의 예지',d:'[회귀자 전용] 받는 피해 -6%, 경험치 +6%',f:(p)=>{p.dmgTaken*=0.94;p.xpMult=(p.xpMult||1)*1.06;}},
+      engineer:{n:'오버클럭',d:'[기술자 전용] 위성 피해 +15%, 공속 +5%',f:(p)=>{p.satDmg=(p.satDmg||1)*1.15;p.rateMult*=1.05;}},
+      debug:{n:'핫픽스',d:'[디버거 전용] 쿨다운 -8%, 치명 +5%',f:(p)=>{p.cdr*=0.92;p.critChance=Math.min(0.9,p.critChance+0.05);}},
+      tourist:{n:'만보객',d:'[관광객 전용] 이속 +8%, 걸음 골드 가속',f:(p)=>{p.speed*=1.08;p.walkGold=true;}},
+      slime:{n:'무한 증식',d:'[슬라임 전용] 최대체력 +18%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.18);p.hp=p.maxHp;}},
+      gambler:{n:'하이 롤러',d:'[도박사 전용] 행운 +25%',f:(p)=>{p.luck*=1.25;}},
+      collector:{n:'완벽한 진열장',d:'[수집가 전용] 상자 결과 상향',f:(p)=>{p.chestPlus=true;}},
+      contributor:{n:'커밋 권한',d:'[기여자 전용] 피해 +8%, 골드 +10%',f:(p)=>{p.dmgMult*=1.08;p.goldMult*=1.1;}},
+      baeksu:{n:'프로 백수',d:'[백수 전용] 경험치 +12%',f:(p)=>{p.xpMult=(p.xpMult||1)*1.12;}},
+      stonks:{n:'존버 정신',d:'[스톤크스 전용] 골드 +15%, 이자 강화',f:(p)=>{p.goldMult*=1.15;}},
+      gymbro:{n:'3대 500',d:'[헬창 전용] 최대체력 +12%, 피해 +8%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.12);p.hp=p.maxHp;p.dmgMult*=1.08;}},
+    };
+    // RESONANCE는 이 IIFE보다 뒤에 선언되므로 로컬 사본 사용 (동기화 주의)
+    const RES_LOCAL = {
+      war:['rusher','paladin','cheol','exhero','madman','monk'],
+      rng:['archer','sniper','pilot'],
+      mag:['manager','voidc','commander'],
+      rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
+      pri:['necro','bard','returner'],
+      mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'],
+    };
+    for (const g in RES_LOCAL){
+      const brKey = g;
+      const br2 = STAR_BRANCHES.find(bb=>bb.key===brKey);
+      if (!br2) continue;
+      const th2 = br2.angle*Math.PI/180;
+      const list = RES_LOCAL[g];
+      list.forEach((ck, ci)=>{
+        const cs = CS[ck]; if (!cs) return;
+        const a2 = th2 - 0.12 + (ci-(list.length-1)/2)*0.13;
+        const r1 = 70 + 15.2*STEP, r2 = r1 + STEP*0.9;
+        const sid = 'cs_'+ck+'_s';
+        add(sid, Math.cos(a2)*r1, Math.sin(a2)*r1, 'small', br2.small.n, br2.small.d, br2.small.ap, [brKey+'_clk'], br2.color);
+        add('cs_'+ck+'_n', Math.cos(a2)*r2, Math.sin(a2)*r2, 'notable', cs.n, cs.d,
+            (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:cs.f }); }, [sid], br2.color);
+      });
+    }
+
     // 내륜 (순환로 1): 인접 계열의 N1끼리 소형 2개로 연결 — r ≈ 250
     for (let i=0;i<6;i++){
       const a1 = STAR_BRANCHES[i].angle*Math.PI/180;
@@ -1657,7 +1718,10 @@ import { FX } from "./fx.js";
     if (B.classPerks && B.classPerks.length){
       const myGroup = classResGroup(p.classKey);
       let fired = 0;
-      for (const perk of B.classPerks){ if (perk.g===myGroup){ perk.f(p); fired++; } }
+      for (const perk of B.classPerks){
+        if (perk.cls){ if (perk.cls===p.classKey){ perk.f(p); fired++; } } // 32직업 개별 소성단 — 정확히 그 직업만
+        else if (perk.g===myGroup){ perk.f(p); fired++; }
+      }
       if (fired>0) setTimeout(()=>toast('⭐ 직업 성단 발동 ×'+fired), 1100);
     }
     // 키스톤 시너지: 특정 키스톤 조합이 함께면 추가 효과 (PoE식 빌드 완성 보너스)
@@ -3730,6 +3794,21 @@ import { FX } from "./fx.js";
     { n:'대식가 계약', d:'회복 +50% / 이동속도 -12%', fx:(p)=>{ p.healMult*=1.5; p.speed*=0.88; } },
     { n:'유령 계약',  d:'회피 +15% / 최대체력 -20%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.15); p.maxHp=Math.max(30,Math.round(p.maxHp*0.8)); } },
     { n:'폭풍 인도자', d:'웨이브 주기 -30% (더 자주) / 웨이브마다 골드 +15', fx:(p)=>{ p.stormCall=true; } },
+    // v6.20 신규 — 독특한 계약들
+    { n:'메아리 계약', d:'스킬 시전 시 30% 확률로 쿨다운 90% 환급 / 최대체력 -12%', fx:(p)=>{ p.echoCast=true; p.maxHp=Math.max(30,Math.round(p.maxHp*0.88)); p.hp=Math.min(p.hp,p.maxHp); } },
+    { n:'야시장 계약', d:'떠돌이 상인 등장 주기 -40%, 가격 -30% / 골드 획득 -20%', fx:(p)=>{ p.merchantFreq=0.6; p.merchantDisc=(p.merchantDisc||1)*0.7; p.goldMult*=0.8; } },
+    { n:'천공 계약',  d:'투사체 관통 +1 / 이동속도 -10%', fx:(p)=>{ p.pierce+=1; p.speed*=0.9; } },
+    { n:'피뢰침 계약', d:'피격 시 강한 가시 반사 (80%) / 받는 피해 +10%', fx:(p)=>{ p.thorns=Math.max(p.thorns||0,0.8); p.dmgTaken*=1.1; } },
+    { n:'거인 계약',  d:'몸집 +25% (잘 맞는다) / 모든 피해 +20%, 최대체력 +20%', fx:(p)=>{ p.r*=1.25; p.dmgMult*=1.2; p.maxHp=Math.round(p.maxHp*1.2); p.hp=p.maxHp; } },
+    { n:'희극 계약',  d:'리롤 +3 / 최대체력 -15%', fx:(p)=>{ rerollsLeft+=3; p.maxHp=Math.max(30,Math.round(p.maxHp*0.85)); p.hp=Math.min(p.hp,p.maxHp); } },
+    { n:'수집광 계약', d:'수집 범위 +80 / 대시 쿨다운 +20%', fx:(p)=>{ p.magnet+=80; p.dashCdMax*=1.2; } },
+  ];
+  // 히든 런 계약 — 낮은 확률(슬롯당 8%)로만 풀에 섞이는 강렬한 계약
+  const HIDDEN_ARCANA = [
+    { n:'🌙 월광 계약', d:'[히든] 화면이 상시 어둑하다 / 모든 피해 +50%', fx:(p)=>{ p.moonlight=true; p.dmgMult*=1.5; } },
+    { n:'🃏 컬렉터의 광기', d:'[히든] 상자 결과 상향 + 상자 2배 가치 / 받는 피해 +25%', fx:(p)=>{ p.chestPlus=true; p.dmgTaken*=1.25; } },
+    { n:'👻 영혼 거래', d:'[히든] 부활 +1회 / 최대체력 -40%', fx:(p)=>{ p.reviveLeft=(p.reviveLeft||0)+1; p.maxHp=Math.max(30,Math.round(p.maxHp*0.6)); p.hp=Math.min(p.hp,p.maxHp); } },
+    { n:'😈 악마의 흥정', d:'[히든] 모든 피해 +60% / 회복 효과 없음, 이동속도 -10%', fx:(p)=>{ p.dmgMult*=1.6; p.healMult=0; p.speed*=0.9; } },
   ];
   // 중간 계약 — 4분/8분에 나타나는 추가 제약 제안 (수락할수록 위험하고 강해진다)
   const MID_CONTRACTS = [
@@ -3755,8 +3834,38 @@ import { FX } from "./fx.js";
     const pool = ARCANA.slice();
     const opts = [];
     for (let i=0;i<3;i++){
+      // 히든 계약: 슬롯당 8% 확률로 희귀 계약이 대신 끼어든다
+      if (Math.random()<0.08 && HIDDEN_ARCANA.length){
+        const h = HIDDEN_ARCANA[(Math.random()*HIDDEN_ARCANA.length)|0];
+        opts.push({ l:h.n, d:h.d, fx:()=>{ h.fx(player); toast('히든 계약 체결: '+h.n); unlockAch('hiddenpact'); SFX.play('evolve'); } });
+        continue;
+      }
       const a = pool.splice((Math.random()*pool.length)|0,1)[0];
       opts.push({ l:a.n, d:a.d, fx:()=>{ a.fx(player); toast('계약 체결: '+a.n); SFX.play('quest'); } });
+    }
+    // ⭐ 키스톤 대여: 미보유 변형·변혁 키스톤 하나를 이번 런만 체험 (35% 확률 등장)
+    const rentPool = TRANSFORM_KEYS.concat([
+      { id:'t2_bladewave', n:'검기 방출', d:'역장·낫 무기가 4초마다 검기 3발 발사 (근접 → 원거리)', ap:(B)=>{ B.bladeWave=true; } },
+      { id:'t2_rapidfire', n:'광포화', d:'공격속도 +25% / 모든 피해 -15%', ap:(B)=>{ B.rate+=25; B.dmg-=15; } },
+      { id:'t2_projleech', n:'마탄 흡혈', d:'투사체 명중 시 5% 확률 체력 +1', ap:(B)=>{ B.projLeech=true; } },
+    ]).filter(tk=>!DB.star.nodes[tk.id]);
+    if (rentPool.length && Math.random()<0.35){
+      const tk = rentPool[(Math.random()*rentPool.length)|0];
+      opts.push({ l:'⭐ 키스톤 대여: '+tk.n, d:'[1런 체험] '+tk.d+' — 마음에 들면 성도에서 정식 투자', fx:()=>{
+        const B2 = {}; tk.ap(B2);
+        if (B2.bloodRush) player.bloodRush=true;
+        if (B2.shatter) player.shatter=true;
+        if (B2.ultEcho) player.ultEcho=true;
+        if (B2.shadowClone) player.shadowClone=true;
+        if (B2.holyRet) player.holyRet=true;
+        if (B2.goldPower) player.goldPower=true;
+        if (B2.bladeWave) player.bladeWave=true;
+        if (B2.projLeech) player.projLeech=true;
+        if (B2.rate) player.rateMult*=1+B2.rate/100;
+        if (B2.dmg) player.dmgMult*=1+B2.dmg/100;
+        toast('⭐ 키스톤 대여: '+tk.n+' (이번 런 한정)');
+        SFX.play('evolve');
+      } });
     }
     opts.push({ l:'계약 없음', d:'모디파이어 없이 순수하게 진행한다', fx:null });
     openEvent({ t:'런 계약 선택', d:'이번 판 전체에 적용되는 계약입니다. 위험과 보상을 저울질하세요.', opts });
@@ -6971,6 +7080,7 @@ import { FX } from "./fx.js";
     }
     sk.fx();
     player.skCds[i] = sk.cd * 1.35 * player.cdr; // 전역 쿨타임 +35% — 스킬은 강하되 아껴 써야 한다
+    if (player.echoCast && Math.random()<0.3){ player.skCds[i] *= 0.1; addTextNum(player.x, player.y-46, '메아리!'); }
     addTextNum(player.x, player.y-34, sk.n);
   }
   document.querySelectorAll('.skillChip').forEach(b=>{
@@ -8363,6 +8473,7 @@ import { FX } from "./fx.js";
     if (player.zoneSilenceT>0) player.zoneSilenceT -= dt;
     updateGateObjs(dt);
     tickGatePending(dt);
+    if (player.moonlight) screenDimT = Math.max(screenDimT, 0.22); // 월광 계약 — 상시 어둑
     // 마크 표적: 고동치는 링 표시
     if (player.markTarget){
       player.markPulseT = (player.markPulseT||0) - dt;
@@ -8512,7 +8623,7 @@ import { FX } from "./fx.js";
         return;
       }
     }
-    if (elapsed >= 90 + merchantCount*120 && merchants.length===0){
+    if (elapsed >= 90 + merchantCount*120*((player&&player.merchantFreq)||1) && merchants.length===0){
       merchantCount += 1;
       const mp = ringSpawnPos(240, 380);
       merchants.push({ x:mp.x, y:mp.y, r:16, age:0 });
