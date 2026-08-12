@@ -1668,6 +1668,41 @@ import { FX } from "./fx.js";
           voidc:[{sn:'공허 영창',kn:'이중 균열'},{sn:'심연 친화',kn:'공허 폭주'},{sn:'차원 감각',kn:'시공 왜곡'}],
           commander:[{sn:'예비 편대',kn:'전 부대 일제사격'},{sn:'화망 구성',kn:'집중 포화'},{sn:'긴급 재배치',kn:'전술 시간표'}],
         };
+        // 시그니처 키스톤: 갈래 0의 키스톤은 직업마다 이름·효과가 완전히 다르다 (정체성)
+        const SIGKEY = {
+          rusher:{n:'브레이크 없는 돌격',d:'대시 학살 돌진 + 대시 쿨 -20%',f:(p)=>{p.bloodRush=true;p.dashCdMax*=0.8;}},
+          paladin:{n:'불침의 성벽',d:'받는 피해 -12%, 피격 시 신성 폭발',f:(p)=>{p.dmgTaken*=0.88;p.holyRet=true;}},
+          cheol:{n:'혈철 순환',d:'가시 120% + 피격 시 재생 가속(재생 +1)',f:(p)=>{p.thorns=Math.max(p.thorns||0,1.2);p.regen+=1;}},
+          exhero:{n:'전성기 재림',d:'피해 +14%, 경험치 +10%',f:(p)=>{p.dmgMult*=1.14;p.xpMult=(p.xpMult||1)*1.1;}},
+          madman:{n:'출혈 도가니',d:'피해 +16%, 처형 임계 +8%p, 받는 피해 +8%',f:(p)=>{p.dmgMult*=1.16;p.execThresh=Math.min(0.5,(p.execThresh||0)+0.08);p.dmgTaken*=1.08;}},
+          monk:{n:'일격일념',d:'1번 무기 강화 상한 +20%p, 쿨다운 -8%',f:(p)=>{p.weaponCap1=(p.weaponCap1||1.3)+0.20;p.cdr*=0.92;}},
+          archer:{n:'화살비의 주인',d:'추가 투사체 +35%',f:(p)=>{p.multishotCh=(p.multishotCh||0)+0.35;}},
+          sniper:{n:'제로인 완성',d:'치명 배율 +1.0, 관통 +1 (한 발의 무게)',f:(p)=>{p.critMult+=1.0;p.pierce+=1;}},
+          pilot:{n:'풀 스로틀',d:'이속 +12%, 공속 +10%, 대시 무적 +0.15초',f:(p)=>{p.speed*=1.12;p.rateMult*=1.1;p.dashInvuln=(p.dashInvuln||0)+0.15;}},
+          manager:{n:'무한 결재',d:'전용기 이중 시전 + 쿨다운 -8%',f:(p)=>{p.ultEcho=true;p.cdr*=0.92;}},
+          voidc:{n:'심연 융합',d:'원소 발동 +15%p',f:(p)=>{p.procBonus=(p.procBonus||0)+0.15;}},
+          ninja:{n:'그림자 군단',d:'대시 분신 + 대시 쿨 -20%',f:(p)=>{p.shadowClone=true;p.dashCdMax*=0.8;}},
+          reaper:{n:'대수확',d:'처형 임계 +12%p, 처치 회복 +1',f:(p)=>{p.execThresh=Math.min(0.55,(p.execThresh||0)+0.12);p.lifesteal+=1;}},
+          glitch:{n:'메모리 오염',d:'치명 +12%, 치명 배율 +0.5',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.12);p.critMult+=0.5;}},
+          blackcat:{n:'아홉 번째 목숨',d:'회피 +12%, 부활 +1',f:(p)=>{p.dodge=Math.min(0.75,p.dodge+0.12);p.reviveLeft=(p.reviveLeft||0)+1;}},
+          shadow:{n:'무영살',d:'무피격 3초 후 공격은 확정 치명 + 배율 +0.4',f:(p)=>{p.shadowStrike=true;p.critMult+=0.4;}},
+          tombraider:{n:'왕가의 저주',d:'행운 +30%, 수집 +60, 상자 상향',f:(p)=>{p.luck*=1.3;p.magnet+=60;p.chestPlus=true;}},
+          mumyeong:{n:'무명무極',d:'피해 +10%, 쿨 -10%, 공속 +6% (이름 없는 완성)',f:(p)=>{p.dmgMult*=1.1;p.cdr*=0.9;p.rateMult*=1.06;}},
+          commander:{n:'총공세 명령',d:'위성·소환 피해 +35%',f:(p)=>{p.satDmg=(p.satDmg||1)*1.35;}},
+          necro:{n:'사령 지배',d:'소환 피해 +25%, 흡혈 +1',f:(p)=>{p.satDmg=(p.satDmg||1)*1.25;p.lifesteal+=1;}},
+          bard:{n:'광시곡',d:'쿨 -12%, 스킬 30% 쿨 환급',f:(p)=>{p.cdr*=0.88;p.echoCast=true;}},
+          returner:{n:'회귀의 정석',d:'받는 피해 -10%, 부활 +1',f:(p)=>{p.dmgTaken*=0.9;p.reviveLeft=(p.reviveLeft||0)+1;}},
+          engineer:{n:'풀오토 팩토리',d:'위성 피해 +25%, 공속 +8%',f:(p)=>{p.satDmg=(p.satDmg||1)*1.25;p.rateMult*=1.08;}},
+          debug:{n:'루트 권한',d:'쿨 -12%, 치명 +8%, 리롤 +2',f:(p)=>{p.cdr*=0.88;p.critChance=Math.min(0.9,p.critChance+0.08);rerollsLeft+=2;}},
+          tourist:{n:'세계일주',d:'이속 +12%, 걸음 골드, 회피 +5%',f:(p)=>{p.speed*=1.12;p.walkGold=true;p.dodge=Math.min(0.75,p.dodge+0.05);}},
+          slime:{n:'초재생 점막',d:'최대체력 +25%, 재생 +1.2',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.25);p.hp=p.maxHp;p.regen+=1.2;}},
+          gambler:{n:'올인',d:'행운 +50% / 최대체력 -15%',f:(p)=>{p.luck*=1.5;p.maxHp=Math.max(30,Math.round(p.maxHp*0.85));p.hp=Math.min(p.hp,p.maxHp);}},
+          collector:{n:'박물관 개관',d:'상자 상향 + 골드 +20%',f:(p)=>{p.chestPlus=true;p.goldMult*=1.2;}},
+          contributor:{n:'메인테이너',d:'피해 +12%, 골드 +15%, 경험치 +8%',f:(p)=>{p.dmgMult*=1.12;p.goldMult*=1.15;p.xpMult=(p.xpMult||1)*1.08;}},
+          baeksu:{n:'무직의 여유',d:'경험치 +20%, 회피 +6%',f:(p)=>{p.xpMult=(p.xpMult||1)*1.2;p.dodge=Math.min(0.75,p.dodge+0.06);}},
+          stonks:{n:'가즈아',d:'골드가 곧 화력 (황금 혈맥) + 골드 +20%',f:(p)=>{p.goldPower=true;p.goldMult*=1.2;}},
+          gymbro:{n:'무한 벌크업',d:'최대체력 +20%, 피해 +12%, 몸집 +10%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.2);p.hp=p.maxHp;p.dmgMult*=1.12;p.r*=1.1;}},
+        };
         const web = WEB[brKey]||[];
         web.forEach((wb, wi)=>{
           const wa = a2 + (wi-1)*0.085;
@@ -1677,8 +1712,11 @@ import { FX } from "./fx.js";
           add(w0, Math.cos(wa)*wr0, Math.sin(wa)*wr0, 'small', br2.small.n, br2.small.d, br2.small.ap, ['cs_'+ck+'_n'], br2.color);
           add('csw_'+ck+'_'+wi+'_1', Math.cos(wa)*wr1, Math.sin(wa)*wr1, 'notable', skin.sn||wb.sn, '['+cs.n.split(' ')[0]+' 승천] '+wb.sd,
               (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.sf }); }, [w0], br2.color);
-          add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key', skin.kn||wb.kn, wb.kd,
-              (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:wb.kf, deep:wb.df }); }, ['csw_'+ck+'_'+wi+'_1'], '#e8e8e6');
+          const sig = wi===0 ? SIGKEY[ck] : null;
+          add('csw_'+ck+'_'+wi+'_2', Math.cos(wa)*wr2, Math.sin(wa)*wr2, 'key',
+              sig ? sig.n : (skin.kn||wb.kn),
+              sig ? '[시그니처 키스톤 — 이 직업만의 극의] '+sig.d+' · 심화(2차 전직): 추가 강화' : wb.kd,
+              (B)=>{ (B.classPerks=B.classPerks||[]).push({ cls:ck, f:(sig?sig.f:wb.kf), deep:wb.df }); }, ['csw_'+ck+'_'+wi+'_1'], sig ? '#e8c56a' : '#e8e8e6');
         });
       });
     }
@@ -3746,6 +3784,15 @@ import { FX } from "./fx.js";
         });
       }
     }
+    // ⚡ 강림 속성 확정 — 반드시 무기 카드 생성보다 먼저! (순서 버그: 무기 각인이 직전 강림을 참조하던 근본 원인)
+    {
+      const actives0 = activeSpecTrees();
+      const lockOthers0 = actives0.length >= (player.attrLimit||3);
+      const candidates0 = lockOthers0 ? actives0 : SPEC_TREES.slice();
+      if (focusOverride && candidates0.includes(focusOverride)){ focusTree = focusOverride; }
+      else focusTree = candidates0.length ? candidates0[(Math.random()*candidates0.length)|0] : null;
+      focusOverride = null;
+    }
     if (player.weapons.length < (player.weaponCap||MAX_WEAPONS)){
       // 성장무기를 들고 있으면 일반 새 무기 제안 중단 (성장무기 중심 빌드로 — 사용자 요청)
       const hasGrowth = ownedWeapon('nameless') || ownedWeapon('gbow') || ownedWeapon('gtome') || ownedWeapon('gblade');
@@ -3820,12 +3867,7 @@ import { FX } from "./fx.js";
     // tech options — 속성 강림 방식:
     // 레벨업마다 무작위 속성 1개가 '강림'하여 그 속성의 하위테크만 등장.
     // 3속성 확정 후에는 그 3개 중에서만 강림. 공통 트리는 항상 소량 등장.
-    const actives = activeSpecTrees();
-    const lockOthers = actives.length >= (player.attrLimit||3);
-    const candidates = lockOthers ? actives : SPEC_TREES.slice();
-    if (focusOverride && candidates.includes(focusOverride)){ focusTree = focusOverride; }
-    else focusTree = candidates.length ? candidates[(Math.random()*candidates.length)|0] : null;
-    focusOverride = null;
+    // (강림 확정은 무기 카드 생성 전에 이미 완료됨 — 위 참조)
     const SLOT_LIMIT = 5; // 트리당 하위테크 종류 슬롯 (신화 제외)
     // 공통 트리는 매 레벨업 2종만 무작위 등장 (강림 속성이 풀의 주인공이 되도록)
     const commonAllow = new Set();
