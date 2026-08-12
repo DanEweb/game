@@ -6498,6 +6498,13 @@ import { FX } from "./fx.js";
       }
       SFX.play('tele');
     }
+    // v6.62 전멸기 사전 경고 (55초): "곧 닫힌다"가 보이게 — 딜 체크를 알고 준비할 수 있다
+    if (!b.finale && (b.aliveT||0) > 55 && !b.midWarned && !b.midWiped){
+      b.midWarned = true;
+      showBossBanner('경고', '수문장이 힘을 모은다 — 15초 안에 끝내라!', '#d4772e');
+      effects.push({ type:'ring', x:b.x, y:b.y, life:0.6, age:0, r0:b.r, r1:b.r*3.2, col:'#d4772e' });
+      SFX.play('warn');
+    }
     // 수문장 소프트 전멸기 (70초): 관문 1·2도 딜 체크
     if (!b.finale && (b.aliveT||0) > 70 && !b.midWiped){
       b.midWiped = true;
@@ -7878,6 +7885,8 @@ import { FX } from "./fx.js";
         b.trDashing -= dt;
         b.x += Math.cos(b.trA)*680*dt;
         b.y += Math.sin(b.trA)*680*dt;
+        // v6.62 선로 스파크: 돌진하는 바퀴에서 불꽃이 튄다
+        if (Math.random()<0.6) particles.push({ x:b.x-Math.cos(b.trA)*b.r, y:b.y-Math.sin(b.trA)*b.r+8, vx:(Math.random()-0.5)*80, vy:-50-Math.random()*40, life:0.3, age:0, r:1.6, col:'#e8c56a' });
         if (Math.hypot(player.x-b.x, player.y-b.y) < b.r+player.r+6 && player.invuln<=0){
           if (playerHit(28*ds, 0.5, 12)) return true;
         }
@@ -14086,6 +14095,67 @@ import { FX } from "./fx.js";
         ctx.fillRect(-6,-17,15,11);
         ctx.strokeStyle = '#5ab8c9'; ctx.lineWidth=1.6; ctx.strokeRect(-6,-17,15,11);
         ctx.beginPath(); ctx.arc(1.5,-11.5,3.2, t*4, t*4+Math.PI*1.4); ctx.stroke();
+      } else if (b.kind==='gkshield'){ // v6.62 수문장 · 강철 방패기사: 타워 방패 + 절대 방어 배리어 돔
+        if (b.gsGroggy>0){
+          // 그로기: 방패를 떨어뜨리고 별이 돈다
+          ctx.save(); ctx.translate(9,7); ctx.rotate(1.15);
+          ctx.fillStyle = '#6a7a8a';
+          roundRect(-4,-9,8,18,3); ctx.fill();
+          ctx.restore();
+          ctx.fillStyle = '#e8c56a';
+          for (let k2=0;k2<3;k2++){
+            const sa = t*5 + k2*2.1;
+            ctx.beginPath(); ctx.arc(1+Math.cos(sa)*8, -19+Math.sin(sa)*2.4, 1.3, 0, Math.PI*2); ctx.fill();
+          }
+        } else {
+          ctx.save(); ctx.translate(9,-2);
+          ctx.fillStyle = '#6a7a8a';
+          roundRect(-4.5,-10,9,20,3.5); ctx.fill();
+          ctx.strokeStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(0,6); ctx.stroke();
+          ctx.restore();
+        }
+        if (b.gsShield>0){
+          ctx.save(); ctx.rotate(t*0.9);
+          ctx.strokeStyle = 'rgba(106,122,138,0.9)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let k2=0;k2<6;k2++){ const a3=(Math.PI/3)*k2; ctx.lineTo(Math.cos(a3)*17, Math.sin(a3)*17); }
+          ctx.closePath(); ctx.stroke();
+          ctx.globalAlpha = 0.15 + 0.08*Math.sin(t*6);
+          ctx.fillStyle = '#6a7a8a';
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+      } else if (b.kind==='gktwin'){ // v6.62 수문장 · 쌍둥이 그림자: 이중 잔상
+        ctx.fillStyle = '#7a5ca3';
+        ctx.globalAlpha = 0.22;
+        ctx.beginPath(); ctx.arc(-6,-3,8,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 0.12;
+        ctx.beginPath(); ctx.arc(-11,-3,8,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (b.kind==='gktrain'){ // v6.62 수문장 · 궤도 기관차: 바퀴·굴뚝 연기·전조등
+        ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+        for (const wx of [-5,5]){
+          ctx.save(); ctx.translate(wx,9); ctx.rotate(t*(b.trDashing?14:5));
+          ctx.beginPath(); ctx.arc(0,0,3.2,0,Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-3.2,0); ctx.lineTo(3.2,0); ctx.moveTo(0,-3.2); ctx.lineTo(0,3.2); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.fillStyle = ink2;
+        ctx.fillRect(-2,-20,5,6);
+        ctx.globalAlpha = 0.3;
+        for (let k2=0;k2<3;k2++){
+          const ph2 = (t*0.7 + k2*0.33)%1;
+          ctx.beginPath(); ctx.arc(0.5-ph2*6, -22-ph2*10, 2+ph2*3, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        if (b.trPrep>0 && Math.floor(performance.now()/120)%2===0){
+          ctx.fillStyle = '#e8c56a';
+          ctx.beginPath(); ctx.arc(8,-4,2.6,0,Math.PI*2); ctx.fill();
+        }
       }
       // v6.61 보스 KEY별 정체성 프롭 — kind 공용 장식 위에 '그 보스'만의 상징을 얹는다
       {
@@ -14157,6 +14227,17 @@ import { FX } from "./fx.js";
     }
 
     ctx.globalAlpha = 1;
+    // v6.62 쌍둥이 공명 실: 본체와 분신을 잇는 점선 — "분신부터"가 눈에 보인다
+    if (b.kind==='gktwin' && b.gtClone && enemies.includes(b.gtClone)){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(122,92,163,0.5)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([5,6]);
+      ctx.lineDashOffset = -performance.now()/50;
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.gtClone.x,b.gtClone.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
     // 보스 시그니처 색 링 (분노 시 고동친다)
     const accent = BOSS_ACCENTS[b.key];
     if (accent && !b.ghost){
