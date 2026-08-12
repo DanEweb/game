@@ -1533,10 +1533,11 @@ import { FX } from "./fx.js";
   }
   // 직업 공명 — 자기 계열의 노드는 직업에 따라 더 강하게 발현된다
   const RESONANCE = {
-    war:['rusher','paladin','cheol','exhero'],
+    war:['rusher','paladin','cheol','exhero','madman','monk'],
     rng:['archer','sniper','pilot'],
     mag:['manager','voidc'],
-    rog:['ninja','reaper','glitch','blackcat','shadow'],
+    rog:['ninja','reaper','glitch','blackcat','shadow','tombraider','mumyeong'],
+    mag2:['commander'],
     pri:['necro','bard','returner'],
     mer:['engineer','debug','tourist','slime','gambler','collector','contributor','baeksu','stonks','gymbro'],
   };
@@ -1890,9 +1891,49 @@ import { FX } from "./fx.js";
       name:'수집가', tag:'히든', hidden:true,
       condDesc:'유니크 장비 3종 보유 시 해금',
       cond:()=> DB.inv.filter(i=>i.r===5).length>=3,
-      desc:'무작위 무기 2개로 시작. 아이템 드랍 2배, 상자에서 나오는 모든 것이 한 단계 좋아진다.',
+      desc:'무작위 무기 2개로 시작. 아이템 드랍 +50%, 상자에서 나오는 것이 한 단계 좋아진다.',
       weapon:'random2',
-      apply:(p)=>{ p.luck*=2; p.chestPlus=true; }
+      apply:(p)=>{ p.luck*=1.5; p.chestPlus=true; }
+    },
+    madman: {
+      name:'광인', tag:'히든', hidden:true,
+      condDesc:'위험도 5 도달 시 해금',
+      cond:()=> (DB.perilMax||0)>=5,
+      desc:'체력이 계속 새어나간다 (초당 0.8%). 대신 처치 회복 +3, 피해 +12%. 멈추면 죽는다 — 계속 사냥하라.',
+      weapon:'scythe',
+      apply:(p)=>{ p.madman=true; p.lifesteal+=3; p.dmgMult*=1.12; }
+    },
+    monk: {
+      name:'수도승', tag:'히든', hidden:true,
+      condDesc:'위험도 10 도달 시 해금',
+      cond:()=> (DB.perilMax||0)>=10,
+      desc:'무기 슬롯 1개. 단 하나의 무기와 함께 정진한다 — 그 무기 피해 +30%, 쿨다운 -10%.',
+      weapon:'aura',
+      apply:(p)=>{ p.weaponCap=1; p.dmgMult*=1.3; p.cdr*=0.9; }
+    },
+    commander: {
+      name:'지휘관', tag:'히든', hidden:true,
+      condDesc:'위험도 15 도달 시 해금',
+      cond:()=> (DB.perilMax||0)>=15,
+      desc:'직접 싸우지 않는다. 터렛 1기·유령 소환으로 시작, 모든 소환물 +50% / 본인 투사체 -30%.',
+      weapon:'satellite',
+      apply:(p)=>{ p.turretLv=1; p.turretDmg=10; p.necroChance=0.10; p.ghostCap=5; p.droneBoost+=0.5; p.ghostDmg=(p.ghostDmg||1)*1.5; p.projMult*=0.7; }
+    },
+    tombraider: {
+      name:'도굴꾼', tag:'히든', hidden:true,
+      condDesc:'위험도 20 도달 시 해금',
+      cond:()=> (DB.perilMax||0)>=20,
+      desc:'수집 범위 +100, 아이템 드랍 +70%. 그러나 몹이 골드를 떨구지 않는다 — 상자가 전부다.',
+      weapon:'shuriken',
+      apply:(p)=>{ p.magnet+=100; p.luck*=1.7; p.goldDropMod=0; }
+    },
+    mumyeong: {
+      name:'무명자(無名者)', tag:'히든', hidden:true,
+      condDesc:'위험도 30 도달 시 해금',
+      cond:()=> (DB.perilMax||0)>=30,
+      desc:'이름도 직업도 없다. 모든 직업의 스킬 풀에서 무작위 4개를 배운다 — 매 판이 다른 직업.',
+      weapon:'missile',
+      apply:(p)=>{ p.randomSkills=true; }
     },
     exhero: {
       name:'전직 용사', tag:'히든', hidden:true,
@@ -1900,7 +1941,7 @@ import { FX } from "./fx.js";
       cond:()=> (DB.prog.boss||0)>=100,
       desc:'마왕을 잡고 은퇴했지만 몸이 기억한다. 레벨 5에 이미 1차 전직 상태로 시작.',
       weapon:'scythe',
-      apply:(p)=>{ p.dmgMult*=1.1; p.exhero=true; }
+      apply:(p)=>{ p.exhero=true; }
     },
     shadow: {
       name:'그림자', tag:'히든', hidden:true,
@@ -1932,7 +1973,7 @@ import { FX } from "./fx.js";
       cond:()=> !!DB.mapCleared.abyss,
       desc:'무작위 무기 2개로 시작. 카드 상위 등급 확률 대폭 상승, 잭팟 확률 3배.',
       weapon:'random2',
-      apply:(p)=>{ p.luck*=1.8; p.jackpotMult=3; p.dodge=0.05; }
+      apply:(p)=>{ p.luck*=1.5; p.jackpotMult=2; p.dodge=0.05; }
     },
     returner: {
       name:'회귀자', tag:'히든', hidden:true,
@@ -1946,9 +1987,9 @@ import { FX } from "./fx.js";
       name:'최병우', tag:'비밀', hidden:true, secretInput:true,
       condDesc:'??? (힌트: 공로자)',
       cond:()=> false,
-      desc:'이 세계를 처음 만든 자가 직접 강림했다. 무작위 무기 3개로 시작, 카드 +1장, 모든 것이 조금씩 강하다.',
+      desc:'이 세계를 처음 만든 자가 직접 강림했다. 무작위 무기 3개로 시작, 카드 +1장. 힘이 아니라 자유가 그의 특권이다.',
       weapon:'random3',
-      apply:(p)=>{ p.dmgMult*=1.08; p.rateMult*=1.08; p.luck*=1.3; p.cardSlots=(p.cardSlots||6)+1; }
+      apply:(p)=>{ p.luck*=1.15; p.cardSlots=(p.cardSlots||6)+1; }
     },
     debug: {
       name:'디버거', tag:'비밀', hidden:true,
@@ -2440,6 +2481,26 @@ import { FX } from "./fx.js";
                 { n:'음유시인', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
                 { n:'전쟁고수', d:'피해 +12%, 공속 +8%', fx:(p)=>{ p.dmgMult*=1.12; p.rateMult*=1.08; } },
                 { n:'진혼가수', d:'회복 +25%, 재생 +0.6', fx:(p)=>{ p.healMult*=1.25; p.regen+=0.6; } } ],
+    madman:   [ { n:'피에 젖은 광인', d:'처치 회복 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
+                { n:'웃는 광인', d:'회피 +10% (예측 불가)', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); } },
+                { n:'광란의 무희', d:'이속 +12%, 공속 +10%', fx:(p)=>{ p.speed*=1.12; p.rateMult*=1.1; } },
+                { n:'고통의 순례자', d:'출혈 완화 (초당 -0.8%→-0.5%)', fx:(p)=>{ p.madmanSlow=true; } } ],
+    monk:     [ { n:'일념(一念)', d:'무기 피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } },
+                { n:'철벽 수행', d:'받는 피해 -12%', fx:(p)=>{ p.dmgTaken*=0.88; } },
+                { n:'행각승', d:'이속 +12%, 재생 +0.6', fx:(p)=>{ p.speed*=1.12; p.regen+=0.6; } },
+                { n:'참선', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } } ],
+    commander:[ { n:'전술 지휘관', d:'소환물 피해 +25%', fx:(p)=>{ p.droneBoost+=0.25; p.ghostDmg=(p.ghostDmg||1)*1.25; p.turretDmg=(p.turretDmg||10)*1.25; } },
+                { n:'보급 지휘관', d:'골드 +25%, 아이템 +25%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.25; } },
+                { n:'요새 지휘관', d:'터렛 +1기', fx:(p)=>{ p.turretLv+=1; } },
+                { n:'망령 지휘관', d:'유령 소환 +8%p, 유령 +2', fx:(p)=>{ p.necroChance+=0.08; p.ghostCap+=2; } } ],
+    tombraider:[{ n:'전문 도굴꾼', d:'행운 +30%', fx:(p)=>{ p.luck*=1.3; } },
+                { n:'유물 감식가', d:'상자 결과 상향', fx:(p)=>{ p.chestPlus=true; } },
+                { n:'날쌘 손', d:'이속 +12%, 수집 +40', fx:(p)=>{ p.speed*=1.12; p.magnet+=40; } },
+                { n:'저주 수집가', d:'피해 +15% / 받는 피해 +6%', fx:(p)=>{ p.dmgMult*=1.15; p.dmgTaken*=1.06; } } ],
+    mumyeong: [ { n:'무명의 검', d:'피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } },
+                { n:'무명의 방패', d:'받는 피해 -10%', fx:(p)=>{ p.dmgTaken*=0.9; } },
+                { n:'무명의 바람', d:'이속·공속 +8%', fx:(p)=>{ p.speed*=1.08; p.rateMult*=1.08; } },
+                { n:'무명의 운', d:'행운 +30%, 리롤 +1', fx:(p)=>{ p.luck*=1.3; rerollsLeft+=1; } } ],
     contributor: [
       { n:'회귀자 최병우', d:'모든 것을 기억한다 — 리롤 +3, 행운 +30%', fx:(p)=>{ rerollsLeft+=3; p.luck*=1.3; } },
       { n:'전생자 최병우', d:'전생의 무공 — 피해 +15%, 치명 +8%', fx:(p)=>{ p.dmgMult*=1.15; p.critChance=Math.min(0.85,p.critChance+0.08); } },
@@ -2693,6 +2754,16 @@ import { FX } from "./fx.js";
                 { n:'윤회의 목자', d:'유령이 죽을 때 치유', fx:(p)=>{ p.ghostHeal=true; } } ],
     bard:     [ { n:'영웅서사시', d:'피버 지속 +4초, 피버 피해 +25%', fx:(p)=>{ p.feverPlus=(p.feverPlus||0)+4; p.feverDmg=true; } },
                 { n:'세이렌', d:'적 이속 -10%, 골드 +25%', fx:(p)=>{ p.slowAll*=0.9; p.goldMult*=1.25; } } ],
+    madman:   [ { n:'각성한 광기', d:'피해 +20%, 출혈 가속 (사냥 압박↑)', fx:(p)=>{ p.dmgMult*=1.2; } },
+                { n:'고요한 광기', d:'출혈 절반, 받는 피해 -10%', fx:(p)=>{ p.madmanSlow=true; p.dmgTaken*=0.9; } } ],
+    monk:     [ { n:'해탈', d:'무기 피해 +25%, 쿨다운 -10%', fx:(p)=>{ p.dmgMult*=1.25; p.cdr*=0.9; } },
+                { n:'금강불괴', d:'받는 피해 -15%, 체력 +20%', fx:(p)=>{ p.dmgTaken*=0.85; p.maxHp=Math.round(p.maxHp*1.2); } } ],
+    commander:[ { n:'대원수', d:'모든 소환물 +40%', fx:(p)=>{ p.droneBoost+=0.4; p.ghostDmg=(p.ghostDmg||1)*1.4; p.turretDmg=(p.turretDmg||10)*1.4; } },
+                { n:'불사의 군단', d:'유령 지속 +4초, 소멸 시 치유', fx:(p)=>{ p.ghostDur=(p.ghostDur||0)+4; p.ghostHeal=true; } } ],
+    tombraider:[{ n:'왕묘의 주인', d:'행운 +50%, 상자 결과 상향', fx:(p)=>{ p.luck*=1.5; p.chestPlus=true; } },
+                { n:'그림자 손', d:'회피 +12%, 이속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); p.speed*=1.1; } } ],
+    mumyeong: [ { n:'무명 초월', d:'모든 스탯 +10%', fx:(p)=>{ p.dmgMult*=1.1; p.rateMult*=1.1; p.speed*=1.1; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'이름을 얻은 자', d:'스킬 쿨다운 -15%', fx:(p)=>{ p.cdr*=0.85; } } ],
     contributor: [
       { n:'천마 최병우', d:'무림 최강 — 피해 +22%, 처형 임계 +6%p', fx:(p)=>{ p.dmgMult*=1.22; p.execThresh=Math.min(0.4,p.execThresh+0.06); } },
       { n:'만렙 최병우', d:'렙업이 남들과 다르다 — 경험치 +30%, 카드 +1장', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.3; p.cardSlots=(p.cardSlots||6)+1; } } ],
@@ -2894,11 +2965,11 @@ import { FX } from "./fx.js";
   // 카드 등급: 같은 테크라도 뽑힌 등급에 따라 효과 배율(m)이 달라진다.
   const CARD_RARITY = [
     { n:'일반', w:55,  m:1.0, cls:'r0' },
-    { n:'고급', w:28,  m:1.5, cls:'r1' },
-    { n:'희귀', w:12,  m:2.0, cls:'r2' },
-    { n:'영웅', w:4,   m:3.0, cls:'r3' },
-    { n:'전설', w:1.0, m:4.5, cls:'r4' },
-    { n:'신화', w:0,   m:6.0, cls:'r5m' },  // 일반 롤에선 안 나옴 — 신화 노드 전용 (트리당 유일)
+    { n:'고급', w:28,  m:1.35, cls:'r1' },
+    { n:'희귀', w:12,  m:1.7, cls:'r2' },
+    { n:'영웅', w:4,   m:2.2, cls:'r3' },
+    { n:'전설', w:1.0, m:3.0, cls:'r4' },
+    { n:'신화', w:0,   m:4.5, cls:'r5m' },  // 일반 롤에선 안 나옴 — 신화 노드 전용 (트리당 유일)
   ];
   function rollCardRarity(){
     const luckB = Math.min(3, Math.max(1, player ? player.luck : 1));
@@ -3383,11 +3454,11 @@ import { FX } from "./fx.js";
         if (node.tier>=2 && pts < (gate[node.tier]||99)) continue;
         // 신화 노드: 등급 고정 (트리당 유일한 빌드 정점)
         let ri = node.myth ? 5 : rollCardRarity();
-        // 숙련: 이미 찍은 테크는 35% 확률로 한 등급 위로 등장
+        // 숙련: 이미 찍은 테크는 25% 확률로 한 등급 위로 등장
         let honed = false;
-        if (!node.myth && picks>0 && ri<4 && Math.random()<0.35){ ri+=1; honed=true; }
-        // 수확 체감: 같은 테크를 반복해서 찍을수록 효율이 70%씩 감소 (무한 성장 차단)
-        const m = node.myth ? 1 : CARD_RARITY[ri].m * Math.pow(0.7, picks);
+        if (!node.myth && picks>0 && ri<4 && Math.random()<0.25){ ri+=1; honed=true; }
+        // 수확 체감: 같은 테크를 반복해서 찍을수록 효율이 65%씩 감소 (무한 성장 차단)
+        const m = node.myth ? 1 : CARD_RARITY[ri].m * Math.pow(0.65, picks);
         const cat = node.myth ? '신화' : node.tier===3 ? '전용기' : (NODE_CAT[node.key]||'전술');
         pool.push({
           key:node.key, kind:'tech', tkey, node, rarity:ri, myth:!!node.myth,
@@ -4009,16 +4080,17 @@ import { FX } from "./fx.js";
   // ---------- enemies ----------
   // 위험도 (디아블로식 난이도): 적 강화 ×(1+0.35n), 보상 ×(1+0.25n)
   // 위험도 60단계: 20까지는 급하게, 그 이후는 완만하게 (하지만 끝없이) 오른다
-  function perilE(){ const p=DB.peril||0; return 1 + 0.35*Math.min(p,20) + 0.22*Math.max(0,p-20); }
+  function perilE(){ const p=DB.peril||0; return 1 + 0.35*Math.min(p,20) + 0.32*Math.max(0,p-20); } // 고위험도 곡선 강화 — 성장이 세상을 이기지 못하게
   function perilR(){ const p=DB.peril||0; return 1 + 0.25*Math.min(p,20) + 0.12*Math.max(0,p-20); }
   // v4.4 난이도 재설계: 시간 + 플레이어 파워(레벨·테크·성장무기)에 함께 반응하는 적응형 곡선
   function powerScale(){
     if (!player) return 1;
-    let pw = Math.max(0, player.level - 6) * 0.032;              // 레벨이 오를수록
+    let pw = Math.max(0, player.level - 6) * 0.035;              // 레벨이 오를수록
     let tpts = 0; for (const k in player.tech) tpts += player.tech[k];
-    pw += Math.max(0, tpts - 5) * 0.018;                          // 테크를 찍을수록
-    if (ownedWeapon('nameless')) pw += growthEffLv() * 0.010;     // 성장무기가 깨어날수록
-    return 1 + Math.min(1.7, pw);                                 // 최대 +170%
+    pw += Math.max(0, tpts - 5) * 0.022;                          // 테크를 찍을수록
+    if (ownedWeapon('nameless')) pw += growthEffLv() * 0.012;     // 성장무기가 깨어날수록
+    pw += starSpent() * 0.004;                                    // 성도를 찍을수록 (메타 파워도 세상이 반응)
+    return 1 + Math.min(2.0, pw);                                 // 최대 +200%
   }
   function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
   function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
@@ -5340,7 +5412,7 @@ import { FX } from "./fx.js";
     // 등급 상대 피해: 보스 / 엘리트·악몽급
     if (t.isBoss) m *= player.bossDmg||1;
     else if (t.elite || t.grade===2) m *= player.eliteDmg||1;
-    if (player.gymbro) m *= 1 + player.maxHp*0.0004; // 헬창: 근육이 곧 화력
+    if (player.gymbro) m *= 1 + player.maxHp*0.00025; // 헬창: 근육이 곧 화력
     return m;
   }
   function procElement(t, elem, isBoss){
@@ -6540,6 +6612,10 @@ import { FX } from "./fx.js";
     // 발사 반동 감쇠
     if (player.recoilX){ player.recoilX *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilX)<0.1) player.recoilX=0; }
     if (player.recoilY){ player.recoilY *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilY)<0.1) player.recoilY=0; }
+    // 광인: 생명이 계속 새어나간다 — 사냥이 곧 생존
+    if (player.madman && elapsed > 5){
+      player.hp -= player.maxHp*(player.madmanSlow?0.005:0.008)*dt;
+    }
     // 무명검 흡명의 형: 검을 든 동안 처치 회복 +1
     if (player.growthBranch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
       player.lifesteal += 1; player.__leechApplied = true;
@@ -7432,7 +7508,7 @@ import { FX } from "./fx.js";
     }
     if (player.level >= 30) unlockAch('lv30');
     // 스킬 습득 체크 (레벨 도달 시)
-    const pool = SKILL_POOLS[player.classKey];
+    const pool = player.customPool || SKILL_POOLS[player.classKey];
     if (pool){
       for (const sk of pool){
         if (player.level >= sk.lv && !player.learned.includes(sk)){
@@ -7900,6 +7976,17 @@ import { FX } from "./fx.js";
         addWeapon(cls.weapon);
       }
     }
+    // 무명자: 모든 직업 스킬 풀에서 무작위 4개 (레벨 3/8/15/25 재배정)
+    if (player.randomSkills){
+      const allSkills = [];
+      for (const ck2 in SKILL_POOLS){ if (ck2!=='cheolhyeol') for (const sk2 of SKILL_POOLS[ck2]) allSkills.push(sk2); }
+      const lvs = [3,8,15,25];
+      player.customPool = [];
+      for (let k=0;k<4 && allSkills.length;k++){
+        const sk2 = allSkills.splice((Math.random()*allSkills.length)|0,1)[0];
+        player.customPool.push(Object.assign({}, sk2, { lv:lvs[k] }));
+      }
+    }
     // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
     const gwSel = loadoutFor(classKey).gw;
     const gwFound = { nameless: DB.growth.found, gbow: DB.gweps.bow.found, gtome: DB.gweps.tome.found, gblade: DB.gweps.blade.found };
@@ -8353,7 +8440,8 @@ import { FX } from "./fx.js";
     pilot:'#4fa8c4', glitch:'#3aa895', returner:'#e08a2e',
     cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
     tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f',
-    baeksu:'#9aa0a6', blackcat:'#3a3b40', stonks:'#3fa85f', gymbro:'#c96a3f', exhero:'#b8a03f', shadow:'#55486a'
+    baeksu:'#9aa0a6', blackcat:'#3a3b40', stonks:'#3fa85f', gymbro:'#c96a3f', exhero:'#b8a03f', shadow:'#55486a',
+    madman:'#c9403a', monk:'#b8956a', commander:'#4a6a8a', tombraider:'#8a7a4f', mumyeong:'#7a7a82'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
