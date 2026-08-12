@@ -10189,6 +10189,7 @@ import { FX } from "./fx.js";
   // 각성 문장 — 각성한 자만 밟는 마지막 한 수
   const ASC_AWAKEN = { n:'각성 문장', d:'[각성 전용] 모든 피해 +12%, 받는 피해 -6%, 최대체력 +8%', cost:4, f:(p)=>{p.dmgMult*=1.12;p.dmgTaken*=0.94;p.maxHp=Math.round(p.maxHp*1.08);p.hp=Math.min(p.maxHp,p.hp+20);} };
   const ascBoxEl = $('ascBox'), ascDial = $('ascDial'), ascInfo = $('ascInfo');
+  let ascSel = null; // 터치 2탭: 첫 탭 = 정보 보기, 같은 버튼 재탭 = 습득
   function renderAscDial(){
     if (!ascDial || !player) return;
     ascDial.innerHTML = '';
@@ -10212,9 +10213,16 @@ import { FX } from "./fx.js";
         btn.innerHTML = unlocked
           ? '<b style="color:'+dir.c+';">'+dir.n+'</b><br>'+depth+'/'+dir.nodes.length+(done?'<br>✦':'<br>◈'+next.cost)
           : '🔒<br><span style="font-size:8px;">'+dir.n+'</span>';
-        btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = !unlocked ? '🔒 '+unlockMsg : (done ? '<b>'+dir.n+'</b> — 완성' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d); });
+        const showInfo = ()=>{ if (ascInfo) ascInfo.innerHTML = !unlocked
+          ? '🔒 '+unlockMsg+' — 첫 스톤 미리보기: <b>'+dir.nodes[0].n+'</b> ('+dir.nodes[0].d+')'
+          : (done ? '<b>'+dir.n+'</b> — 완성' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d
+             + (IS_TOUCH?'<br><span style="opacity:0.7;">한 번 더 탭하면 습득</span>':'')); };
+        btn.addEventListener('mouseenter', showInfo);
         btn.addEventListener('click', ()=>{
-          if (!unlocked){ toast(unlockMsg); SFX.play('hit'); return; }
+          if (!unlocked){ showInfo(); toast(unlockMsg); SFX.play('hit'); return; }
+          const selKey = takenKey+'_'+di;
+          if (IS_TOUCH && ascSel !== selKey){ ascSel = selKey; showInfo(); SFX.play('tele'); return; } // 터치: 첫 탭 = 정보
+          ascSel = null;
           const dep = arr[di]||0;
           const nd = dir.nodes[dep];
           if (!nd){ SFX.play('hit'); return; }
@@ -10279,6 +10287,14 @@ import { FX } from "./fx.js";
         const dep = (player.ascTaken&&player.ascTaken[di])||0;
         const nd = dir.nodes[dep];
         if (!nd){ SFX.play('hit'); return; }
+        const selKey = 'inner_'+di;
+        if (IS_TOUCH && ascSel !== selKey){
+          ascSel = selKey;
+          if (ascInfo) ascInfo.innerHTML = '<b>'+nd.n+'</b> (◈'+nd.cost+') — '+nd.d+'<br><span style="opacity:0.7;">한 번 더 탭하면 습득</span>';
+          SFX.play('tele');
+          return;
+        }
+        ascSel = null;
         if ((player.ascStones||0) < nd.cost){ toast('승천석 부족 (◈'+nd.cost+' 필요)'); SFX.play('hit'); return; }
         player.ascStones -= nd.cost;
         player.ascTaken = player.ascTaken||[0,0,0,0,0,0];
@@ -10290,6 +10306,11 @@ import { FX } from "./fx.js";
       });
       ascDial.appendChild(btn);
     });
+    // 모바일 맞춤: 다이얼이 화면보다 크면 통째로 축소 — 폰에서도 전체가 보이고 탭 가능
+    const sc2 = Math.min(1, (window.innerWidth - 48) / 430);
+    ascDial.style.transform = 'scale('+sc2+')';
+    ascDial.style.transformOrigin = 'top center';
+    ascDial.style.marginBottom = sc2<1 ? (-(420*(1-sc2)))+'px' : '0';
   }
   function openAsc(){
     if (state!=='playing' || !player) return;
