@@ -3266,7 +3266,7 @@ import { FX } from "./fx.js";
     sniper:   [ { n:'헤드헌터', d:'치명 확률 +10%, 배율 +0.3', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.critMult+=0.3; } },
                 { n:'유격수', d:'이동 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
                 { n:'중화기병', d:'투사체 피해 +15%, 관통 +1', fx:(p)=>{ p.projMult*=1.15; p.pierce+=1; } },
-                { n:'탄도학자', d:'모든 피해 +10%, 관통 +1', fx:(p)=>{ p.dmgMult*=1.1; p.pierce+=1; } } ],
+                { n:'탄도학자', d:'⚙ 관통을 다한 탄환이 근처 적에게 도탄한다 (피해 85%) + 관통 +1', fx:(p)=>{ p.ricochet=true; p.pierce+=1; } } ],
     rusher:   [ { n:'광전사', d:'피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; } },
                 { n:'선봉장', d:'이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; } },
                 { n:'수호기사', d:'받는 피해 -12%, 체력 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.15); } },
@@ -3384,7 +3384,7 @@ import { FX } from "./fx.js";
                 { n:'유령 위장', d:'회피 +10%, 이동 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.speed*=1.08; } } ],
     rusher:   [ { n:'혈전사', d:'흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
                 { n:'철벽 기사', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
-                { n:'질풍 창기병', d:'이속 +12%, 대시 폭발 강화', fx:(p)=>{ p.speed*=1.12; p.dashBlast=(p.dashBlast||20)+15; } },
+                { n:'질풍 창기병', d:'⚙ 대시가 창격 돌진이 된다 — 경로의 적을 꿰뚫어 피해 + 이속 +12%', fx:(p)=>{ p.speed*=1.12; p.dashRam=true; p.dashBlast=(p.dashBlast||20)+15; } },
                 { n:'검투사', d:'치명 +10%, 처형 임계 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
     archer:   [ { n:'폭풍 궁수', d:'공속 +14%, 화살 +1', fx:(p)=>{ p.rateMult*=1.14; } },
                 { n:'관통왕', d:'관통 +2, 투사체 +10%', fx:(p)=>{ p.pierce+=2; p.projMult*=1.1; } },
@@ -3467,8 +3467,8 @@ import { FX } from "./fx.js";
                 { n:'만천화우', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
     engineer: [ { n:'특이점 발명가', d:'터렛·드론 +40%', fx:(p,rc)=>{ p.droneBoost+=0.4; p.turretDmg=(p.turretDmg||7)*1.4; } },
                 { n:'재벌 총수', d:'골드 +50%, 골드가 곧 힘', fx:(p,rc)=>{ p.goldMult*=1.5; p.goldPower=true; } },
-                { n:'뇌신의 대리인', d:'낙뢰 +40% + 공명', fx:(p,rc)=>{ p.boltBoost=(p.boltBoost||1)*(1.4+0.004*rc); } } ],
-    paladin:  [ { n:'수호신', d:'받는 피해 -20% + 공명 체력', fx:(p,rc)=>{ p.dmgTaken*=0.8; p.maxHp=Math.round(p.maxHp*(1.1+0.005*rc)); } },
+                { n:'뇌신의 대리인', d:'⚙ 낙뢰가 근처 적에게 연쇄한다 + 낙뢰 피해 +40%', fx:(p,rc)=>{ p.boltChain=true; p.boltBoost=(p.boltBoost||1)*(1.4+0.004*rc); } } ],
+    paladin:  [ { n:'수호신', d:'⚙ 역장이 방패 벽이 된다 — 역장 안의 적 탄환 소멸 + 받는 피해 -20%', fx:(p,rc)=>{ p.shieldWall=true; p.dmgTaken*=0.8; p.maxHp=Math.round(p.maxHp*(1.1+0.005*rc)); } },
                 { n:'천벌 대행자', d:'피해 +20%, 신성 강화', fx:(p,rc)=>{ p.dmgMult*=1.2; p.holyAmp=(p.holyAmp||1)*1.2; } },
                 { n:'영생의 성자', d:'재생 +1.5, 회복 +30%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.3; } } ],
     reaper:   [ { n:'종말', d:'처형 임계 +12%p', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.12); } },
@@ -4455,9 +4455,11 @@ import { FX } from "./fx.js";
   function rollUpgrades(n){
     const pool = [];
 
-    // weapon options
+    // weapon options — v6.51 등장 빈도 체감: 레벨이 오를수록 강화 카드가 드물어진다 (메리트 과다 보정)
+    const WL_CHANCE = [1, 0.7, 0.55, 0.4];
     for (const w of player.weapons){
       if (w.lv < 5 && !w.evolved){
+        if (Math.random() > (WL_CHANCE[w.lv-1]||0.4)) continue;
         const def = WEAPONS[w.key];
         pool.push({
           key:'wl_'+w.key, kind:'weaponlv',
@@ -4696,6 +4698,8 @@ import { FX } from "./fx.js";
       const idx = (Math.random()*pool.length)|0;
       const cand = pool.splice(idx,1)[0];
       if (out.some(o=>o.key===cand.key)){ i--; continue; }
+      // v6.51 한 손패에 '무기 강화'(레벨) 카드는 최대 1장 — 강화 카드가 손패를 지배하지 않게
+      if (cand.kind==='weaponlv' && out.some(o=>o.kind==='weaponlv')){ i--; continue; }
       out.push(cand);
     }
 
@@ -6030,6 +6034,9 @@ import { FX } from "./fx.js";
       refreshBossBar();
       return bosses.map(b=>b.name+' '+Math.round(b.hp)+'/'+Math.round(b.maxHp)+' t'+Math.round(b.aliveT||0)).join('|') || 'no boss';
     } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
+    try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
   };
   window.__qaState = ()=>{
     try {
@@ -8695,7 +8702,7 @@ import { FX } from "./fx.js";
         const n = def.count(w);
         const dmg = def.dmg(w) * player.dmgMult * (player.boltBoost||1);
         let any = false;
-        for (let i=0;i<n;i++){ if (lightningStrike(dmg, w.evolved)) any = true; }
+        for (let i=0;i<n;i++){ if (lightningStrike(dmg, w.evolved || player.boltChain)) any = true; }
         if (!any) w.cd = 0.2;
 
       } else if (def.cgw){
@@ -9715,6 +9722,22 @@ import { FX } from "./fx.js";
       player.x += player.dashDir.x*640*dt;
       player.y += player.dashDir.y*640*dt;
       particles.push({ x:player.x, y:player.y, vx:0, vy:0, life:0.25, age:0, r:player.r*0.8, ghost:true });
+      // v6.51 질풍 창기병: 대시가 창격 돌진 — 경로의 적을 꿰뚫어 피해 + 넉백
+      if (player.dashRam){
+        for (let ri2=enemies.length-1;ri2>=0;ri2--){
+          const er = enemies[ri2];
+          if (er.__ramT && er.__ramT > elapsed) continue;
+          if (Math.hypot(er.x-player.x, er.y-player.y) < er.r+player.r+6){
+            er.__ramT = elapsed + 0.5;
+            const rd2 = 26*player.dmgMult*corrodeMult(er);
+            er.hp -= rd2; addDmgNum(er.x, er.y, rd2, false);
+            const ka = Math.atan2(er.y-player.y, er.x-player.x);
+            er.x += Math.cos(ka)*14; er.y += Math.sin(ka)*14;
+            burst(er.x, er.y, 3, 90);
+            if (er.hp<=0) defeatEnemy(ri2);
+          }
+        }
+      }
       if (player.dashTime<=0 && player.bloodRush) dashExplosion(player.x, player.y, 25); // 피의 질주: 종료 폭발
     } else {
       const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd');
@@ -9793,7 +9816,12 @@ import { FX } from "./fx.js";
             // v6.50 런지: 가장 가까운 적 쪽으로 몸이 쏠린다 — '때리러 간다'는 느낌
             let lt=null, ld=1e9;
             for (const e9 of enemies){ const d9=Math.hypot(e9.x-player.x,e9.y-player.y); if (d9<ld){ ld=d9; lt=e9; } }
-            if (lt && ld<160){ const la=Math.atan2(lt.y-player.y, lt.x-player.x); player.recoilX=(player.recoilX||0)+Math.cos(la)*3.2; player.recoilY=(player.recoilY||0)+Math.sin(la)*3.2; player.faceX = lt.x>player.x?1:-1; }
+            if (lt && ld<160){ const la=Math.atan2(lt.y-player.y, lt.x-player.x); player.recoilX=(player.recoilX||0)+Math.cos(la)*3.2; player.recoilY=(player.recoilY||0)+Math.sin(la)*3.2; player.faceX = lt.x>player.x?1:-1;
+              // v6.51 타격 궤적: 휘두르는 순간 베기 아크가 그려진다
+              effects.push({ type:'slash', x:player.x, y:player.y, a:la, r:30+(lt.r||10)*0.4, arc:2.0, life:0.18, age:0 });
+            } else {
+              effects.push({ type:'slash', x:player.x, y:player.y, a:(player.faceX<0?Math.PI:0), r:28, arc:2.0, life:0.18, age:0 });
+            }
           }
         }
       }
@@ -10278,7 +10306,20 @@ import { FX } from "./fx.js";
             e.frozenT = Math.max(e.frozenT||0, 1);
           }
           if (p.kind!=='shuriken'){
-            if (p.pierce>0){ p.pierce -= 1; } else { projectiles.splice(j,1); }
+            if (p.pierce>0){ p.pierce -= 1; }
+            else if (player.ricochet && !p.bounced){
+              // v6.51 탄도학자: 관통을 다한 탄이 근처 적에게 도탄 (피해 85%)
+              let rt=null, rd=240*240;
+              for (const o of enemies){ if (o===e) continue; const dd2=(o.x-p.x)**2+(o.y-p.y)**2; if (dd2<rd){ rd=dd2; rt=o; } }
+              if (rt){
+                const sp = Math.hypot(p.vx,p.vy)||420;
+                const ra = Math.atan2(rt.y-p.y, rt.x-p.x);
+                p.vx=Math.cos(ra)*sp; p.vy=Math.sin(ra)*sp;
+                p.bounced=true; p.damage*=0.85; p.life=Math.max(p.life,0.5);
+                effects.push({ type:'chain', x1:p.x, y1:p.y, x2:rt.x, y2:rt.y, life:0.12, age:0 });
+              } else projectiles.splice(j,1);
+            }
+            else { projectiles.splice(j,1); }
           }
           // 처형 (장비특성/사신)
           if (player.execThresh>0 && !e.elite && e.hp>0 && e.hp < e.maxHp*player.execThresh){
@@ -10408,7 +10449,20 @@ import { FX } from "./fx.js";
             burst(p.x,p.y, p.crit?8:4, p.crit?170:90);
             procOnHit(b, true, p.imbue);
             if (p.kind!=='shuriken'){
-              if (p.pierce>0){ p.pierce -= 1; } else { projectiles.splice(j,1); }
+              if (p.pierce>0){ p.pierce -= 1; }
+              else if (player.ricochet && !p.bounced){
+                // v6.51 탄도학자: 보스를 때린 탄도 근처 잡몹에게 도탄
+                let rt=null, rd=240*240;
+                for (const o of enemies){ const dd2=(o.x-p.x)**2+(o.y-p.y)**2; if (dd2<rd){ rd=dd2; rt=o; } }
+                if (rt){
+                  const sp = Math.hypot(p.vx,p.vy)||420;
+                  const ra = Math.atan2(rt.y-p.y, rt.x-p.x);
+                  p.vx=Math.cos(ra)*sp; p.vy=Math.sin(ra)*sp;
+                  p.bounced=true; p.damage*=0.85; p.life=Math.max(p.life,0.5);
+                  effects.push({ type:'chain', x1:p.x, y1:p.y, x2:rt.x, y2:rt.y, life:0.12, age:0 });
+                } else projectiles.splice(j,1);
+              }
+              else { projectiles.splice(j,1); }
             }
             if (b.hp<=0){ defeatBoss(i); break; }
             refreshBossBar();
@@ -10472,6 +10526,12 @@ import { FX } from "./fx.js";
         const turn = Math.max(-1.6*dt, Math.min(1.6*dt, diff));
         const sp = Math.hypot(p.vx,p.vy);
         p.vx = Math.cos(cur+turn)*sp; p.vy = Math.sin(cur+turn)*sp;
+      }
+      // v6.51 수호신: 역장이 방패 벽 — 역장 안으로 들어온 적탄은 소멸한다
+      if (player.shieldWall && auraState.on && Math.hypot(p.x-player.x, p.y-player.y) < auraState.r){
+        burst(p.x, p.y, 3, 80);
+        hostileShots.splice(i,1);
+        continue;
       }
       // 시간 지연장: 내 주변 적탄 감속
       let dragMul = 1;
@@ -14057,6 +14117,21 @@ import { FX } from "./fx.js";
         ctx.fill();
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*(0.9+0.1*tt), start, start+sweep); ctx.stroke();
+      } else if (fx.type==='slash'){
+        // v6.51 근접 타격 궤적 — 초승달 베기 아크가 적 방향으로 쓸린다 (실제 휘두르는 프레임)
+        const prog = fx.age/fx.life;
+        const sweep = fx.arc||2.0;
+        const start = fx.a - sweep/2 + (fx.dir||1)*0;
+        const end = start + sweep*Math.min(1, prog*1.7);
+        const col = dark ? 'rgba(255,255,255,' : 'rgba(32,33,36,';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = col+(0.8*tt)+')';
+        ctx.lineWidth = 3.5*tt + 0.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, start, end); ctx.stroke();
+        ctx.strokeStyle = col+(0.3*tt)+')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*0.7, start+0.12, end); ctx.stroke();
+        ctx.lineCap = 'butt';
       } else if (fx.type==='rays'){
         ctx.lineWidth = 2;
         for (let k=0;k<7;k++){
