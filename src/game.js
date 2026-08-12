@@ -6404,10 +6404,10 @@ import { FX } from "./fx.js";
   // ---------- 다단 관문 체인: 수문장 1~2관문 → 관문보스. 돌파 시 DB.gateProg에 체크포인트 ----------
   const GATE_CHAIN = {
     8:['gkShield','jealousEx'], 12:['gkTwin','protestEx'], 16:['gkTrain','heatwaveEx'],
-    20:['gkFlail','blinddateEx'], 24:['gkTwin','upstairsEx'],
-    28:['gkShield','gkTrain','jeonseEx'], 32:['gkTwin','gkTrain','aialgoEx'],
+    20:['gkFlail','blinddateEx'], 24:['gkMirror','upstairsEx'],
+    28:['gkShield','gkTax','jeonseEx'], 32:['gkTwin','gkHourglass','aialgoEx'],
     36:['gkShield','gkTwin','teamleadEx'], 40:['gkTrain','gkFlail','relativesEx'],
-    44:['gkShield','gkTrain','chinaEx'], 48:['gkTwin','gkShield','tariffEx2'],
+    44:['gkShield','gkTrain','chinaEx'], 48:['gkTwin','gkTax','tariffEx2'],
     50:['gkShield','gkTwin','gkTrain','burnoutEx'],
     52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkFlail','yeongkkeulEx'],
     60:['gkShield','gkTwin','gkTrain','grayoneEx']
@@ -7953,6 +7953,88 @@ import { FX } from "./fx.js";
         if (Math.hypot(player.x-fx2, player.y-fy2) < 15+player.r && player.invuln<=0){
           if (playerHit(20*ds, 0.6, 8)) return true;
         }
+      }
+      if (b.flav) tickMidFlavor(b, dt, ds);
+    } else if (b.kind==='gkmirror'){
+      // v6.65 엔진 5호 · 거울 위병: 반사 자세 중엔 내 투사체가 반사탄이 되어 돌아온다 — 자세를 기다렸다 쏴라
+      bossMoveToward(b, player.x, player.y, b.speed*(b.mrReflect>0?0.3:1), dt);
+      b.mrCycT = (b.mrCycT===undefined?6:b.mrCycT) - dt;
+      if (b.mrCycT<=0 && !(b.mrReflect>0)){
+        b.mrReflect = 2.8; b.mrCycT = 8.5;
+        addTextNum(b.x, b.y-b.r-16, '🪞 반사 자세!');
+        SFX.play('warn');
+      }
+      if (b.mrReflect>0){
+        b.mrReflect -= dt;
+        for (let j2=projectiles.length-1;j2>=0;j2--){
+          const p2 = projectiles[j2];
+          if (Math.hypot(p2.x-b.x, p2.y-b.y) < b.r+14+p2.r){
+            projectiles.splice(j2,1);
+            const ra2 = Math.atan2(player.y-b.y, player.x-b.x) + (Math.random()-0.5)*0.3;
+            hostileShot(b.x, b.y, ra2, 260, 6, 14*ds, 2.2);
+            burst(b.x, b.y, 2, 90, 0xffffff, '#9adbe8');
+          }
+        }
+      }
+      b.mrShotT = (b.mrShotT===undefined?2.5:b.mrShotT) - dt;
+      if (b.mrShotT<=0 && !(b.mrReflect>0)){
+        const aim2 = Math.atan2(player.y-b.y, player.x-b.x);
+        for (let k=-1;k<=1;k++) hostileShot(b.x, b.y, aim2+k*0.18, 220, 6, 15*ds, 2.4);
+        b.mrShotT = 3;
+      }
+      if (b.flav) tickMidFlavor(b, dt, ds);
+    } else if (b.kind==='gkhour'){
+      // v6.65 엔진 6호 · 모래시계 파수꾼: 지나온 궤적이 무너진다 — 한 자리에 머물지도, 왔던 길로 돌아가지도 마라
+      bossMoveToward(b, player.x, player.y, b.speed, dt);
+      b.hgRecT = (b.hgRecT||0) - dt;
+      if (b.hgRecT<=0){
+        (b.hgHist=b.hgHist||[]).push({x:player.x, y:player.y});
+        if (b.hgHist.length>26) b.hgHist.shift();
+        b.hgRecT = 0.2;
+      }
+      b.hgT = (b.hgT===undefined?6:b.hgT) - dt;
+      if (b.hgT<=0 && b.hgHist && b.hgHist.length>=16){
+        for (let k=0;k<5;k++){
+          const idx = Math.max(0, b.hgHist.length-16+k*3);
+          const hp2 = b.hgHist[idx];
+          addHazard(hp2.x, hp2.y, 56, 1.0+k*0.12, 18*ds, false);
+        }
+        addTextNum(player.x, player.y-40, '⏳ 지나온 길이 무너진다!');
+        SFX.play('warn');
+        b.hgT = 7.5;
+      }
+      if (b.flav) tickMidFlavor(b, dt, ds);
+    } else if (b.kind==='gktax'){
+      // v6.65 엔진 7호 · 세금 징수관: 징수 개시 동안 경험치 오브를 빨아들여 회복한다 — 오브 줍기 경쟁
+      bossMoveToward(b, player.x, player.y, b.speed*(b.txPull>0?0.4:1), dt);
+      b.txCycT = (b.txCycT===undefined?7:b.txCycT) - dt;
+      if (b.txCycT<=0 && !(b.txPull>0)){
+        b.txPull = 4; b.txCycT = 10;
+        showBossBanner('징수 개시', '💸 경험치 오브를 빼앗기기 전에 주워라!', '#8a6a3f');
+        SFX.play('warn');
+      }
+      if (b.txPull>0){
+        b.txPull -= dt;
+        for (let oi=orbs.length-1;oi>=0;oi--){
+          const ob = orbs[oi];
+          const od = Math.hypot(ob.x-b.x, ob.y-b.y) || 1;
+          if (od < 420){
+            ob.x += (b.x-ob.x)/od * 170*dt;
+            ob.y += (b.y-ob.y)/od * 170*dt;
+            if (od < b.r+10){
+              orbs.splice(oi,1);
+              b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.002);
+              b.txCnt = (b.txCnt||0)+1;
+              refreshBossBar();
+            }
+          }
+        }
+      }
+      b.txShotT = (b.txShotT===undefined?2.8:b.txShotT) - dt;
+      if (b.txShotT<=0){
+        const aim2 = Math.atan2(player.y-b.y, player.x-b.x);
+        hostileShot(b.x, b.y, aim2, 240, 6, 16*ds, 2.4);
+        b.txShotT = 3;
       }
       if (b.flav) tickMidFlavor(b, dt, ds);
     } else if (b.kind==='teamlead'){
@@ -13756,6 +13838,7 @@ import { FX } from "./fx.js";
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
     gkShield:'관문의 수문장', gkTwin:'관문의 수문장', gkTrain:'관문의 수문장', gkFlail:'관문의 수문장',
+    gkMirror:'관문의 수문장', gkHourglass:'관문의 수문장', gkTax:'관문의 수문장',
     grayoneEx:'최종 관문 — 세계 그 자체',
     teamleadEx:'관문 — 사직서를 찢는 자', relativesEx:'관문 — 명절의 심문관들', burnoutEx:'관문 — 거울 속의 나',
     jealousEx:'관문 — 최병우를 놓지 못한 자',
@@ -13791,6 +13874,7 @@ import { FX } from "./fx.js";
     chinaEx:'#c9a13f', tariffEx2:'#d4772e', warzoneEx:'#5c6652', yeongkkeulEx:'#8a6a3f',
     teamleadEx:'#4a5568', relativesEx:'#a3653f', burnoutEx:'#555058', grayoneEx:'#e8e8e6',
     gkShield:'#6a7a8a', gkTwin:'#7a5ca3', gkTrain:'#8a5c42', gkFlail:'#4a4f58',
+    gkMirror:'#9adbe8', gkHourglass:'#5ab8c9', gkTax:'#8a6a3f',
     xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
@@ -14311,6 +14395,46 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(b.x,b.y,(b.flR||70)+16,0,Math.PI*2); ctx.stroke();
         ctx.restore();
       }
+    }
+    // v6.65 거울 위병: 플레이어를 향한 거울 패널 — 반사 자세 중 빛난다
+    if (b.kind==='gkmirror' && !b.ghost){
+      const aimM = Math.atan2(player.y-b.y, player.x-b.x);
+      ctx.save();
+      ctx.translate(b.x + Math.cos(aimM)*(b.r+10), b.y + Math.sin(aimM)*(b.r+10));
+      ctx.rotate(aimM);
+      ctx.fillStyle = b.mrReflect>0 ? 'rgba(154,219,232,0.9)' : 'rgba(154,219,232,0.4)';
+      ctx.fillRect(-3,-16,6,32);
+      ctx.strokeStyle = PAL.ink;
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(-3,-16,6,32);
+      if (b.mrReflect>0 && Math.floor(performance.now()/110)%2===0){
+        ctx.strokeStyle = '#ffffff';
+        ctx.beginPath(); ctx.moveTo(0,-12); ctx.lineTo(0,12); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // v6.65 모래시계 파수꾼: 머리 위 기울어지는 모래시계
+    if (b.kind==='gkhour' && !b.ghost){
+      ctx.save();
+      ctx.translate(b.x, b.y-b.r-26+Math.sin(performance.now()/300)*2);
+      ctx.rotate(Math.sin(performance.now()/700)*0.35);
+      ctx.strokeStyle = '#5ab8c9';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-6,-8); ctx.lineTo(6,-8); ctx.lineTo(-6,8); ctx.lineTo(6,8); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = 'rgba(90,184,201,0.55)';
+      ctx.beginPath(); ctx.moveTo(-4,6.5); ctx.lineTo(4,6.5); ctx.lineTo(0,1); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    // v6.65 세금 징수관: 징수 중 금빛 흡입 나선
+    if (b.kind==='gktax' && !b.ghost && b.txPull>0){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(217,165,63,0.6)';
+      ctx.lineWidth = 2;
+      const rot2 = performance.now()/240;
+      for (let k=0;k<3;k++){
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r+14+k*10, rot2+k*2, rot2+k*2+2.2); ctx.stroke();
+      }
+      ctx.restore();
     }
     // v6.64 테마 수문장 상징: 머리 위 테마 엠블럼 — 어느 세계관의 수문장인지 보인다
     if (b.flav && !b.finale && !b.ghost){

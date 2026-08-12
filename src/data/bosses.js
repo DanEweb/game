@@ -39,6 +39,9 @@ export const BOSS_TYPES = {
     gkTwin:      { name:'수문장 · 쌍둥이 그림자', kind:'gktwin', r:23, hp:2400, speed:58, contactDmg:18, xpValue:200 },
     gkTrain:     { name:'수문장 · 궤도 기관차', kind:'gktrain', r:29, hp:2900, speed:40, contactDmg:24, xpValue:220 },
     gkFlail:     { name:'수문장 · 진자 철퇴 파수꾼', kind:'gkflail', r:26, hp:2700, speed:46, contactDmg:20, xpValue:210 }, // v6.64 엔진 4호
+    gkMirror:    { name:'수문장 · 거울 위병', kind:'gkmirror', r:25, hp:2500, speed:50, contactDmg:18, xpValue:210 },       // v6.65 엔진 5호
+    gkHourglass: { name:'수문장 · 모래시계 파수꾼', kind:'gkhour', r:26, hp:2600, speed:44, contactDmg:20, xpValue:210 },   // v6.65 엔진 6호
+    gkTax:       { name:'수문장 · 세금 징수관', kind:'gktax', r:26, hp:2800, speed:42, contactDmg:20, xpValue:220 },        // v6.65 엔진 7호
     // 국제·사회 코믹 보스 (필드 순환 보스)
     xiPingping:  { name:'시진핑핑이', kind:'esper', r:26, hp:520, speed:44, contactDmg:16, xpValue:95 },
     maoJu:       { name:'마오쩌뚱', kind:'summoner', r:26, hp:560, speed:40, contactDmg:15, xpValue:100 },
