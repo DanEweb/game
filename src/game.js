@@ -4045,7 +4045,7 @@ import { FX } from "./fx.js";
       const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[i];
       WEAPONS[key] = {
         name: nm, cgw:true, arch,
-        desc:'[직업 유일] '+nm+' — 이 직업만의 성장무기 (보스를 잡을수록 성장)',
+        desc:'[직업 성장무기] '+nm+' — 이 직업만의 무기 (보스를 잡을수록 성장)',
         evName: nm+'·극', evDesc:'무기가 주인의 경지에 응답합니다',
         lvDesc:['','강화','피해 +25%','강화','강화'],
         baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'?1.8 : arch==='rain'?2.0 : arch==='echo'?1.7 : arch==='lance'?1.6 : arch==='nova'?1.5 : arch==='orbitb'?1.4 : arch==='cross'?1.3 : 1.1) * (w.evolved?0.8:1),
@@ -5600,7 +5600,7 @@ import { FX } from "./fx.js";
       if (missing.length && Math.random()<0.015){
         const mi = missing[(Math.random()*missing.length)|0];
         cgwRec(player.classKey+'_'+mi).found = true; saveDB();
-        toast('⚔ 직업 유일무기 발견 — ['+CGW_NAMES[player.classKey][mi]+'] 장비창에서 장착 가능');
+        toast('⚔ 직업 성장무기 발견 — ['+CGW_NAMES[player.classKey][mi]+'] 장비창에서 장착 가능');
         SFX.play('evolve');
       }
       const eqw = player.weapons.find(w2=>w2.key && w2.key.indexOf('cgw_'+player.classKey)===0);
@@ -10338,23 +10338,24 @@ import { FX } from "./fx.js";
     ];
     row('<div class="nm">⚔ 성장무기 도감 ('+gwDex.filter(g=>g.found).length+'/4)</div><div class="ds">'
       + gwDex.map(g=> g.found ? '<b style="color:#8b5cf6;">'+g.name+' ✓</b> — '+g.hint : '??? — <span style="opacity:0.6;">'+g.hint+'</span>').join('<br>')+'</div>');
-    // 직업 유일무기 도감 (37직업 × 3 = 111종): 발견한 것만 이름 공개, 나머지는 ???
+    // 직업 성장무기 도감 (37직업 × 3 = 111종): 전체 목록 상시 공개 — 이름은 보이고, 발견하면 금색+레벨
     {
       let cgwFoundN = 0, cgwTotal = 0;
       const lines = [];
       Object.keys(CGW_NAMES).forEach(ck=>{
         const cn = CLASSES[ck] ? CLASSES[ck].name : ck;
+        const isMine = DB.lastClass===ck;
         const parts = CGW_NAMES[ck].map((nm,i)=>{
           cgwTotal++;
           const rec = (DB.cgw||{})[ck+'_'+i];
-          if (rec && rec.found){ cgwFoundN++; return '<b style="color:#e8c56a;">'+nm+' Lv'+rec.lv+'</b>'; }
-          return '<span style="opacity:0.45;">???</span>';
+          if (rec && rec.found){ cgwFoundN++; return '<b style="color:#e8c56a;">'+nm+' ✓Lv'+rec.lv+'</b>'; }
+          return '<span style="opacity:0.55;">'+nm+'</span>';
         });
-        if (parts.some(p2=>p2.indexOf('???')<0)) lines.push('<b>'+cn+'</b>: '+parts.join(' · '));
+        lines.push((isMine?'<b style="color:#e8c56a;">▶ '+cn+'</b>':'<b>'+cn+'</b>')+': '+parts.join(' · '));
       });
-      row('<div class="nm">🗡 직업 유일무기 도감 ('+cgwFoundN+'/'+cgwTotal+')</div><div class="ds">'
-        + (lines.length ? lines.join('<br>') : '아직 발견한 직업 유일무기가 없다 — 그 직업으로 보스를 잡다 보면, 언젠가.')
-        + '<br><span style="opacity:0.6;">획득: 보스 처치 1.5% · 상인의 흐릿한 도면(위험도 8+) · 대장장이의 덤</span></div>');
+      row('<div class="nm">🗡 직업 성장무기 도감 ('+cgwFoundN+'/'+cgwTotal+')</div><div class="ds">'
+        + lines.join('<br>')
+        + '<br><span style="opacity:0.6;">획득: 그 직업으로 보스 처치 1.5% · 상인의 흐릿한 도면(위험도 8+) · 대장장이 퀘스트의 덤 — 발견하면 금색으로 빛난다</span></div>');
     }
     // 테크 도감 — 처음부터 전체 공개 (획득한 것은 속성색 강조)
     const seen = DB.seenTech||{};
@@ -11105,7 +11106,7 @@ import { FX } from "./fx.js";
       const rec = (DB.cgw||{})[gwSel.slice(4)];
       if (rec && rec.found && gwSel.indexOf('cgw_'+classKey+'_')===0 && !ownedWeapon(gwSel) && WEAPONS[gwSel]){
         addWeapon(gwSel);
-        toast('직업 유일무기와 함께 출전: '+WEAPONS[gwSel].name);
+        toast('직업 성장무기와 함께 출전: '+WEAPONS[gwSel].name);
       } else if (rec && rec.found){
         toast('⚔ 직업 전용 무기는 그 직업만 들 수 있다 — 미장착 출전');
       }
