@@ -2,6 +2,15 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<script>
+// 배포 직후 캐시 불일치(옛 index + 새 에셋 404) 자동 복구: 4초 내 부팅 신호 없으면 캐시 우회 리로드 1회
+window.__bootOk = false;
+setTimeout(function(){
+  if (!window.__bootOk && location.search.indexOf('rv=') === -1){
+    location.replace(location.pathname + '?rv=' + Date.now());
+  }
+}, 4000);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ACTIVITY MONITOR</title>
 
