@@ -6568,6 +6568,24 @@ import { FX } from "./fx.js";
       const urgent = o.t < o.maxT*0.35;
       ctx.save();
       ctx.translate(o.x, o.y);
+      // v6.63 긴급 연출: 마지막 35%는 아이콘이 떨리고 붉은 글로우 + ! 표시
+      if (urgent){
+        ctx.translate((Math.random()-0.5)*2.4, (Math.random()-0.5)*2.4);
+        ctx.globalAlpha = 0.18 + 0.1*Math.sin(performance.now()/80);
+        ctx.fillStyle = '#b8362e';
+        ctx.beginPath(); ctx.arc(0,0,o.r*1.7,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#b8362e';
+        ctx.font = "800 13px 'IBM Plex Sans KR', sans-serif";
+        ctx.textAlign='center';
+        ctx.fillText('!', 0, -o.r-12);
+      } else {
+        // 평시: 은은한 유도 글로우
+        ctx.globalAlpha = 0.1 + 0.05*Math.sin(performance.now()/300);
+        ctx.fillStyle = o.kind==='qte' ? '#e2b23f' : '#5a8cc8';
+        ctx.beginPath(); ctx.arc(0,0,o.r*1.5,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       const pulse = 1 + Math.sin(performance.now()/(urgent?90:220))*0.12;
       ctx.strokeStyle = urgent ? '#b8362e' : (o.kind==='qte' ? '#e2b23f' : '#5a8cc8');
       ctx.lineWidth = 2.2;
@@ -13796,6 +13814,16 @@ import { FX } from "./fx.js";
         }
       }
       ctx.restore();
+    }
+    // v6.63 발악(분노) 순간 연출: enraged가 켜지는 프레임에 붉은 충격파 + 방사광 + 정지감
+    if (!b.ghost){
+      if (b.enraged && !b._enrFx){
+        b._enrFx = true;
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.55, age:0, r0:b.r*0.5, r1:b.r*3.4, col:'#c9403a' });
+        effects.push({ type:'rays', x:b.x, y:b.y, life:0.55, age:0, col:'#c9403a' });
+        shake = Math.min(16, shake+8);
+        freeze = Math.max(freeze, 0.22);
+      }
     }
     // 시그니처 악센트 외곽 링: 평시 은은, 분노 시 붉게 맥동
     if (!b.ghost){
