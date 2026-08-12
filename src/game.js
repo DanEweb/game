@@ -71,7 +71,8 @@ import { FX } from "./fx.js";
     nextId: 1,
     muted: false,
     epoch: 2,            // 세이브 세대 — 대격변 시 증가, 구세대 세이브는 폐기
-    gwq: { stage: 0 }    // 떠돌이 대장장이 영구 퀘스트 (유일무기 제3 루트)
+    gwq: { stage: 0 },   // 떠돌이 대장장이 영구 퀘스트 (유일무기 제3 루트)
+    gateProg: {}         // 관문 레이드 체크포인트 — peril → 돌파한 관문 수 (다음 도전 시 이어서)
   };
   function loadDB(){
     try{
@@ -112,6 +113,7 @@ import { FX } from "./fx.js";
           DB.egg1 = !!d.egg1;
           DB.epoch = d.epoch||2;
           DB.gwq = Object.assign({stage:0}, d.gwq||{});
+          DB.gateProg = d.gateProg||{};
           // 영구 강화 폐지 — 기존 투자 골드 전액 환불 (1회)
           if (!DB.metaRefunded && d.meta){
             let refund = 0;
@@ -4803,6 +4805,7 @@ import { FX } from "./fx.js";
   // QA 훅 (콘솔 전용): 관문 보스 강제 소환 — 잔몹 정리 + gate 플래그까지 실전과 동일
   window.__qaGate = (key)=>{
     try {
+      if (typeof key==='number'){ spawnGateStage(key); const g2=bosses[bosses.length-1]; return g2?g2.name+' st'+g2.gateStage:'no chain'; }
       spawnBoss(key);
       const gb = bosses[bosses.length-1];
       if (gb){ gb.gate = true; for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1); }
@@ -4878,6 +4881,22 @@ import { FX } from "./fx.js";
     const wasFinal = b.finale;
     bosses.splice(idx,1);
     refreshBossBar();
+    // 관문 체인 진행: 수문장 돌파 → 체크포인트 저장 + 다음 관문 소환 / 관문보스 완주 → 진행 초기화
+    if (b.gate && b.gateChain!==undefined){
+      DB.gateProg = DB.gateProg||{};
+      const chain = GATE_CHAIN[b.gateChain]||[];
+      const nextStage = (b.gateStage||0)+1;
+      if (nextStage < chain.length){
+        DB.gateProg[b.gateChain] = nextStage;
+        saveDB();
+        showBossBanner('관문 '+nextStage+'/'+chain.length+' 돌파', '진행이 저장되었다 — 다음 관문이 열린다', '#3f7a5c');
+        SFX.play('win');
+        gatePending = { peril: b.gateChain, stage: nextStage, t: 2.8 }; // 게임 루프에서 소환 (레벨업 중에도 유실 없음)
+      } else {
+        DB.gateProg[b.gateChain] = 0; // 완주 — 재도전은 처음부터 (위험도는 이미 해금)
+        saveDB();
+      }
+    }
     if (wasFinal){
       rootDefeated = true;
       nextRootAt = elapsed + 240;
@@ -4899,6 +4918,43 @@ import { FX } from "./fx.js";
   }
   function addHazard(x, y, r, timer, dmg, friendly){
     hazards.push({ x, y, r, timer, maxT:timer, dmg, friendly:!!friendly });
+  }
+
+  // ---------- 다단 관문 체인: 수문장 1~2관문 → 관문보스. 돌파 시 DB.gateProg에 체크포인트 ----------
+  const GATE_CHAIN = {
+    8:['gkShield','jealousEx'], 12:['gkTwin','protestEx'], 16:['gkTrain','heatwaveEx'],
+    20:['gkShield','blinddateEx'], 24:['gkTwin','upstairsEx'],
+    28:['gkShield','gkTrain','jeonseEx'], 32:['gkTwin','gkTrain','aialgoEx'],
+    36:['gkShield','gkTwin','teamleadEx'], 40:['gkTrain','gkTwin','relativesEx'],
+    44:['gkShield','gkTrain','chinaEx'], 48:['gkTwin','gkShield','tariffEx2'],
+    50:['gkShield','gkTwin','gkTrain','burnoutEx'],
+    52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkTrain','yeongkkeulEx']
+  };
+  let gatePending = null; // 다음 관문 지연 소환 (수문장 돌파 후)
+  function tickGatePending(dt){
+    if (!gatePending) return;
+    gatePending.t -= dt;
+    if (gatePending.t>0) return;
+    const chain = GATE_CHAIN[gatePending.peril]||[];
+    const key = chain[gatePending.stage];
+    const gp = gatePending; gatePending = null;
+    if (!key) return;
+    spawnBoss(key);
+    const gb = bosses[bosses.length-1];
+    if (gb){ gb.gate = true; gb.gateChain = gp.peril; gb.gateStage = gp.stage; }
+    for (let i2=enemies.length-1;i2>=0;i2--) enemies.splice(i2,1);
+  }
+  function spawnGateStage(peril){
+    const chain = GATE_CHAIN[peril];
+    if (!chain) return false;
+    DB.gateProg = DB.gateProg||{};
+    const prog = Math.min(DB.gateProg[peril]||0, chain.length-1);
+    spawnBoss(chain[prog]);
+    const gb = bosses[bosses.length-1];
+    if (gb){ gb.gate = true; gb.gateChain = peril; gb.gateStage = prog; }
+    for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1);
+    toast('⚔ 관문 '+(prog+1)+'/'+chain.length+(prog<chain.length-1 ? ' — 수문장이 길을 막는다' : ' — 관문의 주인이 왔다'));
+    return true;
   }
 
   // ---------- 관문 인터랙션 오브젝트 (MMO식 기믹: QTE 탭 / 아이템 줍기) ----------
@@ -5957,6 +6013,27 @@ import { FX } from "./fx.js";
           b.cConvT = 5.5;
         }
       }
+      // QTE '사상 검증' (2페+): 탭해서 통과하지 못하면 침묵 + 도트
+      if (ph>=2){
+        b.cQuizT = (b.cQuizT===undefined?11:b.cQuizT) - dt;
+        if (b.cQuizT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          addGateObj({ kind:'qte', icon:'📕', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:3,
+            onTap:()=>{ addTextNum(player.x, player.y-30, '"만족스러운 답변이다."'); },
+            onFail:()=>{ if (zones.length<40) zones.push({ x:player.x, y:player.y, r:130, dps:0, t:6, maxT:6, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '재교육 대상 지정'); } });
+          addTextNum(player.x, player.y-44, '📕 사상 검증 — 탭해서 통과하라!');
+          b.cQuizT = 12;
+        }
+      }
+      // '🥟 만두' 회복 찬스 (연회니까)
+      b.cFoodT = (b.cFoodT===undefined?20:b.cFoodT) - dt;
+      if (b.cFoodT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'pick', icon:'🥟', x:player.x+Math.cos(a2)*190, y:player.y+Math.sin(a2)*190, r:20, maxT:6,
+          onPick:()=>{ player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.10); addTextNum(player.x, player.y-30, '🥟 +10%'); },
+          onFail:null });
+        b.cFoodT = 22;
+      }
       if ((b.aliveT||0) > 100 && !b.jWiped){
         b.jWiped = true;
         showBossBanner('전멸기 — 국가 기밀', '"너는 처음부터 없었다."', '#b8362e');
@@ -6155,6 +6232,294 @@ import { FX } from "./fx.js";
         if (lost>0) toast('💸 런 골드 전액 증발 (-'+lost+'G)');
         for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 65*ds, 4); }
         b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='gkshield'){
+      // 수문장 · 강철 방패기사: 주기적 절대 방어 — 핵(⚙)을 탭해 실드를 깨야 한다
+      bossMoveToward(b, player.x, player.y, b.speed*(b.gsGroggy>0?0:1), dt);
+      if (b.gsGroggy>0){ b.gsGroggy -= dt; b.hp -= b.maxHp*0.01*dt; }
+      b.gsCycT = (b.gsCycT===undefined?8:b.gsCycT) - dt;
+      if (b.gsCycT<=0 && !b.gsShield){
+        b.gsShield = 8; b.gsLockHp = b.hp;
+        addGateObj({ kind:'qte', icon:'⚙', x:b.x+(Math.random()-0.5)*120, y:b.y+(Math.random()-0.5)*120, r:24, maxT:8,
+          onTap:()=>{ b.gsShield = 0; b.gsGroggy = 3.5; addTextNum(b.x, b.y-b.r-16, '실드 붕괴! (그로기)'); showBossBanner('실드 브레이크', '핵 파괴 — 3.5초 그로기', '#3f7a5c'); },
+          onFail:()=>{} });
+        showBossBanner('절대 방어', '⚙ 핵을 탭해 실드를 깨라!', '#6a7a8a');
+        SFX.play('warn');
+      }
+      if (b.gsShield>0){
+        b.gsShield -= dt;
+        b.hp = Math.max(b.hp, b.gsLockHp); // 실드 중 피해 무효
+        if (b.gsShield<=0){ b.gsCycT = 10; addTextNum(b.x, b.y-b.r-14, '실드 소멸'); }
+      }
+      // 방패 밀치기: 정면 3연 광탄
+      b.gsPushT = (b.gsPushT===undefined?3:b.gsPushT) - dt;
+      if (b.gsPushT<=0 && !(b.gsGroggy>0)){
+        const aim = Math.atan2(player.y-b.y, player.x-b.x);
+        for (let k=-1;k<=1;k++) hostileShot(b.x, b.y, aim+k*0.16, 230, 8, 18*ds, 2.2);
+        b.gsPushT = 3.2;
+      }
+    } else if (b.kind==='gktwin'){
+      // 수문장 · 쌍둥이 그림자: 분신이 살아있는 동안 화력 2배 — 분신부터 처리하라
+      bossMoveToward(b, player.x, player.y, b.speed, dt);
+      b.gtClone = b.gtClone && enemies.includes(b.gtClone) ? b.gtClone : null;
+      b.gtCloneT = (b.gtCloneT===undefined?1:b.gtCloneT) - dt;
+      if (!b.gtClone && b.gtCloneT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        const cl = makeEnemy('clone', b.x+Math.cos(a2)*120, b.y+Math.sin(a2)*120, false);
+        cl.name='그림자 분신'; cl.hp*=6; cl.maxHp*=6; cl.xpValue=0; cl.grade=0; cl.blessed=false;
+        enemies.push(cl); b.gtClone = cl;
+        addTextNum(b.x, b.y-b.r-14, '그림자 분열');
+        b.gtCloneT = 12;
+      }
+      const twinUp = b.gtClone ? 2 : 1;
+      // 거울 탄막: 조준 + 정반대 동시
+      b.gtMirT = (b.gtMirT===undefined?2.5:b.gtMirT) - dt;
+      if (b.gtMirT<=0){
+        const aim = Math.atan2(player.y-b.y, player.x-b.x);
+        for (let k=0;k<twinUp;k++){
+          hostileShot(b.x, b.y, aim, 240, 6, 16*ds, 2.4);
+          hostileShot(b.x, b.y, aim+Math.PI, 240, 6, 16*ds, 2.4);
+          if (b.gtClone){ hostileShot(b.gtClone.x, b.gtClone.y, Math.atan2(player.y-b.gtClone.y, player.x-b.gtClone.x), 240, 6, 16*ds, 2.4); }
+        }
+        b.gtMirT = 2.8/twinUp;
+      }
+      // 교차 베기: 플레이어 양측 협공탄
+      b.gtCrossT = (b.gtCrossT===undefined?6:b.gtCrossT) - dt;
+      if (b.gtCrossT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        hostileShot(player.x+Math.cos(a2)*300, player.y+Math.sin(a2)*300, a2+Math.PI, 320, 8, 20*ds, 2.0);
+        hostileShot(player.x-Math.cos(a2)*300, player.y-Math.sin(a2)*300, a2, 320, 8, 20*ds, 2.0);
+        addTextNum(player.x, player.y-40, '교차 베기!');
+        b.gtCrossT = 7;
+      }
+    } else if (b.kind==='gktrain'){
+      // 수문장 · 궤도 기관차: 선로 예고 후 관통 돌진 — 선로 밖으로!
+      if (b.trDashing){
+        b.trDashing -= dt;
+        b.x += Math.cos(b.trA)*680*dt;
+        b.y += Math.sin(b.trA)*680*dt;
+        if (Math.hypot(player.x-b.x, player.y-b.y) < b.r+player.r+6 && player.invuln<=0){
+          if (playerHit(28*ds, 0.5, 12)) return true;
+        }
+      } else if (b.trPrep){
+        b.trPrep -= dt;
+        if (b.trPrep<=0){ b.trDashing = 1.1; SFX.play('sweep'); shake=Math.min(16,shake+8); }
+      } else {
+        bossMoveToward(b, player.x, player.y, b.speed, dt);
+        b.trT = (b.trT===undefined?4:b.trT) - dt;
+        if (b.trT<=0){
+          b.trA = Math.atan2(player.y-b.y, player.x-b.x);
+          b.trPrep = 0.9;
+          // 선로 예고: 경로에 하자드 라인
+          for (let k=1;k<=6;k++) addHazard(b.x+Math.cos(b.trA)*k*110, b.y+Math.sin(b.trA)*k*110, 46, 0.9, 16*ds, false);
+          addTextNum(b.x, b.y-b.r-14, '🚂 기적 소리 — 선로를 벗어나라!');
+          SFX.play('warn');
+          b.trT = 5.5;
+        }
+        // 석탄 살포
+        b.trCoalT = (b.trCoalT===undefined?3:b.trCoalT) - dt;
+        if (b.trCoalT<=0){
+          for (let k=0;k<4;k++) hostileShot(b.x, b.y, Math.random()*Math.PI*2, 150+Math.random()*80, 6, 14*ds, 2.6);
+          b.trCoalT = 3.4;
+        }
+      }
+    } else if (b.kind==='teamlead'){
+      // 관문 36: 퇴사 막는 팀장 — 사직서 3장을 보스보다 먼저 회수하라
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 회유', '"연봉 얘기는 밥 먹으면서 하자."', '#4a5568'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 압박', '"지금 나가면 경력에 흠집 나."', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 읍소', '"제발... 다음 달까지만."', '#b8362e'); shake=Math.min(24,shake+14); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.6: ph===3?1.25:1), dt);
+      // 기믹 '사직서 쟁탈': 사직서를 밟아 3장 모으면 보스 그로기 — 방치하면 팀장이 찢고 영구 강화
+      if (b.tlGroggy>0){ b.tlGroggy -= dt; b.hp -= b.maxHp*0.009*dt; }
+      b.tlDocT = (b.tlDocT===undefined?5:b.tlDocT) - dt;
+      if (b.tlDocT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'pick', icon:'📄', x:player.x+Math.cos(a2)*(140+Math.random()*120), y:player.y+Math.sin(a2)*(140+Math.random()*120), r:20, maxT:7,
+          onPick:()=>{
+            b.tlDocs = (b.tlDocs||0)+1;
+            addTextNum(player.x, player.y-30, '📄 사직서 확보 ('+b.tlDocs+'/3)');
+            if (b.tlDocs>=3){ b.tlDocs=0; b.tlGroggy=4; showBossBanner('그로기', '"자, 잠깐만—" 사직서 제출!', '#3f7a5c'); }
+          },
+          onFail:()=>{ b.dmg = Math.round(b.dmg*1.06); addTextNum(b.x, b.y-b.r-14, '"이건 내가 보관할게." (영구 강화)'); SFX.play('warn'); } });
+        addTextNum(player.x, player.y-44, '📄 사직서가 떨어졌다 — 팀장보다 먼저!');
+        b.tlDocT = 9 - ph;
+      }
+      // '업무 폭탄 돌리기': 대량 낙하
+      b.tlBombT = (b.tlBombT===undefined?4:b.tlBombT) - dt;
+      if (b.tlBombT<=0){
+        for (let k=0;k<3+ph*2;k++) addHazard(player.x+(Math.random()-0.5)*320, player.y+(Math.random()-0.5)*320, 56, 1.2, 22*ds, false);
+        addTextNum(player.x, player.y-44, '"이것 좀 부탁해~"');
+        b.tlBombT = (ph===3?3.4:5) * (enrage?0.7:1);
+      }
+      // '회식 강요' (2페+): 강제 흡인
+      if (ph>=2){
+        b.tlPullT = (b.tlPullT===undefined?8:b.tlPullT) - dt;
+        if (b.tlPullT<=0){
+          const pa = Math.atan2(b.y-player.y, b.x-player.x);
+          player.knockX += Math.cos(pa)*520; player.knockY += Math.sin(pa)*520;
+          addTextNum(b.x, b.y-b.r-14, '"한 잔만 하고 가!"');
+          for (let k=0;k<8;k++){ const a3=(Math.PI*2/8)*k; hostileShot(b.x, b.y, a3, 140, 6, 15*ds, 2.0); }
+          SFX.play('sweep');
+          b.tlPullT = 9;
+        }
+      }
+      // '주말 출근 문자' QTE (3페): 무시(탭)하지 못하면 침묵
+      if (ph>=3){
+        b.tlMsgT = (b.tlMsgT===undefined?10:b.tlMsgT) - dt;
+        if (b.tlMsgT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          addGateObj({ kind:'qte', icon:'📱', x:player.x+Math.cos(a2)*140, y:player.y+Math.sin(a2)*140, r:22, maxT:3,
+            onTap:()=>{ addTextNum(player.x, player.y-30, '읽씹 성공'); },
+            onFail:()=>{ if (zones.length<40) zones.push({ x:player.x, y:player.y, r:120, dps:0, t:5, maxT:5, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '"토요일에 잠깐만 나올래?"'); } });
+          addTextNum(player.x, player.y-44, '📱 주말 출근 문자 — 탭해서 읽씹!');
+          b.tlMsgT = 11;
+        }
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 인사평가 C', '"태도 점수라는 게 있거든."', '#b8362e');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 62*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='relatives'){
+      // 관문 40: 명절 친척 연합 — 질문자가 12초마다 교대한다
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 본격 심문', '"앉아봐라. 얘기 좀 하자."', '#a3653f'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 연합 심문', '온 친척이 동시에 입을 연다.', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 마지막 질문', '"그래서, 결론이 뭐냐?"', '#b8362e'); shake=Math.min(24,shake+14); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.5:1), dt);
+      // 로테이션: 큰아버지(수렴탄) → 고모(링+침묵) → 사촌(예측탄+골드)
+      b.rRot = (b.rRot===undefined?0:b.rRot);
+      b.rRotT = (b.rRotT===undefined?12:b.rRotT) - dt;
+      if (b.rRotT<=0){
+        b.rRot = (b.rRot+1)%3;
+        const names = ['큰아버지 — "취업은 했고?"','고모 — "만나는 사람은 있니?"','사촌 — "나 이번에 연봉 좀 올랐어."'];
+        showBossBanner('질문자 교대', names[b.rRot], '#a3653f');
+        SFX.play('warn');
+        b.rRotT = 12;
+      }
+      b.rAtkT = (b.rAtkT===undefined?3:b.rAtkT) - dt;
+      if (b.rAtkT<=0){
+        const rot = b.rRot;
+        if (rot===0 || (ph>=3)){
+          for (let k=0;k<10;k++){
+            const a2 = (Math.PI*2/10)*k;
+            const sx = player.x+Math.cos(a2)*340, sy = player.y+Math.sin(a2)*340;
+            hostileShot(sx, sy, Math.atan2(player.y-sy, player.x-sx), 165, 6, 17*ds, 2.6);
+          }
+        }
+        if (rot===1 || (ph>=3)){
+          for (let k=0;k<14;k++){ const a2=(Math.PI*2/14)*k; hostileShot(b.x, b.y, a2, 170, 6, 15*ds, 2.6); }
+          if (zones.length<40 && Math.random()<0.5) zones.push({ x:player.x, y:player.y, r:100, dps:0, t:4, maxT:4, type:'silence', hostile:true, hitT:0 });
+        }
+        if (rot===2 || (ph>=3)){
+          const aim = Math.atan2(player.y-b.y, player.x-b.x);
+          for (let k=0;k<4;k++) hostileShot(b.x, b.y, aim+(k-1.5)*0.12, 280, 6, 18*ds, 2.2);
+          const take = Math.min(runGold, 12);
+          if (take>0){ runGold -= take; addTextNum(player.x, player.y-30, '-'+take+'G "용돈 좀 주라?"'); }
+        }
+        b.rAtkT = (ph>=3?2.6:3.4) * (enrage?0.65:1);
+      }
+      // '차례상 전 부치기' 아이템: 유일한 회복 찬스
+      b.rFoodT = (b.rFoodT===undefined?15:b.rFoodT) - dt;
+      if (b.rFoodT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'pick', icon:'🥘', x:player.x+Math.cos(a2)*180, y:player.y+Math.sin(a2)*180, r:20, maxT:6,
+          onPick:()=>{ player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.12); addTextNum(player.x, player.y-30, '🥘 전 하나 집어먹음 (+12%)'); SFX.play('quest'); },
+          onFail:null });
+        addTextNum(player.x, player.y-44, '🥘 차례상 — 회복 찬스!');
+        b.rFoodT = 18;
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 단체사진', '"자, 다 같이 찍자. 도망가지 말고."', '#b8362e');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 62*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='burnout'){
+      // 관문 50 (최종): 번아웃 · 또 다른 나 — 나를 흉내내는 그림자
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 무기력', '"...열심히 해서 뭐 하게?"', '#555058'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 현타', '"이게 다 무슨 의미야."', '#b8362e'); screenDimT=Math.max(screenDimT,0.6); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 전부 귀찮아', '그림자가 폭주한다.', '#b8362e'); shake=Math.min(24,shake+14); }
+      if (ph===3) screenDimT = Math.max(screenDimT, 0.3);
+      // 잔상 추격: 1.2초 전 내 위치로 점멸하며 따라온다 — 멈추면 죽는다
+      b.boTrail = b.boTrail||[];
+      b.boTrailT = (b.boTrailT||0) - dt;
+      if (b.boTrailT<=0){ b.boTrail.push({x:player.x, y:player.y}); if (b.boTrail.length>4) b.boTrail.shift(); b.boTrailT = 0.4; }
+      b.boBlinkT = (b.boBlinkT===undefined?2:b.boBlinkT) - dt;
+      if (b.boBlinkT<=0 && b.boTrail.length>=3){
+        const tp = b.boTrail[0];
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.3, age:0, r0:b.r, r1:b.r+30 });
+        b.x = tp.x; b.y = tp.y;
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.3, age:0, r0:b.r+30, r1:b.r });
+        if (Math.hypot(player.x-b.x, player.y-b.y) < b.r+player.r+10 && player.invuln<=0){
+          if (playerHit(26*ds, 0.4, 8)) return true;
+        }
+        b.boBlinkT = (ph===3?1.6:2.4) * (enrage?0.6:1);
+      } else {
+        bossMoveToward(b, player.x, player.y, b.speed, dt);
+      }
+      // '무기력' 존 + '그림자 나' 소환 (2페+)
+      if (ph>=2){
+        b.boZoneT = (b.boZoneT===undefined?7:b.boZoneT) - dt;
+        if (b.boZoneT<=0 && zones.length<40){
+          zones.push({ x:player.x, y:player.y, r:130, dps:0, t:5, maxT:5, type:'silence', hostile:true, hitT:0 });
+          addTextNum(player.x, player.y-40, '무기력이 발목을 잡는다');
+          b.boZoneT = 9;
+        }
+        b.boCloneT = (b.boCloneT===undefined?10:b.boCloneT) - dt;
+        if (b.boCloneT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          const sh2 = makeEnemy('clone', player.x+Math.cos(a2)*280, player.y+Math.sin(a2)*280, false);
+          sh2.name='그림자 나'; sh2.hp*=4; sh2.maxHp*=4; sh2.speed*=1.2; sh2.xpValue=0; sh2.grade=0; sh2.blessed=false;
+          enemies.push(sh2);
+          addTextNum(player.x, player.y-44, '또 다른 내가 늘어난다');
+          b.boCloneT = 12;
+        }
+      }
+      // QTE '알람 끄기' (3페): 실패 시 스킬 잠금
+      if (ph>=3){
+        b.boAlmT = (b.boAlmT===undefined?9:b.boAlmT) - dt;
+        if (b.boAlmT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          addGateObj({ kind:'qte', icon:'⏰', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:2.5,
+            onTap:()=>{ addTextNum(player.x, player.y-30, '알람 정지 — 정신 차렸다'); },
+            onFail:()=>{ player.skCds = player.skCds.map(cd=>Math.max(cd,6)); addTextNum(player.x, player.y-40, '5분만 더... (스킬 6초 잠금)'); SFX.play('warn'); } });
+          addTextNum(player.x, player.y-44, '⏰ 알람 — 탭해서 정신 차려라!');
+          b.boAlmT = 10;
+        }
+      }
+      // '현타' (3페): 집중 수렴 탄막
+      if (ph>=3){
+        b.boConvT = (b.boConvT===undefined?4:b.boConvT) - dt;
+        if (b.boConvT<=0){
+          for (let k=0;k<12;k++){
+            const a2 = (Math.PI*2/12)*k;
+            const sx = player.x+Math.cos(a2)*360, sy = player.y+Math.sin(a2)*360;
+            hostileShot(sx, sy, Math.atan2(player.y-sy, player.x-sx), 175, 6, 19*ds, 2.6);
+          }
+          b.boConvT = 4.5 * (enrage?0.6:1);
+        }
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 이불 밖은 위험해', '"...같이 눕자."', '#b8362e');
+        for (let k=0;k<36;k++){ const a2=(Math.PI*2/36)*k; hostileShot(b.x, b.y, a2, 145, 8, 68*ds, 4.5); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.35;
       }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
@@ -7863,6 +8228,7 @@ import { FX } from "./fx.js";
     if (player.invuln>0) player.invuln -= dt;
     if (player.zoneSilenceT>0) player.zoneSilenceT -= dt;
     updateGateObjs(dt);
+    tickGatePending(dt);
     // 마크 표적: 고동치는 링 표시
     if (player.markTarget){
       player.markPulseT = (player.markPulseT||0) - dt;
@@ -8403,33 +8769,11 @@ import { FX } from "./fx.js";
 
     // boss spawn scheduling — 맵별 최종 보스(기존 보스의 각성형)
     // 균열 안에서는 일반 보스 스폰 정지 (균열은 자체 시련만)
-    const finalAlive = bosses.some(b=>b.finale);
+    const finalAlive = bosses.some(b=>b.finale) || bosses.some(b=>b.gate);
     if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
-      // 관문 보스: 특정 위험도에서는 최종 보스 대신 관문 레이드 (오직 일대일)
-      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx', 20:'blinddateEx', 24:'upstairsEx', 28:'jeonseEx', 32:'aialgoEx',
-                            44:'chinaEx', 48:'tariffEx2', 52:'warzoneEx', 56:'yeongkkeulEx' };
-      const GATE_TOASTS = {
-        jealousEx:'⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.',
-        protestEx:'⚔ 관문 레이드 — 출근길이 막혔다. 시위대가 도로를 점거한다.',
-        heatwaveEx:'⚔ 관문 레이드 — 폭염 경보. 그늘을 벗어나면 타 죽는다.',
-        blinddateEx:'⚔ 관문 레이드 — 주선자가 자리를 깔았다. 셋 중 진짜는 하나.',
-        upstairsEx:'⚔ 관문 레이드 — 윗집이 깨어났다. 천장이 울린다.',
-        jeonseEx:'⚔ 관문 레이드 — "안전한 매물이에요." 보증금을 지켜라.',
-        aialgoEx:'⚔ 관문 레이드 — 알고리즘이 너를 학습하기 시작했다.',
-        chinaEx:'⚔ 관문 레이드 — 대연회가 시작된다. 셋이 하나로.',
-        tariffEx2:'⚔ 관문 레이드 — "아주 아름다운 관세를 보게 될 겁니다."',
-        warzoneEx:'⚔ 관문 레이드 — 동원령 발령. 참호를 파라.',
-        yeongkkeulEx:'⚔ 관문 레이드 — 킥보드 군단과 이자가 몰려온다.'
-      };
-      const gateKey = GATE_BOSSES[DB.peril] || null;
-      spawnBoss(gateKey || MAP.final);
-      if (gateKey){
-        const gb = bosses[bosses.length-1];
-        if (gb) gb.gate = true;
-        for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1); // 전장 정리 — 보스와 나뿐
-        toast(GATE_TOASTS[gateKey]);
-      }
+      // 관문 위험도면 다단 관문 체인 (수문장 → 관문보스, 체크포인트 이어하기), 아니면 맵 최종 보스
+      if (!spawnGateStage(DB.peril||0)) spawnBoss(MAP.final);
     } else if (!finalAlive && rootDefeated && endless && nextRootAt>0 && elapsed>=nextRootAt){
       spawnBoss(MAP.final, true);
     }
@@ -10294,6 +10638,8 @@ import { FX } from "./fx.js";
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
+    gkShield:'관문의 수문장', gkTwin:'관문의 수문장', gkTrain:'관문의 수문장',
+    teamleadEx:'관문 — 사직서를 찢는 자', relativesEx:'관문 — 명절의 심문관들', burnoutEx:'관문 — 거울 속의 나',
     jealousEx:'관문 — 최병우를 놓지 못한 자',
     protestEx:'관문 — 출근길을 멈춘 자',
     heatwaveEx:'관문 — 재난문자의 주인',
@@ -10325,6 +10671,8 @@ import { FX } from "./fx.js";
     protestEx:'#3f7a5c', heatwaveEx:'#d4772e', blinddateEx:'#b85c8a', upstairsEx:'#7a6a52',
     jeonseEx:'#8a7a3f', aialgoEx:'#5ab8c9',
     chinaEx:'#c9a13f', tariffEx2:'#d4772e', warzoneEx:'#5c6652', yeongkkeulEx:'#8a6a3f',
+    teamleadEx:'#4a5568', relativesEx:'#a3653f', burnoutEx:'#555058',
+    gkShield:'#6a7a8a', gkTwin:'#7a5ca3', gkTrain:'#8a5c42',
     xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'

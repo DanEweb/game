@@ -28,6 +28,14 @@ export const BOSS_TYPES = {
     tariffEx2:   { name:'관세 전쟁 · 트럼프', kind:'tariffwar', r:28, hp:13500, speed:50, contactDmg:28, xpValue:850, finale:true },
     warzoneEx:   { name:'동원령', kind:'warzone', r:30, hp:15000, speed:40, contactDmg:30, xpValue:900, finale:true },
     yeongkkeulEx:{ name:'영끌 폭주 연합', kind:'yeongkkeul', r:26, hp:16500, speed:56, contactDmg:30, xpValue:950, finale:true },
+    // 관문 8·9·10호
+    teamleadEx:  { name:'퇴사 막는 팀장', kind:'teamlead', r:27, hp:11000, speed:48, contactDmg:27, xpValue:750, finale:true },
+    relativesEx: { name:'명절 친척 연합', kind:'relatives', r:27, hp:12500, speed:44, contactDmg:28, xpValue:800, finale:true },
+    burnoutEx:   { name:'번아웃 · 또 다른 나', kind:'burnout', r:24, hp:18000, speed:58, contactDmg:32, xpValue:1000, finale:true },
+    // 관문 중간보스 (수문장) — 관문보스 전에 깨야 하는 관문 1·2
+    gkShield:    { name:'수문장 · 강철 방패기사', kind:'gkshield', r:27, hp:2600, speed:42, contactDmg:20, xpValue:200 },
+    gkTwin:      { name:'수문장 · 쌍둥이 그림자', kind:'gktwin', r:23, hp:2400, speed:58, contactDmg:18, xpValue:200 },
+    gkTrain:     { name:'수문장 · 궤도 기관차', kind:'gktrain', r:29, hp:2900, speed:40, contactDmg:24, xpValue:220 },
     // 국제·사회 코믹 보스 (필드 순환 보스)
     xiPingping:  { name:'시진핑핑이', kind:'esper', r:26, hp:520, speed:44, contactDmg:16, xpValue:95 },
     maoJu:       { name:'마오쩌둥', kind:'summoner', r:26, hp:560, speed:40, contactDmg:15, xpValue:100 },
