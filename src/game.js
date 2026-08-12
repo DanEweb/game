@@ -3955,6 +3955,13 @@ import { FX } from "./fx.js";
     war:['wave','nova','pierce'], rng:['snipe','spread','pierce'], mag:['homing','nova','mortar'],
     rog:['pierce','spread','homing'], pri:['nova','homing','wave'], mer:['mortar','spread','homing'],
   };
+  // 직업별 원형 오버라이드 — 특색이 강한 직업은 그룹 원형 대신 전용 조합 (신규 원형: spiral 나선탄 / quake 전방 강타 / burst 즉발 폭발)
+  const CGW_ARCH_OVR = {
+    gymbro:['quake','nova','spiral'], slime:['burst','nova','homing'], gambler:['spiral','spread','burst'],
+    glitch:['spiral','burst','homing'], monk:['quake','wave','burst'], commander:['burst','mortar','homing'],
+    stonks:['burst','spread','mortar'], tombraider:['quake','spread','burst'], bard:['spiral','nova','homing'],
+    pilot:['snipe','spiral','mortar'], madman:['quake','spiral','pierce'], voidc:['spiral','burst','mortar'],
+  };
   const CGW_NAMES = {
     rusher:['파성추','진각 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
     exhero:['녹슨 영광','전성기의 잔향','노장의 일섬'], madman:['광소곡','피보라','붉은 송곳'], monk:['백보권압','기의 파문','일념 관수'],
@@ -3980,7 +3987,7 @@ import { FX } from "./fx.js";
     const g = CGW_CLASS_GROUP(ck);
     CGW_NAMES[ck].forEach((nm, i)=>{
       const key = 'cgw_'+ck+'_'+i;
-      const arch = CGW_ARCH[g][i];
+      const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[i];
       WEAPONS[key] = {
         name: nm, cgw:true, arch,
         desc:'[직업 유일] '+nm+' — 이 직업만의 성장무기 (보스를 잡을수록 성장)',
@@ -4443,6 +4450,21 @@ import { FX } from "./fx.js";
           updateHud();
         }
       });
+    }
+    // 직업 유일무기 단서: 위험도 8+ & 5% — 지금 직업의 미발견 전용 무기 1종의 행방을 판다
+    if (CGW_NAMES[player.classKey] && (DB.peril||0)>=8 && Math.random()<0.05){
+      const missing2 = [0,1,2].filter(i=>!((DB.cgw||{})[player.classKey+'_'+i]||{}).found);
+      if (missing2.length){
+        const mi2 = missing2[(Math.random()*missing2.length)|0];
+        const cost2 = Math.round(600 * (player.merchantDisc||1));
+        opts.push({ l:'⚔ 흐릿한 무기 도면 ('+cost2+'G)', d:'"당신 같은 사람들이 쓰던 물건의 도면인데... 살 거요?" — 직업 전용 무기 1종 발견', fx:()=>{
+          if (runGold < cost2){ toast('골드 부족!'); SFX.play('hit'); return; }
+          runGold -= cost2;
+          cgwRec(player.classKey+'_'+mi2).found = true; saveDB();
+          toast('⚔ ['+CGW_NAMES[player.classKey][mi2]+'] 발견 — 장비창에서 장착');
+          SFX.play('evolve');
+        } });
+      }
     }
     const offerN = opts.length>0 ? 2 : 3;
     for (let i=0;i<offerN;i++){
@@ -8049,6 +8071,18 @@ import { FX } from "./fx.js";
               projectiles.push({ x:player.x, y:player.y, vx:Math.cos(a)*260, vy:Math.sin(a)*260, r:4, damage:dmg, crit:false, pierce:0, life:1.8, homing:true, tracer:true }); }
           } else if (arch==='mortar'){
             for (let i=0;i<n;i++) addHazard(t.x+(Math.random()-0.5)*90, t.y+(Math.random()-0.5)*90, 56, 0.7, dmg, true);
+          } else if (arch==='spiral'){
+            // 나선탄: 발사각이 계속 회전 — 화면을 감는 궤적
+            w.spinA = (w.spinA||0) + 0.9;
+            for (let i=0;i<n+1;i++){ const a=w.spinA + i*(Math.PI*2/(n+1));
+              projectiles.push({ x:player.x, y:player.y, vx:Math.cos(a)*300, vy:Math.sin(a)*300, r:4, damage:dmg, crit:Math.random()<player.critChance, pierce:2, life:1.0, tracer:true }); }
+          } else if (arch==='quake'){
+            // 전방 강타: 조준 방향 일직선 지면 강타 (라인 장판)
+            for (let i=1;i<=3+Math.floor(n/2);i++) addHazard(player.x+Math.cos(baseA)*i*70, player.y+Math.sin(baseA)*i*70, 48, 0.35+i*0.08, dmg, true);
+            shake = Math.min(10, shake+3);
+          } else if (arch==='burst'){
+            // 즉발 폭발: 표적 자리에서 곧장 터진다 — 조준 불필요한 확정타
+            addHazard(t.x, t.y, 62, 0.25, dmg*1.4, true);
           }
         }
         SFX.play('shoot');
@@ -10986,6 +11020,15 @@ import { FX } from "./fx.js";
       DB.gwq.stage = 3;
       DB.growth.found = true;
       toast('⚒ "약속은 지킨다." — 무명검이 손에 들어왔다');
+      // 대장장이는 주인을 알아본다: 그 직업의 전용 무기 1종도 함께 벼려준다
+      if (CGW_NAMES[player.classKey]){
+        const miss3 = [0,1,2].filter(i=>!cgwRec(player.classKey+'_'+i).found);
+        if (miss3.length){
+          const m3 = miss3[0];
+          cgwRec(player.classKey+'_'+m3).found = true;
+          toast('⚒ "덤이다." — ['+CGW_NAMES[player.classKey][m3]+']도 함께 받았다');
+        }
+      }
       SFX.play('evolve');
     }
     // 위험도 해금: 현재 위험도로 클리어 시 다음 단계 개방
