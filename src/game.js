@@ -6816,6 +6816,27 @@ import { FX } from "./fx.js";
       SFX.play('boom');
     }
   }
+  // v6.69 관문 재도전 (사용자 확정): 관문 전투 사망 = [빌드 유지 즉시 재도전] / [런 종료] 선택
+  function openGateRetry(gb){
+    const peril = gb.gateChain;
+    const lostG = Math.round(runGold*0.15);
+    openEvent({ t:'관문에서 쓰러졌다', d:'수문장 돌파 기록은 남아있다.\n어떻게 할 것인가?', opts:[
+      { l:'⚔ 빌드 유지 — 즉시 재도전', d:'지금의 무기·테크·레벨 그대로 이 스테이지부터 다시 (입장료: 런 골드 15% = '+lostG+'G)', fx:()=>{
+        runGold = Math.max(0, runGold - lostG);
+        player.hp = player.maxHp;
+        player.invuln = 2.5;
+        for (let i=bosses.length-1;i>=0;i--) bosses.splice(i,1);
+        for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1);
+        hostileShots.length = 0; hazards.length = 0; gateObjs.length = 0;
+        spawnGateStage(peril);
+        toast('⚔ 재도전 — 관문이 다시 열린다');
+        SFX.play('win');
+      } },
+      { l:'🏳 런 종료 — 다음 런에서 새 빌드로', d:'이번 런을 정산한다. 관문 체크포인트는 유지 — 다음 런에서 이 스테이지부터.', fx:()=>{
+        setTimeout(()=>endGame(), 170);
+      } },
+    ]});
+  }
   function tickGateCore(b, dt){
     const ds2 = dmgScale();
     b.gcCoreT = (b.gcCoreT===undefined?12:b.gcCoreT) - dt;
@@ -11788,6 +11809,12 @@ import { FX } from "./fx.js";
       }
       player.hp = 0;
       updateHud();
+      // v6.69 관문 재도전: 관문 전투 중 사망은 게임오버가 아니라 선택이다
+      const gbD = bosses.find(b2=>b2.gate && b2.gateChain);
+      if (gbD){
+        openGateRetry(gbD);
+        return true;
+      }
       endGame();
       return true;
     }
@@ -16095,7 +16122,6 @@ import { FX } from "./fx.js";
     drawRadar(dt);
     drawAura();
     drawZones();
-    drawGateObjs();
     drawHazards();
 
     // 경험치 보석 — 청록 다이아몬드 (탄막과 확실히 구분)
@@ -16154,6 +16180,7 @@ import { FX } from "./fx.js";
     drawGhosts();
     drawEffects();
     drawPlayerChar();
+    drawGateObjs(); // v6.69 최상위 레이어로 이동 — 기믹 오브젝트가 보스 몸에 가려지지 않게
     drawDmgNums();
 
     ctx.restore();
