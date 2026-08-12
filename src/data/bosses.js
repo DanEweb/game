@@ -32,6 +32,8 @@ export const BOSS_TYPES = {
     teamleadEx:  { name:'퇴사 막는 팀장', kind:'teamlead', r:27, hp:11000, speed:48, contactDmg:27, xpValue:750, finale:true },
     relativesEx: { name:'명절 친척 연합', kind:'relatives', r:27, hp:12500, speed:44, contactDmg:28, xpValue:800, finale:true },
     burnoutEx:   { name:'번아웃 · 또 다른 나', kind:'burnout', r:24, hp:18000, speed:58, contactDmg:32, xpValue:1000, finale:true },
+    // 최종 관문 (위험도 60) — 이 세계 그 자체
+    grayoneEx:   { name:'회색 군주 · 그레이스케일', kind:'grayone', r:32, hp:26000, speed:46, contactDmg:34, xpValue:1500, finale:true },
     // 관문 중간보스 (수문장) — 관문보스 전에 깨야 하는 관문 1·2
     gkShield:    { name:'수문장 · 강철 방패기사', kind:'gkshield', r:27, hp:2600, speed:42, contactDmg:20, xpValue:200 },
     gkTwin:      { name:'수문장 · 쌍둥이 그림자', kind:'gktwin', r:23, hp:2400, speed:58, contactDmg:18, xpValue:200 },

@@ -5689,7 +5689,8 @@ import { FX } from "./fx.js";
     36:['gkShield','gkTwin','teamleadEx'], 40:['gkTrain','gkTwin','relativesEx'],
     44:['gkShield','gkTrain','chinaEx'], 48:['gkTwin','gkShield','tariffEx2'],
     50:['gkShield','gkTwin','gkTrain','burnoutEx'],
-    52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkTrain','yeongkkeulEx']
+    52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkTrain','yeongkkeulEx'],
+    60:['gkShield','gkTwin','gkTrain','grayoneEx']
   };
   // 수문장 테마: 관문보스의 세계관에 맞는 이름 + 전용 추가 패턴 (엔진은 3종 공유, 얼굴과 한 수는 관문마다 다르다)
   // [stage0 테마, stage1 테마(3단 이상일 때)]
@@ -5708,6 +5709,7 @@ import { FX } from "./fx.js";
     50:[{n:'수문장 · 월요일 아침', f:'tired'},{n:'수문장 · 밀린 빨래', f:'tired'},{n:'수문장 · 읽지 않은 메일 99+', f:'tired'}],
     52:[{n:'수문장 · 정찰 드론', f:'war'},{n:'수문장 · 포병 관측수', f:'war'}],
     56:[{n:'수문장 · 불법 주차 킥보드', f:'money'},{n:'수문장 · 중도상환 수수료', f:'money'}],
+    60:[{n:'회색 파편 · 의심', f:'tired'},{n:'회색 파편 · 공허', f:'red'},{n:'회색 파편 · 침묵', f:'tired'}],
   };
   function applyGateTheme(gb, peril, stage){
     if (!gb || gb.finale) return;
@@ -7379,6 +7381,78 @@ import { FX } from "./fx.js";
         showBossBanner('전멸기 — 이불 밖은 위험해', '"...같이 눕자."', '#b8362e');
         for (let k=0;k<36;k++){ const a2=(Math.PI*2/36)*k; hostileShot(b.x, b.y, a2, 145, 8, 68*ds, 4.5); }
         b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.35;
+      }
+    } else if (b.kind==='grayone'){
+      // 최종 관문 60: 회색 군주 — 이 세계 그 자체. 지금까지 배운 모든 기믹이 시험대에 오른다
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 잿빛 파도', '"너의 색을 지우겠다."', '#8f9194'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 세계 붕괴', '"이 이야기는 처음부터 회색이었다."', '#b8362e'); screenDimT=Math.max(screenDimT,0.7); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 무채색', '세계의 색이 전부 빠져나간다.', '#b8362e'); shake=Math.min(28,shake+18); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.5: ph===3?1.25:1), dt);
+      if (ph>=3) screenDimT = Math.max(screenDimT, 0.3);
+      // 기믹 '회색 파도': 확산 링 (윗집 기믹의 완성형 — 이중 링)
+      b.gRings = b.gRings||[];
+      b.gRingT = (b.gRingT===undefined?2.5:b.gRingT) - dt;
+      if (b.gRingT<=0){
+        b.gRings.push({ cx:b.x, cy:b.y, r:b.r+6 });
+        if (ph>=2) b.gRings.push({ cx:b.x, cy:b.y, r:b.r+6-60 });
+        effects.push({ type:'ring', x:b.x, y:b.y, life:4.5, age:0, r0:b.r+6, r1:b.r+6+160*4.5 });
+        b.gRingT = (ph===1?3.2 : ph===2?2.2 : 1.6) * (enrage?0.7:1);
+      }
+      for (let ri=b.gRings.length-1;ri>=0;ri--){
+        const rg = b.gRings[ri];
+        rg.r += 160*dt;
+        if (rg.r > 820){ b.gRings.splice(ri,1); continue; }
+        if (rg.r>0 && Math.abs(Math.hypot(player.x-rg.cx, player.y-rg.cy)-rg.r) < 15 && player.invuln<=0){
+          if (playerHit(22*ds, 0.35, 8)) return true;
+          addTextNum(player.x, player.y-30, '잿빛!');
+        }
+      }
+      // '기억의 잔재' 안전지대 (3페): 이동 그늘의 완성형 — 붕괴 낙하 속 유일한 색
+      if (ph>=3){
+        if (b.gShX===undefined){ b.gShX=player.x; b.gShY=player.y; b.gShA=Math.random()*Math.PI*2; }
+        b.gShA += (Math.random()-0.5)*dt*2;
+        b.gShX += Math.cos(b.gShA)*55*dt; b.gShY += Math.sin(b.gShA)*55*dt;
+        if (!b.gShZone || b.gShZone.t<=0){ b.gShZone = { x:b.gShX, y:b.gShY, r:90, dps:0, t:0.6, maxT:0.6, type:'shade', hostile:true }; zones.push(b.gShZone); }
+        b.gShZone.x=b.gShX; b.gShZone.y=b.gShY; b.gShZone.t=0.6;
+        b.gFallT = (b.gFallT===undefined?3:b.gFallT) - dt;
+        if (b.gFallT<=0){
+          for (let k=0;k<7;k++) addHazard(player.x+(Math.random()-0.5)*400, player.y+(Math.random()-0.5)*400, 60, 0.9+Math.random()*0.6, 26*ds, false);
+          b.gFallT = 3.4 * (enrage?0.6:1);
+        }
+      }
+      // QTE '💠 기억 파편': 탭하면 보스 6% 삭제 + 잠깐 색이 돌아온다 (2초 무적)
+      b.gMemT = (b.gMemT===undefined?12:b.gMemT) - dt;
+      if (b.gMemT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'qte', icon:'💠', x:player.x+Math.cos(a2)*160, y:player.y+Math.sin(a2)*160, r:24, maxT:3.5,
+          onTap:()=>{ b.hp -= b.maxHp*0.06; player.invuln=Math.max(player.invuln,2); addDmgNum(b.x, b.y, b.maxHp*0.06, true); addTextNum(player.x, player.y-30, '💠 색이 돌아온다!'); refreshBossBar(); shake=Math.min(18,shake+10); },
+          onFail:()=>{ b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.02); addTextNum(b.x, b.y-b.r-14, '기억이 흡수되었다 (+2%)'); refreshBossBar(); } });
+        addTextNum(player.x, player.y-44, '💠 기억 파편 — 놓치면 놈이 삼킨다!');
+        b.gMemT = 14;
+      }
+      // '잿빛 추적탄' (2페+): 예측 조준 (AI 기믹의 완성형)
+      if (ph>=2){
+        if (b.gLX!==undefined){ b.gVX=(player.x-b.gLX)/Math.max(dt,0.001)*0.7+(b.gVX||0)*0.3; b.gVY=(player.y-b.gLY)/Math.max(dt,0.001)*0.7+(b.gVY||0)*0.3; }
+        b.gLX=player.x; b.gLY=player.y;
+        b.gPredT = (b.gPredT===undefined?3:b.gPredT) - dt;
+        if (b.gPredT<=0){
+          const tx = player.x+(b.gVX||0)*0.5, ty = player.y+(b.gVY||0)*0.5;
+          const aim = Math.atan2(ty-b.y, tx-b.x);
+          for (let k=-1;k<=1;k++) hostileShot(b.x, b.y, aim+k*0.11, 300, 6, 20*ds, 2.2);
+          b.gPredT = (ph===3?1.8:2.6) * (enrage?0.7:1);
+        }
+      }
+      // 전멸기 '이야기의 끝': 120초 — 최종 보스답게 조금 더 관대하고, 조금 더 잔혹하게
+      if ((b.aliveT||0) > 120 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 이야기의 끝', '"수고했다. 여기까지다."', '#b8362e');
+        for (let k=0;k<40;k++){ const a2=(Math.PI*2/40)*k; hostileShot(b.x, b.y, a2, 140, 8, 75*ds, 5); }
+        b.dmg = Math.round(b.dmg*1.7); b.speed *= 1.4;
       }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
@@ -12002,6 +12076,7 @@ import { FX } from "./fx.js";
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
     gkShield:'관문의 수문장', gkTwin:'관문의 수문장', gkTrain:'관문의 수문장',
+    grayoneEx:'최종 관문 — 세계 그 자체',
     teamleadEx:'관문 — 사직서를 찢는 자', relativesEx:'관문 — 명절의 심문관들', burnoutEx:'관문 — 거울 속의 나',
     jealousEx:'관문 — 최병우를 놓지 못한 자',
     protestEx:'관문 — 출근길을 멈춘 자',
@@ -12034,7 +12109,7 @@ import { FX } from "./fx.js";
     protestEx:'#3f7a5c', heatwaveEx:'#d4772e', blinddateEx:'#b85c8a', upstairsEx:'#7a6a52',
     jeonseEx:'#8a7a3f', aialgoEx:'#5ab8c9',
     chinaEx:'#c9a13f', tariffEx2:'#d4772e', warzoneEx:'#5c6652', yeongkkeulEx:'#8a6a3f',
-    teamleadEx:'#4a5568', relativesEx:'#a3653f', burnoutEx:'#555058',
+    teamleadEx:'#4a5568', relativesEx:'#a3653f', burnoutEx:'#555058', grayoneEx:'#e8e8e6',
     gkShield:'#6a7a8a', gkTwin:'#7a5ca3', gkTrain:'#8a5c42',
     xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
