@@ -4015,6 +4015,48 @@ import { FX } from "./fx.js";
       radius:(w)=> (w.evolved ? 120 : [72,82,82,94,94][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 1.9)
     },
+    // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
+    xwave: {
+      name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
+      cross:true, req:(p)=> classResGroup(p.classKey)==='war' && starBranchSpent('rng')>=1,
+      evName:'천리검풍(千里劍風)', evDesc:'검기가 더 크게, 더 멀리, 꿰뚫으며 날아갑니다',
+      lvDesc:['','검기 +1','피해 +40%','관통 +1','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.85 : 1.05,
+      dmg:(w)=> (w.evolved ? 30 : [13,13,18,18,24][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=2?1:0))
+    },
+    xbayonet: {
+      name:'총검 돌격', desc:'[전향 · 원거리군] 총 끝의 검으로 눈앞을 원호로 벤다 — 성도에 전사 별을 밝힌 사수만 (원거리의 근거리화)',
+      cross:true, req:(p)=> classResGroup(p.classKey)==='rng' && starBranchSpent('war')>=1,
+      evName:'착검 돌격', evDesc:'베기가 커지고 적을 밀쳐냅니다',
+      lvDesc:['','범위 확장','피해 +40%','범위 확장','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.9 : 1.1,
+      dmg:(w)=> (w.evolved ? 34 : [14,14,19,19,26][w.lv-1]),
+      radius:(w)=> (w.evolved ? 100 : [70,78,78,88,88][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.6 : 2.1),
+      count:(w)=> 1
+    },
+    xmanablade: {
+      name:'마나 블레이드', desc:'[전향 · 마법군] 마력으로 벼린 검이 온몸을 휘돈다 — 성도에 전사 별을 밝힌 술사만 (법사의 전사화)',
+      cross:true, req:(p)=> classResGroup(p.classKey)==='mag' && starBranchSpent('war')>=1,
+      evName:'마검 폭풍', evDesc:'회전이 커지고 빨라집니다',
+      lvDesc:['','반경 확장','피해 +40%','반경 확장','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.55 : 0.7,
+      dmg:(w)=> (w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
+      radius:(w)=> (w.evolved ? 86 : [56,64,64,72,72][w.lv-1]),
+      arc:()=> Math.PI*2,
+      count:(w)=> 1
+    },
+    xrunenova: {
+      name:'룬 폭충', desc:'[전향 · 전사군] 갑주에 새긴 룬이 마력 파동을 터뜨린다 — 성도에 마법 별을 밝힌 전사만 (전사의 법사화)',
+      cross:true, req:(p)=> classResGroup(p.classKey)==='war' && starBranchSpent('mag')>=1,
+      evName:'룬 대폭충', evDesc:'파동이 커지고 강해집니다',
+      lvDesc:['','반경 확장','피해 +40%','반경 확장','피해 강화'],
+      baseCd:(w)=> w.evolved ? 1.5 : 1.9,
+      dmg:(w)=> (w.evolved ? 40 : [16,16,22,22,30][w.lv-1]),
+      radius:(w)=> (w.evolved ? 130 : [90,100,100,112,112][w.lv-1]),
+      count:(w)=> 1
+    },
     gbow: {
       name:'침묵하는 활', desc:'[유일] 전장을 꿰뚫는 장궁 — 보스의 정수로 성장',
       evName:'침묵하는 활·만개', evDesc:'시위가 스스로 노래하기 시작합니다',
@@ -4679,6 +4721,8 @@ import { FX } from "./fx.js";
         if (hasGrowth) return; // 성장무기 소지 시 일반 새 무기도 미등장
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
+          // v6.54 전향 무기: 계열 + 성도 타 계열 별 투자 조건을 만족해야만 카드로 등장
+          if (def.cross && (!def.req || !def.req(player))) return;
           // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
           const wri = rollCardRarity();
           const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
@@ -4687,7 +4731,7 @@ import { FX } from "./fx.js";
           pool.push({
             key:'wn_'+key, kind:'weaponnew', rarity:wri, elc: imbEl,
             name: (imbEl ? TREES[imbEl].name+' ' : '') + def.name + (startLv>1 ? ' Lv'+startLv : ''),
-            tag: imbEl ? TREES[imbEl].name+' 병기' : '새 무기',
+            tag: def.cross ? '⇄ 전향 무기' : (imbEl ? TREES[imbEl].name+' 병기' : '새 무기'),
             desc: def.desc + (imbEl ? ' ['+TREES[imbEl].name+' 각인 상태로 획득]' : '') + (startLv>1 ? ' (등급 보너스: Lv'+startLv+' 시작)' : ''),
             apply:()=>{
               addWeapon(key);
@@ -6228,6 +6272,9 @@ import { FX } from "./fx.js";
   };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaWeapon = (key)=>{ // v6.54 QA: 무기 강제 지급 (전향 무기 등 발사 엔진 검증용)
+    try { addWeapon(key); return 'weapon+'+key; } catch(e){ return 'ERR '+String(e); }
   };
   window.__qaState = ()=>{
     try {
@@ -9086,6 +9133,70 @@ import { FX } from "./fx.js";
           }
         }
         SFX.play('sweep');
+      } else if (w.key==='xwave'){
+        // v6.54 전향: 검기 방출 — 전사의 참격이 날아간다
+        const t = nearestTarget();
+        if (!t){ w.cd = 0.2; continue; }
+        const baseA = Math.atan2(t.y-player.y, t.x-player.x);
+        const n = def.count(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        for (let i=0;i<n;i++){
+          const a = baseA + (i-(n-1)/2)*0.16;
+          fireProjectile(a, 470, dmg, 2 + (w.lv>=4?1:0) + (w.evolved?1:0), 0.9, { r:7, tracer:true, imbue:w.imbue });
+        }
+        SFX.play('sweep');
+      } else if (w.key==='xbayonet' || w.key==='xmanablade'){
+        // v6.54 전향: 총검 원호 베기 / 마나 블레이드 회전 참격 — 낫 엔진 공용
+        const t = nearestTarget();
+        if (w.key==='xbayonet' && !t){ w.cd = 0.2; continue; }
+        const spin = w.key==='xmanablade';
+        const baseA = spin ? Math.random()*Math.PI*2 : Math.atan2(t.y-player.y, t.x-player.x);
+        const radius = def.radius(w);
+        const arc = def.arc(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        const imb = w.imbue;
+        effects.push({ type: spin?'slash':'arc', x:player.x, y:player.y, a:baseA, arc: spin?2.4:arc, r: spin?radius:radius, life:0.26, age:0, friendly:true });
+        player.swingT = Math.max(player.swingT||0, 0.16);
+        const hitInArc2 = (tx, ty, tr)=>{
+          const d = Math.hypot(tx-player.x, ty-player.y);
+          if (d > radius+tr) return false;
+          if (arc >= Math.PI*2) return true;
+          let da = Math.atan2(ty-player.y, tx-player.x) - baseA;
+          while (da>Math.PI) da-=Math.PI*2;
+          while (da<-Math.PI) da+=Math.PI*2;
+          return Math.abs(da) < arc/2;
+        };
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e) continue;
+          if (hitInArc2(e.x,e.y,e.r)){
+            const isCrit = Math.random()<player.critChance;
+            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e);
+            e.hp -= d;
+            addDmgNum(e.x,e.y,d,isCrit);
+            procOnHit(e, false, imb);
+            if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+          }
+        }
+        for (let i=bosses.length-1;i>=0;i--){
+          const b = bosses[i];
+          if (!b) continue;
+          if (!b.ghost && hitInArc2(b.x,b.y,b.r)){
+            const d = dmg*corrodeMult(b);
+            b.hp -= d;
+            addDmgNum(b.x,b.y,d,false);
+            procOnHit(b, true, imb);
+            if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+          }
+        }
+        SFX.play('sweep');
+      } else if (w.key==='xrunenova'){
+        // v6.54 전향: 룬 폭충 — 전사의 갑주가 마력 파동을 터뜨린다
+        if (!enemies.length && !bosses.length){ w.cd = 0.3; continue; }
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        friendlyBlast(player.x, player.y, def.radius(w), dmg, true);
+        burst(player.x, player.y, 10, 150);
+        SFX.play('boom');
       }
     }
   }
