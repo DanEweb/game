@@ -865,6 +865,7 @@ import { FX } from "./fx.js";
       if (item.wt==='heavy' && !HEAVY_OK[classKey] && !starHasName('중갑 숙련')){ out.inactive += 1; continue; }
       if (item.grp && !(RESONANCE[item.grp]||[]).includes(classKey)){ out.inactive += 1; continue; } // 계열 각인 불일치 — 효과 정지
       const plusMult = 1 + (item.plus||0)*0.06; // 강화 보너스
+      out.power = (out.power||0) + (item.r+1)*0.010 + (item.plus||0)*0.005; // 파워 지수 기여 (관문 보정용)
       for (const st of item.stats) out[st.k] += st.v * plusMult;
       if (item.affix) out.affixes[item.affix] = true;
       if (item.affix2) out.affixes[item.affix2] = true;
@@ -881,6 +882,7 @@ import { FX } from "./fx.js";
   }
   function applyEquipBonuses(p, classKey){
     const eq = equippedBonuses(classKey);
+    p.equipPower = eq.power || 0;
     p.maxHp += eq.hp;
     p.speed *= 1 + eq.spd/100;
     p.dmgMult *= 1 + eq.atk/100;
@@ -3564,8 +3566,9 @@ import { FX } from "./fx.js";
         const gate = tree.common ? COMMON_GATE : TIER_GATE;
         if (node.tier>=2 && pts < (gate[node.tier]||99)) continue;
         // 신화 노드: 등급 고정 (트리당 유일한 빌드 정점)
-        let ri = node.myth ? 5 : rollCardRarity();
-        // 숙련: 이미 찍은 테크는 25% 확률로 한 등급 위로 등장
+        // 희귀도 고정: 한 번 얻은 노드는 그 희귀도로 잠긴다 — '숙련'(25% 한 등급 상승)만이 유일한 승급 경로
+        const locked = player.cardRLock && player.cardRLock[node.key];
+        let ri = node.myth ? 5 : (locked!==undefined && picks>0 ? locked : rollCardRarity());
         let honed = false;
         if (!node.myth && picks>0 && ri<4 && Math.random()<0.25){ ri+=1; honed=true; }
         // 수확 체감: 같은 테크를 반복해서 찍을수록 효율이 65%씩 감소 (무한 성장 차단)
@@ -3580,6 +3583,7 @@ import { FX } from "./fx.js";
             node.apply(player, m);
             player.tech[tkey] = (player.tech[tkey]||0) + 1;
             player.techPicks[node.key] = picks + 1;
+            (player.cardRLock = player.cardRLock||{})[node.key] = ri; // 희귀도 잠금
             if (!DB.seenTech) DB.seenTech = {};
             DB.seenTech[node.key] = true; // 테크 도감 기록
             if (node.myth) unlockAch('mythtech');
@@ -3597,13 +3601,14 @@ import { FX } from "./fx.js";
         if (banned.has(ct.key)) continue;
         const picks = player.techPicks[ct.key]||0;
         if (picks >= 4) continue;
-        const ri = rollCardRarity();
+        const lockedC = player.cardRLock && player.cardRLock[ct.key];
+        const ri = (lockedC!==undefined && picks>0) ? lockedC : rollCardRarity();
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:ct.key, kind:'ctech', rarity:ri, ctag:true,
           name:ct.name, tag:CLASSES[player.classKey].name+' 전용',
           desc:ct.desc(m),
-          apply:()=>{ ct.apply(player, m); player.techPicks[ct.key] = picks+1; }
+          apply:()=>{ ct.apply(player, m); player.techPicks[ct.key] = picks+1; (player.cardRLock=player.cardRLock||{})[ct.key]=ri; }
         });
       }
     }
@@ -3620,13 +3625,14 @@ import { FX } from "./fx.js";
         if (banned.has(gt.key)) continue;
         const picks = player.techPicks[gt.key]||0;
         if (picks >= gt.max) continue;
-        const ri = rollCardRarity();
+        const lockedG = player.cardRLock && player.cardRLock[gt.key];
+        const ri = (lockedG!==undefined && picks>0) ? lockedG : rollCardRarity();
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
           name:'무명검 · '+gt.name, tag:'무기 강화 · 유일',
           desc:gt.desc(m),
-          apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; }
+          apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; (player.cardRLock=player.cardRLock||{})[gt.key]=ri; }
         });
       }
     }
@@ -4218,6 +4224,7 @@ import { FX } from "./fx.js";
     pw += Math.max(0, tpts - 5) * 0.022;                          // 테크를 찍을수록
     if (ownedWeapon('nameless')) pw += growthEffLv() * 0.012;     // 성장무기가 깨어날수록
     pw += starSpent() * 0.004;                                    // 성도를 찍을수록 (메타 파워도 세상이 반응)
+    pw += player.equipPower || 0;                                 // 장비를 갖출수록 (희귀도·강화 반영)
     return 1 + Math.min(2.0, pw);                                 // 최대 +200%
   }
   // v6.13 난이도 재상향: 웨이브 3부터는 무빙·기믹 없이는 절대 못 버틴다 (자동사냥 사형선고)
@@ -4957,10 +4964,10 @@ import { FX } from "./fx.js";
   // 관문 보정: 플레이어가 과성장했으면 관문도 함께 단단해진다 (웨이브 파밍으로 밸런스 붕괴 방지)
   function applyGateScale(gb){
     if (!gb) return;
-    const gs = 0.6 + 0.5*powerScale(); // 초반 1.1× ~ 풀성장 1.6×
+    const gs = 0.5 + 0.75*powerScale(); // 초반 1.25× ~ 풀성장 2.0× (레벨·테크·성도·장비 전부 반영)
     gb.maxHp = Math.round(gb.maxHp * gs);
     gb.hp = gb.maxHp;
-    gb.dmg = Math.round(gb.dmg * (0.85 + 0.2*powerScale()));
+    gb.dmg = Math.round(gb.dmg * (0.8 + 0.3*powerScale()));
     refreshBossBar();
   }
   // 수문장 테마 전용 한 수 — 3종 엔진 공통으로 호출
@@ -4983,6 +4990,45 @@ import { FX } from "./fx.js";
       case 'wall': if (zones.length<38){ const a2=Math.random()*Math.PI*2; zones.push({ x:player.x+Math.cos(a2)*120, y:player.y+Math.sin(a2)*120, r:24, dps:0, t:10, maxT:10, type:'block', hostile:true, hitT:0 }); } break;
       case 'war': for (let k=0;k<5;k++) addHazard(player.x+(Math.random()-0.5)*360, player.y+(Math.random()-0.5)*360, 56, 0.9+Math.random()*0.6, 20*ds, false); break;
       case 'tired': if (zones.length<40){ zones.push({ x:player.x, y:player.y, r:110, dps:0, t:4, maxT:4, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '...5분만'); } break;
+    }
+  }
+
+  // 공용 관문 코어: 모든 관문 전투(수문장 포함)에 주기적으로 뜨는 인터랙션 —
+  // 💥 약점 코어(탭 = 보스 최대체력 5% 삭제) / ⚡ 과부하(탭 = 스킬 쿨 초기화) / 🛡 잔향 보호막(탭 = 2초 무적)
+  // "기믹을 수행하는 손"이 곧 딜이고 생존이다. 수문장은 70초 소프트 전멸기도 공유.
+  function tickGateCore(b, dt){
+    const ds2 = dmgScale();
+    b.gcCoreT = (b.gcCoreT===undefined?12:b.gcCoreT) - dt;
+    if (b.gcCoreT<=0){
+      b.gcCoreT = 15 + Math.random()*5;
+      const roll = Math.random();
+      const a2 = Math.random()*Math.PI*2;
+      const ox = player.x+Math.cos(a2)*170, oy = player.y+Math.sin(a2)*170;
+      if (roll < 0.5){
+        addGateObj({ kind:'qte', icon:'💥', x:ox, y:oy, r:23, maxT:3.5,
+          onTap:()=>{ b.hp -= b.maxHp*0.05; addDmgNum(b.x, b.y, b.maxHp*0.05, true); addTextNum(b.x, b.y-b.r-16, '약점 파괴!'); shake=Math.min(16,shake+8); refreshBossBar(); if (b.hp<=0){ const bi=bosses.indexOf(b); if (bi>=0) defeatBoss(bi); } },
+          onFail:()=>{} });
+        addTextNum(player.x, player.y-44, '💥 약점 코어 노출 — 탭!');
+      } else if (roll < 0.8){
+        addGateObj({ kind:'qte', icon:'⚡', x:ox, y:oy, r:23, maxT:3,
+          onTap:()=>{ player.skCds=[0,0,0]; player.ultCooldown=0; addTextNum(player.x, player.y-30, '⚡ 과부하 — 스킬 초기화!'); },
+          onFail:()=>{} });
+        addTextNum(player.x, player.y-44, '⚡ 마력 과부하 — 탭!');
+      } else {
+        addGateObj({ kind:'qte', icon:'🛡', x:ox, y:oy, r:23, maxT:3,
+          onTap:()=>{ player.invuln=Math.max(player.invuln,2); addTextNum(player.x, player.y-30, '🛡 잔향 보호막 (2초)'); },
+          onFail:()=>{} });
+        addTextNum(player.x, player.y-44, '🛡 잔향 보호막 — 탭!');
+      }
+      SFX.play('tele');
+    }
+    // 수문장 소프트 전멸기 (70초): 관문 1·2도 딜 체크
+    if (!b.finale && (b.aliveT||0) > 70 && !b.midWiped){
+      b.midWiped = true;
+      showBossBanner('수문장 전멸기', '관문이 닫히기 시작한다.', '#b8362e');
+      for (let k=0;k<20;k++){ const a2=(Math.PI*2/20)*k; hostileShot(b.x, b.y, a2, 145, 7, 45*ds2, 3.5); }
+      b.dmg = Math.round(b.dmg*1.5); b.speed *= 1.25;
+      SFX.play('warn');
     }
   }
 
@@ -8866,6 +8912,8 @@ import { FX } from "./fx.js";
       if (tickStatus(b, dt, true)){ defeatBoss(i); continue; }
       if (updateBoss(b, dt)) return;
       if (!bosses[i] || bosses[i]!==b) continue;
+      if (b.gate) tickGateCore(b, dt);
+      if (!bosses[i] || bosses[i]!==b) continue;
 
       // boss vs player projectiles
       if (!b.ghost){
@@ -9199,7 +9247,9 @@ import { FX } from "./fx.js";
   // ---------- level up flow ----------
   function grantXp(v){
     player.xp += v * MAP.mult.reward * perilR() * (player.xpMult||1);
+    if (player.level >= 60){ player.xp = 0; return; } // 런 내 레벨 상한 — 무한 성장 차단
     while (player.xp >= player.xpNext){
+      if (player.level >= 60){ player.xp = 0; break; }
       player.xp -= player.xpNext;
       player.level += 1;
       player.xpNext = Math.floor(16 + player.level*11 + player.level*player.level*1.9); // 5차 하향 — 레벨은 더 귀하다 (장비 지배 견제)
