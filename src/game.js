@@ -13266,7 +13266,7 @@ import { FX } from "./fx.js";
         ctx.fillStyle = 'rgba(32,33,36,0.9)';
         ctx.font = "700 9px 'IBM Plex Sans KR', sans-serif";
         ctx.textAlign = 'center';
-        ctx.fillText(e.name, 0, -e.r-9);
+        ctx.fillText(e.name, 0, -e.r-30); // v6.58 왕관·배지 위로 — 겹침 제거
       }
       // 엘리트 왕관
       ctx.fillStyle = '#d9a53f';
@@ -13306,6 +13306,12 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.ellipse(4,0,5,2.6-flap*1.6,0.5,0,Math.PI*2); ctx.fill();
       ctx.fillStyle = mid;
       ctx.beginPath(); ctx.ellipse(0,0,2.4,5,0,0,Math.PI*2); ctx.fill();
+      // v6.58 리디자인: 더듬이 + 빛나는 눈
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-1,-4.5); ctx.quadraticCurveTo(-3,-8,-4.5,-8.5+flap); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(1,-4.5); ctx.quadraticCurveTo(3,-8,4.5,-8.5-flap); ctx.stroke();
+      ctx.fillStyle = PAL.bg;
+      ctx.beginPath(); ctx.arc(-1.1,-2.6,0.9,0,Math.PI*2); ctx.arc(1.1,-2.6,0.9,0,Math.PI*2); ctx.fill();
     } else if (sk==='book'){
       ctx.fillStyle = soft;
       ctx.save(); ctx.rotate(flap*0.2);
@@ -13313,6 +13319,15 @@ import { FX } from "./fx.js";
       ctx.fillStyle = mid;
       ctx.fillRect(0,-5,7,10);
       ctx.strokeRect(-7,-5,14,10);
+      // v6.58 리디자인: 책장 사이 이빨 + 책등의 눈 — '무는 책'
+      ctx.fillStyle = PAL.bg;
+      const bite = Math.abs(flap);
+      for (let k=0;k<3;k++){
+        ctx.beginPath();
+        ctx.moveTo(-4.5+k*3.2, -1-bite*2); ctx.lineTo(-3.2+k*3.2, 1); ctx.lineTo(-1.9+k*3.2, -1-bite*2);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(-3.5,-3,1.1,0,Math.PI*2); ctx.arc(3.5,-3,1.1,0,Math.PI*2); ctx.fill();
       ctx.restore();
     } else if (sk==='bug'){
       ctx.fillStyle = soft;
@@ -13323,6 +13338,15 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.moveTo(-e.r*0.7,ly); ctx.lineTo(-e.r*1.3, ly+flap*2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(e.r*0.7,ly); ctx.lineTo(e.r*1.3, ly-flap*2); ctx.stroke();
       }
+      // v6.58 리디자인: 벌어지는 집게턱 + 겹눈
+      ctx.lineWidth = 1.3;
+      const jaw = 0.35 + Math.abs(flap)*0.3;
+      ctx.beginPath(); ctx.moveTo(e.r*0.5,-e.r*0.2); ctx.quadraticCurveTo(e.r*1.15, -e.r*jaw, e.r*1.3, -e.r*0.05); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(e.r*0.5,e.r*0.2); ctx.quadraticCurveTo(e.r*1.15, e.r*jaw, e.r*1.3, e.r*0.05); ctx.stroke();
+      ctx.fillStyle = PAL.bg;
+      ctx.beginPath(); ctx.arc(e.r*0.35,-e.r*0.3,1.6,0,Math.PI*2); ctx.arc(e.r*0.35,e.r*0.3,1.6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(e.r*0.42,-e.r*0.3,0.7,0,Math.PI*2); ctx.arc(e.r*0.42,e.r*0.3,0.7,0,Math.PI*2); ctx.fill();
     } else if (sk==='ghost'){
       ctx.fillStyle = mid;
       ctx.beginPath();
@@ -13356,6 +13380,17 @@ import { FX } from "./fx.js";
       ctx.fillStyle = PAL.bg;
       ctx.fillRect(-e.r*0.25,-e.r*0.95,e.r*0.16,e.r*0.16);
       ctx.fillRect(e.r*0.1,-e.r*0.95,e.r*0.16,e.r*0.16);
+      // v6.58 리디자인: 맥동하는 가슴 코어 + 갑주 균열
+      const cg = 0.5+0.5*Math.sin(t*4+e.x*0.1);
+      ctx.fillStyle = 'rgba(126,196,232,'+(0.45+cg*0.4).toFixed(2)+')';
+      ctx.save(); ctx.rotate(Math.PI/4);
+      const cs2 = e.r*0.24*(1+cg*0.25);
+      ctx.fillRect(-cs2/2,-cs2/2,cs2,cs2);
+      ctx.restore();
+      ctx.strokeStyle = ink; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(-e.r*0.6,e.r*0.35); ctx.lineTo(-e.r*0.2,e.r*0.1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(e.r*0.55,-e.r*0.25); ctx.lineTo(e.r*0.3,-e.r*0.5); ctx.stroke();
+      ctx.strokeStyle = ink2; ctx.lineWidth = 1.4;
     } else if (sk==='tome'){
       ctx.fillStyle = ink2;
       for (let k=0;k<3;k++){
@@ -13455,6 +13490,9 @@ import { FX } from "./fx.js";
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = PAL.bg;
       ctx.beginPath(); ctx.arc(e.r*0.45,-1,1.4,0,Math.PI*2); ctx.fill();
+      // v6.58 리디자인: 벌어진 주둥이
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(e.r*0.95,-1.5); ctx.lineTo(e.r*0.55,0); ctx.lineTo(e.r*0.95,1.5); ctx.stroke();
       ctx.restore();
     } else if (sk==='treasure'){
       // 보물 골렘 — 반짝이는 황금 골렘
@@ -13516,7 +13554,8 @@ import { FX } from "./fx.js";
     }
     ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
 
-    // 엘리트 마커 + 특성 이름
+    // v6.58 엘리트 마커 — 텍스트 라벨 대신 시각 표시: 점선 링(기존) + 어픽스 아이콘 배지
+    // (이름 있는 엘리트는 코믹 이름만 위에 표시 — '[어픽스] 엘리트' 텍스트 겹침 제거)
     if (e.elite){
       ctx.strokeStyle = ink;
       ctx.lineWidth = 2;
@@ -13526,10 +13565,29 @@ import { FX } from "./fx.js";
       ctx.arc(0,0,e.r+8,0,Math.PI*2);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = ink;
-      ctx.font = "600 9px 'IBM Plex Sans KR', sans-serif";
-      ctx.textAlign = 'center';
-      ctx.fillText('['+ELITE_AFFIXES[e.affix]+'] 엘리트', 0, -e.r-14);
+      // 어픽스 배지: 왕관 옆 원형 아이콘 — 어떤 특성인지 그림으로 읽힌다
+      const bx = 13, by = -e.r-19 + Math.sin(performance.now()/280)*1.5;
+      ctx.fillStyle = 'rgba(32,33,36,0.88)';
+      ctx.beginPath(); ctx.arc(bx,by,5.6,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#d9a53f'; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.arc(bx,by,5.6,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = '#f6f6f4'; ctx.fillStyle = '#f6f6f4'; ctx.lineWidth = 1.2;
+      if (e.affix==='explode'){        // 폭발: 코어 + 사방 스파크
+        ctx.beginPath(); ctx.arc(bx,by,1.6,0,Math.PI*2); ctx.fill();
+        for (let k=0;k<4;k++){ const a=(Math.PI/2)*k+Math.PI/4; ctx.beginPath(); ctx.moveTo(bx+Math.cos(a)*2.4,by+Math.sin(a)*2.4); ctx.lineTo(bx+Math.cos(a)*4,by+Math.sin(a)*4); ctx.stroke(); }
+      } else if (e.affix==='summon'){  // 소환: 큰 점 아래 작은 점 둘
+        ctx.beginPath(); ctx.arc(bx,by-1.6,1.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bx-2,by+1.8,1,0,Math.PI*2); ctx.arc(bx+2,by+1.8,1,0,Math.PI*2); ctx.fill();
+      } else if (e.affix==='dash'){    // 돌진: 이중 갈매기 »
+        ctx.beginPath(); ctx.moveTo(bx-3,by-2.5); ctx.lineTo(bx-0.5,by); ctx.lineTo(bx-3,by+2.5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx+0.5,by-2.5); ctx.lineTo(bx+3,by); ctx.lineTo(bx+0.5,by+2.5); ctx.stroke();
+      } else if (e.affix==='barrage'){ // 탄막: 부채꼴 3발
+        for (let k=-1;k<=1;k++){ const a=-Math.PI/2 + k*0.55; ctx.beginPath(); ctx.arc(bx+Math.cos(a)*3,by+Math.sin(a)*3,1,0,Math.PI*2); ctx.fill(); }
+        ctx.beginPath(); ctx.arc(bx,by+2,1.2,0,Math.PI*2); ctx.fill();
+      } else {                          // 재생: 십자
+        ctx.beginPath(); ctx.moveTo(bx-3,by); ctx.lineTo(bx+3,by); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx,by-3); ctx.lineTo(bx,by+3); ctx.stroke();
+      }
     }
     // 빙결 표시
     if (e.frozenT>0){
@@ -14916,6 +14974,16 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(0,0,p.r*0.6,0,Math.PI*2); ctx.stroke();
       } else {
         // 적 탄막: 붉은 테두리 + 밝은 코어 (슈팅게임식 — 위험을 색으로 표시)
+        // v6.58 진행 예고선: 탄이 향하는 방향으로 흐릿한 위험선 — 탄막이 어디로 오는지 한눈에
+        const sp3 = Math.hypot(p.vx||0, p.vy||0);
+        if (sp3 > 1){
+          ctx.strokeStyle = 'rgba(201,79,79,0.28)';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(0,0);
+          ctx.lineTo((p.vx/sp3)*p.r*7, (p.vy/sp3)*p.r*7);
+          ctx.stroke();
+        }
         ctx.fillStyle = COLORS.danger;
         ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill();
         ctx.fillStyle = '#fff0ee';
