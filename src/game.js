@@ -435,6 +435,16 @@ import { FX } from "./fx.js";
     const rect = c.getBoundingClientRect();
     const wx = (e.clientX-rect.left)*(W/rect.width) - W/2 + player.x;
     const wy = (e.clientY-rect.top)*(H/rect.height) - H/2 + player.y;
+    // 관문 QTE 오브젝트 우선: 탭하면 즉시 해제/발동
+    for (let i=gateObjs.length-1;i>=0;i--){
+      const o = gateObjs[i];
+      if (o.kind==='qte' && (o.x-wx)**2+(o.y-wy)**2 < (o.r+34)**2){
+        gateObjs.splice(i,1);
+        if (o.onTap) o.onTap();
+        SFX.play('quest');
+        return;
+      }
+    }
     let best=null, bd=70*70;
     for (const en of enemies){ const d=(en.x-wx)**2+(en.y-wy)**2; if (d<bd){ bd=d; best=en; } }
     for (const bs of bosses){ if (bs.ghost) continue; const d=(bs.x-wx)**2+(bs.y-wy)**2; if (d<bd){ bd=d; best=bs; } }
@@ -3634,7 +3644,9 @@ import { FX } from "./fx.js";
     let need = n;
     if (forced){ out.push(forced); need -= 1; }
     // 강림 보장: 강림한 속성의 노드가 최소 3장 (있는 만큼) 먼저 확정 — 속성이 진짜 주인공이 되도록
+    // + 강림 중에는 다른 속성 카드를 풀에서 제거 (부식 강림인데 폭발이 나오는 혼선 방지 — 무속성·무기·전용기는 유지)
     if (focusTree){
+      for (let i=pool.length-1;i>=0;i--){ if (pool[i].tkey && pool[i].tkey!==focusTree) pool.splice(i,1); }
       const focusIdx = [];
       for (let i=pool.length-1;i>=0;i--) if (pool[i].tkey===focusTree) focusIdx.push(i);
       let take = Math.min(3, focusIdx.length, need);
@@ -4889,6 +4901,49 @@ import { FX } from "./fx.js";
     hazards.push({ x, y, r, timer, maxT:timer, dmg, friendly:!!friendly });
   }
 
+  // ---------- 관문 인터랙션 오브젝트 (MMO식 기믹: QTE 탭 / 아이템 줍기) ----------
+  // kind 'qte': 제한시간 내 탭/클릭 → onTap, 시간 초과 → onFail
+  // kind 'pick': 밟으면 → onPick, 시간 초과 → onFail(선택)
+  let gateObjs = [];
+  function addGateObj(o){ o.t = o.maxT; gateObjs.push(o); }
+  function updateGateObjs(dt){
+    if (!bosses.some(b=>b.gate)){ if (gateObjs.length) gateObjs.length = 0; return; }
+    for (let i=gateObjs.length-1;i>=0;i--){
+      const o = gateObjs[i];
+      o.t -= dt;
+      if (o.kind==='pick' && Math.hypot(player.x-o.x, player.y-o.y) < o.r+player.r){
+        gateObjs.splice(i,1);
+        if (o.onPick) o.onPick();
+        continue;
+      }
+      if (o.t<=0){
+        gateObjs.splice(i,1);
+        if (o.onFail) o.onFail();
+      }
+    }
+  }
+  function drawGateObjs(){
+    for (const o of gateObjs){
+      const urgent = o.t < o.maxT*0.35;
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      const pulse = 1 + Math.sin(performance.now()/(urgent?90:220))*0.12;
+      ctx.strokeStyle = urgent ? '#b8362e' : (o.kind==='qte' ? '#e2b23f' : '#5a8cc8');
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash(o.kind==='qte' ? [5,4] : []);
+      ctx.beginPath(); ctx.arc(0,0,o.r*pulse,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = Math.round(o.r*0.9)+'px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(o.icon||'❔', 0, 1);
+      // 남은 시간 게이지
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0,0,o.r+7,-Math.PI/2,-Math.PI/2+Math.PI*2*(o.t/o.maxT)); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // ---------- boss AI (returns true if the player died) ----------
   function updateBoss(b, dt){
     const def = BOSS_TYPES[b.key];
@@ -5127,6 +5182,32 @@ import { FX } from "./fx.js";
           b.jScanT = ph===3 ? 1.8 : 2.8;
         }
       }
+      // 신규 QTE '부재중 31통': 울리는 전화를 3초 내 탭해 끊어야 한다 — 방치 시 벨소리 폭발
+      b.jCallT = (b.jCallT===undefined?9:b.jCallT) - dt;
+      if (b.jCallT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'qte', icon:'📞', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:3,
+          onTap:()=>{ addTextNum(player.x, player.y-30, '통화 거절'); },
+          onFail:()=>{
+            addTextNum(player.x, player.y-40, '벨소리 폭발!');
+            for (let k=0;k<10;k++){ const a3=(Math.PI*2/10)*k; hostileShot(player.x, player.y, a3, 180, 6, 22*ds, 1.6); }
+            shake=Math.min(20,shake+10); SFX.play('boom');
+          } });
+        addTextNum(player.x, player.y-44, '📞 전화가 온다 — 탭해서 끊어라!');
+        b.jCallT = ph===3?7:11;
+      }
+      // 신규 'SNS 염탐' (2페+): 0.8초 전 내 위치가 기록되어 폭발한다 — 계속 움직여라
+      if (ph>=2){
+        b.jTrail = b.jTrail||[];
+        b.jTrailT = (b.jTrailT||0) - dt;
+        if (b.jTrailT<=0){ b.jTrail.push({x:player.x, y:player.y}); if (b.jTrail.length>3) b.jTrail.shift(); b.jTrailT = 0.8; }
+        b.jSnsT = (b.jSnsT===undefined?7:b.jSnsT) - dt;
+        if (b.jSnsT<=0 && b.jTrail.length){
+          for (const tp of b.jTrail) addHazard(tp.x, tp.y, 58, 0.7, 22*ds, false);
+          addTextNum(player.x, player.y-44, '"인스타 스토리 봤어."');
+          b.jSnsT = 8 - ph;
+        }
+      }
       // 신규 '어디 숨었어?' (2페+): 화면 밖 사방에서 저격 관통탄
       if (ph>=2){
         b.jEdgeT = (b.jEdgeT===undefined?6:b.jEdgeT) - dt;
@@ -5203,6 +5284,36 @@ import { FX } from "./fx.js";
           b.jWallT = 20 - empN*2;
         }
       }
+      // 신규 '농성 텐트' (2페+): 보스를 회복시키는 텐트 소환 — 부수지 않으면 딜이 무의미해진다
+      if (ph>=2){
+        b.jTentT = (b.jTentT===undefined?15:b.jTentT) - dt;
+        if (b.jTentT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          const tent = makeEnemy('brute', b.x+Math.cos(a2)*110, b.y+Math.sin(a2)*110, false);
+          tent.name='농성 텐트'; tent.speed=0; tent.hp*=1.2; tent.maxHp*=1.2; tent.dmg=0; tent.xpValue=0; tent.grade=0; tent.blessed=false; tent.pTent=true;
+          enemies.push(tent);
+          addTextNum(b.x, b.y-b.r-14, '⛺ 농성 텐트 — 부숴라!');
+          SFX.play('warn');
+          b.jTentT = 20;
+        }
+        // 텐트 생존 시 보스 초당 회복
+        let tents = 0;
+        for (const e of enemies) if (e.pTent) tents++;
+        if (tents>0) b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.006*tents*dt);
+      }
+      // 신규 '물대포' (3페+): 강력한 넉백 직선 수류
+      if (ph>=3){
+        b.jCanT = (b.jCanT===undefined?7:b.jCanT) - dt;
+        if (b.jCanT<=0){
+          const aim = Math.atan2(player.y-b.y, player.x-b.x);
+          for (let k=0;k<6;k++){
+            setTimeout(()=>{ if (state==='playing' && bosses.includes(b)) hostileShot(b.x, b.y, aim, 340, 9, 12*ds, 1.6); }, k*90);
+          }
+          player.knockX += Math.cos(aim)*300; player.knockY += Math.sin(aim)*300;
+          addTextNum(b.x, b.y-b.r-14, '💦 물대포');
+          b.jCanT = 8;
+        }
+      }
       // 신규 '구호 제창' (2페+): 함성 충격파 — 플레이어를 밀쳐내고 링 탄막
       if (ph>=2){
         b.jChantT = (b.jChantT===undefined?8:b.jChantT) - dt;
@@ -5257,7 +5368,7 @@ import { FX } from "./fx.js";
       if (b.hDotT >= 0.8){
         b.hDotT = 0;
         const inShade = Math.hypot(player.x-b.hShadeX, player.y-b.hShadeY) < shadeR;
-        if (!inShade && player.invuln<=0){
+        if (!inShade && !(b.hUmb>0) && player.invuln<=0){
           if (playerHit(9*ds*(b.hWiped?3:1), 0.1, 2)) return true;
           addTextNum(player.x, player.y-30, '작열');
         }
@@ -5280,6 +5391,37 @@ import { FX } from "./fx.js";
           }
           addTextNum(player.x, player.y-44, '실외기 폭발!');
           b.hAcT = (ph===3?5:6.5) - empN*0.5;
+        }
+      }
+      // 신규 '양산' 아이템: 주우면 10초간 개인 그늘 (작열 면역) — 그늘 밖 진출 찬스
+      b.hUmb = Math.max(0, (b.hUmb||0) - dt);
+      b.hUmbT = (b.hUmbT===undefined?16:b.hUmbT) - dt;
+      if (b.hUmbT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'pick', icon:'🌂', x:player.x+Math.cos(a2)*200, y:player.y+Math.sin(a2)*200, r:20, maxT:7,
+          onPick:()=>{ b.hUmb = 10; addTextNum(player.x, player.y-30, '🌂 양산 — 10초 작열 면역'); SFX.play('quest'); },
+          onFail:null });
+        addTextNum(player.x, player.y-44, '🌂 양산이 떨어졌다!');
+        b.hUmbT = 20;
+      }
+      // 신규 '백드래프트' (3페): 6초 예고 후 전 필드 폭염 — 그늘 안만 생존 (프로토콜 기믹)
+      if (ph>=3){
+        b.hBackT = (b.hBackT===undefined?12:b.hBackT) - dt;
+        if (b.hBackT<=0 && !b.hBackWarn){
+          b.hBackWarn = 6;
+          showBossBanner('경고 — 백드래프트', '6초 후 대기가 발화한다. 그늘로!', '#b8362e');
+          SFX.play('warn');
+        }
+        if (b.hBackWarn){
+          b.hBackWarn -= dt;
+          if (b.hBackWarn<=0){
+            b.hBackWarn = null; b.hBackT = 16;
+            const inS = Math.hypot(player.x-b.hShadeX, player.y-b.hShadeY) < shadeR || b.hUmb>0;
+            effects.push({ type:'ring', x:player.x, y:player.y, life:0.7, age:0, r0:60, r1:600 });
+            shake = Math.min(26, shake+16); SFX.play('boom');
+            if (!inS && player.invuln<=0){ if (playerHit(70*ds, 0.5, 14)) return true; addTextNum(player.x, player.y-40, '백드래프트!'); }
+            else addTextNum(player.x, player.y-30, '그늘 생존!');
+          }
         }
       }
       // 신규 '신기루' (2페+): 가짜 그늘 — 들어가는 순간 폭발 (진짜 그늘은 파란 점선, 신기루는 붉은 점선)
@@ -5391,6 +5533,39 @@ import { FX } from "./fx.js";
           b.bdRingT = 2.6;
         }
       }
+      // 신규 QTE '훅 들어오는 질문': '?'를 탭해 받아쳐야 — 방치 시 침묵 존 3개
+      b.bdQT = (b.bdQT===undefined?11:b.bdQT) - dt;
+      if (b.bdQT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'qte', icon:'❓', x:player.x+Math.cos(a2)*140, y:player.y+Math.sin(a2)*140, r:22, maxT:3.5,
+          onTap:()=>{ addTextNum(player.x, player.y-30, '"아, 그건 말이죠—" (받아침)'); },
+          onFail:()=>{
+            for (let k=0;k<3 && zones.length<40;k++){
+              const a3 = Math.random()*Math.PI*2;
+              zones.push({ x:player.x+Math.cos(a3)*110, y:player.y+Math.sin(a3)*110, r:95, dps:0, t:5, maxT:5, type:'silence', hostile:true, hitT:0 });
+            }
+            addTextNum(player.x, player.y-40, '말문이 막혔다...');
+          } });
+        addTextNum(player.x, player.y-44, '❓ 훅 들어오는 질문 — 탭해서 받아쳐라!');
+        b.bdQT = 12;
+      }
+      // 신규 '메뉴판 선택' (2페+): 둘 중 하나를 밟아야 한다 — 된장찌개(소량 피해) vs 오마카세(골드 -80)
+      if (ph>=2){
+        b.bdMenuT = (b.bdMenuT===undefined?14:b.bdMenuT) - dt;
+        if (b.bdMenuT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          let resolved = false;
+          const mk1 = { kind:'pick', icon:'🍲', x:player.x+Math.cos(a2)*130, y:player.y+Math.sin(a2)*130, r:22, maxT:5,
+            onPick:()=>{ if (resolved) return; resolved=true; if (player.invuln<=0) playerHit(12*ds, 0.2, 4); addTextNum(player.x, player.y-30, '"소박하시네요." (-피해)'); },
+            onFail:()=>{ if (!resolved){ resolved=true; if (player.invuln<=0) playerHit(26*ds, 0.3, 8); addTextNum(player.x, player.y-30, '결정 장애의 대가'); } } };
+          const mk2 = { kind:'pick', icon:'🍣', x:player.x-Math.cos(a2)*130, y:player.y-Math.sin(a2)*130, r:22, maxT:5,
+            onPick:()=>{ if (resolved) return; resolved=true; const pay=Math.min(runGold,80); runGold-=pay; addTextNum(player.x, player.y-30, '"오마카세 좋죠." (-'+pay+'G)'); },
+            onFail:null };
+          addGateObj(mk1); addGateObj(mk2);
+          addTextNum(player.x, player.y-44, '🍲/🍣 메뉴를 골라 밟아라 (5초)');
+          b.bdMenuT = 16;
+        }
+      }
       // 신규 '프로필 검증': 주기적으로 표적 마크 소실 + 보스·디코이 자리 바꿈 (다시 골라야 한다)
       b.bdShufT = (b.bdShufT===undefined?12:b.bdShufT) - dt;
       if (b.bdShufT<=0){
@@ -5492,6 +5667,34 @@ import { FX } from "./fx.js";
           b.uReno = 0.55;
         }
       }
+      // 신규 QTE '항의 방문': 초인종을 탭하면 보스가 5초 그로기 (받는 피해 2배) — 성공 보상형
+      b.uBellT = (b.uBellT===undefined?18:b.uBellT) - dt;
+      if (b.uBellT<=0){
+        addGateObj({ kind:'qte', icon:'🔔', x:b.x+(Math.random()-0.5)*80, y:b.y+(Math.random()-0.5)*80, r:24, maxT:4,
+          onTap:()=>{
+            b.uGroggy = 5;
+            addTextNum(b.x, b.y-b.r-16, '"...누구세요?" (그로기!)');
+            showBossBanner('그로기', '항의 방문 성공 — 5초간 피해 2배', '#3f7a5c');
+          },
+          onFail:()=>{ addTextNum(player.x, player.y-30, '초인종을 못 눌렀다...'); } });
+        addTextNum(player.x, player.y-44, '🔔 초인종 찬스 — 탭하면 그로기!');
+        b.uBellT = 22;
+      }
+      if (b.uGroggy>0){
+        b.uGroggy -= dt;
+        b.hp -= b.maxHp*0.008*dt; // 그로기 중 추가 출혈 (피해 2배 근사)
+        if (Math.random()<dt*3) particles.push({ x:b.x+(Math.random()-0.5)*30, y:b.y-b.r, vx:0, vy:-30, life:0.5, age:0, r:3, ghost:true });
+      }
+      // 신규 '잔해' (2페+): 낙하물이 통행 불가 잔해를 남긴다 — 전장이 점점 좁아진다
+      if (ph>=2){
+        b.uDebrisT = (b.uDebrisT===undefined?12:b.uDebrisT) - dt;
+        if (b.uDebrisT<=0 && zones.length<38){
+          const a2 = Math.random()*Math.PI*2, rr = 90+Math.random()*160;
+          zones.push({ x:player.x+Math.cos(a2)*rr, y:player.y+Math.sin(a2)*rr, r:26, dps:0, t:25, maxT:25, type:'block', hostile:true, hitT:0 });
+          addTextNum(player.x, player.y-44, '천장 잔해 낙하!');
+          b.uDebrisT = 13 - ph*2;
+        }
+      }
       // 신규 '세탁기 탈수' (3페): 회전 나선 탄막
       if (ph>=3){
         b.uSpinA = (b.uSpinA||0) + dt*2.6;
@@ -5547,6 +5750,24 @@ import { FX } from "./fx.js";
         }
         addTextNum(player.x, player.y-44, '깡통전세!');
         b.zTrapT = (ph===3?3.6:5.2) - empN*0.4;
+      }
+      // 신규 '진짜 계약서' 아이템 (2페+): 주우면 보스 대미지 + 뜯긴 보증금 절반 회수
+      if (ph>=2){
+        b.zPaperT = (b.zPaperT===undefined?14:b.zPaperT) - dt;
+        if (b.zPaperT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          addGateObj({ kind:'pick', icon:'📜', x:b.x+Math.cos(a2)*160, y:b.y+Math.sin(a2)*160, r:20, maxT:6,
+            onPick:()=>{
+              b.hp -= b.maxHp*0.05;
+              const back = Math.floor((b.zStolen||0)*0.5); b.zStolen = 0;
+              if (back>0){ runGold += back; addTextNum(player.x, player.y-30, '📜 증거 확보! +'+back+'G 회수'); }
+              else addTextNum(player.x, player.y-30, '📜 증거 확보! (보스 타격)');
+              refreshBossBar(); SFX.play('win');
+            },
+            onFail:()=>{ addTextNum(player.x, player.y-30, '계약서가 파쇄되었다...'); } });
+          addTextNum(player.x, player.y-44, '📜 진짜 계약서가 떨어졌다!');
+          b.zPaperT = 18;
+        }
       }
       // '등기부 등본' (2페+): 휘어지며 쫓아오는 서류 탄
       if (ph>=2){
@@ -5616,6 +5837,32 @@ import { FX } from "./fx.js";
           b.aiFeedT = 10 - ph;
         }
       }
+      // 신규 QTE '광고 스킵': AD를 탭하면 예측탄 5초 정지 — 방치 시 강제 광고 폭탄
+      b.aiAdT = (b.aiAdT===undefined?13:b.aiAdT) - dt;
+      if (b.aiAdT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'qte', icon:'⏭', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:3,
+          onTap:()=>{ b.aiPredT = Math.max(b.aiPredT||0, 5); addTextNum(player.x, player.y-30, '광고 건너뛰기 — 추천 정지 5초'); },
+          onFail:()=>{
+            for (let k=0;k<14;k++){ const a3=(Math.PI*2/14)*k; hostileShot(player.x, player.y, a3, 170, 6, 20*ds, 1.8); }
+            addTextNum(player.x, player.y-40, '건너뛸 수 없는 광고!');
+            SFX.play('boom');
+          } });
+        addTextNum(player.x, player.y-44, '⏭ 광고가 재생된다 — 탭해서 스킵!');
+        b.aiAdT = 14;
+      }
+      // 신규 '쿠키 수집' (2페+): 쿠키를 보스보다 먼저 밟아 없애라 — 방치 시 보스가 먹고 영구 강화
+      if (ph>=2){
+        b.aiCookT = (b.aiCookT===undefined?10:b.aiCookT) - dt;
+        if (b.aiCookT<=0){
+          const a2 = Math.random()*Math.PI*2;
+          addGateObj({ kind:'pick', icon:'🍪', x:b.x+Math.cos(a2)*180, y:b.y+Math.sin(a2)*180, r:20, maxT:6,
+            onPick:()=>{ addTextNum(player.x, player.y-30, '쿠키 삭제 — 학습 차단'); },
+            onFail:()=>{ b.dmg = Math.round(b.dmg*1.08); b.speed *= 1.04; addTextNum(b.x, b.y-b.r-14, '개인정보 수집 완료 (영구 강화)'); SFX.play('warn'); } });
+          addTextNum(player.x, player.y-44, '🍪 쿠키를 먼저 밟아 없애라!');
+          b.aiCookT = 12;
+        }
+      }
       // 3페 '무한 스크롤': 4갈래 회전 나선
       if (ph>=3){
         b.aiSpinA = (b.aiSpinA||0) + dt*2.2;
@@ -5639,6 +5886,275 @@ import { FX } from "./fx.js";
         toast('🚫 모든 스킬 10초 잠금');
         for (let k=0;k<28;k++){ const a2=(Math.PI*2/28)*k; hostileShot(b.x, b.y, a2, 155, 7, 60*ds, 4); }
         b.dmg = Math.round(b.dmg*1.6);
+      }
+    } else if (b.kind==='chinafeast'){
+      // 관문 44: 중화 대연회 — 페이즈마다 페르소나가 바뀐다 (계란볶음밥 → 마오쩌둥 → 시진핑핑이)
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ b.name='중화 대연회 · 마오쩌둥'; showBossBanner('2페르소나 — 인민의 파도', '"인민의 바다에 빠뜨려라."', '#b8362e'); refreshBossBar(); SFX.play('warn'); }
+        if (ph===3){ b.name='중화 대연회 · 시진핑핑이'; showBossBanner('3페르소나 — 검열', '"이 전투 기록은 존재하지 않는다."', '#c9a13f'); refreshBossBar(); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 대연회 폭주', '세 얼굴이 동시에 눈을 뜬다.', '#b8362e'); shake=Math.min(24,shake+14); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.5:1), dt);
+      // 1페르소나 '웍 화염': 회전 화염 나선 + 볶음 장판
+      if (ph===1 || enrage){
+        b.cSpinA = (b.cSpinA||0) + dt*2.4;
+        b.cSpinT = (b.cSpinT===undefined?1:b.cSpinT) - dt;
+        if (b.cSpinT<=0){
+          for (let k=0;k<3;k++) hostileShot(b.x, b.y, b.cSpinA + k*Math.PI*2/3, 185, 6, 18*ds, 3.0);
+          b.cSpinT = 0.22;
+        }
+        b.cWokT = (b.cWokT===undefined?4:b.cWokT) - dt;
+        if (b.cWokT<=0){
+          for (let k=0;k<4;k++) addHazard(player.x+(Math.random()-0.5)*260, player.y+(Math.random()-0.5)*260, 60, 1.2, 22*ds, false);
+          addTextNum(b.x, b.y-b.r-14, '웍질!');
+          b.cWokT = 5;
+        }
+      }
+      // 2페르소나 '인해전술': 대량 소환 + 대장정 돌진
+      if (ph===2 || enrage){
+        b.cMassT = (b.cMassT===undefined?4:b.cMassT) - dt;
+        if (b.cMassT<=0){
+          for (let k=0;k<6;k++){
+            const a2 = Math.random()*Math.PI*2;
+            const mob = makeEnemy('swarm', b.x+Math.cos(a2)*100, b.y+Math.sin(a2)*100, false);
+            mob.xpValue=0; enemies.push(mob);
+          }
+          addTextNum(b.x, b.y-b.r-14, '인해전술');
+          b.cMassT = enrage?6:8;
+        }
+        b.cMarchT = (b.cMarchT===undefined?6:b.cMarchT) - dt;
+        if (b.cMarchT<=0){
+          bossMoveToward(b, player.x, player.y, b.speed*6, dt*8); // 대장정 — 순간 압박 돌진
+          addTextNum(b.x, b.y-b.r-14, '대장정!');
+          shake=Math.min(16,shake+8);
+          b.cMarchT = 7;
+        }
+      }
+      // 3페르소나 '검열': 화면 어둑 + 정찰풍선 (자폭 소환) + 포위 수렴탄
+      if (ph===3 || enrage){
+        screenDimT = Math.max(screenDimT, 0.25);
+        b.cBalT = (b.cBalT===undefined?5:b.cBalT) - dt;
+        if (b.cBalT<=0){
+          for (let k=0;k<3;k++){
+            const a2 = Math.random()*Math.PI*2;
+            const bal = makeEnemy('kamikaze', player.x+Math.cos(a2)*320, player.y+Math.sin(a2)*320, false);
+            bal.name='정찰풍선'; bal.xpValue=0; enemies.push(bal);
+          }
+          addTextNum(player.x, player.y-44, '🎈 정찰풍선 접근');
+          b.cBalT = 7;
+        }
+        b.cConvT = (b.cConvT===undefined?4:b.cConvT) - dt;
+        if (b.cConvT<=0){
+          for (let k=0;k<14;k++){
+            const a2 = (Math.PI*2/14)*k;
+            const sx = player.x+Math.cos(a2)*380, sy = player.y+Math.sin(a2)*380;
+            hostileShot(sx, sy, Math.atan2(player.y-sy, player.x-sx), 160, 6, 18*ds, 3.0);
+          }
+          addTextNum(player.x, player.y-44, '만리방화벽');
+          b.cConvT = 5.5;
+        }
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 국가 기밀', '"너는 처음부터 없었다."', '#b8362e');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 62*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='tariffwar'){
+      // 관문 48: 관세 전쟁 · 트럼프 — 고지서를 치워야 산다
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 무역 장벽', '"벽을 세울 겁니다. 아주 거대한 벽을."', '#d4772e'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 폭풍 관세', '"모두에게 100% 관세!"', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 트루스 소셜 폭주', '전부 대문자로 쏟아진다.', '#b8362e'); shake=Math.min(24,shake+14); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.7:1), dt);
+      // 기믹 '관세 고지서': 필드에 고지서 — 밟아서 치우지 않으면 폭발 + 보스 영구 강화 스택
+      b.tBillT = (b.tBillT===undefined?4:b.tBillT) - dt;
+      if (b.tBillT<=0){
+        for (let k=0;k<(ph>=3?2:1);k++){
+          const a2 = Math.random()*Math.PI*2;
+          const bx2 = player.x+Math.cos(a2)*(120+Math.random()*140), by2 = player.y+Math.sin(a2)*(120+Math.random()*140);
+          addGateObj({ kind:'pick', icon:'🧾', x:bx2, y:by2, r:20, maxT:8,
+            onPick:()=>{ addTextNum(player.x, player.y-30, '관세 무효화'); },
+            onFail:()=>{
+              b.dmg = Math.round(b.dmg*1.05);
+              for (let j=0;j<8;j++){ const a3=(Math.PI*2/8)*j; hostileShot(bx2, by2, a3, 170, 6, 20*ds, 1.8); }
+              addTextNum(bx2, by2-24, '관세 발효! (보스 강화)');
+              SFX.play('boom');
+            } });
+        }
+        b.tBillT = (ph===1?7 : ph===2?5.5 : 4) * (enrage?0.7:1);
+      }
+      // '무역 장벽' (2페+): 파괴 가능한 장벽 라인 — 경로가 막힌다
+      if (ph>=2){
+        b.tWallT = (b.tWallT===undefined?10:b.tWallT) - dt;
+        if (b.tWallT<=0){
+          const wa = Math.random()*Math.PI*2;
+          for (let k=-2;k<=2;k++){
+            const wall = makeEnemy('brute', player.x+Math.cos(wa)*180+Math.cos(wa+Math.PI/2)*k*52, player.y+Math.sin(wa)*180+Math.sin(wa+Math.PI/2)*k*52, false);
+            wall.name='국경 장벽'; wall.speed=0; wall.hp*=2; wall.maxHp*=2; wall.dmg=0; wall.xpValue=0; wall.grade=0; wall.blessed=false;
+            enemies.push(wall);
+          }
+          addTextNum(player.x, player.y-44, '🧱 장벽 건설! 부수고 나가라');
+          b.tWallT = 16;
+        }
+      }
+      // '트윗 폭풍': 랜덤 산탄
+      b.tTweetT = (b.tTweetT===undefined?3:b.tTweetT) - dt;
+      if (b.tTweetT<=0){
+        const n = 5+ph*2;
+        for (let k=0;k<n;k++) hostileShot(b.x, b.y, Math.random()*Math.PI*2, 200+Math.random()*80, 6, 16*ds, 2.4);
+        addTextNum(b.x, b.y-b.r-14, 'SNS 폭풍');
+        b.tTweetT = (enrage?1.2:2.6) - empN*0.2;
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 디폴트 선언', '"손해는 전부 너희 몫입니다."', '#b8362e');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 62*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='warzone'){
+      // 관문 52: 동원령 — 전쟁 그 자체. 참호 안에서만 폭격을 버틴다
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 총동원', '전선이 확대된다.', '#5c6652'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 소모전', '포성이 멎지 않는다.', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 총력전', '모든 포문이 열린다.', '#b8362e'); shake=Math.min(24,shake+14); }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.4:1), dt);
+      // 기믹 '참호': 이동하는 안전지대 (그늘 재활용) — 융단폭격은 참호 안만 생존
+      if (b.wTrX===undefined){ b.wTrX=player.x; b.wTrY=player.y; b.wTrA=Math.random()*Math.PI*2; }
+      b.wTrA += (Math.random()-0.5)*dt*1.8;
+      b.wTrX += Math.cos(b.wTrA)*30*dt; b.wTrY += Math.sin(b.wTrA)*30*dt;
+      const trR = ph===1?120 : ph===2?95 : 75;
+      if (!b.wTrZone || b.wTrZone.t<=0){ b.wTrZone = { x:b.wTrX, y:b.wTrY, r:trR, dps:0, t:0.6, maxT:0.6, type:'shade', hostile:true }; zones.push(b.wTrZone); }
+      b.wTrZone.x=b.wTrX; b.wTrZone.y=b.wTrY; b.wTrZone.r=trR; b.wTrZone.t=0.6;
+      // '융단 폭격': 5초 예고 후 참호 밖 전멸급
+      b.wNukeT = (b.wNukeT===undefined?14:b.wNukeT) - dt;
+      if (b.wNukeT<=0 && !b.wNukeWarn){
+        b.wNukeWarn = 5;
+        showBossBanner('경고 — 융단 폭격', '5초 후 착탄. 참호로!', '#b8362e');
+        SFX.play('warn');
+      }
+      if (b.wNukeWarn){
+        b.wNukeWarn -= dt;
+        if (b.wNukeWarn<=0){
+          b.wNukeWarn = null; b.wNukeT = ph===3?11:15;
+          const inT = Math.hypot(player.x-b.wTrX, player.y-b.wTrY) < trR;
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.8, age:0, r0:80, r1:700 });
+          shake = Math.min(28, shake+18); SFX.play('boom');
+          if (!inT && player.invuln<=0){ if (playerHit(75*ds, 0.5, 14)) return true; addTextNum(player.x, player.y-40, '융단 폭격 직격!'); }
+          else addTextNum(player.x, player.y-30, '참호 생존!');
+        }
+      }
+      // '포격 좌표': 순차 격자 폭격
+      b.wArtT = (b.wArtT===undefined?3:b.wArtT) - dt;
+      if (b.wArtT<=0){
+        for (let k=0;k<4+ph*2;k++) addHazard(player.x+(Math.random()-0.5)*420, player.y+(Math.random()-0.5)*420, 58, 1.0+Math.random()*0.8, 24*ds, false);
+        b.wArtT = (ph===3?2.6:3.8) * (enrage?0.6:1);
+      }
+      // '드론 편대' (2페+): 자폭 드론
+      if (ph>=2){
+        b.wDroneT = (b.wDroneT===undefined?7:b.wDroneT) - dt;
+        if (b.wDroneT<=0){
+          for (let k=0;k<3;k++){
+            const a2 = Math.random()*Math.PI*2;
+            const dr = makeEnemy('kamikaze', player.x+Math.cos(a2)*340, player.y+Math.sin(a2)*340, false);
+            dr.name='자폭 드론'; dr.xpValue=0; dr.speed*=1.25; enemies.push(dr);
+          }
+          addTextNum(player.x, player.y-44, '✈ 드론 편대 접근');
+          b.wDroneT = 9;
+        }
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 핵우산', '외교의 시간은 끝났다.', '#b8362e');
+        for (let k=0;k<36;k++){ const a2=(Math.PI*2/36)*k; hostileShot(b.x, b.y, a2, 145, 8, 65*ds, 4.5); }
+        b.dmg = Math.round(b.dmg*1.6);
+      }
+    } else if (b.kind==='yeongkkeul'){
+      // 관문 56: 영끌 폭주 연합 — 킥보드 군단 + 이자 지뢰밭
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 변동 금리', '"금리가 또 올랐습니다."', '#8a6a3f'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 만기 도래', '"원금 상환일입니다."', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 신용 붕괴', '더 잃을 것이 없는 자가 가장 위험하다.', '#b8362e'); shake=Math.min(24,shake+14); }
+      // '뺑소니 돌진': 예고 후 고속 직선 관통
+      b.yDashT = (b.yDashT===undefined?4:b.yDashT) - dt;
+      if (b.yDashPrep){
+        b.yDashPrep -= dt;
+        if (b.yDashPrep<=0){
+          b.yDashing = 0.7;
+          b.yDashA = Math.atan2(player.y-b.y, player.x-b.x);
+          SFX.play('sweep');
+        }
+      } else if (b.yDashing){
+        b.yDashing -= dt;
+        b.x += Math.cos(b.yDashA)*760*dt;
+        b.y += Math.sin(b.yDashA)*760*dt;
+        if (Math.hypot(player.x-b.x, player.y-b.y) < b.r+player.r+4 && player.invuln<=0){
+          if (playerHit(30*ds, 0.5, 10)) return true;
+        }
+        if (b.yDashing<=0) b.yDashT = (ph===3?3.2:4.5) * (enrage?0.6:1);
+      } else if (b.yDashT<=0){
+        b.yDashPrep = 0.55;
+        addTextNum(b.x, b.y-b.r-14, '🛴 뺑소니 예고!');
+      } else {
+        bossMoveToward(b, player.x, player.y, b.speed, dt);
+      }
+      // '이자 지뢰밭': 오래 남는 지뢰 장판
+      b.yMineT = (b.yMineT===undefined?4:b.yMineT) - dt;
+      if (b.yMineT<=0){
+        for (let k=0;k<3+ph;k++) addHazard(player.x+(Math.random()-0.5)*360, player.y+(Math.random()-0.5)*360, 50, 2.5+Math.random()*2, 22*ds, false);
+        addTextNum(player.x, player.y-44, '복리 지뢰');
+        b.yMineT = 6 - ph;
+      }
+      // '킥보드 군단' (2페+): 고속 자폭 킥보드 소환
+      if (ph>=2){
+        b.yKickT = (b.yKickT===undefined?8:b.yKickT) - dt;
+        if (b.yKickT<=0){
+          for (let k=0;k<4;k++){
+            const a2 = Math.random()*Math.PI*2;
+            const kb = makeEnemy('fish', player.x+Math.cos(a2)*360, player.y+Math.sin(a2)*360, false);
+            kb.name='공유 킥보드'; kb.xpValue=0; kb.speed*=1.3; enemies.push(kb);
+          }
+          addTextNum(player.x, player.y-44, '🛴 킥보드 군단');
+          b.yKickT = 10;
+        }
+      }
+      // '벌금 고지서' 선택: 밟으면 -60G, 방치하면 폭발
+      b.yFineT = (b.yFineT===undefined?12:b.yFineT) - dt;
+      if (b.yFineT<=0){
+        const a2 = Math.random()*Math.PI*2;
+        const fx2 = player.x+Math.cos(a2)*160, fy2 = player.y+Math.sin(a2)*160;
+        addGateObj({ kind:'pick', icon:'💸', x:fx2, y:fy2, r:20, maxT:6,
+          onPick:()=>{ const pay=Math.min(runGold,60); runGold-=pay; addTextNum(player.x, player.y-30, '벌금 납부 (-'+pay+'G)'); },
+          onFail:()=>{
+            for (let j=0;j<10;j++){ const a3=(Math.PI*2/10)*j; hostileShot(fx2, fy2, a3, 175, 6, 22*ds, 1.8); }
+            addTextNum(fx2, fy2-24, '연체 — 가산세 폭발!');
+            SFX.play('boom');
+          } });
+        addTextNum(player.x, player.y-44, '💸 벌금 고지서 — 낼 것인가 버틸 것인가');
+        b.yFineT = 14;
+      }
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 파산 선고', '"보유 자산 전액을 회수합니다."', '#b8362e');
+        const lost = runGold; runGold = 0;
+        if (lost>0) toast('💸 런 골드 전액 증발 (-'+lost+'G)');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 65*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
       }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
@@ -7346,6 +7862,7 @@ import { FX } from "./fx.js";
     }
     if (player.invuln>0) player.invuln -= dt;
     if (player.zoneSilenceT>0) player.zoneSilenceT -= dt;
+    updateGateObjs(dt);
     // 마크 표적: 고동치는 링 표시
     if (player.markTarget){
       player.markPulseT = (player.markPulseT||0) - dt;
@@ -7890,7 +8407,8 @@ import { FX } from "./fx.js";
     if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
       // 관문 보스: 특정 위험도에서는 최종 보스 대신 관문 레이드 (오직 일대일)
-      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx', 20:'blinddateEx', 24:'upstairsEx', 28:'jeonseEx', 32:'aialgoEx' };
+      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx', 20:'blinddateEx', 24:'upstairsEx', 28:'jeonseEx', 32:'aialgoEx',
+                            44:'chinaEx', 48:'tariffEx2', 52:'warzoneEx', 56:'yeongkkeulEx' };
       const GATE_TOASTS = {
         jealousEx:'⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.',
         protestEx:'⚔ 관문 레이드 — 출근길이 막혔다. 시위대가 도로를 점거한다.',
@@ -7898,7 +8416,11 @@ import { FX } from "./fx.js";
         blinddateEx:'⚔ 관문 레이드 — 주선자가 자리를 깔았다. 셋 중 진짜는 하나.',
         upstairsEx:'⚔ 관문 레이드 — 윗집이 깨어났다. 천장이 울린다.',
         jeonseEx:'⚔ 관문 레이드 — "안전한 매물이에요." 보증금을 지켜라.',
-        aialgoEx:'⚔ 관문 레이드 — 알고리즘이 너를 학습하기 시작했다.'
+        aialgoEx:'⚔ 관문 레이드 — 알고리즘이 너를 학습하기 시작했다.',
+        chinaEx:'⚔ 관문 레이드 — 대연회가 시작된다. 셋이 하나로.',
+        tariffEx2:'⚔ 관문 레이드 — "아주 아름다운 관세를 보게 될 겁니다."',
+        warzoneEx:'⚔ 관문 레이드 — 동원령 발령. 참호를 파라.',
+        yeongkkeulEx:'⚔ 관문 레이드 — 킥보드 군단과 이자가 몰려온다.'
       };
       const gateKey = GATE_BOSSES[DB.peril] || null;
       spawnBoss(gateKey || MAP.final);
@@ -9779,6 +10301,8 @@ import { FX } from "./fx.js";
     upstairsEx:'관문 — 천장 위에 사는 자',
     jeonseEx:'관문 — 보증금을 삼키는 자',
     aialgoEx:'관문 — 너를 학습하는 것',
+    chinaEx:'관문 — 대륙의 세 얼굴', tariffEx2:'관문 — 벽을 세우는 자',
+    warzoneEx:'관문 — 전쟁 그 자체', yeongkkeulEx:'관문 — 도로와 이자의 무법자',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -9800,6 +10324,7 @@ import { FX } from "./fx.js";
     overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9', jealousEx:'#c94f8a',
     protestEx:'#3f7a5c', heatwaveEx:'#d4772e', blinddateEx:'#b85c8a', upstairsEx:'#7a6a52',
     jeonseEx:'#8a7a3f', aialgoEx:'#5ab8c9',
+    chinaEx:'#c9a13f', tariffEx2:'#d4772e', warzoneEx:'#5c6652', yeongkkeulEx:'#8a6a3f',
     xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
@@ -10878,6 +11403,7 @@ import { FX } from "./fx.js";
     drawRadar(dt);
     drawAura();
     drawZones();
+    drawGateObjs();
     drawHazards();
 
     // 경험치 보석 — 청록 다이아몬드 (탄막과 확실히 구분)

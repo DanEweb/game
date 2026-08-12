@@ -23,6 +23,11 @@ export const BOSS_TYPES = {
     upstairsEx:  { name:'층간소음 윗집', kind:'upstairs', r:29, hp:7200, speed:36, contactDmg:26, xpValue:600, finale:true },
     jeonseEx:    { name:'전세 사기꾼', kind:'jeonse', r:26, hp:8400, speed:52, contactDmg:26, xpValue:650, finale:true },
     aialgoEx:    { name:'AI 알고리즘', kind:'aialgo', r:27, hp:9800, speed:44, contactDmg:26, xpValue:700, finale:true },
+    // 국제·사회 관문 레이드 (풀 기믹)
+    chinaEx:     { name:'중화 대연회', kind:'chinafeast', r:28, hp:12000, speed:46, contactDmg:28, xpValue:800, finale:true },
+    tariffEx2:   { name:'관세 전쟁 · 트럼프', kind:'tariffwar', r:28, hp:13500, speed:50, contactDmg:28, xpValue:850, finale:true },
+    warzoneEx:   { name:'동원령', kind:'warzone', r:30, hp:15000, speed:40, contactDmg:30, xpValue:900, finale:true },
+    yeongkkeulEx:{ name:'영끌 폭주 연합', kind:'yeongkkeul', r:26, hp:16500, speed:56, contactDmg:30, xpValue:950, finale:true },
     // 국제·사회 코믹 보스 (필드 순환 보스)
     xiPingping:  { name:'시진핑핑이', kind:'esper', r:26, hp:520, speed:44, contactDmg:16, xpValue:95 },
     maoJu:       { name:'마오쩌둥', kind:'summoner', r:26, hp:560, speed:40, contactDmg:15, xpValue:100 },
