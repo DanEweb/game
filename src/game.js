@@ -1667,6 +1667,29 @@ import { FX } from "./fx.js";
           manager:[{sn:'결재 이중화',kn:'전결 남발'},{sn:'업무 과부하',kn:'권한 폭주'},{sn:'칼퇴 본능',kn:'시간 외 수당'}],
           voidc:[{sn:'공허 영창',kn:'이중 균열'},{sn:'심연 친화',kn:'공허 폭주'},{sn:'차원 감각',kn:'시공 왜곡'}],
           commander:[{sn:'예비 편대',kn:'전 부대 일제사격'},{sn:'화망 구성',kn:'집중 포화'},{sn:'긴급 재배치',kn:'전술 시간표'}],
+          rusher:[{sn:'돌파 기세',kn:'전선 붕괴'},{sn:'철조망 갑주',kn:'참호의 왕'},{sn:'전장의 눈',kn:'섬멸 명령'}],
+          paladin:[{sn:'성스러운 담금질',kn:'심판의 낙인'},{sn:'수호 서약',kn:'축성된 성벽'},{sn:'단죄의 시선',kn:'천벌 선고'}],
+          cheol:[{sn:'끓는 혈기',kn:'혈철 폭류'},{sn:'강철 비늘',kn:'불괴의 철갑'},{sn:'파쇄 본능',kn:'뼈를 부수는 자'}],
+          exhero:[{sn:'녹슨 검의 기억',kn:'용사의 잔광'},{sn:'낡은 방패의 긍지',kn:'전설의 재현'},{sn:'노장의 감각',kn:'마지막 필살기'}],
+          madman:[{sn:'광기 주입',kn:'피의 축제'},{sn:'통각 상실',kn:'고통의 왕관'},{sn:'절단 집착',kn:'붉은 절정'}],
+          monk:[{sn:'단전 호흡',kn:'백보신권'},{sn:'금강불괴 수련',kn:'금강나한'},{sn:'명경지수',kn:'무념무상'}],
+          ninja:[{sn:'수리검 다발',kn:'만천화우'},{sn:'인법 개조',kn:'그림자 봉인술'},{sn:'질풍 은신',kn:'무음 암살'}],
+          reaper:[{sn:'낫날 연마',kn:'영혼 수확'},{sn:'죽음의 낙인',kn:'명부 소환장'},{sn:'수확 가속',kn:'대낫 회전참'}],
+          glitch:[{sn:'버퍼 오버플로',kn:'스택 붕괴'},{sn:'널 포인터',kn:'세그폴트 폭발'},{sn:'프레임 드랍',kn:'렉 순간이동'}],
+          blackcat:[{sn:'검은 발톱',kn:'불길한 할퀴기'},{sn:'액운 뿌리기',kn:'재앙의 울음'},{sn:'유연한 착지',kn:'검은 질주'}],
+          shadow:[{sn:'정적의 칼끝',kn:'일섬'},{sn:'어둠 융화',kn:'그림자 잠행'},{sn:'살기 은폐',kn:'적막의 일격'}],
+          tombraider:[{sn:'도굴 삽날',kn:'고대의 함정 해제'},{sn:'유물 후각',kn:'파라오의 금고'},{sn:'문양 해독',kn:'저주받은 보물'}],
+          mumyeong:[{sn:'무명의 손끝',kn:'이름 없는 검격'},{sn:'무형의 흐름',kn:'형태 없는 방어'},{sn:'무상의 경지',kn:'공(空)의 일격'}],
+          engineer:[{sn:'부품 개조',kn:'오버클럭 폭주'},{sn:'자동화 설비',kn:'무인 공장 가동'},{sn:'응급 수리',kn:'풀가동 프로토콜'}],
+          debug:[{sn:'로그 추적',kn:'핫픽스 배포'},{sn:'브레이크포인트',kn:'런타임 조작'},{sn:'롤백 준비',kn:'긴급 롤백'}],
+          tourist:[{sn:'가벼운 짐',kn:'세계일주 완주'},{sn:'기념품 수집',kn:'만국 컬렉션'},{sn:'지름길 감각',kn:'현지인 루트'}],
+          slime:[{sn:'점액 분비',kn:'산성 점막'},{sn:'세포 분열',kn:'무한 증식'},{sn:'탄성 몸체',kn:'슬라임 쓰나미'}],
+          gambler:[{sn:'밑장 빼기',kn:'로열 스트레이트'},{sn:'배팅 감각',kn:'더블 오어 낫싱'},{sn:'포커페이스',kn:'하우스 엣지'}],
+          collector:[{sn:'진열대 확장',kn:'한정판 획득'},{sn:'감정 안목',kn:'위작 감별'},{sn:'교환 인맥',kn:'풀세트 컬렉션'}],
+          contributor:[{sn:'커밋 적립',kn:'메인 브랜치 머지'},{sn:'코드 리뷰',kn:'LGTM 연타'},{sn:'이슈 트래킹',kn:'천 개의 스타'}],
+          baeksu:[{sn:'낮잠 보충',kn:'취업 대신 득도'},{sn:'생활비 절약',kn:'무소유의 경지'},{sn:'유튜브 지식',kn:'프로 정보수집러'}],
+          stonks:[{sn:'분할 매수',kn:'풀레버리지'},{sn:'존버 근육',kn:'다이아몬드 핸드'},{sn:'차트 직감',kn:'상한가 신공'}],
+          gymbro:[{sn:'프로틴 타이밍',kn:'벌크업 시즌'},{sn:'중량 증가',kn:'3대 500 달성'},{sn:'펌핑 유지',kn:'헬스장 지박령'}],
         };
         // 시그니처 키스톤: 갈래 0의 키스톤은 직업마다 이름·효과가 완전히 다르다 (정체성)
         const SIGKEY = {
@@ -10010,11 +10033,68 @@ import { FX } from "./fx.js";
           else p.shadowClone=true;
           toast('⚜ 이능 해방 — 계열에 맞는 형태로 각인되었다'); } } ] },
   ];
+  // 승천반 2단계: 2차 전직 도달 시 외곽 링 개방 — 전직의 길을 심화하는 3방위 (계열 적응)
+  const ASC_DIRS2 = [
+    { n:'전직 극의', c:'#e8c56a', nodes:[
+      { n:'극의 개방', d:'계열 극의: 근접=피해 +12%·반사 +30% / 원거리=치명 +8%·배율 +0.3 / 술법·지원=쿨 -10%·발동 +5%p', cost:2, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war'){ p.dmgMult*=1.12; p.thorns=(p.thorns||0)+0.3; }
+          else if (g==='rng'||g==='rog'){ p.critChance=Math.min(0.9,p.critChance+0.08); p.critMult+=0.3; }
+          else { p.cdr*=0.9; p.procBonus=(p.procBonus||0)+0.05; } } },
+      { n:'극의 완성', d:'[키스톤] 위 효과 재중첩 + 최대체력 +10%', cost:3, f:(p)=>{
+          const g=classResGroup(p.classKey);
+          if (g==='war'){ p.dmgMult*=1.12; p.thorns=(p.thorns||0)+0.3; }
+          else if (g==='rng'||g==='rog'){ p.critChance=Math.min(0.9,p.critChance+0.08); p.critMult+=0.3; }
+          else { p.cdr*=0.9; p.procBonus=(p.procBonus||0)+0.05; }
+          p.maxHp=Math.round(p.maxHp*1.1); p.hp=Math.min(p.maxHp,p.hp+20); } } ] },
+    { n:'심화 공세', c:'#c94f4f', nodes:[
+      { n:'2차 공세', d:'피해 +8%, 공속 +5%', cost:2, f:(p)=>{p.dmgMult*=1.08;p.rateMult*=1.05;} },
+      { n:'파멸의 정점', d:'[키스톤] 피해 +14%, 처형 +5%p', cost:3, f:(p)=>{p.dmgMult*=1.14;p.execThresh=Math.min(0.55,(p.execThresh||0)+0.05);} } ] },
+    { n:'심화 수호', c:'#3b82c4', nodes:[
+      { n:'2차 수호', d:'받는 피해 -6%, 재생 +0.5', cost:2, f:(p)=>{p.dmgTaken*=0.94;p.regen+=0.5;} },
+      { n:'불멸의 정점', d:'[키스톤] 받는 피해 -10%, 회피 +5%', cost:3, f:(p)=>{p.dmgTaken*=0.9;p.dodge=Math.min(0.75,p.dodge+0.05);} } ] },
+  ];
   const ascBoxEl = $('ascBox'), ascDial = $('ascDial'), ascInfo = $('ascInfo');
   function renderAscDial(){
     if (!ascDial || !player) return;
     ascDial.innerHTML = '';
-    const cx=170, cy=170;
+    ascDial.style.width = '380px'; ascDial.style.height = '380px';
+    const cx=190, cy=190;
+    // 외곽 링 (2차 전직 개방): 3방위 소형 버튼
+    if (player.jobs && player.jobs.length>=2){
+      ASC_DIRS2.forEach((dir, di)=>{
+        const a = -Math.PI/2 + di*(Math.PI*2/3) + Math.PI/6;
+        const bx = cx + Math.cos(a)*162, by = cy + Math.sin(a)*162;
+        const depth = (player.ascTaken2&&player.ascTaken2[di])||0;
+        const next = dir.nodes[depth];
+        const done = !next;
+        const btn = document.createElement('button');
+        btn.style.cssText = 'position:absolute; left:'+(bx-30)+'px; top:'+(by-30)+'px; width:60px; height:60px; border-radius:50%;'
+          + 'background:rgba(24,25,28,'+(done?'0.95':'0.7')+'); color:#e8e8e6; cursor:pointer; border:2px dashed '+dir.c+';'
+          + 'font-size:9px; line-height:1.2;' + (done?'box-shadow:0 0 12px '+dir.c+'; border-style:solid;':'');
+        btn.innerHTML = '<b style="color:'+dir.c+';">'+dir.n+'</b><br>'+depth+'/'+dir.nodes.length+(done?'':'<br>◈'+next.cost);
+        btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = done ? '<b>'+dir.n+'</b> — 완성' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d; });
+        btn.addEventListener('click', ()=>{
+          const dep = (player.ascTaken2&&player.ascTaken2[di])||0;
+          const nd = dir.nodes[dep];
+          if (!nd){ SFX.play('hit'); return; }
+          if ((player.ascStones||0) < nd.cost){ toast('승천석 부족 (◈'+nd.cost+')'); SFX.play('hit'); return; }
+          player.ascStones -= nd.cost;
+          player.ascTaken2 = player.ascTaken2||[0,0,0];
+          player.ascTaken2[di] = dep+1;
+          nd.f(player);
+          toast('외곽 승천: ['+dir.n+'] '+nd.n);
+          SFX.play('evolve');
+          renderAscDial();
+        });
+        ascDial.appendChild(btn);
+      });
+    } else if (player.jobs && player.jobs.length===1){
+      const hint = document.createElement('div');
+      hint.style.cssText = 'position:absolute; left:0; right:0; top:2px; text-align:center; font-size:10px; color:#8f9194;';
+      hint.textContent = '외곽 링은 2차 전직에서 열린다';
+      ascDial.appendChild(hint);
+    }
     const core = document.createElement('div');
     core.style.cssText = 'position:absolute; left:'+(cx-46)+'px; top:'+(cy-46)+'px; width:92px; height:92px; border-radius:50%;'
       + 'background:rgba(32,33,36,0.9); color:#e8e8e6; display:flex; flex-direction:column; align-items:center; justify-content:center;'
