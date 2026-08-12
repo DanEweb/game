@@ -75,7 +75,7 @@ setTimeout(function(){
 
     <div id="comboTag"><span id="comboNum">×0</span><span class="fv">FEVER</span></div>
     <div id="skillBar" style="position:absolute; z-index:6; display:none; gap:6px;">
-      <button class="skillChip" data-sk="1" style="position:relative;">1<span style="font-size:8px;display:block;">궁극</span></button>
+      <button class="skillChip" data-sk="1" style="position:relative;">1<span style="font-size:8px;display:block;">스킬</span></button>
       <button class="skillChip" data-sk="2" style="position:relative;">2<span style="font-size:8px;display:block;">폭탄</span></button>
       <button class="skillChip" data-sk="3" style="position:relative;">3<span style="font-size:8px;display:block;">물약</span></button>
       <button class="skillChip" data-sk="4" style="position:relative;">4<span style="font-size:8px;display:block;">광폭</span></button>
@@ -165,9 +165,9 @@ setTimeout(function(){
         <button class="miniBtn backBtn">← 돌아가기</button>
       </div>
       <div id="starBox" style="display:none; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:1000px;">
-        <div style="display:flex; gap:12px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-700);">
-          <span>운명 포인트 <b id="starPtsVal" style="color:var(--ink-900); font-size:14px;">0</b>P</span>
-          <span style="font-size:10px; color:var(--ink-500);">런에서 레벨을 올리면 포인트 획득 (레벨 6당 1P, 클리어 +3P) · 소형 1P / 노터블 3P / 키스톤 5P</span>
+        <div style="display:flex; gap:8px 12px; align-items:center; flex-wrap:wrap; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-700); padding:0 8px;">
+          <span style="white-space:nowrap;">운명 포인트 <b id="starPtsVal" style="color:var(--ink-900); font-size:14px;">0</b>P</span>
+          <span style="font-size:10px; color:var(--ink-500); flex:1 1 100%; text-align:center; order:9;">런에서 레벨을 올리면 포인트 획득 (레벨 6당 1P, 클리어 +3P) · 소형 1P / 노터블 3P / 키스톤 5P</span>
           <button class="miniBtn" id="starResetBtn">리스펙 (2000G)</button>
           <button class="miniBtn" id="starSaveA">💾 A 저장</button>
           <button class="miniBtn" id="starLoadA">📂 A 적용 (500G)</button>
@@ -181,7 +181,7 @@ setTimeout(function(){
             font-size:11px; line-height:1.55; display:none; font-family:'IBM Plex Sans KR',sans-serif;"></div>
         </div>
         <div style="font-size:10px; color:var(--ink-500);">드래그 이동 · 휠/버튼 확대 · 연결된 노드만 찍을 수 있음 · 효과는 모든 런에 영구 적용</div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
           <button class="miniBtn" id="starZoomIn">+ 확대</button>
           <button class="miniBtn" id="starZoomOut">− 축소</button>
           <button class="miniBtn" id="starFitBtn">⤢ 전체 보기</button>

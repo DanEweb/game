@@ -1601,7 +1601,12 @@ import { FX } from "./fx.js";
     if (name==='quest') renderQuests();
     if (name==='dex') renderDex();
     if (name==='ach') renderAch();
-    if (name==='star'){ setTimeout(()=>{ resizeStarCanvas(); drawStarTree(); }, 30); }
+    if (name==='star'){ setTimeout(()=>{
+      resizeStarCanvas();
+      // v6.48 모바일: 성도를 열면 자동 전체 보기 — 좁은 화면에서 헤매지 않게
+      if (IS_TOUCH && !showPanel._starFitDone){ showPanel._starFitDone = true; starView.x = 0; starView.y = 0; starView.scale = Math.max(0.28, Math.min(1, (starC.clientHeight||480) / 1750)); }
+      drawStarTree();
+    }, 30); }
     goldVal.textContent = DB.gold;
   }
   shopBtn.addEventListener('click', ()=> showPanel(shopBox.style.display==='flex'?'class':'shop'));
@@ -2134,14 +2139,14 @@ import { FX } from "./fx.js";
     for (const id in (DB.star.nodes||{})){ if (id.indexOf(pref+'_')===0) s += starCost(id); }
     return s;
   }
-  // 투자 게이트: 노터블은 해당 계열 5P, 키스톤은 12P 투자 필요 (공유 구역은 총 투자 20P/35P)
+  // v6.48 투자 게이트 전수조사 수정: 노터블 계열 게이트 폐지 — 경로 비용(연결 노드 선습득)+노터블 3P가 곧 게이트.
+  // 초반 자리에 '계열 5P 필요' 자물쇠가 박히던 문제 해결. 키스톤만 깊은 투자 요구(계열 10P / 공유 30P).
   function starGateReq(id){
     const n = STAR_NODES[id];
-    if (!n || (n.tier!=='notable' && n.tier!=='key')) return null;
+    if (!n || n.tier!=='key') return null;
     const pref = id.split('_')[0];
     const isBranch = STAR_BRANCHES.some(b=>b.key===pref);
-    if (n.tier==='notable') return isBranch ? {branch:pref, need:5} : {total:20};
-    return isBranch ? {branch:pref, need:12} : {total:35};
+    return isBranch ? {branch:pref, need:10} : {total:30};
   }
   function starGateOk(id){
     const g = starGateReq(id);
@@ -2274,7 +2279,7 @@ import { FX } from "./fx.js";
   const starC = $('starC');
   const starCtx = starC.getContext('2d');
   const starView = { x:0, y:0, scale:1.1 };
-  let starDrag = null, starHover = null;
+  let starDrag = null, starHover = null, starSel = null; // starSel: 모바일 2탭 확인용
   function resizeStarCanvas(){
     const rect = starC.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio||1, 2);
@@ -2482,6 +2487,16 @@ import { FX } from "./fx.js";
     starShowInfo(hit);
     if (hit){
       const canBuy = starCanBuy(hit);
+      // v6.48 모바일 2탭: 첫 탭 = 정보 보기, 같은 별 재탭 = 습득 (실수로 찍히는 문제 해결)
+      if (canBuy && IS_TOUCH && starSel !== hit){
+        starSel = hit;
+        const info = $('starInfo');
+        if (info && info.style.display!=='none') info.innerHTML += '<br><b style="color:#e8c56a;">👆 한 번 더 탭하면 습득</b>';
+        SFX.play('tele');
+        drawStarTree();
+        return;
+      }
+      starSel = null;
       if (canBuy){
         DB.star.nodes[hit] = true;
         saveDB();
@@ -2491,6 +2506,8 @@ import { FX } from "./fx.js";
       } else if (!starAllocated(hit)){
         SFX.play('hit');
       }
+    } else {
+      starSel = null;
     }
   });
   starC.addEventListener('wheel', (e)=>{
@@ -4969,7 +4986,7 @@ import { FX } from "./fx.js";
       { l:'흔들어본다', d:'20% 공짜 / 80% 적 습격', fx:()=>{ if (Math.random()<0.2){ dropItem(player.x+40, player.y, 'whet'); toast('공짜!'); SFX.play('chest'); } else { toast('경보 발동!'); for (let i=0;i<8;i++){ const a=(Math.PI*2/8)*i; enemies.push(makeEnemy('swarm', player.x+Math.cos(a)*200, player.y+Math.sin(a)*200, false)); } SFX.play('warn'); } } },
     ]},
     { t:'시간의 균열 조각', d:'공중에 작게 갈라진 틈. 시간이 새어나온다.', opts:[
-      { l:'손을 넣는다', d:'50% 스킬 쿨다운 전부 초기화 / 50% 5초간 이속 -30%', fx:()=>{ if (Math.random()<0.5){ player.skCds=[0,0,0]; player.ultCooldown=0; toast('시간이 되감겼다!'); SFX.play('quest'); } else { tbuff('spd',0.7,5); toast('시간이 끈적하게 달라붙는다...'); SFX.play('warn'); } } },
+      { l:'손을 넣는다', d:'50% 스킬 쿨다운 전부 초기화 / 50% 5초간 이속 -30%', fx:()=>{ if (Math.random()<0.5){ player.skCds=[0,0,0,0]; player.ultCooldown=0; toast('시간이 되감겼다!'); SFX.play('quest'); } else { tbuff('spd',0.7,5); toast('시간이 끈적하게 달라붙는다...'); SFX.play('warn'); } } },
       { l:'봉합한다', d:'경험치 소량', fx:()=>{ grantXp(Math.ceil(player.xpNext*0.3)); toast('균열 봉합 — 경험치 획득'); SFX.play('pick'); } },
     ]},
     { t:'낡은 게시판', d:'현상수배 전단이 붙어 있다. "이명 보스 처치 시 보상 두 배"', opts:[
@@ -5153,7 +5170,7 @@ import { FX } from "./fx.js";
       mineLv:0, mineDmg:0, mineT:2,
       turretLv:0, turretDmg:0, turretRepoT:0, turrets:[], shadows:[], ghosts:[],
       necroChance:0, ghostCap:4, comboKeep:0, feverPlus:0, feverDmg:false, rageT:0,
-      tbuffs:[], skills:[null,null,null], learned:[], skCds:[0,0,0], awakening:null, jobs:[],
+      tbuffs:[], skills:[null,null,null,null], learned:[], skCds:[0,0,0,0], awakening:null, jobs:[],
       // v6.47: 하위테크 계열 슬롯 — 속성 무관, 무기 1칸(고정), 전술/수호/보조/증폭/질풍 3칸, 운명/금단 2칸 (기억 확장 조각으로 +1, 무기 제외)
       catSlots:{ '무기':1, '전술':3, '수호':3, '보조':3, '증폭':3, '질풍':3, '운명':2, '금단':2 },
       eliteDmg:1, bossDmg:1, // 등급 상대 피해 (엘리트·악몽 / 보스)
@@ -5270,19 +5287,13 @@ import { FX } from "./fx.js";
     const mm = $('mobMenu');
     if (mm) mm.style.display = (state==='playing'||state==='paused') ? 'flex' : 'none';
     const chips = sb.querySelectorAll('.skillChip');
-    const cds = [player.ultReady ? player.ultCooldown : -1, player.skCds[0], player.skCds[1], player.skCds[2]];
+    // v6.48: 칩 1~4 = 습득 스킬 4슬롯 (궁극은 Q 버튼 전용 — 중복 제거)
     chips.forEach((ch,i)=>{
-      if (i===0){
-        if (!player.ultReady){ ch.disabled=true; ch.classList.remove('ready'); return; }
-        ch.disabled = false;
-        ch.innerHTML = '1<span style="font-size:8px;display:block;">궁극</span>';
-      } else {
-        const sk = player.skills[i-1];
-        if (!sk){ ch.disabled=true; ch.classList.remove('ready'); ch.innerHTML = i+1+'<span style="font-size:8px;display:block;">—</span>'; return; }
-        ch.disabled = false;
-        ch.innerHTML = (i+1)+'<span style="font-size:8px;display:block;">'+sk.n.slice(0,3)+'</span>';
-      }
-      const ready = cds[i] <= 0;
+      const sk = player.skills[i];
+      if (!sk){ ch.disabled=true; ch.classList.remove('ready'); ch.innerHTML = (i+1)+'<span style="font-size:8px;display:block;">—</span>'; ch.style.opacity='0.4'; return; }
+      ch.disabled = false;
+      ch.innerHTML = (i+1)+'<span style="font-size:8px;display:block;">'+sk.n.slice(0,3)+'</span>';
+      const ready = player.skCds[i] <= 0;
       ch.classList.toggle('ready', ready);
       ch.style.opacity = ready ? '1' : '0.55';
     });
@@ -6231,7 +6242,7 @@ import { FX } from "./fx.js";
         addTextNum(player.x, player.y-44, '💥 약점 코어 노출 — 탭!');
       } else if (roll < 0.8){
         addGateObj({ kind:'qte', icon:'⚡', x:ox, y:oy, r:23, maxT:3,
-          onTap:()=>{ player.skCds=[0,0,0]; player.ultCooldown=0; addTextNum(player.x, player.y-30, '⚡ 과부하 — 스킬 초기화!'); },
+          onTap:()=>{ player.skCds=[0,0,0,0]; player.ultCooldown=0; addTextNum(player.x, player.y-30, '⚡ 과부하 — 스킬 초기화!'); },
           onFail:()=>{} });
         addTextNum(player.x, player.y-44, '⚡ 마력 과부하 — 탭!');
       } else {
@@ -8222,9 +8233,9 @@ import { FX } from "./fx.js";
   // 스킬 시전 — 슬롯 1: 전용기 / 슬롯 2~4: 직업 스킬 (레벨 습득)
   function castSkill(n){
     if (state!=='playing') return;
-    if (n===1){ player.ultFireReq = true; return; }
+    // v6.48: 1번은 더 이상 궁극(Q) 복제가 아니다 — 1~4번 전부 습득 스킬 슬롯, 궁극은 Q 전용
     if (player.skillsSealed || (player.zoneSilenceT||0)>0){ addTextNum(player.x, player.y-24, '침묵...'); return; } // 침묵의 서약 / 어색한 침묵 존
-    const i = n-2;
+    const i = n-1;
     const sk = player.skills[i];
     if (!sk || player.skCds[i] > 0) return;
     // 스킬 시전 이펙트: 주력 속성 > 직업색 링
@@ -8252,7 +8263,7 @@ import { FX } from "./fx.js";
       e.stopPropagation(); e.preventDefault(); SFX.unlock();
       const n = parseInt(b.dataset.sk,10);
       // 빈 슬롯 탭 → 스킬북 (모바일에서 K키 대체)
-      if (n>=2 && state==='playing' && !player.skills[n-2]){ openSkillBook(); return; }
+      if (n>=1 && state==='playing' && !player.skills[n-1]){ openSkillBook(); return; }
       castSkill(n);
     });
   });
@@ -8384,6 +8395,7 @@ import { FX } from "./fx.js";
     const rs = (player.recoilScale||1) * (player.lungeThrow ? -0.9 : 1);
     player.recoilX = (player.recoilX||0) - Math.cos(a)*2.6*rs;
     player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6*rs;
+    player.swingT = 0.16; // v6.48 공격 스윙 모션 (무기 프롭이 실제로 휘둘러진다)
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
     const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3); // 그림자: 무피격 3초+ 확정 치명
@@ -9695,7 +9707,7 @@ import { FX } from "./fx.js";
 
     if (player.dashCd>0) player.dashCd -= dt;
     if (player.dashHasteT>0) player.dashHasteT -= dt;
-    for (let i=0;i<3;i++) if (player.skCds[i]>0) player.skCds[i] -= dt;
+    for (let i=0;i<4;i++) if (player.skCds[i]>0) player.skCds[i] -= dt;
     if (player.rageT>0) player.rageT -= dt;
     // 임시 버프 만료
     for (let i=player.tbuffs.length-1;i>=0;i--){
@@ -9736,6 +9748,7 @@ import { FX } from "./fx.js";
     if (player.__lsWinT >= 1){ player.__lsWinT = 0; player.__lsWin = 0; }
     // 발사 반동 감쇠
     if (player.recoilX){ player.recoilX *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilX)<0.1) player.recoilX=0; }
+    if (player.swingT>0) player.swingT -= dt;
     if (player.recoilY){ player.recoilY *= Math.max(0, 1-12*dt); if (Math.abs(player.recoilY)<0.1) player.recoilY=0; }
     // 광인: 생명이 계속 새어나간다 — 사냥이 곧 생존
     if (player.madman && elapsed > 5){
@@ -10666,7 +10679,8 @@ import { FX } from "./fx.js";
       if (player.level >= 60){ player.xp = 0; break; }
       player.xp -= player.xpNext;
       player.level += 1;
-      if (player.level % 2 === 0){ player.ascStones = (player.ascStones||0)+1; addTextNum(player.x, player.y-52, '◈ 승천석 +1'); }
+      // v6.48 승천석 수급 밸런스: 2렙당 1개(런당 최대 30)는 과잉·악용 여지 → 레벨 6부터 3렙당 1개(런당 최대 ~19)
+      if (player.level >= 6 && player.level % 3 === 0){ player.ascStones = (player.ascStones||0)+1; addTextNum(player.x, player.y-52, '◈ 승천석 +1'); }
       player.xpNext = Math.floor(16 + player.level*11 + player.level*player.level*1.9); // 5차 하향 — 레벨은 더 귀하다 (장비 지배 견제)
       pendingLevelUps += 1;
     }
@@ -10680,7 +10694,7 @@ import { FX } from "./fx.js";
           const empty = player.skills.indexOf(null);
           if (empty >= 0){
             player.skills[empty] = sk;
-            toast('스킬 습득: ['+sk.n+'] → 슬롯 '+(empty+2)+'번');
+            toast('스킬 습득: ['+sk.n+'] → 슬롯 '+(empty+1)+'번');
             SFX.play('quest');
           } else {
             pendingSkills.push(sk);
@@ -10970,18 +10984,18 @@ import { FX } from "./fx.js";
     const opts = player.learned.map(sk=>{
       const slot = player.skills.indexOf(sk);
       return {
-        l:sk.n + (slot>=0 ? ' [슬롯 '+(slot+2)+']' : ' [미장착]'),
+        l:sk.n + (slot>=0 ? ' [슬롯 '+(slot+1)+']' : ' [미장착]'),
         d:sk.d+' · 쿨다운 '+sk.cd+'초',
         fx:()=>{ setTimeout(()=>{ if (state==='playing') openSkillSwap(sk); }, 150); }
       };
     });
     opts.push({ l:'닫기', d:'게임으로 돌아간다', fx:null });
-    openEvent({ t:'스킬북 ('+CLASSES[player.classKey].name+')', d:'배운 스킬을 눌러 슬롯 2~4에 배치할 수 있습니다.', opts });
+    openEvent({ t:'스킬북 ('+CLASSES[player.classKey].name+')', d:'배운 스킬을 눌러 슬롯 1~4에 배치할 수 있습니다. (궁극은 Q 전용)', opts });
   }
   // 슬롯이 가득 찼을 때: 새 스킬을 어디에 넣을지 선택
   function openSkillSwap(sk){
     const opts = player.skills.map((cur, i)=>({
-      l:'슬롯 '+(i+2)+'번과 교체', d:'현재: ['+(cur?cur.n:'빈 슬롯')+'] → ['+sk.n+']',
+      l:'슬롯 '+(i+1)+'번과 교체', d:'현재: ['+(cur?cur.n:'빈 슬롯')+'] → ['+sk.n+']',
       fx:()=>{ player.skills[i] = sk; player.skCds[i] = 0; toast('['+sk.n+'] 장착!'); SFX.play('equip'); }
     }));
     opts.push({ l:'배우기만 한다', d:'슬롯은 그대로 둔다', fx:null });
@@ -12128,6 +12142,10 @@ import { FX } from "./fx.js";
 
     const g = o.gear;
     ctx.lineWidth = 2;
+    // v6.48 공격 스윙: 발사·타격 순간 무기 프롭이 어깨를 축으로 휘둘러진다
+    const atk = o.atk||0;
+    const swung = atk>0;
+    if (swung){ ctx.save(); ctx.translate(3,-3); ctx.rotate(-atk*0.55); ctx.translate(-3,3); }
     if (g==='manager'){
       ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
       ctx.fillRect(-7,-16.5,14,2.5);
@@ -12249,6 +12267,180 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.ellipse(9,0,4,5.5,-0.5,0,Math.PI*2); ctx.fill();
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(11,-4); ctx.lineTo(14,-9); ctx.stroke();
+    } else if (g==='samurai'){
+      // 상투 + 카타나 (긴 사선 검 + 츠바)
+      ctx.fillRect(-1,-19,3,4); ctx.beginPath(); ctx.arc(0.5,-19.5,2,0,Math.PI*2); ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(4,2); ctx.lineTo(18,-12); ctx.stroke();
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(6,-1.5); ctx.lineTo(9,1.5); ctx.stroke();
+    } else if (g==='specialist'){
+      // 베레모 + 소총
+      ctx.beginPath(); ctx.ellipse(0,-15,6.5,2.6,-0.15,0,Math.PI*2); ctx.fill();
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(-2,-1); ctx.lineTo(15,-3); ctx.stroke();
+      ctx.fillRect(-4,-2.5,4,4);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(8,-2.6); ctx.lineTo(8,0.5); ctx.stroke();
+    } else if (g==='runeknight'){
+      // 뿔 투구 + 룬 대검
+      ctx.beginPath(); ctx.arc(1,-12,6.4,Math.PI,0); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-5,-14); ctx.lineTo(-8,-20); ctx.lineTo(-3.5,-16); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(6,3); ctx.lineTo(15,-13); ctx.stroke();
+      ctx.fillStyle = '#7ec4e8';
+      [0.3,0.55,0.8].forEach(f=>{ ctx.fillRect(6+9*f-0.8, 3-16*f-0.8, 1.6, 1.6); });
+      ctx.fillStyle = ink;
+    } else if (g==='druid'){
+      // 사슴뿔 + 잎사귀 지팡이
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-3,-15); ctx.lineTo(-6,-21); ctx.moveTo(-5,-18.5); ctx.lineTo(-8,-19.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4,-15); ctx.lineTo(7,-21); ctx.moveTo(6,-18.5); ctx.lineTo(9,-19.5); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(9,6); ctx.quadraticCurveTo(9,-12,12,-16); ctx.stroke();
+      ctx.fillStyle = '#5a8a3f';
+      ctx.beginPath(); ctx.ellipse(13,-17,2.6,1.4,-0.6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+    } else if (g==='duelist'){
+      // 깃털 모자 + 레이피어 (가드 원)
+      ctx.beginPath(); ctx.arc(1,-13,5.8,Math.PI,0); ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(6,-15); ctx.quadraticCurveTo(11,-20,14,-17); ctx.stroke();
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(6,-1); ctx.lineTo(19,-5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(7,-1.4,2.2,0,Math.PI*2); ctx.stroke();
+    } else if (g==='madman'){
+      // 봉두난발 + 식칼
+      for (let k=0;k<5;k++){ const ha=-Math.PI*0.9+k*0.45; ctx.beginPath(); ctx.moveTo(1+Math.cos(ha)*5,-11+Math.sin(ha)*5); ctx.lineTo(1+Math.cos(ha)*9,-11+Math.sin(ha)*9); ctx.lineWidth=1.8; ctx.stroke(); }
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(5,1); ctx.lineTo(10,-4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10,-4); ctx.lineTo(16,-7); ctx.lineTo(12,-1) ; ctx.closePath(); ctx.fill();
+    } else if (g==='monk'){
+      // 머리띠 + 단련된 주먹 (앞손 강조)
+      ctx.fillRect(-5,-14,12,2.2);
+      ctx.beginPath(); ctx.arc(11,-3,2.8,0,Math.PI*2); ctx.fill();
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(4,-2); ctx.lineTo(9,-3); ctx.stroke();
+    } else if (g==='commander'){
+      // 정모 + 지휘봉
+      ctx.fillRect(-6,-15,13,2.4);
+      ctx.beginPath(); ctx.arc(0.5,-15,5,Math.PI,0); ctx.fill();
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(6,-2); ctx.lineTo(15,-8); ctx.stroke();
+      ctx.beginPath(); ctx.arc(15.5,-8.4,1.4,0,Math.PI*2); ctx.fill();
+    } else if (g==='tombraider'){
+      // 페도라 + 채찍
+      ctx.fillRect(-8,-14.5,18,2.2);
+      ctx.beginPath(); ctx.arc(1,-15,4.6,Math.PI,0); ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(6,0); ctx.quadraticCurveTo(14,2+Math.sin(walk)*2,18,-3+Math.sin(walk*1.3)*3); ctx.stroke();
+    } else if (g==='mumyeong'){
+      // 무명 두건 + 이름 없는 장검 (장식 없는 직선)
+      ctx.beginPath(); ctx.arc(0,-12,6.2,Math.PI*0.95,Math.PI*0.05); ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(5,3); ctx.lineTo(16,-9); ctx.stroke();
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(7,-0.5); ctx.lineTo(9.5,2); ctx.stroke();
+    } else if (g==='tourist'){
+      // 밀짚모자 + 목에 건 카메라
+      ctx.fillRect(-9,-14,19,2);
+      ctx.beginPath(); ctx.arc(0.5,-15,4.4,Math.PI,0); ctx.fill();
+      roundRect(3,-4,6,4.5,1); ctx.fill();
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.beginPath(); ctx.arc(6,-1.8,1.2,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+    } else if (g==='slime'){
+      // 반투명 젤리 링 (몸을 감싼 점액)
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath(); ctx.arc(0,-2,10+Math.sin(performance.now()/250)*1.5,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(-5,-16+Math.sin(performance.now()/300)*2,2,0,Math.PI*2); ctx.fill();
+    } else if (g==='gambler'){
+      // 중절모 + 부채꼴 카드 3장
+      ctx.fillRect(-6,-14.5,14,2.2);
+      ctx.beginPath(); ctx.arc(1,-15,4.8,Math.PI,0); ctx.fill();
+      [-0.35,0,0.35].forEach(ra=>{
+        ctx.save(); ctx.translate(9,-2); ctx.rotate(ra);
+        ctx.fillStyle = MAP.key==='abyss' ? '#3a3b40' : '#f6f6f4';
+        ctx.strokeStyle = ink; ctx.lineWidth = 0.8;
+        ctx.fillRect(-1.6,-5,3.2,6); ctx.strokeRect(-1.6,-5,3.2,6);
+        ctx.restore();
+      });
+      ctx.fillStyle = ink; ctx.strokeStyle = ink;
+    } else if (g==='collector'){
+      // 단안경 + 돋보기
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(4,-11.5,2.4,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4,-9.1); ctx.lineTo(4,-6); ctx.stroke();
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(11,-6,3.4,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(13.4,-3.6); ctx.lineTo(16,-1); ctx.stroke();
+    } else if (g==='contributor'){
+      // 후드 + 무릎 위 노트북
+      ctx.beginPath(); ctx.arc(0,-12,6.6,Math.PI*0.9,Math.PI*0.1); ctx.fill();
+      roundRect(4,-3,8,5,1); ctx.fill();
+      ctx.fillStyle = '#3aa895';
+      if (Math.floor(performance.now()/600)%2===0) ctx.fillRect(5.5,-1.8,2,1);
+      ctx.fillStyle = ink;
+    } else if (g==='baeksu'){
+      // 비니 + 게임패드
+      ctx.fillRect(-5,-16,12,3.4);
+      roundRect(4,-3,7,4,2); ctx.fill();
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.fillRect(5.5,-2,1,1); ctx.fillRect(8.5,-2,1,1);
+      ctx.fillStyle = ink;
+    } else if (g==='stonks'){
+      // 넥타이 + 상승 차트 태블릿
+      ctx.fillStyle = '#c94f4f';
+      ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(2,-5); ctx.lineTo(1,2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = ink;
+      roundRect(4,-8,8,6,1); ctx.fill();
+      ctx.strokeStyle = '#3fa85f'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(5,-3.5); ctx.lineTo(7,-5); ctx.lineTo(8.5,-4); ctx.lineTo(11,-7); ctx.stroke();
+      ctx.strokeStyle = ink;
+    } else if (g==='gymbro'){
+      // 헤어밴드 + 덤벨
+      ctx.fillRect(-5,-14,12,2);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(5,-2); ctx.lineTo(13,-2); ctx.stroke();
+      ctx.fillRect(4,-5,2.6,6); ctx.fillRect(11.4,-5,2.6,6);
+    } else if (g==='exhero'){
+      // 기울어진 낡은 왕관 + 이 빠진 검
+      ctx.save(); ctx.translate(1,-16); ctx.rotate(-0.18);
+      ctx.beginPath(); ctx.moveTo(-5,2); ctx.lineTo(-5,-2); ctx.lineTo(-2,0); ctx.lineTo(0,-3); ctx.lineTo(2,0); ctx.lineTo(5,-2); ctx.lineTo(5,2); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(5,2); ctx.lineTo(14,-7); ctx.stroke();
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.fillRect(9.5,-4.5,1.6,1.6); // 이 빠진 자국
+      ctx.fillStyle = ink;
+    } else if (g==='shadow'){
+      // 전신 후드 + 쌍단검
+      ctx.beginPath(); ctx.arc(0,-12,7,Math.PI*0.8,Math.PI*0.2); ctx.fill();
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(10,-4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(-10,-4); ctx.stroke();
+    } else if (g==='blackcat'){
+      // 고양이 귀 + 흔들리는 꼬리
+      ctx.beginPath(); ctx.moveTo(-4,-15); ctx.lineTo(-6,-21); ctx.lineTo(-1,-17); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(4,-15); ctx.lineTo(7,-21); ctx.lineTo(2,-17); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-4,8); ctx.quadraticCurveTo(-12,6,-11,-2+Math.sin(performance.now()/350)*3); ctx.stroke();
+    }
+    if (swung) ctx.restore();
+    // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
+    if ((o.tier||0)>=2){
+      ctx.fillStyle = ink;
+      roundRect(-9,-8.5,5.5,4.5,1.5); ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = o.tierC || ink;
+      ctx.strokeRect(-9,-8.5,5.5,4.5);
+    }
+    if ((o.tier||0)>=3 && o.tierC){
+      ctx.fillStyle = o.tierC;
+      ctx.save(); ctx.translate(0,-1.5); ctx.rotate(Math.PI/4);
+      ctx.fillRect(-1.7,-1.7,3.4,3.4);
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -12261,7 +12453,8 @@ import { FX } from "./fx.js";
     cheol:'#a8433c', voidc:'#5c4a8a', necro:'#6a8a7a', bard:'#c9895a', debug:'#3aa895',
     tourist:'#e0a94f', slime:'#5db06a', gambler:'#c94f8a', collector:'#8a6a4f', contributor:'#d9a53f',
     baeksu:'#9aa0a6', blackcat:'#3a3b40', stonks:'#3fa85f', gymbro:'#c96a3f', exhero:'#b8a03f', shadow:'#55486a',
-    madman:'#c9403a', monk:'#b8956a', commander:'#4a6a8a', tombraider:'#8a7a4f', mumyeong:'#7a7a82'
+    madman:'#c9403a', monk:'#b8956a', commander:'#4a6a8a', tombraider:'#8a7a4f', mumyeong:'#7a7a82',
+    samurai:'#b04a3a', specialist:'#4a5d3a', runeknight:'#4a6ab0', druid:'#5a8a3f', duelist:'#b08a3a'
   };
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
@@ -12291,13 +12484,29 @@ import { FX } from "./fx.js";
       ctx.closePath(); ctx.fill();
       ctx.restore();
     }
-    drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), { face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper' });
+    drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), {
+      face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
+      atk: Math.max(0, (player.swingT||0)/0.16),            // v6.48 공격 스윙
+      tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
+    });
     // 장비 외형: 투구 밴드 / 흉갑 라인 (희귀도 색)
     const headIt = eqItem('head');
     if (headIt){
       ctx.fillStyle = RARITY_TINT[headIt.r]||'#8f9194';
       ctx.fillRect(player.x-6, player.y-19, 12, 2.6);
       if (headIt.r>=4){ ctx.fillRect(player.x-1.2, player.y-23, 2.4, 4); } // 상급: 깃 장식
+    }
+    // v6.48 장갑·신발 외형 (희귀도 색) — 장비 수집이 눈에 보인다
+    const handIt = eqItem('hand');
+    if (handIt){
+      ctx.fillStyle = RARITY_TINT[handIt.r]||'#8f9194';
+      ctx.fillRect(player.x+player.faceX*6-1.6, player.y-3, 3.2, 3.2);
+    }
+    const footIt = eqItem('foot');
+    if (footIt){
+      ctx.fillStyle = RARITY_TINT[footIt.r]||'#8f9194';
+      ctx.fillRect(player.x-4.5, player.y+12, 3.6, 2.4);
+      ctx.fillRect(player.x+1, player.y+12, 3.6, 2.4);
     }
     const bodyIt = eqItem('body');
     if (bodyIt){
