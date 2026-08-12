@@ -3557,15 +3557,14 @@ import { FX } from "./fx.js";
       const opts = list.map((j, ji)=>({
         l:'전직: '+(resonant?'✦ ':'')+j.n,
         d:j.d + (resonant ? ' — 공명 강화: 추가 피해 +'+(rc*0.4).toFixed(0)+'%' : '')
-          + '<br>▸ 열리는 것: ✦ 『'+kits1[ji % kits1.length].t+'』 스킬 각인 (계열·길 고유 발동) · 승천반 ['+kits1[ji % kits1.length].t+'의 길] 가지',
+          + '<br>▸ 열리는 것: 승천반 ['+kits1[ji % kits1.length].t+'의 길] 가지 · 이후 잭팟 카드 [각인 부여]로 『'+kits1[ji % kits1.length].t+'』 각인 활성',
         fx:()=>{
           j.fx(player); player.jobs.push(j.n);
           (player.jobPicks=player.jobPicks||[])[0]={n:j.n, v:ji}; // 전직 선택지별 전용 가지 개방
           wayStarResonate(1, ji);
           if (resonant){ player.dmgMult *= 1 + 0.004*rc; }
           evolveClassStar(1);
-          // v6.49 스킬 각인 개방 — 직업 계열 × 선택한 길 고유 발동 (18종)
-          setTimeout(()=>toast('✦ 『'+kits1[ji % kits1.length].t+'』 각인 — 이 직업의 방식으로 스킬에 새겨졌다'), 500);
+          // v6.50: 각인은 레벨업 카드 '각인 부여'로 별도 획득 (전직 = 길 그 자체)
           setTimeout(()=>toast('🌌 승천반 개방 — J 키(전장에서)로 성반을 열어 승천석을 사용하라'), 900);
           toast('1차 전직 — '+j.n+'!'+(resonant?' (성도 공명 ×'+rc+')':''));
           effects.push({ type:'rays', x:player.x, y:player.y, life:0.7, age:0 });
@@ -3583,7 +3582,7 @@ import { FX } from "./fx.js";
       const GD2 = { war:0, rng:2, mag:2, mag2:2, rog:1, pri:3, mer:3 };
       const opts = list2.map((j, ji)=>({ l:'2차 전직: '+j.n,
         d:j.d + (base?' — ['+base+']의 길이 깊어진다':'')
-          + '<br>▸ 열리는 것: '+SIG2[((GD2[g2]||0)+ji)%4]+' 대시 각인 (계열 성향 반영) · 승천반 ['+kits2[ji % kits2.length].t+'의 길] 가지 ×1.4', fx:()=>{
+          + '<br>▸ 열리는 것: 승천반 ['+kits2[ji % kits2.length].t+'의 길] 가지 ×1.4 · [각인 부여] 시 '+SIG2[((GD2[g2]||0)+ji)%4]+' 대시', fx:()=>{
         j.fx(player); player.jobs.push(j.n);
         (player.jobPicks=player.jobPicks||[])[1]={n:j.n, v:ji};
         wayStarResonate(2, ji);
@@ -3593,8 +3592,7 @@ import { FX } from "./fx.js";
         if (ascInv2>=4){ player.dmgMult*=1.04; player.maxHp=Math.round(player.maxHp*1.03); toast('✦ 계승 공명 — 성반이 전직에 응답한다 (피해 +4%, 체력 +3%)'); }
         // v6.49 대시 각인 개방 — 계열 성향 + 선택한 길
         const SIGIL2 = ['💥 폭쇄 대시 (대시 시 폭발)','🌫 무형 대시 (무적 연장)','🌪 질풍 대시 (35% 쿨 절반)','🩸 흡생 대시 (대시 시 회복)'];
-        const GDt = { war:0, rng:2, mag:2, mag2:2, rog:1, pri:3, mer:3 };
-        setTimeout(()=>toast(SIGIL2[((GDt[classResGroup(player.classKey)]||0)+ji)%4]+' — 대시가 각인되었다'), 500);
+        // v6.50: 대시 각인도 '각인 부여' 카드로 활성화
         toast('2차 전직 — '+j.n+'!');
         SFX.play('win');
       } }));
@@ -3923,7 +3921,7 @@ import { FX } from "./fx.js";
       { key:'c_mag',   name:'수집',  tier:1, max:6, desc:(m)=>'수집 범위 +'+R(15*m), apply:(p,m)=>{ p.magnet+=15*m; } },
       { key:'c_rate',  name:'집중',  tier:1, max:6, desc:(m)=>'공격속도 +'+R(5*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; } },
       { key:'c_regen', name:'재생',  tier:1, max:5, desc:(m)=>'초당 체력 +'+R1(0.55*m), apply:(p,m)=>{ p.regen+=0.55*m; } },
-      { key:'c_steal', name:'흡혈',  tier:2, max:3, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.6*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.6*m)); } },
+      { key:'c_steal', name:'흡혈',  tier:2, max:2, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.5*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.5*m)); } },
       { key:'c_luck',  name:'행운',  tier:2, max:3, desc:(m)=>'골드 +'+R(8*m)+'%, 아이템 드랍 +'+R(12*m)+'%', apply:(p,m)=>{ p.goldMult*=1+0.08*m; p.luck*=1+0.12*m; } },
       { key:'c_giant', name:'거인 사냥꾼', tier:2, max:3, desc:(m)=>'엘리트·악몽급 피해 +'+R(9*m)+'%, 보스 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.eliteDmg*=1+0.09*m; p.bossDmg*=1+0.06*m; } },
       { key:'c_undying',name:'불굴', tier:3, max:1, desc:(m)=>'[궁극] 1회 부활, 체력 30% 이하일 때 피해 -'+Math.min(60,R(15*m))+'%', apply:(p,m)=>{ p.undyingRevive=true; p.undyingDR=Math.min(0.6,0.15*m); } },
@@ -4219,6 +4217,8 @@ import { FX } from "./fx.js";
 
   // 잭팟 카드 — 아주 낮은 확률로 등장하는 파격 보상
   const JACKPOTS = [
+    { key:'j_sigil', name:'각인 부여', desc:'걸어온 전직의 길이 스킬·대시에 각인으로 깃든다 (계열×길 고유 발동)',
+      apply:(p)=>{ p.sigilOn=true; toast('✦ 각인 부여 — 길이 몸에 새겨졌다'); } },
     { key:'j_weapon', name:'오버클럭 코어', desc:'보유한 모든 무기 +1레벨',
       apply:(p)=>{ for (const w of p.weapons){ if (w.lv<5) w.lv+=1; } renderWeaponRow(); } },
     { key:'j_chest',  name:'보물 지도', desc:'근처에 보물상자 2개가 떨어진다',
@@ -8246,7 +8246,7 @@ import { FX } from "./fx.js";
     sk.fx();
     // v6.49 스킬 각인 재작업: 직업 계열(6군) × 선택한 길(3) = 18종 — 각인이 걸어온 길의 이름을 갖는다
     const jp1 = player.jobPicks && player.jobPicks[0];
-    if (jp1){
+    if (jp1 && player.sigilOn){ // v6.50: 각인은 전직이 아니라 레벨업 '각인 부여' 카드로 깃든다
       const g1 = classResGroup(player.classKey);
       const kit1 = (JOBVAR[g1]||JOBVAR.war)[(jp1.v||0) % 3];
       const wayN = kit1 ? kit1.t : '공세';
@@ -8325,7 +8325,7 @@ import { FX } from "./fx.js";
     if (dashCount >= 50) unlockAch('dash50');
     // v6.49 대시 각인 재작업: 계열 성향 + 선택한 길로 기전이 결정된다 (계열마다 기본 성향이 다르다)
     const jp2 = player.jobPicks && player.jobPicks[1];
-    if (jp2){
+    if (jp2 && player.sigilOn){
       const g2d = classResGroup(player.classKey);
       const GD = { war:0, rng:2, mag:2, mag2:2, rog:1, pri:3, mer:3 };
       const m2 = ((GD[g2d]||0) + (jp2.v||0)) % 4;
@@ -9787,7 +9787,14 @@ import { FX } from "./fx.js";
         if (!near){ for (const e9 of enemies){ if (Math.hypot(e9.x-player.x, e9.y-player.y) < 130+e9.r){ near = true; break; } } }
         if (near){
           player._swMetro = (player._swMetro||0) - dt;
-          if (player._swMetro <= 0){ player._swMetro = auraState.on ? 0.7 : 0.55; player.swingT = Math.max(player.swingT||0, 0.16); }
+          if (player._swMetro <= 0){
+            player._swMetro = auraState.on ? 0.7 : 0.55;
+            player.swingT = Math.max(player.swingT||0, 0.16);
+            // v6.50 런지: 가장 가까운 적 쪽으로 몸이 쏠린다 — '때리러 간다'는 느낌
+            let lt=null, ld=1e9;
+            for (const e9 of enemies){ const d9=Math.hypot(e9.x-player.x,e9.y-player.y); if (d9<ld){ ld=d9; lt=e9; } }
+            if (lt && ld<160){ const la=Math.atan2(lt.y-player.y, lt.x-player.x); player.recoilX=(player.recoilX||0)+Math.cos(la)*3.2; player.recoilY=(player.recoilY||0)+Math.sin(la)*3.2; player.faceX = lt.x>player.x?1:-1; }
+          }
         }
       }
     }
