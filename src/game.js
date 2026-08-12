@@ -6807,6 +6807,8 @@ import { FX } from "./fx.js";
 
     } else if (b.kind==='jealous'){
       // 관문 보스 1호: 의부증 전여친 은재 — 최병우를 놓지 못한 자 (3페이즈 + 발악 + 전멸기)
+      // v6.66 그로기: 숨긴 폰을 뺏기면 이성을 잃고 멈춘다
+      if (b.jStunT>0){ b.jStunT -= dt; b.hp -= b.maxHp*0.004*dt; return false; }
       const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
       if (ph !== b.jPhase){
         b.jPhase = ph;
@@ -6879,6 +6881,26 @@ import { FX } from "./fx.js";
           addTextNum(player.x, player.y-44, '"어디 숨었어?"');
           b.jEdgeT = ph===3?3.5:5;
         }
+      }
+      // v6.66 신규 '숨긴 폰': 최병우의 폰이 떨어진다 — 은재보다 먼저 밟아라 (밟으면 그로기 / 방치하면 영구 강화)
+      b.jPhoneT = (b.jPhoneT===undefined?13:b.jPhoneT) - dt;
+      if (b.jPhoneT<=0 && !b.jPhoneOn){
+        b.jPhoneOn = true;
+        const a2 = Math.random()*Math.PI*2;
+        addGateObj({ kind:'pick', icon:'📱', x:player.x+Math.cos(a2)*230, y:player.y+Math.sin(a2)*230, r:20, maxT:6,
+          onPick:()=>{
+            b.jPhoneOn = false; b.jStunT = 2.2;
+            showBossBanner('숨긴 폰 확보', '"내 폰 어딨어?!" — 2초 그로기', '#3f7a5c');
+            SFX.play('win');
+          },
+          onFail:()=>{
+            b.jPhoneOn = false;
+            b.dmg = Math.round(b.dmg*1.12); b.speed *= 1.06;
+            addTextNum(b.x, b.y-b.r-16, '"역시 숨기고 있었네." (영구 강화)');
+            SFX.play('warn');
+          } });
+        addTextNum(player.x, player.y-48, '📱 숨긴 폰이 떨어졌다 — 먼저 밟아라!');
+        b.jPhoneT = 16;
       }
       // 전멸기 '읽씹의 대가': 100초 초과 시 전방위 즉사급 탄막 + 영구 강화
       if ((b.aliveT||0) > 100 && !b.jWiped){
@@ -14291,6 +14313,39 @@ import { FX } from "./fx.js";
         if (b.trPrep>0 && Math.floor(performance.now()/120)%2===0){
           ctx.fillStyle = '#e8c56a';
           ctx.beginPath(); ctx.arc(8,-4,2.6,0,Math.PI*2); ctx.fill();
+        }
+      }
+      // v6.66 테마 실물 프롭 (수문장 한정): 엠블럼을 넘어 몸에 걸친다
+      if (b.gate && !b.finale){
+        if (b.flav==='sns'){        // 미련의 자물쇠: 가슴에 감긴 사슬 + 금빛 자물쇠
+          ctx.strokeStyle = '#8a8f99'; ctx.lineWidth = 1.6;
+          ctx.setLineDash([3,3]);
+          ctx.beginPath(); ctx.moveTo(-7,-6); ctx.lineTo(7,2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-7,2); ctx.lineTo(7,-6); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#d9a53f';
+          roundRect(-3,-4,6,5,1); ctx.fill();
+          ctx.strokeStyle = '#d9a53f'; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.arc(0,-4,2.2,Math.PI,0); ctx.stroke();
+        } else if (b.flav==='picket'){ // 선봉 피켓조: 손피켓
+          ctx.strokeStyle = ink; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(9,5); ctx.lineTo(9,-20); ctx.stroke();
+          ctx.fillStyle = MAP.key==='abyss' ? '#3a3b40' : '#efe9df';
+          ctx.fillRect(4,-28,12,8); ctx.strokeRect(4,-28,12,8);
+          ctx.strokeStyle = '#b8362e'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(6,-24); ctx.lineTo(14,-24); ctx.stroke();
+        } else if (b.flav==='red'){    // 홍위병: 붉은 완장 + 소기(小旗)
+          ctx.fillStyle = '#c9403a';
+          ctx.fillRect(-8.5,-4,4,3);
+          ctx.strokeStyle = ink; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(8,-4); ctx.lineTo(8,-24); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(8,-24); ctx.lineTo(15,-21); ctx.lineTo(8,-18); ctx.closePath(); ctx.fill();
+        } else if (b.flav==='war'){    // 포병 관측수: 쌍안경
+          ctx.fillStyle = ink;
+          roundRect(-3.5,-12.8,3,4,1); ctx.fill();
+          roundRect(1.5,-12.8,3,4,1); ctx.fill();
+          ctx.strokeStyle = ink; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-0.5,-10.8); ctx.lineTo(1.5,-10.8); ctx.stroke();
         }
       }
       // v6.61 보스 KEY별 정체성 프롭 — kind 공용 장식 위에 '그 보스'만의 상징을 얹는다
