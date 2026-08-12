@@ -3917,13 +3917,13 @@ import { FX } from "./fx.js";
   // 속성 테크트리 — 윤회보험 RIP식 원소 속성. 전문 속성은 한 판에 3계열까지만.
   const TREES = {
     common: { name:'공통', common:true, nodes:[
-      { key:'c_hp',    name:'단련',  tier:1, max:9, desc:(m)=>'최대체력 +'+R(10*m)+', 즉시 회복', apply:(p,m)=>{ p.maxHp+=R(10*m); p.hp=Math.min(p.maxHp,p.hp+R(10*m)); } },
+      { key:'c_hp',    name:'단련',  tier:1, max:9, desc:(m)=>'최대체력 +'+R(12*m)+', 즉시 회복', apply:(p,m)=>{ p.maxHp+=R(12*m); p.hp=Math.min(p.maxHp,p.hp+R(12*m)); } },
       { key:'c_dmg',   name:'연마',  tier:1, max:9, desc:(m)=>'모든 피해 +'+R(5*m)+'%', apply:(p,m)=>{ p.dmgMult*=1+0.05*m; } },
       { key:'c_spd',   name:'속보',  tier:1, max:6, desc:(m)=>'이동속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.speed*=1+0.03*m; } },
       { key:'c_mag',   name:'수집',  tier:1, max:6, desc:(m)=>'수집 범위 +'+R(15*m), apply:(p,m)=>{ p.magnet+=15*m; } },
       { key:'c_rate',  name:'집중',  tier:1, max:6, desc:(m)=>'공격속도 +'+R(5*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; } },
-      { key:'c_regen', name:'재생',  tier:1, max:5, desc:(m)=>'초당 체력 +'+R1(0.4*m), apply:(p,m)=>{ p.regen+=0.4*m; } },
-      { key:'c_steal', name:'흡혈',  tier:2, max:3, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.8*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.8*m)); } },
+      { key:'c_regen', name:'재생',  tier:1, max:5, desc:(m)=>'초당 체력 +'+R1(0.55*m), apply:(p,m)=>{ p.regen+=0.55*m; } },
+      { key:'c_steal', name:'흡혈',  tier:2, max:3, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.6*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.6*m)); } },
       { key:'c_luck',  name:'행운',  tier:2, max:3, desc:(m)=>'골드 +'+R(8*m)+'%, 아이템 드랍 +'+R(12*m)+'%', apply:(p,m)=>{ p.goldMult*=1+0.08*m; p.luck*=1+0.12*m; } },
       { key:'c_giant', name:'거인 사냥꾼', tier:2, max:3, desc:(m)=>'엘리트·악몽급 피해 +'+R(9*m)+'%, 보스 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.eliteDmg*=1+0.09*m; p.bossDmg*=1+0.06*m; } },
       { key:'c_undying',name:'불굴', tier:3, max:1, desc:(m)=>'[궁극] 1회 부활, 체력 30% 이하일 때 피해 -'+Math.min(60,R(15*m))+'%', apply:(p,m)=>{ p.undyingRevive=true; p.undyingDR=Math.min(0.6,0.15*m); } },
@@ -3953,7 +3953,7 @@ import { FX } from "./fx.js";
     frost: { name:'서리', nodes:[
       { key:'i_chill',  name:'냉기 부여',  tier:1, max:3, desc:(m)=>'타격 시 냉기 중첩 — 중첩당 이속 -'+R((0.15+0.03*m)*100)+'% (최대 3중첩)', apply:(p,m)=>{ p.chillOn=true; p.chillPower=Math.min(0.28,(p.chillPower||0.12)+0.03*m); } },
       { key:'i_lance',  name:'얼음창',     tier:1, max:3, desc:(m)=>'4초마다 관통 얼음창 — 25% 확률 1초 빙결 (피해 +'+R(10*m)+')', apply:(p,m)=>{ if(!p.lanceLv) p.lanceDmg=16; p.lanceLv+=1; p.lanceDmg+=10*m; } },
-      { key:'i_armor',  name:'서리 갑옷',  tier:2, max:2, desc:(m)=>'피격 시 주변 적 빙결 1.2초, 받는 피해 -'+R(6*m)+'%', apply:(p,m)=>{ p.frostArmor=(p.frostArmor||0)+1; p.dmgTaken*=1-0.06*m; } },
+      { key:'i_armor',  name:'서리 갑옷',  tier:2, max:2, desc:(m)=>'피격 시 주변 적 빙결 1.2초, 받는 피해 -'+R(7*m)+'%', apply:(p,m)=>{ p.frostArmor=(p.frostArmor||0)+1; p.dmgTaken*=1-0.07*m; } },
       { key:'i_deep',   name:'혹한',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적에게 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.10*m; } },
       { key:'i_calm',   name:'냉정',       tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 냉기 효과 +'+R(2*m)+'%p', apply:(p,m)=>{ p.cdr*=1-0.03*m; p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.02*m); p.chillOn=true; } },
       { key:'i_shatter',name:'분쇄',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.08*m; } },
@@ -4084,7 +4084,7 @@ import { FX } from "./fx.js";
     ]},
     holy: { name:'신성', nodes:[
       { key:'h_smite',  name:'성광 강타',   tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 신성 피해 +'+R(8*m), apply:(p,m)=>{ p.smiteChance=Math.min(0.6,(p.smiteChance||0)+0.08*m); p.smiteDmg=(p.smiteDmg||10)+8*m; } },
-      { key:'h_bless',  name:'빛의 축복',   tier:1, max:3, desc:(m)=>'재생 +'+R1(0.4*m)+', 회복 효과 +'+R(8*m)+'%', apply:(p,m)=>{ p.regen+=0.4*m; p.healMult*=1+0.08*m; } },
+      { key:'h_bless',  name:'빛의 축복',   tier:1, max:3, desc:(m)=>'재생 +'+R1(0.5*m)+', 회복 효과 +'+R(10*m)+'%', apply:(p,m)=>{ p.regen+=0.5*m; p.healMult*=1+0.10*m; } },
       { key:'h_halo',   name:'후광',        tier:1, max:3, desc:(m)=>'6초마다 주변 신성 파동 (피해 +'+R(9*m)+', 체력 2 회복)', apply:(p,m)=>{ p.haloLv=(p.haloLv||0)+1; p.haloDmg=(p.haloDmg||12)+9*m; } },
       { key:'h_ward',   name:'성역',        tier:2, max:2, desc:(m)=>'피격을 '+R(6*m)+'% 확률로 무효화', apply:(p,m)=>{ p.holyWard=Math.min(0.35,(p.holyWard||0)+0.06*m); } },
       { key:'h_zeal',   name:'열광',        tier:2, max:2, desc:(m)=>'신성 피해 +'+R(12*m)+'%, 회복할 때마다 다음 공격 강화', apply:(p,m)=>{ p.holyAmp=(p.holyAmp||1)*(1+0.12*m); p.holyHealOnSmite=true; } },
@@ -4142,7 +4142,7 @@ import { FX } from "./fx.js";
     ]},
     blood: { name:'혈마', nodes:[
       { key:'b_pact',   name:'피의 계약',   tier:1, max:3, desc:(m)=>'피해 +'+R(7*m)+'% / 최대체력 -3%', apply:(p,m)=>{ p.dmgMult*=1+0.07*m; p.maxHp=Math.max(30,Math.round(p.maxHp*0.97)); p.hp=Math.min(p.hp,p.maxHp); } },
-      { key:'b_leech',  name:'흡혈 낙인',   tier:1, max:4, desc:(m)=>'타격 시 '+R(5*m)+'% 확률 체력 +'+Math.max(1,R(m))+' 회복', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.5,(p.bloodLeechChance||0)+0.05*m); p.bloodMult=Math.max(1,R(m)); } },
+      { key:'b_leech',  name:'흡혈 낙인',   tier:1, max:4, desc:(m)=>'타격 시 '+R(4*m)+'% 확률 체력 +'+Math.max(1,R(m))+' 회복', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.38,(p.bloodLeechChance||0)+0.04*m); p.bloodMult=Math.max(1,R(m)); } },
       { key:'b_burst',  name:'혈폭',        tier:1, max:3, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 핏빛 폭발 (피해 +'+R(9*m)+')', apply:(p,m)=>{ p.bloodBurstCh=Math.min(0.6,(p.bloodBurstCh||0)+0.10*m); p.bloodBurstDmg=(p.bloodBurstDmg||14)+9*m; } },
       { key:'b_frenzy', name:'광혈',        tier:2, max:2, desc:(m)=>'잃은 체력 10%당 공격속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.bloodFrenzy=(p.bloodFrenzy||0)+0.03*m; } },
       { key:'b_lord',   name:'피의 군주',   tier:3, max:1, desc:(m)=>'[전용기] 12초마다 체력 8%를 바쳐 핏빛 대폭발 (피해 '+R(45*m)+')', apply:(p,m)=>{ p.bloodLord=45*m; } },
@@ -4157,7 +4157,7 @@ import { FX } from "./fx.js";
       { key:'b_vessel', name:'핏빛 그릇',   tier:1, max:2, desc:(m)=>'최대체력 +'+R(10*m)+', 처치 회복 +1', apply:(p,m)=>{ p.maxHp+=10*m; p.lifesteal+=1; } },
       { key:'b_razor',  name:'면도날 낙인', tier:2, max:2, desc:(m)=>'치명 확률 +'+R(3*m)+'%, 흡혈 낙인 확률 +'+R(2*m)+'%p', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.03*m); p.bloodLeechChance=Math.min(0.6,(p.bloodLeechChance||0)+0.02*m); p.bloodMult=p.bloodMult||1; } },
       { key:'b_hunger', name:'끝없는 허기', tier:2, max:2, desc:(m)=>'엘리트·보스 피해 +'+R(5*m)+'%, 처치 회복 +1 (큰 사냥감일수록 달다)', apply:(p,m)=>{ p.eliteDmg*=1+0.05*m; p.bossDmg*=1+0.05*m; p.lifesteal+=1; } },
-      { key:'b_myth',   name:'진혈각성',    tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 흡혈·회복 낙인 2배, 혈폭 확률 +15%p, 피의 군주 체력 소모 절반', apply:(p)=>{ p.bloodMult=(p.bloodMult||1)*2; p.lifesteal*=2; p.bloodBurstCh=Math.min(0.75,(p.bloodBurstCh||0)+0.15); p.bloodLordHalf=true; } },
+      { key:'b_myth',   name:'진혈각성',    tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 흡혈·회복 낙인 2배, 혈폭 확률 +15%p, 피의 군주 체력 소모 절반', apply:(p)=>{ p.bloodMult=(p.bloodMult||1)*1.5; p.lifesteal=Math.round(p.lifesteal*1.5); p.bloodBurstCh=Math.min(0.7,(p.bloodBurstCh||0)+0.12); p.bloodLordHalf=true; } },
     ]}
   };
   const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi','holy','grav','chrono','blood'];
