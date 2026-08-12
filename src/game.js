@@ -3939,7 +3939,10 @@ import { FX } from "./fx.js";
     // 강림 보장: 강림한 속성의 노드가 최소 3장 (있는 만큼) 먼저 확정 — 속성이 진짜 주인공이 되도록
     // + 강림 중에는 다른 속성 카드를 풀에서 제거 (부식 강림인데 폭발이 나오는 혼선 방지 — 무속성·무기·전용기는 유지)
     if (focusTree){
-      for (let i=pool.length-1;i>=0;i--){ if (pool[i].tkey && pool[i].tkey!==focusTree) pool.splice(i,1); }
+      // 타 속성 테크 카드 + 타 속성 '각인' 무기 카드(elc) 모두 제거 — 강림 표기와 어긋난 카드 원천 차단
+      for (let i=pool.length-1;i>=0;i--){
+        if ((pool[i].tkey && pool[i].tkey!==focusTree) || (pool[i].elc && pool[i].elc!==focusTree)) pool.splice(i,1);
+      }
       const focusIdx = [];
       for (let i=pool.length-1;i>=0;i--) if (pool[i].tkey===focusTree) focusIdx.push(i);
       let take = Math.min(3, focusIdx.length, need);
