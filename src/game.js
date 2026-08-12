@@ -6404,12 +6404,12 @@ import { FX } from "./fx.js";
   // ---------- 다단 관문 체인: 수문장 1~2관문 → 관문보스. 돌파 시 DB.gateProg에 체크포인트 ----------
   const GATE_CHAIN = {
     8:['gkShield','jealousEx'], 12:['gkTwin','protestEx'], 16:['gkTrain','heatwaveEx'],
-    20:['gkShield','blinddateEx'], 24:['gkTwin','upstairsEx'],
+    20:['gkFlail','blinddateEx'], 24:['gkTwin','upstairsEx'],
     28:['gkShield','gkTrain','jeonseEx'], 32:['gkTwin','gkTrain','aialgoEx'],
-    36:['gkShield','gkTwin','teamleadEx'], 40:['gkTrain','gkTwin','relativesEx'],
+    36:['gkShield','gkTwin','teamleadEx'], 40:['gkTrain','gkFlail','relativesEx'],
     44:['gkShield','gkTrain','chinaEx'], 48:['gkTwin','gkShield','tariffEx2'],
     50:['gkShield','gkTwin','gkTrain','burnoutEx'],
-    52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkTrain','yeongkkeulEx'],
+    52:['gkTrain','gkTwin','warzoneEx'], 56:['gkShield','gkFlail','yeongkkeulEx'],
     60:['gkShield','gkTwin','gkTrain','grayoneEx']
   };
   // 수문장 테마: 관문보스의 세계관에 맞는 이름 + 전용 추가 패턴 (엔진은 3종 공유, 얼굴과 한 수는 관문마다 다르다)
@@ -7931,6 +7931,30 @@ import { FX } from "./fx.js";
         }
         if (b.flav) tickMidFlavor(b, dt, ds);
       }
+    } else if (b.kind==='gkflail'){
+      // v6.64 수문장 엔진 4호 · 진자 철퇴: 회전 철퇴 2기 — 주기적 '회전 가속' 예고 후 반경이 넓어진다
+      bossMoveToward(b, player.x, player.y, b.speed*0.85, dt);
+      b.flA = (b.flA||0) + dt * (b.flFast>0 ? 5.4 : 2.4);
+      if (b.flFast>0) b.flFast -= dt;
+      if (b.flR===undefined) b.flR = 70;
+      const flTarget = b.flFast>0 ? 128 : 70;
+      b.flR += (flTarget - b.flR) * Math.min(1, dt*3);
+      b.flSpinT = (b.flSpinT===undefined?7:b.flSpinT) - dt;
+      if (b.flSpinT<=0){
+        b.flSpinT = 9.5;
+        b.flFast = 3.5;
+        addTextNum(b.x, b.y-b.r-16, '⛓ 회전 가속!');
+        SFX.play('warn');
+        shake = Math.min(10, shake+4);
+      }
+      for (let k=0;k<2;k++){
+        const fa = b.flA + k*Math.PI;
+        const fx2 = b.x + Math.cos(fa)*b.flR, fy2 = b.y + Math.sin(fa)*b.flR;
+        if (Math.hypot(player.x-fx2, player.y-fy2) < 15+player.r && player.invuln<=0){
+          if (playerHit(20*ds, 0.6, 8)) return true;
+        }
+      }
+      if (b.flav) tickMidFlavor(b, dt, ds);
     } else if (b.kind==='teamlead'){
       // 관문 36: 퇴사 막는 팀장 — 사직서 3장을 보스보다 먼저 회수하라
       const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
@@ -13731,7 +13755,7 @@ import { FX } from "./fx.js";
     nukNukEX:'정신을 부수는 자', goDokGeun:'고독한 심연의 군체',
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
-    gkShield:'관문의 수문장', gkTwin:'관문의 수문장', gkTrain:'관문의 수문장',
+    gkShield:'관문의 수문장', gkTwin:'관문의 수문장', gkTrain:'관문의 수문장', gkFlail:'관문의 수문장',
     grayoneEx:'최종 관문 — 세계 그 자체',
     teamleadEx:'관문 — 사직서를 찢는 자', relativesEx:'관문 — 명절의 심문관들', burnoutEx:'관문 — 거울 속의 나',
     jealousEx:'관문 — 최병우를 놓지 못한 자',
@@ -13766,7 +13790,7 @@ import { FX } from "./fx.js";
     jeonseEx:'#8a7a3f', aialgoEx:'#5ab8c9',
     chinaEx:'#c9a13f', tariffEx2:'#d4772e', warzoneEx:'#5c6652', yeongkkeulEx:'#8a6a3f',
     teamleadEx:'#4a5568', relativesEx:'#a3653f', burnoutEx:'#555058', grayoneEx:'#e8e8e6',
-    gkShield:'#6a7a8a', gkTwin:'#7a5ca3', gkTrain:'#8a5c42',
+    gkShield:'#6a7a8a', gkTwin:'#7a5ca3', gkTrain:'#8a5c42', gkFlail:'#4a4f58',
     xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
@@ -14255,6 +14279,52 @@ import { FX } from "./fx.js";
     }
 
     ctx.globalAlpha = 1;
+    // v6.64 진자 철퇴: 사슬 + 스파이크 철퇴 2기 (월드 좌표 — 실제 판정 위치 그대로)
+    if (b.kind==='gkflail' && !b.ghost){
+      for (let k=0;k<2;k++){
+        const fa = (b.flA||0) + k*Math.PI;
+        const flr = b.flR||70;
+        const fx2 = b.x + Math.cos(fa)*flr, fy2 = b.y + Math.sin(fa)*flr;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(90,95,105,0.85)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(fx2,fy2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#4a4f58';
+        ctx.beginPath(); ctx.arc(fx2,fy2,10,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = PAL.ink;
+        ctx.lineWidth = 1.4;
+        for (let s2=0;s2<8;s2++){
+          const sa = (Math.PI/4)*s2 + (b.flA||0);
+          ctx.beginPath();
+          ctx.moveTo(fx2+Math.cos(sa)*10, fy2+Math.sin(sa)*10);
+          ctx.lineTo(fx2+Math.cos(sa)*14.5, fy2+Math.sin(sa)*14.5);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      if (b.flFast>0){
+        ctx.save();
+        ctx.strokeStyle = 'rgba(201,64,58,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(b.x,b.y,(b.flR||70)+16,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    // v6.64 테마 수문장 상징: 머리 위 테마 엠블럼 — 어느 세계관의 수문장인지 보인다
+    if (b.flav && !b.finale && !b.ghost){
+      const EMB = { sns:'🔒', picket:'🪧', sun:'☀️', heart:'💘', noise:'🔊', money:'💸', ad:'📢', work:'📑', family:'🍚', red:'🚩', wall:'🧱', tired:'😩', war:'🎯' };
+      const em = EMB[b.flav];
+      if (em){
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(em, b.x + 26, b.y - b.r - 22 + Math.sin(performance.now()/350)*2.2);
+        ctx.restore();
+      }
+    }
     // v6.62 쌍둥이 공명 실: 본체와 분신을 잇는 점선 — "분신부터"가 눈에 보인다
     if (b.kind==='gktwin' && b.gtClone && enemies.includes(b.gtClone)){
       ctx.save();
