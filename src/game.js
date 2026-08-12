@@ -69,13 +69,25 @@ import { FX } from "./fx.js";
     metaRefunded: false,
     egg1: false,
     nextId: 1,
-    muted: false
+    muted: false,
+    epoch: 2,            // 세이브 세대 — 대격변 시 증가, 구세대 세이브는 폐기
+    gwq: { stage: 0 }    // 떠돌이 대장장이 영구 퀘스트 (유일무기 제3 루트)
   };
   function loadDB(){
     try{
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw){
         const d = JSON.parse(raw);
+        // 대격변: 구세대(epoch<2) 세이브 폐기 — 단, 스테이지 진행(맵 클리어·위험도 해금)만 승계
+        if (d && typeof d==='object' && (d.epoch||1) < 2){
+          DB.mapCleared = d.mapCleared||{};
+          DB.perilMax = d.perilMax||0;
+          DB.peril = Math.min(d.peril||0, DB.perilMax);
+          localStorage.removeItem(SAVE_KEY);
+          saveDB();
+          setTimeout(()=>{ try{ toast('⚠ 대격변 — 스테이지 진행만 남기고 세계가 재구성되었다. 다시, 처음부터.'); }catch(e){} }, 1500);
+          return;
+        }
         if (d && typeof d==='object'){
           DB.best = d.best||{}; DB.gold = d.gold||0;
           DB.meta = Object.assign(DB.meta, d.meta||{});
@@ -98,6 +110,8 @@ import { FX } from "./fx.js";
           DB.perilMax = d.perilMax||0;
           DB.metaRefunded = !!d.metaRefunded;
           DB.egg1 = !!d.egg1;
+          DB.epoch = d.epoch||2;
+          DB.gwq = Object.assign({stage:0}, d.gwq||{});
           // 영구 강화 폐지 — 기존 투자 골드 전액 환불 (1회)
           if (!DB.metaRefunded && d.meta){
             let refund = 0;
@@ -1050,7 +1064,8 @@ import { FX } from "./fx.js";
       // 강화 (+9까지, 3강마다 별의 조각 필요)
       if (item.slot!=='relic' && (item.plus||0)<9){
         const plus = item.plus||0;
-        const cost = (item.r+1)*30 + plus*25;
+        // 강화 = 핵심 골드 소모처: 지수 곡선 — 고강은 수천 골드를 태운다
+        const cost = Math.round(((item.r+1)*40 + plus*30) * Math.pow(1.55, plus) / 5) * 5;
         const needShard = (plus+1)%3===0 ? 1 : 0;
         const enhBtn = document.createElement('button');
         enhBtn.className = 'buy sec';
@@ -1817,8 +1832,8 @@ import { FX } from "./fx.js";
   $('starZoomOut').addEventListener('click', ()=>{ starView.scale = Math.max(0.5, starView.scale*0.83); drawStarTree(); });
   $('starResetBtn').addEventListener('click', ()=>{
     if (starSpent()===0) return;
-    if (DB.gold < 500){ toast('리스펙 비용 500G 부족'); SFX.play('hit'); return; }
-    DB.gold -= 500;
+    if (DB.gold < 2000){ toast('리스펙 비용 2000G 부족'); SFX.play('hit'); return; }
+    DB.gold -= 2000;
     DB.star.nodes = {};
     saveDB();
     toast('운명 성도 리스펙 완료');
@@ -3708,11 +3723,20 @@ import { FX } from "./fx.js";
   function openMerchant(){
     const pool = MERCHANT_OFFERS.slice();
     const opts = [];
-    // 유일 무기: 우연이 겹쳐야만 나타나는 물건 — 위험도 6+ & 업적 10+ & 3% 확률, 단서 없는 이름
-    if (!DB.growth.found && (DB.peril||0)>=6 && achCount()>=10 && Math.random()<0.03){
-      const cost0 = Math.round(400 * (player.merchantDisc||1));
+    // 유일 무기: 우연이 겹쳐야만 나타나는 물건 — 위험도 15+ & 업적 10+ & 상자와 동일한 0.001% 확률
+    // 직업 계열마다 다른 모습으로 나타난다 (같은 물건, 다른 껍데기)
+    if (!DB.growth.found && (DB.peril||0)>=15 && achCount()>=10 && Math.random()<0.00001){
+      const cost0 = Math.round(500 * (player.merchantDisc||1));
+      const GW_SHAPE = {
+        war:{ n:'이 빠진 검자루', d:'"어느 무명 무사가 맡기고 찾아가질 않네. 살 거요?"' },
+        rng:{ n:'뒤틀린 활대', d:'"시위를 걸어도 소리가 안 나. 이상한 물건이야. 살 거요?"' },
+        mag:{ n:'젖은 마도서 뭉치', d:'"글자가 읽는 사람마다 다르게 보인다더군. 살 거요?"' },
+        rog:{ n:'날 없는 단검', d:'"날이 없는데 손을 베였어. 꺼림칙해서 팔아치우려고. 살 거요?"' },
+        pri:{ n:'금 간 성물', d:'"축성이 풀렸는데도 밤마다 빛이 새어나와. 살 거요?"' },
+        mer:{ n:'녹슨 저울', d:'"뭘 올려도 같은 무게를 가리켜. 고물이지만... 살 거요?"' },
+      }[classResGroup(player.classKey)] || { n:'고철 뭉치', d:'상인도 이게 뭔지 모른다. "살 거요?"' };
       opts.push({
-        l:'고철 뭉치 ('+cost0+'G)', d:'상인도 이게 뭔지 모른다. "창고 정리하다 나온 건데... 살 거요?"',
+        l:GW_SHAPE.n+' ('+cost0+'G)', d:GW_SHAPE.d,
         fx:()=>{
           if (runGold < cost0){ toast('골드 부족!'); SFX.play('hit'); return; }
           runGold -= cost0;
@@ -3727,7 +3751,7 @@ import { FX } from "./fx.js";
     const offerN = opts.length>0 ? 2 : 3;
     for (let i=0;i<offerN;i++){
       const of = pool.splice((Math.random()*pool.length)|0,1)[0];
-      const cost = Math.round(of.cost * (player.merchantDisc||1)); // 운명 '큰손' 할인
+      const cost = Math.round(of.cost * 2 * (player.merchantDisc||1)); // 물가 2배 (골드 소모처) — 운명 '큰손' 할인 적용
       opts.push({
         l:of.n+' ('+cost+'G)', d:of.d,
         fx:()=>{
@@ -4066,11 +4090,14 @@ import { FX } from "./fx.js";
       nk.textContent = '◈균열';
       nv.textContent = (rift.mode==='kill' ? (killCount-rift.kills0)+'/'+rift.need+' ' : rift.mode==='elite' ? '정예 '+enemies.filter(e=>e.riftElite).length+'기 ' : rift.mode==='guard' ? '수문장 ' : '생존 ')+Math.ceil(rift.t)+'s';
     } else if (runQuest){
-      nk.textContent = '의뢰';
+      const isGw = runQuest.type==='gwkill' || runQuest.type==='gwboss';
+      nk.textContent = isGw ? '⚒시험' : '의뢰';
       const prog = runQuest.type==='kill' ? (killCount-runQuest.start)+'/'+runQuest.goal
                  : runQuest.type==='combo' ? combo+'/'+runQuest.goal
+                 : runQuest.type==='gwkill' ? (killCount-runQuest.start)+'/'+runQuest.goal
+                 : runQuest.type==='gwboss' ? '보스 '+((DB.prog.boss||0)-runQuest.bstart)+'/'+runQuest.goal
                  : '무피격';
-      nv.textContent = prog+' '+Math.ceil(runQuest.t)+'s';
+      nv.textContent = prog + (isGw ? '' : ' '+Math.ceil(runQuest.t)+'s');
     } else if (trialT>0){
       nk.textContent = '시련'; nv.textContent = fmtTime(Math.ceil(trialT));
     } else if (bosses.length>0){
@@ -4127,8 +4154,8 @@ import { FX } from "./fx.js";
   }
 
   function gainGold(v){
-    // 경제 조정: 전역 수급 -20% (골드가 귀해야 소모처가 의미를 가진다)
-    const g = Math.max(1, Math.round(v * 0.8 * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
+    // 경제 조정 2차: 전역 수급 -75% (골드는 벌기 어렵고 쓸 곳은 많아야 한다)
+    const g = Math.max(1, Math.round(v * 0.25 * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
     return g;
   }
@@ -4148,9 +4175,10 @@ import { FX } from "./fx.js";
     pw += starSpent() * 0.004;                                    // 성도를 찍을수록 (메타 파워도 세상이 반응)
     return 1 + Math.min(2.0, pw);                                 // 최대 +200%
   }
-  function hpScale(){ return (1 + elapsed*0.019 + Math.pow(Math.max(0,elapsed-270)*0.0052,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
-  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0026 + Math.max(0,elapsed-360)*0.0012) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
-  function spdScale(){ return 1 + Math.min(0.45, elapsed*0.0011); }
+  // v6.12 난이도 상향: 방치·자동사냥 견제 — 중반부터는 컨트롤 없이는 버틸 수 없다
+  function hpScale(){ return (1 + elapsed*0.023 + Math.pow(Math.max(0,elapsed-270)*0.0060,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
+  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0042 + Math.max(0,elapsed-360)*0.0024) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
+  function spdScale(){ return 1 + Math.min(0.62, elapsed*0.0014); }
   function ringSpawnPos(minR, maxR){
     const a = Math.random()*Math.PI*2;
     const d = (minR||Math.hypot(W,H)/2+50) + Math.random()*((maxR||0)-(minR||0) > 0 ? (maxR-minR) : 60);
@@ -4440,8 +4468,8 @@ import { FX } from "./fx.js";
   function openChest(x, y){
     const candidates = player.weapons.filter(w => w.lv>=5 && !w.evolved);
     effects.push({ type:'rays', x, y, life:0.6, age:0 });
-    // 유일 무기 발견 (0.001% — 사실상 전설의 목격담. 현실적 경로는 상인의 녹슨 검)
-    if (!DB.growth.found && Math.random()<0.00001){
+    // 유일 무기 발견 (0.001% & 위험도 40+ — 사실상 전설의 목격담)
+    if (!DB.growth.found && (DB.peril||0)>=40 && Math.random()<0.00001){
       DB.growth.found = true;
       saveDB();
       addTextNum(x, y-14, '무명검 발견!');
@@ -4473,11 +4501,11 @@ import { FX } from "./fx.js";
       const pr = DB.peril||0;
       let r2 = Math.random();
       if (player.chestPlus) r2 *= 0.6;
-      // 상위 장비 드랍 반토막 + 유니크·태초는 고위험도 전용 — 장비가 게임을 지배하지 못하게
+      // 상위 장비 드랍 반토막 + 유니크·태초는 위험도 30+ 전용 — 장비가 게임을 지배하지 못하게
       if (r2 < 0.008) addEquip(genRelic());
-      else if (pr>=4 && r2 < 0.008 + 0.0012 + pr*0.0006) addEquip(genUnique());
+      else if (pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006) addEquip(genUnique());
       else if (r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012) addEquip(genSetItem());
-      else if (pr>=8 && r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012 + 0.0008 + pr*0.0004) addEquip(genPrimal());
+      else if (pr>=30 && r2 < 0.008 + 0.0012 + pr*0.0006 + 0.012 + 0.0008 + pr*0.0004) addEquip(genPrimal());
       else addEquip(genEquip(1 + (MAP.mult.reward>1.4?1:0) + (MAP.mult.reward>2?1:0) + Math.floor(pr/2)));
     } else if (roll < 0.75){
       const lvable = player.weapons.filter(w => w.lv<5);
@@ -5512,7 +5540,7 @@ import { FX } from "./fx.js";
       if (sc) FX.ring(player.x, player.y, parseInt(sc.slice(1),16), 10);
     }
     sk.fx();
-    player.skCds[i] = sk.cd * player.cdr;
+    player.skCds[i] = sk.cd * 1.35 * player.cdr; // 전역 쿨타임 +35% — 스킬은 강하되 아껴 써야 한다
     addTextNum(player.x, player.y-34, sk.n);
   }
   document.querySelectorAll('.skillChip').forEach(b=>{
@@ -6927,7 +6955,7 @@ import { FX } from "./fx.js";
     if (trialT > 0) interval *= (trialKind==='frenzy' ? 0.33 : 0.5); // 시련: 스폰 2배 (광란은 3배)
     if (waveModeRun) interval *= 0.78; // 웨이브 모드: 밀도 강화
     if (player.hordeMod) interval /= player.hordeMod; // 물량 계약
-    const cap = Math.min(150, 18 + Math.floor(elapsed/3.5));
+    const cap = Math.min(170, 18 + Math.floor(elapsed/3.0));
     const gateActive = bosses.some(b=>b.gate); // 관문 레이드 중엔 잔몹 스폰 전면 금지
     if (spawnTimer >= interval && !gateActive){
       spawnTimer = 0;
@@ -7000,20 +7028,22 @@ import { FX } from "./fx.js";
       else if (rift.t <= 0) exitRift(rift.mode==='live');
     }
     tickRunQuest(dt);
-    // NPC 의뢰인 스폰
+    // NPC 의뢰인 스폰 — 극악의 조건이 겹치면 의뢰인 대신 '떠돌이 대장장이'가 온다 (유일무기 제3 루트)
     if (elapsed >= 45 + clientCount*90 && clients.length===0 && !runQuest){
       clientCount += 1;
       const cp = ringSpawnPos(240, 380);
-      clients.push({ x:cp.x, y:cp.y, r:16, age:0 });
-      toast('수상한 의뢰인이 나타났다 (!)');
+      const gwNpc = !DB.growth.found && (DB.gwq.stage||0)<3 && (DB.peril||0)>=15 && achCount()>=12 && Math.random()<0.02;
+      clients.push({ x:cp.x, y:cp.y, r:16, age:0, gw:gwNpc });
+      toast(gwNpc ? '어디선가... 낡은 망치질 소리가 들린다 (!)' : '수상한 의뢰인이 나타났다 (!)');
     }
     for (let i=clients.length-1;i>=0;i--){
       const cl = clients[i];
       cl.age += dt;
       if (cl.age > 35 || Math.hypot(player.x-cl.x, player.y-cl.y) > 1400){ clients.splice(i,1); continue; }
       if (Math.hypot(player.x-cl.x, player.y-cl.y) < player.r+cl.r+6){
+        const wasGw = cl.gw;
         clients.splice(i,1);
-        openClientQuest();
+        if (wasGw) openGwQuest(); else openClientQuest();
         return;
       }
     }
@@ -7060,9 +7090,9 @@ import { FX } from "./fx.js";
       player.ultCooldown -= dt * (1/player.cdr);
       if (player.ultFlash>0) player.ultFlash -= dt;
       if (player.ultCooldown<=0 && (enemies.length>0 || bosses.length>0)){
-        // Q 수동 시전 — 4초 안에 안 누르면 자동 발동
+        // Q 수동 시전 — 1초 안에 안 누르면 자동 발동 (기존 4초는 자동이 멈춘 것처럼 느껴졌음)
         player.ultChargedT = (player.ultChargedT||0) + dt;
-        if (player.ultFireReq || player.ultChargedT > 4){
+        if (player.ultFireReq || player.ultChargedT > 1.0){
           triggerUltimate();
           if (player.ultEcho){ // 변혁: 이중 시전
             setTimeout(()=>{ if (state==='playing') triggerUltimate(); }, 300);
@@ -8189,6 +8219,31 @@ import { FX } from "./fx.js";
     opts.push({ l:'거절한다', d:'의뢰를 받지 않는다', fx:null });
     openEvent({ t:'수상한 의뢰인', d:'"부탁 하나 함세. 보수는 두둑히 주지."', opts });
   }
+  // 떠돌이 대장장이 — 3단계 영구 퀘스트 (완주 시 무명검, 진행도는 런을 넘어 보존)
+  function openGwQuest(){
+    const st = DB.gwq.stage||0;
+    if (st===0){
+      openEvent({ t:'떠돌이 대장장이', d:'"...이름 없는 검을 좇는 눈이군. 세 가지를 증명하면 내 마지막 작품을 주지. 첫째 — 담금질."', opts:[
+        { l:'담금질의 증명 (1/3)', d:'이번 런에서 1000마리 처치', fx:()=>{
+            runQuest = { type:'gwkill', goal:1000, t:99999, gold:0, chest:false, start:killCount };
+            toast('대장장이의 시험: 이번 런 1000처치'); SFX.play('quest');
+          } },
+        { l:'다음에 하겠다', d:'그는 연기처럼 사라질 것이다', fx:null },
+      ]});
+    } else if (st===1){
+      openEvent({ t:'떠돌이 대장장이', d:'"살아 돌아왔군. 둘째 — 격(格)이다. 우두머리들의 피를 보여라."', opts:[
+        { l:'격의 증명 (2/3)', d:'이번 런에서 보스 8기 처치', fx:()=>{
+            runQuest = { type:'gwboss', goal:8, t:99999, gold:0, chest:false, bstart:(DB.prog.boss||0) };
+            toast('대장장이의 시험: 이번 런 보스 8처치'); SFX.play('quest');
+          } },
+        { l:'다음에 하겠다', d:'...', fx:null },
+      ]});
+    } else {
+      openEvent({ t:'떠돌이 대장장이', d:'"마지막이다. 위험도 15 이상의 세계를 완주해라. 그 끝에서 완성품을 건네지."', opts:[
+        { l:'알겠다 (3/3)', d:'위험도 15+ 맵 클리어 시 무명검을 얻는다', fx:()=>{ toast('마지막 시험: 위험도 15+ 클리어'); } },
+      ]});
+    }
+  }
   function tickRunQuest(dt){
     if (!runQuest) return;
     runQuest.t -= dt;
@@ -8201,8 +8256,21 @@ import { FX } from "./fx.js";
       else if (runQuest.t<=0) fail = true;
     } else if (runQuest.type==='nohit'){
       if (runQuest.t<=0) done = true; // 실패는 playerHit에서 처리
+    } else if (runQuest.type==='gwkill'){
+      if (killCount - runQuest.start >= runQuest.goal) done = true; // 실패 없음 — 런이 끝나면 무효
+    } else if (runQuest.type==='gwboss'){
+      if ((DB.prog.boss||0) - runQuest.bstart >= runQuest.goal) done = true;
     }
     if (done){
+      if (runQuest.type==='gwkill' || runQuest.type==='gwboss'){
+        DB.gwq.stage = (DB.gwq.stage||0)+1;
+        saveDB();
+        toast('⚒ 대장장이의 시험 통과 ('+DB.gwq.stage+'/3) — 그를 다시 만나야 한다');
+        SFX.play('win');
+        effects.push({ type:'rays', x:player.x, y:player.y, life:0.6, age:0 });
+        runQuest = null;
+        return;
+      }
       questAdd('client', 1);
       const g = gainGold(runQuest.gold);
       addTextNum(player.x, player.y-30, '의뢰 완수! +'+g+'G');
@@ -8368,6 +8436,13 @@ import { FX } from "./fx.js";
     unlockAch('clear_'+selMap);
     DB.star.pts = (DB.star.pts||0) + 3;
     toast('클리어 보너스: 운명 포인트 +3P');
+    // 대장장이 최종 시험: 위험도 15+ 완주 → 무명검
+    if (DB.gwq && DB.gwq.stage===2 && (DB.peril||0)>=15 && !DB.growth.found){
+      DB.gwq.stage = 3;
+      DB.growth.found = true;
+      toast('⚒ "약속은 지킨다." — 무명검이 손에 들어왔다');
+      SFX.play('evolve');
+    }
     // 위험도 해금: 현재 위험도로 클리어 시 다음 단계 개방
     if ((DB.peril||0) >= (DB.perilMax||0) && (DB.perilMax||0) < 60){
       DB.perilMax = (DB.perilMax||0) + 1;
