@@ -135,6 +135,7 @@ import { FX } from "./fx.js";
   function saveDB(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(DB)); }catch(e){} }
   loadDB();
   window.__bootOk = true; // 부팅 신호 — index.html 캐시 복구 타이머 해제
+  try{ sessionStorage.removeItem('bootRetry'); }catch(e){}
 
   function fmtTime(s){
     s = Math.floor(s);
