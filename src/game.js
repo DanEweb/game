@@ -73,7 +73,8 @@ import { FX } from "./fx.js";
     epoch: 2,            // 세이브 세대 — 대격변 시 증가, 구세대 세이브는 폐기
     gwq: { stage: 0 },   // 떠돌이 대장장이 영구 퀘스트 (유일무기 제3 루트)
     gateProg: {},        // 관문 레이드 체크포인트 — peril → 돌파한 관문 수 (다음 도전 시 이어서)
-    cgw: {}              // 직업 전용 성장무기 (32직업 × 3종) — key '<class>_<i>' → {found,lv,xp}
+    cgw: {},             // 직업 유일무기 (37직업 × 3종, 극악 발견) — key '<class>_<i>' → {found,lv,xp}
+    pgw: {}              // 직업 성장무기 (37직업 × 3종, 공방 제작·처치 성장)
   };
   function loadDB(){
     try{
@@ -116,6 +117,7 @@ import { FX } from "./fx.js";
           DB.gwq = Object.assign({stage:0}, d.gwq||{});
           DB.gateProg = d.gateProg||{};
           DB.cgw = d.cgw||{};
+          DB.pgw = d.pgw||{};
           // 영구 강화 폐지 — 기존 투자 골드 전액 환불 (1회)
           if (!DB.metaRefunded && d.meta){
             let refund = 0;
@@ -1062,17 +1064,52 @@ import { FX } from "./fx.js";
     // 유일 성장무기 — 일반 장비와 같은 행 양식 (희귀도: 유일)
     const GW_LIST = [
       { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리' },
-      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [원거리 계열 전용]' },
-      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [술법·지원 계열 전용]' },
-      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [근접·암습 계열 전용]' },
+      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [저격수 전용]' },
+      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용]' },
+      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용]' },
     ];
-    // 직업 전용 성장무기 3종 (현재 탭 직업) — 미발견도 힌트로 표시
+    // 직업 유일무기 3종 (현재 탭 직업) — 미발견도 힌트로 표시
     (CGW_NAMES[equipClassTab]||[]).forEach((nm, i)=>{
       const rec = (DB.cgw||{})[equipClassTab+'_'+i];
       GW_LIST.push({ key:'cgw_'+equipClassTab+'_'+i, found: !!(rec&&rec.found), lv: rec?rec.lv:1,
         def: WEAPONS['cgw_'+equipClassTab+'_'+i],
-        ds:'['+(CLASSES[equipClassTab]?CLASSES[equipClassTab].name:'')+' 전용] 이 직업으로 보스를 잡다 보면 발견 · 장착 후 보스 처치로 성장' });
+        ds:'[직업 유일] 극악 확률 발견 · 장착 후 보스 처치로 성장' });
     });
+    // 직업 성장무기 3종 (공방 제작): 보유 시 장착 목록에 합류
+    const PGW_COST = [
+      { shard:2, essence:1, gear:0, gold:400 },
+      { shard:1, essence:2, gear:1, gold:700 },
+      { shard:2, essence:2, gear:2, gold:1200 },
+    ];
+    for (let pi=0; pi<3; pi++){
+      const pkey = 'pgw_'+equipClassTab+'_'+pi;
+      if (!WEAPONS[pkey]) break;
+      const prec = (DB.pgw||{})[equipClassTab+'_'+pi];
+      if (prec && prec.found){
+        GW_LIST.push({ key:pkey, found:true, lv:prec.lv, def:WEAPONS[pkey], ds:'[직업 성장무기] 함께 싸운 만큼 자란다 (처치 성장)' });
+      } else {
+        const c = PGW_COST[pi];
+        const row = document.createElement('div');
+        row.className = 'shopItem';
+        row.innerHTML = '<div class="info"><div class="nm">🔨 '+WEAPONS[pkey].name+' <span style="font-size:9px;color:var(--ink-500);">[미제작]</span></div>'
+          + '<div class="ds">공방 제작 — ★'+c.shard+' ◆'+c.essence+' ⚙'+c.gear+' + '+c.gold+'G</div></div>';
+        const mk = document.createElement('button');
+        mk.className = 'buy';
+        const can = DB.mats.shard>=c.shard && DB.mats.essence>=c.essence && DB.mats.gear>=c.gear && DB.gold>=c.gold;
+        mk.textContent = '제작';
+        mk.disabled = !can;
+        mk.addEventListener('click', ()=>{
+          if (!can) return;
+          DB.mats.shard-=c.shard; DB.mats.essence-=c.essence; DB.mats.gear-=c.gear; DB.gold-=c.gold;
+          pgwRec(equipClassTab+'_'+pi).found = true;
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          toast('🔨 ['+WEAPONS[pkey].name+'] 제작 완료!');
+          SFX.play('evolve');
+        });
+        row.appendChild(mk);
+        invList.appendChild(row);
+      }
+    }
     GW_LIST.filter(g=>g.found).forEach(g=>{
       const on = lo.gw === g.key;
       const row = document.createElement('div');
@@ -1245,9 +1282,9 @@ import { FX } from "./fx.js";
   }
   // 성장 무기 도감 (직업군별 파밍 무기)
   const GWEP_DEFS = {
-    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'원거리 계열 전용 (궁수·저격수·파일럿·스페셜리스트)' },
-    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'술법·지원 계열 전용 (관리자·공허술사·지휘관·룬 기사 + 사제군)' },
-    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'근접·암습 계열 전용 (전사군·도적군 — 사무라이·결투가 포함)' },
+    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'[저격수 전용] — 침묵과 한 발의 무게' },
+    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'[공허술사 전용] — 심연을 읽는 책' },
+    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'[사신 전용] — 수확자의 대검' },
   };
   function renderShop(){
     goldVal.textContent = DB.gold;
@@ -4070,6 +4107,33 @@ import { FX } from "./fx.js";
     });
   });
 
+  // ---------- 직업 성장무기 (37직업 × 3종 = 111종): 공방 제작으로 얻고, 함께 싸운 만큼 자란다 ----------
+  const PGW_SUFFIX = {
+    war:['단련검','전장도끼','수호전추'], rng:['연마총신','정밀기관','장거리포'], mag:['수련장서','비전결정','심층지팡이'],
+    rog:['숫돌단도','연격쌍인','암연사슬'], pri:['기도성구','축성낫','성가호부'], mer:['계산주판','거래저울','황금망치'],
+  };
+  function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
+  Object.keys(CGW_NAMES).forEach((ck)=>{
+    const g = CGW_CLASS_GROUP(ck);
+    PGW_SUFFIX[g].forEach((sfx, i)=>{
+      const key = 'pgw_'+ck+'_'+i;
+      const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3]; // 유일무기와 다른 원형 배치
+      const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
+      WEAPONS[key] = {
+        name: cname+'의 '+sfx, cgw:true, pgw:true, arch,
+        desc:'[직업 성장무기] '+cname+'의 '+sfx+' — 공방에서 벼려낸 무기, 함께 싸운 만큼 자란다',
+        evName: cname+'의 '+sfx+'·완성', evDesc:'수련이 결실을 맺습니다',
+        lvDesc:['','강화','피해 +25%','강화','강화'],
+        baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
+        dmg:(w)=>{
+          const gl = (DB.pgw && DB.pgw[ck+'_'+i] && DB.pgw[ck+'_'+i].lv)||1;
+          return (2 + gl*1.0) * [1,1.25,1.55,1.9,2.3][w.lv-1] * (gl>=25?1.3: gl>=12?1.15:1) * (w.evolved?1.5:1);
+        },
+        count:(w)=> (arch==='nova'?7 : arch==='spread'?3 : arch==='homing'?2 : 1) + (w.lv>=3?1:0) + (w.evolved?1:0)
+      };
+    });
+  });
+
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.bow.lv)||1;
     return l>=100?'침묵하는 활·종언' : l>=60?'침묵하는 활·극의' : l>=30?'침묵하는 활·진각성' : l>=15?'침묵하는 활·각성' : '침묵하는 활';
@@ -4141,7 +4205,7 @@ import { FX } from "./fx.js";
         || player.weapons.some(w2=>WEAPONS[w2.key] && WEAPONS[w2.key].cgw);
       Object.keys(WEAPONS).forEach((key)=>{
         // 성장무기는 장비탭에서 장착하는 방식 — 카드로는 등장하지 않음
-        if (['nameless','gbow','gtome','gblade'].includes(key) || key.indexOf('cgw_')===0) return;
+        if (['nameless','gbow','gtome','gblade'].includes(key) || key.indexOf('cgw_')===0 || key.indexOf('pgw_')===0) return;
         if (hasGrowth) return; // 성장무기 소지 시 일반 새 무기도 미등장
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
@@ -4983,7 +5047,7 @@ import { FX } from "./fx.js";
     const s = hpScale(), ds = dmgScale();
     let e;
     if (type==='swarm'){
-      e = { type, x,y, r:8, hp:7*s, maxHp:7*s, speed:95+Math.random()*26, dmg:5*ds, xpValue:1, hitCd:0 };
+      e = { type, x,y, r:8, hp:7*s, maxHp:7*s, speed:84+Math.random()*20, dmg:5*ds, xpValue:1, hitCd:0 }; // 파리떼 속도 너프
     } else if (type==='brute'){
       e = { type, x,y, r:24, hp:80*s, maxHp:80*s, speed:34+Math.random()*8, dmg:16*ds, xpValue:7, hitCd:0 };
     } else if (type==='shooter'){
@@ -4995,7 +5059,7 @@ import { FX } from "./fx.js";
     } else if (type==='kamikaze'){
       e = { type, x,y, r:11, hp:14*s, maxHp:14*s, speed:120+Math.random()*20, dmg:6*ds, xpValue:3, hitCd:0, fuse:-1 };
     } else if (type==='fish'){
-      e = { type, x,y, r:9, hp:10*s, maxHp:10*s, speed:130+Math.random()*20, dmg:6*ds, xpValue:1, hitCd:0 };
+      e = { type, x,y, r:9, hp:10*s, maxHp:10*s, speed:100+Math.random()*16, dmg:6*ds, xpValue:1, hitCd:0 }; // 속도 너프 — 컨트롤로 피할 수 있게
     } else if (type==='clone'){
       e = { type, x,y, r:16, hp:55*s, maxHp:55*s, speed:70+Math.random()*10, dmg:10*ds, xpValue:3, hitCd:0 };
     } else if (type==='treasure'){
@@ -11083,7 +11147,7 @@ import { FX } from "./fx.js";
       cls.apply(player);
       if (cls.weapon==='random2' || cls.weapon==='random3'){
         // 무작위 무기 (기본 무기 풀에서)
-        const keys = Object.keys(WEAPONS).filter(k=>!['fusion','gbow','gtome','gblade','nameless'].includes(k) && k.indexOf('cgw_')!==0);
+        const keys = Object.keys(WEAPONS).filter(k=>!['fusion','gbow','gtome','gblade','nameless'].includes(k) && k.indexOf('cgw_')!==0 && k.indexOf('pgw_')!==0);
         const n3 = cls.weapon==='random3' ? 3 : 2;
         const picked = [];
         while (picked.length<n3){
@@ -11109,15 +11173,14 @@ import { FX } from "./fx.js";
     // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
     const gwSel = loadoutFor(classKey).gw;
     const gwFound = { nameless: DB.growth.found, gbow: DB.gweps.bow.found, gtome: DB.gweps.tome.found, gblade: DB.gweps.blade.found };
-    // 성장무기 계열 배정: 무명검=전 직업 / 활=원거리 / 마도서=술법·지원 / 대검=근접·암습
-    const GWEP_GROUPS = { nameless:null, gbow:['rng'], gtome:['mag','mag2','pri'], gblade:['war','rog'] };
+    // 성장무기 주인 확정: 무명검=무명자 / 침묵하는 활=저격수 / 굶주린 마도서=공허술사 / 핏빛 대검=사신
+    const GWEP_OWNER = { nameless:'mumyeong', gbow:'sniper', gtome:'voidc', gblade:'reaper' };
     if (gwSel && gwFound[gwSel] && !ownedWeapon(gwSel)){
-      const allow = GWEP_GROUPS[gwSel];
-      if (!allow || allow.includes(classResGroup(classKey))){
+      if (GWEP_OWNER[gwSel]===classKey){
         addWeapon(gwSel);
         toast('장착 무기와 함께 출전: '+WEAPONS[gwSel].name);
       } else {
-        toast('⚔ ['+WEAPONS[gwSel].name+'] — 이 직업의 계열로는 다룰 수 없다 (미장착 출전)');
+        toast('⚔ ['+WEAPONS[gwSel].name+'] — ['+(CLASSES[GWEP_OWNER[gwSel]]?CLASSES[GWEP_OWNER[gwSel]].name:'')+'] 전용이다 (미장착 출전)');
       }
     } else if (gwSel && gwSel.indexOf('cgw_')===0){
       // 직업 전용 성장무기: 그 직업으로 출전할 때만 손에 잡힌다
@@ -11127,6 +11190,14 @@ import { FX } from "./fx.js";
         toast('직업 유일무기와 함께 출전: '+WEAPONS[gwSel].name);
       } else if (rec && rec.found){
         toast('⚔ 직업 전용 무기는 그 직업만 들 수 있다 — 미장착 출전');
+      }
+    } else if (gwSel && gwSel.indexOf('pgw_')===0){
+      const prec2 = (DB.pgw||{})[gwSel.slice(4)];
+      if (prec2 && prec2.found && gwSel.indexOf('pgw_'+classKey+'_')===0 && !ownedWeapon(gwSel) && WEAPONS[gwSel]){
+        addWeapon(gwSel);
+        toast('직업 성장무기와 함께 출전: '+WEAPONS[gwSel].name);
+      } else if (prec2 && prec2.found){
+        toast('⚔ 직업 성장무기는 그 직업만 들 수 있다 — 미장착 출전');
       }
     }
     applyEquipBonuses(player, classKey);
@@ -11151,6 +11222,19 @@ import { FX } from "./fx.js";
     if (starGain>0){
       DB.star.pts = (DB.star.pts||0) + starGain;
       toast('운명 포인트 +'+starGain+'P');
+    }
+    // 직업 성장무기: 이 런에서 함께 싸운 만큼 자란다 (처치 수 흡수)
+    if (player && player.weapons){
+      const pw2 = player.weapons.find(w2=>w2.key && w2.key.indexOf('pgw_')===0);
+      if (pw2){
+        const rec2 = pgwRec(pw2.key.slice(4));
+        rec2.xp = (rec2.xp||0) + killCount;
+        while (rec2.lv < 40 && rec2.xp >= 60 + rec2.lv*45){
+          rec2.xp -= (60 + rec2.lv*45);
+          rec2.lv += 1;
+        }
+        toast('⚒ ['+WEAPONS[pw2.key].name+'] 성장 — Lv'+rec2.lv);
+      }
     }
     questAdd('survive', Math.floor(elapsed));
     if (DB.gold >= 5000) unlockAch('gold5k');
