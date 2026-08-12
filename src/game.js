@@ -3258,6 +3258,9 @@ import { FX } from "./fx.js";
       const opts = list2.map(j=>({ l:'2차 전직: '+j.n, d:j.d + (base?' — ['+base+']의 길이 깊어진다':''), fx:()=>{
         j.fx(player); player.jobs.push(j.n);
         evolveClassStar(2);
+        // 계승 공명: 승천반에 4석 이상 투자했다면 전직이 성반과 공명 — 투자한 길이 전직으로 이어진다
+        const ascInv2 = (player.ascTaken||[]).reduce((s,v)=>s+v,0);
+        if (ascInv2>=4){ player.dmgMult*=1.04; player.maxHp=Math.round(player.maxHp*1.03); toast('✦ 계승 공명 — 성반이 전직에 응답한다 (피해 +4%, 체력 +3%)'); }
         toast('2차 전직 — '+j.n+'!');
         SFX.play('win');
       } }));
@@ -3269,6 +3272,8 @@ import { FX } from "./fx.js";
         j.fx(player, rc);
         player.jobs.push(j.n);
         evolveClassStar(3);
+        const ascInv3 = (player.ascTaken||[]).reduce((s,v)=>s+v,0) + (player.ascTaken2||[]).reduce((s,v)=>s+v,0);
+        if (ascInv3>=8){ player.dmgMult*=1.06; player.dmgTaken*=0.96; toast('✦ 대계승 공명 — 성반의 모든 별이 정점에 응답한다 (피해 +6%, 받는 피해 -4%)'); }
         toast('3차 전직 — '+j.n+'! (공명 ×'+rc+')');
         freeze=Math.max(freeze,0.25);
         SFX.play('win');
@@ -8843,6 +8848,15 @@ import { FX } from "./fx.js";
     updateGateObjs(dt);
     tickGatePending(dt);
     if (player.moonlight) screenDimT = Math.max(screenDimT, 0.22); // 월광 계약 — 상시 어둑
+    // 파워 커브 틱: 초반형은 1분마다 -1.5%, 왕귀형은 +3.5% (히든캐릭 정체성)
+    if (player.curveType){
+      if (player.curveInit===undefined){ player.curveInit=true; player.dmgMult *= (player.curveType==='early'?1.12:0.9); }
+      if (elapsed - (player.curveT0||0) >= 60){
+        player.curveT0 = (player.curveT0||0) + 60;
+        if (player.curveType==='late'){ player.dmgMult *= 1.035; addTextNum(player.x, player.y-52, '🌙 왕귀 곡선 — 피해 +3.5%'); }
+        else { player.dmgMult *= 0.985; }
+      }
+    }
     // 마크 표적: 고동치는 링 표시
     if (player.markTarget){
       player.markPulseT = (player.markPulseT||0) - dt;
@@ -10500,6 +10514,16 @@ import { FX } from "./fx.js";
     toast((dailyRun?'📅 일일 도전 — ':'')+'출격: '+MAP.name+' (위험도 '+(DB.peril||0)+')');
     player.classKey = classKey;
     DB.lastClass = classKey; saveDB(); // 직업 대성단 해금 기준 — 이 직업의 별을 밝힐 자격
+    // 히든캐릭 파워 커브: 초반 유리형(강하게 시작→서서히 식음) vs 후반 왕귀형(약하게 시작→분마다 커짐)
+    const CURVE_EARLY = ['glitch','contributor','exhero'];
+    const CURVE_LATE = ['slime','collector','mumyeong','madman'];
+    if (CURVE_EARLY.includes(classKey)){
+      player.curveType='early';
+      setTimeout(()=>toast('⏱ 초반 유리형 — 지금이 전성기다. 시간이 갈수록 서서히 식는다 (시작 피해 +12%)'), 1200);
+    } else if (CURVE_LATE.includes(classKey)){
+      player.curveType='late';
+      setTimeout(()=>toast('🌙 후반 왕귀형 — 약하게 시작하지만 1분마다 강해진다 (시작 피해 -10%)'), 1200);
+    }
     const cls = CLASSES[classKey];
     if (cls){
       cls.apply(player);
