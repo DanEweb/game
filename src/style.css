@@ -215,6 +215,7 @@
   }
 
   #goldRow{
+    flex-wrap:wrap; justify-content:center;
     display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center;
     font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-700);
   }
@@ -307,7 +308,7 @@
     0%,100%{ box-shadow:0 0 12px rgba(184,54,46,0.25); }
     50%{ box-shadow:0 0 24px rgba(184,54,46,0.5); }
   }
-  #luBtns{ display:flex; gap:10px; }
+  #luBtns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .miniBtn{
     font-family:'IBM Plex Mono',monospace; font-size:11px;
     color:var(--ink-700); background:linear-gradient(180deg, var(--card), var(--paper-2));
@@ -420,6 +421,13 @@
   }
 
   @media (max-width:560px){
+    /* v6.49 모바일 전수 개선: 행들이 세로로 짜부되지 않게, 터치 타깃 확보 */
+    #eventCards .card{ width:100%; }
+    .shopItem{ flex-wrap:wrap; }
+    .shopItem .buy{ min-height:38px; }
+    #ascInfo{ font-size:10.5px; }
+    #starInfo{ font-size:10.5px; }
+    .navBtn{ padding:7px 9px; }
     .sub{ font-size:10.5px; }
     .card{ width:47%; min-width:128px; padding:10px 9px; }
     .mapTile{ width:31%; min-width:104px; }
