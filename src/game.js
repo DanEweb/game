@@ -1062,9 +1062,9 @@ import { FX } from "./fx.js";
     // 유일 성장무기 — 일반 장비와 같은 행 양식 (희귀도: 유일)
     const GW_LIST = [
       { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리' },
-      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁' },
-      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서' },
-      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검' },
+      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [원거리 계열 전용]' },
+      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [술법·지원 계열 전용]' },
+      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [근접·암습 계열 전용]' },
     ];
     // 직업 전용 성장무기 3종 (현재 탭 직업) — 미발견도 힌트로 표시
     (CGW_NAMES[equipClassTab]||[]).forEach((nm, i)=>{
@@ -1245,9 +1245,9 @@ import { FX } from "./fx.js";
   }
   // 성장 무기 도감 (직업군별 파밍 무기)
   const GWEP_DEFS = {
-    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'원거리 계열 (궁수·저격수·파일럿)' },
-    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'술법 계열 (관리자·기술자·공허술사)' },
-    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'근접 계열 (돌격병·성기사·사신·철혈)' },
+    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'원거리 계열 전용 (궁수·저격수·파일럿·스페셜리스트)' },
+    tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'술법·지원 계열 전용 (관리자·공허술사·지휘관·룬 기사 + 사제군)' },
+    blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'근접·암습 계열 전용 (전사군·도적군 — 사무라이·결투가 포함)' },
   };
   function renderShop(){
     goldVal.textContent = DB.gold;
@@ -1262,7 +1262,8 @@ import { FX } from "./fx.js";
     [
       { nm:'리롤 토큰', ds:'다음 런에서 리롤 +1 (1회용, 누적 가능)', cost:30, fx:()=>{ DB.consum.reroll+=1; } },
       { nm:'부활 보험', ds:'다음 런에서 부활 1회 (1회용)', cost:150, fx:()=>{ DB.consum.revive+=1; } },
-      // 골드 소모처: 도박 — 기대값은 언제나 하우스 편 (0.4% 유니크의 꿈)
+      // ── 🎰 뒷골목 도박장 코너 ──
+      { hd:'🎰 뒷골목 도박장', hds:'기대값은 언제나 하우스 편 — 그래도 들어올 거잖아?' },
       { nm:'🎰 수상한 장비 상자', ds:'무엇이 들었는지 아무도 모른다 — 대부분 잡동사니, 0.4% 유니크 · 1.6% 세트', cost:400, fx:()=>{
           const r = Math.random();
           if (r<0.004){ addEquip(genUnique()); toast('🎰 ...유니크다!! 장비함 확인!'); SFX.play('evolve'); }
@@ -1277,6 +1278,14 @@ import { FX } from "./fx.js";
           else { toast('🎲 꽝. 그럴 줄 알았다.'); SFX.play('hit'); }
         } },
     ].forEach((c)=>{
+      if (c.hd){
+        const hrow = document.createElement('div');
+        hrow.className = 'shopItem';
+        hrow.style.cssText = 'background:rgba(184,54,46,0.08); border:1px dashed rgba(184,54,46,0.4);';
+        hrow.innerHTML = '<div class="info"><div class="nm">'+c.hd+'</div><div class="ds">'+c.hds+'</div></div>';
+        shopList.appendChild(hrow);
+        return;
+      }
       const row = document.createElement('div');
       row.className = 'shopItem';
       const held = c.nm==='리롤 토큰' ? DB.consum.reroll : DB.consum.revive;
@@ -2670,7 +2679,9 @@ import { FX } from "./fx.js";
   function renderClassCards(){
     classCardsEl.innerHTML = '';
     goldVal.textContent = DB.gold;
-    Object.keys(CLASSES).forEach((key)=>{
+    // 신규 확장 직업은 기본 직업 뒤에 배치
+    const NEW5 = ['samurai','specialist','runeknight','druid','duelist'];
+    Object.keys(CLASSES).filter(k=>!NEW5.includes(k)).concat(NEW5.filter(k=>CLASSES[k])).forEach((key)=>{
       const c = CLASSES[key];
       const unlocked = isClassUnlocked(key);
       const el = document.createElement('div');
@@ -4507,11 +4518,11 @@ import { FX } from "./fx.js";
       });
     }
     // 직업 유일무기 단서: 위험도 8+ & 5% — 지금 직업의 미발견 전용 무기 1종의 행방을 판다
-    if (CGW_NAMES[player.classKey] && (DB.peril||0)>=8 && Math.random()<0.015){
+    if (CGW_NAMES[player.classKey] && (DB.peril||0)>=8 && Math.random()<0.05){
       const missing2 = [0,1,2].filter(i=>!((DB.cgw||{})[player.classKey+'_'+i]||{}).found);
       if (missing2.length){
         const mi2 = missing2[(Math.random()*missing2.length)|0];
-        const cost2 = Math.round(900 * (player.merchantDisc||1));
+        const cost2 = Math.round(5000 * (player.merchantDisc||1));
         opts.push({ l:'⚔ 흐릿한 무기 도면 ('+cost2+'G)', d:'"당신 같은 사람들이 쓰던 물건의 도면인데... 살 거요?" — 직업 전용 무기 1종 발견', fx:()=>{
           if (runGold < cost2){ toast('골드 부족!'); SFX.play('hit'); return; }
           runGold -= cost2;
@@ -11098,9 +11109,16 @@ import { FX } from "./fx.js";
     // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
     const gwSel = loadoutFor(classKey).gw;
     const gwFound = { nameless: DB.growth.found, gbow: DB.gweps.bow.found, gtome: DB.gweps.tome.found, gblade: DB.gweps.blade.found };
+    // 성장무기 계열 배정: 무명검=전 직업 / 활=원거리 / 마도서=술법·지원 / 대검=근접·암습
+    const GWEP_GROUPS = { nameless:null, gbow:['rng'], gtome:['mag','mag2','pri'], gblade:['war','rog'] };
     if (gwSel && gwFound[gwSel] && !ownedWeapon(gwSel)){
-      addWeapon(gwSel);
-      toast('장착 무기와 함께 출전: '+WEAPONS[gwSel].name);
+      const allow = GWEP_GROUPS[gwSel];
+      if (!allow || allow.includes(classResGroup(classKey))){
+        addWeapon(gwSel);
+        toast('장착 무기와 함께 출전: '+WEAPONS[gwSel].name);
+      } else {
+        toast('⚔ ['+WEAPONS[gwSel].name+'] — 이 직업의 계열로는 다룰 수 없다 (미장착 출전)');
+      }
     } else if (gwSel && gwSel.indexOf('cgw_')===0){
       // 직업 전용 성장무기: 그 직업으로 출전할 때만 손에 잡힌다
       const rec = (DB.cgw||{})[gwSel.slice(4)];
