@@ -3647,6 +3647,67 @@ import { FX } from "./fx.js";
                 { n:'근신(筋神)', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
                 { n:'리미트 브레이커', d:'체력 +25%, 받는 피해 -10%', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); p.dmgTaken*=0.9; } } ],
   });
+  // v6.53: 잔여 8직업 2·3차 고유화 — 공용 폴백(그랜드 마스터 등) 탈출
+  Object.assign(JOB2_BY_CLASS, {
+    madman:   [ { n:'피의 광대', d:'흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
+                { n:'도살자', d:'피해 +16% / 받는 피해 +6%', fx:(p)=>{ p.dmgMult*=1.16; p.dmgTaken*=1.06; } },
+                { n:'춤추는 칼날', d:'공속 +14%, 회피 +6%', fx:(p)=>{ p.rateMult*=1.14; p.dodge=Math.min(0.6,p.dodge+0.06); } },
+                { n:'웃는 얼굴', d:'회피 +12%, 이속 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); p.speed*=1.08; } } ],
+    monk:     [ { n:'무투가', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'철산고(鐵山靠)', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'질풍각(疾風脚)', d:'공속 +12%, 이속 +10%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.1; } },
+                { n:'선승(禪僧)', d:'쿨다운 -14%', fx:(p)=>{ p.cdr*=0.86; } } ],
+    commander:[ { n:'야전 사령관', d:'모든 소환물 +30%', fx:(p)=>{ p.droneBoost+=0.3; p.ghostDmg=(p.ghostDmg||1)*1.3; p.turretDmg=(p.turretDmg||10)*1.3; } },
+                { n:'병참 장교', d:'골드 +25%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.2; } },
+                { n:'포병 지휘관', d:'터렛 +1기', fx:(p)=>{ p.turretLv+=1; } },
+                { n:'근위대장', d:'유령 +2, 유령 지속 +2초', fx:(p)=>{ p.ghostCap+=2; p.ghostDur=(p.ghostDur||0)+2; } } ],
+    tombraider:[{ n:'보물 사냥꾼', d:'행운 +35%', fx:(p)=>{ p.luck*=1.35; } },
+                { n:'함정 해체사', d:'회피 +12%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); } },
+                { n:'유물 감정가', d:'상자 결과 상향', fx:(p)=>{ p.chestPlus=true; } },
+                { n:'밤손님', d:'이속 +12%, 치명 +8%', fx:(p)=>{ p.speed*=1.12; p.critChance=Math.min(0.85,p.critChance+0.08); } } ],
+    mumyeong: [ { n:'무명검사(無名劍士)', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
+                { n:'무명갑주(無名甲胄)', d:'받는 피해 -12%', fx:(p)=>{ p.dmgTaken*=0.88; } },
+                { n:'무영보(無影步)', d:'이속 +10%, 회피 +8%', fx:(p)=>{ p.speed*=1.1; p.dodge=Math.min(0.6,p.dodge+0.08); } },
+                { n:'무심(無心)', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } } ],
+    contributor:[{ n:'머지 마스터 최병우', d:'피해 +12%, 쿨다운 -8%', fx:(p)=>{ p.dmgMult*=1.12; p.cdr*=0.92; } },
+                { n:'리뷰 지옥에서 온 최병우', d:'받는 피해 -10%, 회피 +8%', fx:(p)=>{ p.dmgTaken*=0.9; p.dodge=Math.min(0.6,p.dodge+0.08); } },
+                { n:'핫픽스 최병우', d:'공속 +12%, 재생 +0.6', fx:(p)=>{ p.rateMult*=1.12; p.regen+=0.6; } },
+                { n:'오픈소스 재벌 최병우', d:'골드 +25%, 행운 +25%', fx:(p)=>{ p.goldMult*=1.25; p.luck*=1.25; } } ],
+    gambler:  [ { n:'포커페이스', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
+                { n:'하이롤러', d:'도박 피해 상한 3×, 행운 +20%', fx:(p)=>{ p.gambleCeil=true; p.luck*=1.2; } },
+                { n:'딜러', d:'공속 +12%', fx:(p)=>{ p.rateMult*=1.12; } },
+                { n:'이중 베팅', d:'피해 +14% / 받는 피해 +5%', fx:(p)=>{ p.dmgMult*=1.14; p.dmgTaken*=1.05; } } ],
+    collector:[ { n:'명품 감정사', d:'행운 +35%', fx:(p)=>{ p.luck*=1.35; } },
+                { n:'창고 대방출', d:'상자 결과 상향', fx:(p)=>{ p.chestPlus=true; } },
+                { n:'희귀품 사냥꾼', d:'엘리트 피해 +14%', fx:(p)=>{ p.eliteDmg*=1.14; } },
+                { n:'견습 큐레이터', d:'받는 피해 -10%, 재생 +0.5', fx:(p)=>{ p.dmgTaken*=0.9; p.regen+=0.5; } } ],
+  });
+  Object.assign(JOB3_BY_CLASS, {
+    madman:   [ { n:'광기의 화신', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
+                { n:'핏빛 무도가', d:'흡혈 +3, 공속 +12%', fx:(p,rc)=>{ p.lifesteal+=3; p.rateMult*=1.12; } },
+                { n:'불사의 광대', d:'출혈 완화, 받는 피해 -12%', fx:(p,rc)=>{ p.madmanSlow=true; p.dmgTaken*=0.88; } } ],
+    monk:     [ { n:'권성(拳聖)', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } },
+                { n:'금강역사(金剛力士)', d:'받는 피해 -15%, 체력 +20%', fx:(p,rc)=>{ p.dmgTaken*=0.85; p.maxHp=Math.round(p.maxHp*1.2); } },
+                { n:'무아지경(無我之境)', d:'공속 +15%, 회피 +10%', fx:(p,rc)=>{ p.rateMult*=1.15; p.dodge=Math.min(0.65,p.dodge+0.1); } } ],
+    commander:[ { n:'대원수(大元帥)', d:'모든 소환물 +45% + 공명', fx:(p,rc)=>{ const m=1.45+0.004*rc; p.droneBoost+=0.45; p.ghostDmg=(p.ghostDmg||1)*m; p.turretDmg=(p.turretDmg||10)*m; } },
+                { n:'전쟁의 신', d:'피해 +18%, 소환물 +20%', fx:(p,rc)=>{ p.dmgMult*=1.18; p.droneBoost+=0.2; p.ghostDmg=(p.ghostDmg||1)*1.2; } },
+                { n:'불멸의 군단', d:'유령 지속 +4초, 소멸 시 치유', fx:(p,rc)=>{ p.ghostDur=(p.ghostDur||0)+4; p.ghostHeal=true; } } ],
+    tombraider:[{ n:'전설의 도굴왕', d:'행운 +60% + 공명', fx:(p,rc)=>{ p.luck*=1.6+0.005*rc; } },
+                { n:'저주받은 부자', d:'골드 +40%, 피해 +12% / 받는 피해 +5%', fx:(p,rc)=>{ p.goldMult*=1.4; p.dmgMult*=1.12; p.dmgTaken*=1.05; } },
+                { n:'파라오의 그림자', d:'회피 +15%, 처형 임계 +6%p', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.execThresh=Math.min(0.4,p.execThresh+0.06); } } ],
+    mumyeong: [ { n:'이름 없는 신', d:'모든 스탯 +12% + 공명', fx:(p,rc)=>{ const m=1.12+0.004*rc; p.dmgMult*=m; p.rateMult*=1.12; p.speed*=1.1; p.maxHp=Math.round(p.maxHp*1.12); } },
+                { n:'무극(無極)', d:'피해 +20%', fx:(p,rc)=>{ p.dmgMult*=1.2; } },
+                { n:'공(空)', d:'회피 +15%, 받는 피해 -8%', fx:(p,rc)=>{ p.dodge=Math.min(0.65,p.dodge+0.15); p.dmgTaken*=0.92; } } ],
+    contributor:[{ n:'메인테이너 최병우', d:'모든 스탯 +10% + 공명', fx:(p,rc)=>{ const m=1.1+0.004*rc; p.dmgMult*=m; p.rateMult*=1.1; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'전설의 1커밋', d:'피해 +22%', fx:(p,rc)=>{ p.dmgMult*=1.22; } },
+                { n:'불사의 레거시', d:'체력 +25%, 받는 피해 -10%', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); p.dmgTaken*=0.9; } } ],
+    gambler:  [ { n:'갬블의 신', d:'행운 +60% + 공명', fx:(p,rc)=>{ p.luck*=1.6+0.005*rc; } },
+                { n:'잭팟 메이커', d:'도박 피해 하한 0.8×, 치명 배율 +0.5', fx:(p,rc)=>{ p.gambleFloor=true; p.critMult+=0.5; } },
+                { n:'올인의 제왕', d:'피해 +20% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.2+0.004*rc; } } ],
+    collector:[ { n:'대영박물관장', d:'행운 +50%, 골드 +30%', fx:(p,rc)=>{ p.luck*=1.5; p.goldMult*=1.3; } },
+                { n:'완전 수집', d:'모든 스탯 +10% + 공명', fx:(p,rc)=>{ const m=1.1+0.004*rc; p.dmgMult*=m; p.rateMult*=1.1; p.speed*=1.08; p.maxHp=Math.round(p.maxHp*1.1); } },
+                { n:'유물의 주인', d:'피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } } ],
+  });
   // 소성단 진화: 직업 전용 별을 찍어뒀다면, 이 런의 전직·각성 순간마다 그 별이 한 단계 진화한다
   function evolveClassStar(stage){
     if (!player) return;
@@ -12366,28 +12427,86 @@ import { FX } from "./fx.js";
     ctx.fillStyle = ink;
     ctx.lineCap = 'round';
 
+    // v6.53 일러스트급 바디 1단계: 계열 실루엣 몸통·팔·부츠·머리칼 — 앵커(머리 1,-11 / 어깨 3,-3 / 발 y12)는
+    // 기존과 동일하게 유지해 30여 개 직업 프롭·스윙·티어 외형이 그대로 맞물린다
+    const grp = o.gear ? classResGroup(o.gear) : null;
+    // 몸통 톤 분리 — 머리·팔다리(잉크)와 몸통(옷감 톤)을 나눠 실루엣이 덩어리지지 않게
+    const bodyTone = (ink===PAL.ink) ? (MAP.key==='abyss' ? '#36373d' : '#4d4f59') : ink;
     if (o.robe){
-      // 로브 (사신 등): 다리 대신 펄럭이는 자락
+      // 풀 로브 — 자락이 갈라지며 펄럭이고, 어깨선과 허리끈이 잡힌다
+      ctx.fillStyle = bodyTone;
       ctx.beginPath();
-      ctx.moveTo(-5,-5);
-      ctx.lineTo(5,-5);
-      ctx.lineTo(7,12+Math.sin(walk)*1.5);
-      ctx.lineTo(2,10);
-      ctx.lineTo(-3,12-Math.sin(walk)*1.5);
-      ctx.lineTo(-7,10);
+      ctx.moveTo(-5.5,-6.5);
+      ctx.quadraticCurveTo(-7.5,1,-8,12-Math.sin(walk)*1.8);
+      ctx.lineTo(-3,10);
+      ctx.lineTo(2,12+Math.sin(walk)*1.8);
+      ctx.lineTo(7,10);
+      ctx.quadraticCurveTo(7.5,1,5.5,-6.5);
       ctx.closePath();
       ctx.fill();
+      ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.fillStyle = ink;
+      if (o.tierC){ ctx.strokeStyle=o.tierC; ctx.lineWidth=1.1; ctx.globalAlpha=0.8;
+        ctx.beginPath(); ctx.moveTo(-5.2,1.5); ctx.lineTo(5.2,1.5); ctx.stroke();
+        ctx.globalAlpha=1; ctx.strokeStyle=ink; }
     } else {
-      // legs
-      ctx.lineWidth = 2.6;
-      ctx.beginPath(); ctx.moveTo(-1,4); ctx.lineTo(-2+swing, 12); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(1,4); ctx.lineTo(2-swing, 12); ctx.stroke();
-      // body
-      roundRect(-4.5,-6,9,11,3);
-      ctx.fill();
+      // 뒷팔 — 몸 뒤에서 걷기에 맞춰 흔들린다
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(-3,-4); ctx.lineTo(-5-swing*0.5, 2); ctx.stroke();
+      // 다리 — 볼륨 있는 캡슐 + 부츠
+      ctx.lineWidth = 3.2;
+      ctx.beginPath(); ctx.moveTo(-1.5,3); ctx.lineTo(-2.4+swing, 10.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(1.5,3); ctx.lineTo(2.4-swing, 10.6); ctx.stroke();
+      ctx.fillRect(-4.4+swing, 10.2, 4.2, 2.5);
+      ctx.fillRect(0.4-swing, 10.2, 4.2, 2.5);
+      // 몸통 — 계열별 실루엣 (옷감 톤 + 잉크 윤곽)
+      ctx.fillStyle = bodyTone;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.4;
+      if (grp==='war'){
+        roundRect(-6,-7,12,11.5,3); ctx.fill(); ctx.stroke();          // 넓은 흉갑
+        ctx.fillStyle = ink;
+        ctx.beginPath(); ctx.arc(-5.6,-5.2,2.5,0,Math.PI*2); ctx.fill(); // 양어깨 볼륨(잉크)
+        ctx.beginPath(); ctx.arc(5.6,-5.2,2.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = bodyTone;
+      } else if (grp==='mag' || grp==='pri'){
+        ctx.beginPath();                                               // 아래로 퍼지는 로브 상의
+        ctx.moveTo(-4.5,-7); ctx.lineTo(4.5,-7);
+        ctx.lineTo(6.3,4.5); ctx.lineTo(-6.3,4.5);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (grp==='rog'){
+        roundRect(-4,-7,8,11.5,3); ctx.fill(); ctx.stroke();           // 슬림 튜닉
+      } else if (grp==='rng'){
+        roundRect(-4.5,-7,9,11.5,3); ctx.fill(); ctx.stroke();         // 사냥꾼 베스트
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+        ctx.beginPath(); ctx.moveTo(-3.5,-6); ctx.lineTo(3.5,1.5); ctx.stroke(); // 가슴 사선 스트랩
+        ctx.strokeStyle = ink;
+      } else {
+        roundRect(-4.5,-6.5,9,11.5,3); ctx.fill(); ctx.stroke();       // 기본 재킷
+      }
+      ctx.fillStyle = ink;
+      // 허리 벨트 — 직업색 포인트
+      if (o.tierC){ ctx.fillStyle=o.tierC; ctx.globalAlpha=0.9; ctx.fillRect(-4.2,1.8,8.4,1.7); ctx.globalAlpha=1; ctx.fillStyle=ink; }
     }
+    // 목
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(1,-6.5); ctx.lineTo(1,-8.5); ctx.stroke();
     // head
     ctx.beginPath(); ctx.arc(1,-11,5.6,0,Math.PI*2); ctx.fill();
+    // 머리칼 실루엣 — 계열별 (모자 프롭이 위에 얹혀도 읽히는 최소 형태)
+    if (!o.robe){
+      if (grp==='war'){        // 짧은 스파이크
+        ctx.beginPath(); ctx.moveTo(-3.5,-15); ctx.lineTo(-2.2,-18.2); ctx.lineTo(-0.8,-15.6); ctx.lineTo(0.8,-18.6); ctx.lineTo(2.2,-15.6); ctx.closePath(); ctx.fill();
+      } else if (grp==='rng'){ // 뒷머리 포니테일
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(-4,-13); ctx.quadraticCurveTo(-8,-11+Math.sin(walk)*1.2,-8.5,-6); ctx.stroke();
+      } else if (grp==='rog'){ // 옆으로 흘러내린 앞머리
+        ctx.beginPath(); ctx.moveTo(-4.5,-14.5); ctx.quadraticCurveTo(-6.5,-11,-5,-8.5); ctx.lineTo(-3.2,-12); ctx.closePath(); ctx.fill();
+      } else if (grp==='mer'){ // 단정한 옆가르마 볼륨
+        ctx.beginPath(); ctx.arc(-1.5,-14.2,3.4,Math.PI*0.85,Math.PI*1.95); ctx.fill();
+      }
+    }
     // eye
     ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
     ctx.beginPath(); ctx.arc(3.4,-11.6,1.3,0,Math.PI*2); ctx.fill();
@@ -12399,6 +12518,13 @@ import { FX } from "./fx.js";
     const atk = o.atk||0;
     const swung = atk>0;
     if (swung){ ctx.save(); ctx.translate(3,-3); ctx.rotate(-atk*0.55); ctx.translate(-3,3); }
+    // 앞팔 + 손 — 무기와 같은 축으로 휘둘러진다 (스윙 변환 안쪽)
+    if (!o.robe){
+      ctx.lineWidth = 2.8;
+      ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(6.5+(swung?0:swing*0.3), 0.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(7+(swung?0:swing*0.3), 1.2, 1.7, 0, Math.PI*2); ctx.fill();
+      ctx.lineWidth = 2;
+    }
     if (g==='manager'){
       ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
       ctx.fillRect(-7,-16.5,14,2.5);
