@@ -567,6 +567,10 @@ import { FX } from "./fx.js";
     { key:'treasure',name:'황금 사냥꾼',  unit:'보물 골렘', tiers:[1,5,15,40],          gold:[60,180,500,1200], equip:[0,2,4,5] },
     { key:'trial',   name:'시련 정복자',  unit:'시련 완수', tiers:[1,3,8,20],           gold:[80,250,700,1800], equip:[0,3,4,6] },
     { key:'client',  name:'해결사',       unit:'의뢰 완수', tiers:[1,5,15,40],          gold:[70,220,600,1500], equip:[0,2,4,5] },
+    { key:'gate',    name:'관문 돌파자',  unit:'관문 돌파', tiers:[1,3,8,15,30],        gold:[150,400,1000,2500,5000], equip:[0,3,4,5,6] },
+    { key:'craft',   name:'공방 장인',    unit:'제작·의식', tiers:[1,3,6,12],           gold:[100,300,800,2000], equip:[0,0,4,5] },
+    { key:'gamble',  name:'하우스의 친구', unit:'도박',     tiers:[1,10,30,100],        gold:[50,200,600,2000], equip:[0,0,3,5] },
+    { key:'asc',     name:'승천자',       unit:'승천석 사용', tiers:[3,10,30,80,200],   gold:[80,250,700,1800,4000], equip:[0,0,3,4,6] },
     { key:'fuse',    name:'융합 기술자',  unit:'무기 합성', tiers:[1,5,15],             gold:[100,400,1200], equip:[3,4,6] },
     { key:'imbue',   name:'각인사',       unit:'각인',     tiers:[1,5,20,50],          gold:[60,200,600,1500], equip:[0,3,4,5] },
   ];
@@ -615,6 +619,23 @@ import { FX } from "./fx.js";
 
   // ---------- achievements ----------
   const ACHIEVEMENTS = [
+    // v6.43 신규 업적 (관문·승천·무기·도박·직업)
+    { key:'gate1',      name:'첫 관문',      desc:'관문을 처음으로 돌파한다', gold:150 },
+    { key:'gatefinal',  name:'회색의 끝',    desc:'회색 군주 · 그레이스케일을 쓰러뜨린다', gold:2000 },
+    { key:'cgw1',       name:'주인을 만난 무기', desc:'직업 유일무기를 처음 발견한다', gold:300 },
+    { key:'pgw1',       name:'첫 망치질',    desc:'직업 성장무기를 처음 제작한다', gold:100 },
+    { key:'pgwawk',     name:'격을 넘다',    desc:'성장무기의 격 돌파 의식을 거행한다', gold:200 },
+    { key:'gamble1',    name:'입문 도박사',  desc:'뒷골목 도박장에서 처음 배팅한다', gold:30 },
+    { key:'jackpot777', name:'인생 역전',    desc:'복권 최고 당첨(+3000G)을 터뜨린다', gold:300 },
+    { key:'asc1',       name:'승천의 첫 걸음', desc:'승천반에서 스톤을 처음 밝힌다', gold:80 },
+    { key:'ascseal',    name:'각인된 길',    desc:'전직 문장을 새긴다', gold:120 },
+    { key:'wayres',     name:'별의 인도',    desc:'길 성좌 공명을 발동시킨다', gold:150 },
+    { key:'hiddenpact', name:'금단의 서명',  desc:'히든 런 계약을 체결한다', gold:200 },
+    { key:'latewin',    name:'대기만성',     desc:'후반 왕귀형 직업으로 클리어한다', gold:250 },
+    { key:'earlywin',   name:'전성기의 증명', desc:'초반 유리형 직업으로 클리어한다', gold:250 },
+    { key:'newjob5',    name:'새 시대의 모험가', desc:'신규 확장 직업으로 클리어한다', gold:300 },
+    { key:'smith3',     name:'대장장이의 친구', desc:'떠돌이 대장장이의 3단계 시험을 완주한다', gold:500 },
+    { key:'blueprint',  name:'도면 수집가',  desc:'상인에게서 흐릿한 무기 도면을 산다', gold:200 },
     { key:'evolve1',       name:'첫 진화',    desc:'무기를 처음으로 진화시킨다', gold:50 },
     { key:'fever50',       name:'학살자',     desc:'콤보 50 달성', gold:100 },
     { key:'melt',          name:'융해 반응',  desc:'냉기 상태의 적에게 화상을 부여해 융해를 일으킨다', gold:80 },
@@ -787,7 +808,9 @@ import { FX } from "./fx.js";
     const stats = [];
     for (let i=0;i<statCount;i++){
       const s = pool.splice((Math.random()*pool.length)|0,1)[0];
-      let v = s.min + Math.random()*(s.max-s.min);
+      // 품질 바닥: 희귀도가 높을수록 최소 굴림이 올라간다 — "고급이 일반보다 나쁜" 역전 차단
+      const q = Math.min(1, r*0.18 + Math.random()*(1 - r*0.18));
+      let v = s.min + q*(s.max-s.min);
       v *= (1 + r*0.30);
       if (wt==='heavy') v *= 1.3;
       if (curse) v *= 1.5;
@@ -1107,6 +1130,7 @@ import { FX } from "./fx.js";
             if (!canA) return;
             DB.mats.shard-=2; DB.mats.essence-=2; DB.gold-=500;
             prec.awk = (prec.awk||0)+1;
+            questAdd('craft', 1); unlockAch('pgwawk');
             saveDB(); renderEquip(); goldVal.textContent = DB.gold;
             toast('🔥 격 돌파 — ['+WEAPONS[pkey].name+'] 다음 격이 열렸다');
             SFX.play('evolve');
@@ -1129,6 +1153,7 @@ import { FX } from "./fx.js";
           if (!can) return;
           DB.mats.shard-=c.shard; DB.mats.essence-=c.essence; DB.mats.gear-=c.gear; DB.gold-=c.gold;
           pgwRec(equipClassTab+'_'+pi).found = true;
+          questAdd('craft', 1); unlockAch('pgw1');
           saveDB(); renderEquip(); goldVal.textContent = DB.gold;
           toast('🔨 ['+WEAPONS[pkey].name+'] 제작 완료!');
           SFX.play('evolve');
@@ -1330,6 +1355,7 @@ import { FX } from "./fx.js";
       { hd:'🎰 뒷골목 도박장', hds:'기대값은 언제나 하우스 편 — 그래도 들어올 거잖아?' },
       { nm:'🎰 수상한 장비 상자', ds:'무엇이 들었는지 아무도 모른다 — 대부분 잡동사니, 0.4% 유니크 · 1.6% 세트', cost:400, fx:()=>{
           const r = Math.random();
+          questAdd('gamble', 1); unlockAch('gamble1');
           if (r<0.004){ addEquip(genUnique()); toast('🎰 ...유니크다!! 장비함 확인!'); SFX.play('evolve'); }
           else if (r<0.02){ addEquip(genSetItem()); toast('🎰 세트 장비! 나쁘지 않다'); SFX.play('win'); }
           else if (r<0.12){ addEquip(genEquip(3)); toast('🎰 쓸만한 물건'); SFX.play('chest'); }
@@ -1338,6 +1364,8 @@ import { FX } from "./fx.js";
       { nm:'🎲 뒷골목 복권', ds:'60% 꽝 / 30% +300G / 9% +1000G / 1% +3000G — 수학은 하우스 편', cost:200, fx:()=>{
           const r = Math.random();
           const win = r<0.01?3000 : r<0.10?1000 : r<0.40?300 : 0;
+          questAdd('gamble', 1); unlockAch('gamble1');
+          if (win===3000) unlockAch('jackpot777');
           if (win){ DB.gold += win; toast('🎲 당첨! +'+win+'G'); SFX.play('win'); }
           else { toast('🎲 꽝. 그럴 줄 알았다.'); SFX.play('hit'); }
         } },
@@ -4620,7 +4648,7 @@ import { FX } from "./fx.js";
         opts.push({ l:'⚔ 흐릿한 무기 도면 ('+cost2+'G)', d:'"당신 같은 사람들이 쓰던 물건의 도면인데... 살 거요?" — 직업 전용 무기 1종 발견', fx:()=>{
           if (runGold < cost2){ toast('골드 부족!'); SFX.play('hit'); return; }
           runGold -= cost2;
-          cgwRec(player.classKey+'_'+mi2).found = true; saveDB();
+          cgwRec(player.classKey+'_'+mi2).found = true; unlockAch('cgw1'); unlockAch('blueprint'); saveDB();
           toast('⚔ ['+CGW_NAMES[player.classKey][mi2]+'] 발견 — 장비창에서 장착');
           SFX.play('evolve');
         } });
@@ -5704,7 +5732,7 @@ import { FX } from "./fx.js";
       const missing = [0,1,2].filter(i=>!cgwRec(player.classKey+'_'+i).found);
       if (missing.length && Math.random()<0.0001){ // 0.01% — 유일무기는 목격담의 영역
         const mi = missing[(Math.random()*missing.length)|0];
-        cgwRec(player.classKey+'_'+mi).found = true; saveDB();
+        cgwRec(player.classKey+'_'+mi).found = true; unlockAch('cgw1'); saveDB();
         toast('⚔ 직업 유일무기 발견 — ['+CGW_NAMES[player.classKey][mi]+'] 장비창에서 장착 가능');
         SFX.play('evolve');
       }
@@ -5749,6 +5777,7 @@ import { FX } from "./fx.js";
       const nextStage = (b.gateStage||0)+1;
       if (nextStage < chain.length){
         DB.gateProg[b.gateChain] = nextStage;
+        questAdd('gate', 1); unlockAch('gate1');
         saveDB();
         showBossBanner('관문 '+nextStage+'/'+chain.length+' 돌파', '진행이 저장되었다 — 다음 관문이 열린다', '#3f7a5c');
         SFX.play('win');
@@ -5758,6 +5787,8 @@ import { FX } from "./fx.js";
         // 진행감 보상의 축: 관문보스 완주 = 운명 포인트 대량 지급 (관문이 높을수록 크다)
         const gateP = 6 + Math.floor((b.gateChain||0)/4);
         DB.star.pts = (DB.star.pts||0) + gateP;
+        questAdd('gate', 1); unlockAch('gate1');
+        if (b.key==='grayoneEx') unlockAch('gatefinal');
         toast('⚔ 관문 완전 돌파 보상: 운명 포인트 +'+gateP+'P');
         SFX.play('win');
         saveDB();
@@ -10732,6 +10763,7 @@ import { FX } from "./fx.js";
       if (!player.jobBr[tier]){
         player.jobBr[tier] = 1;
         kit.f1(player, [1,1.4,1.9][tier-1]||1);
+        unlockAch('wayres');
         toast('🌟 길 성좌 공명 — ['+kit.t+'의 길] 1단계 무료 개방');
         SFX.play('quest');
       }
@@ -10879,6 +10911,7 @@ import { FX } from "./fx.js";
           player.ascStones -= nd.cost;
           arr[di] = dep+1;
           nd.f(player);
+          questAdd('asc', nd.cost); unlockAch('asc1');
           toast('승천: ['+dir.n+'] '+nd.n);
           SFX.play('evolve');
           renderAscDial();
@@ -10913,6 +10946,7 @@ import { FX } from "./fx.js";
         player.ascStones -= cost;
         player[key] = true;
         ascSealEffect(player, stage);
+        questAdd('asc', cost); unlockAch('ascseal');
         toast('📜 ['+jobName+'] 문장이 새겨졌다');
         SFX.play('evolve');
         renderAscDial();
@@ -11336,10 +11370,14 @@ import { FX } from "./fx.js";
     unlockAch('clear_'+selMap);
     DB.star.pts = (DB.star.pts||0) + 3; // 일반 클리어는 기본 3P — 큰 별은 관문에서 쏟아진다
     toast('클리어 보너스: 운명 포인트 +3P');
+    if (player.curveType==='late') unlockAch('latewin');
+    if (player.curveType==='early') unlockAch('earlywin');
+    if (['samurai','specialist','runeknight','druid','duelist'].includes(player.classKey)) unlockAch('newjob5');
     // 대장장이 최종 시험: 위험도 15+ 완주 → 무명검
     if (DB.gwq && DB.gwq.stage===2 && (DB.peril||0)>=15 && !DB.growth.found){
       DB.gwq.stage = 3;
       DB.growth.found = true;
+      unlockAch('smith3');
       toast('⚒ "약속은 지킨다." — 무명검이 손에 들어왔다');
       // 대장장이는 주인을 알아본다: 그 직업의 전용 무기 1종도 함께 벼려준다
       if (CGW_NAMES[player.classKey]){
