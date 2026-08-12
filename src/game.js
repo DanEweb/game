@@ -1913,13 +1913,24 @@ import { FX } from "./fx.js";
       if (p.x<-30||p.x>w+30||p.y<-30||p.y>h+30) continue;
       const alloc = starAllocated(id);
       const canBuy = starCanBuy(id);
+      const mine = (typeof starFocusMode==='undefined' || !starFocusMode) || starNodeMine(id);
       const R2 = (n.tier==='key'?13 : n.tier==='notable'?9.5 : n.tier==='start'?11 : 6) * starView.scale;
+      if (!mine) starCtx.globalAlpha = 0.15; // 내 별만 모드: 무관한 별은 흐리게
       // 글로우
       if (alloc){
         starCtx.fillStyle = n.color;
-        starCtx.globalAlpha = 0.22;
+        starCtx.globalAlpha = mine ? 0.22 : 0.06;
         starCtx.beginPath(); starCtx.arc(p.x,p.y,R2*1.9,0,Math.PI*2); starCtx.fill();
-        starCtx.globalAlpha = 1;
+        starCtx.globalAlpha = mine ? 1 : 0.15;
+      }
+      // 구매 가능: 숨쉬는 펄스 링 — 한눈에 "여기 찍을 수 있다"
+      if (canBuy && mine){
+        const pu = 1 + Math.sin(performance.now()/300)*0.18;
+        starCtx.strokeStyle = n.color;
+        starCtx.globalAlpha = 0.55;
+        starCtx.lineWidth = 1.6;
+        starCtx.beginPath(); starCtx.arc(p.x,p.y,(R2+5)*pu,0,Math.PI*2); starCtx.stroke();
+        starCtx.globalAlpha = mine ? 1 : 0.15;
       }
       starCtx.beginPath(); starCtx.arc(p.x,p.y,R2,0,Math.PI*2);
       starCtx.fillStyle = alloc ? n.color : (canBuy ? '#3a3d45' : '#24262c');
@@ -1931,11 +1942,33 @@ import { FX } from "./fx.js";
         starCtx.strokeStyle = alloc ? '#f2f2f0' : 'rgba(232,232,230,0.4)';
         starCtx.beginPath(); starCtx.arc(p.x,p.y,R2+4*starView.scale,0,Math.PI*2); starCtx.stroke();
       }
+      // 투자 게이트 미달 노터블·키스톤: 자물쇠 표시
+      if (!alloc && (n.tier==='notable'||n.tier==='key') && !starGateOk(id) && starView.scale>0.55){
+        starCtx.font = Math.round(9*starView.scale+4)+'px sans-serif';
+        starCtx.textAlign='center'; starCtx.textBaseline='middle';
+        starCtx.fillText('🔒', p.x, p.y);
+      }
       if (starHover===id){
         starCtx.strokeStyle = '#fff';
         starCtx.lineWidth = 2;
         starCtx.beginPath(); starCtx.arc(p.x,p.y,R2+6,0,Math.PI*2); starCtx.stroke();
       }
+      starCtx.globalAlpha = 1;
+    }
+    // 계열 라벨: 여섯 성단의 이름을 항상 표시 — 길을 잃지 않게
+    starCtx.font = '600 '+Math.max(10, Math.round(12*starView.scale))+'px "IBM Plex Sans KR", sans-serif';
+    starCtx.textAlign='center'; starCtx.textBaseline='middle';
+    for (const br of STAR_BRANCHES){
+      const a = br.angle*Math.PI/180;
+      const lp = starToScreen({ x:Math.cos(a)*205, y:Math.sin(a)*205 });
+      starCtx.fillStyle = br.color;
+      starCtx.globalAlpha = 0.85;
+      starCtx.fillText(br.name, lp.x, lp.y);
+      // 승천 구역 라벨 (바깥)
+      const lp2 = starToScreen({ x:Math.cos(a-0.12*Math.PI/180*0+ -0.12)*(70+16.8*36), y:Math.sin(a-0.12)*(70+16.8*36) });
+      starCtx.globalAlpha = 0.5;
+      starCtx.fillText('✦ '+br.name+' 승천 구역', lp2.x, lp2.y);
+      starCtx.globalAlpha = 1;
     }
     $('starPtsVal').textContent = starAvailPts();
   }
@@ -2027,6 +2060,29 @@ import { FX } from "./fx.js";
   }, { passive:false });
   $('starZoomIn').addEventListener('click', ()=>{ starView.scale = Math.min(2.4, starView.scale*1.2); drawStarTree(); });
   $('starZoomOut').addEventListener('click', ()=>{ starView.scale = Math.max(0.5, starView.scale*0.83); drawStarTree(); });
+  // UI/UX: 전체 보기(성도 전경으로 핏) · 내 별만(최근 출전 직업 관련 별 하이라이트)
+  let starFocusMode = false;
+  const sfB = $('starFitBtn'), smB = $('starMineBtn');
+  if (sfB) sfB.addEventListener('click', ()=>{
+    starView.x = 0; starView.y = 0;
+    starView.scale = Math.max(0.28, Math.min(1, (starC.clientHeight||480) / 1750));
+    drawStarTree();
+  });
+  if (smB) smB.addEventListener('click', ()=>{
+    starFocusMode = !starFocusMode;
+    smB.textContent = starFocusMode ? '✦ 전체 별' : '✦ 내 별만';
+    drawStarTree();
+  });
+  function starNodeMine(id){
+    const ck = DB.lastClass;
+    if (!ck || id==='center') return true;
+    if (id.indexOf('cs_'+ck)===0 || id.indexOf('csw_'+ck)===0) return true;
+    const g = classResGroup(ck);
+    const pref = id.split('_')[0];
+    if (pref===g) return true;
+    if (id.indexOf('cs_')===0 || id.indexOf('csw_')===0) return false; // 남의 직업 별
+    return pref==='ring1' || pref==='or' || pref==='deep' || pref==='t2' || pref==='T'; // 공유 구역은 표시
+  }
   $('starResetBtn').addEventListener('click', ()=>{
     if (starSpent()===0) return;
     if (DB.gold < 2000){ toast('리스펙 비용 2000G 부족'); SFX.play('hit'); return; }
