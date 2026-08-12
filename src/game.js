@@ -12630,6 +12630,15 @@ import { FX } from "./fx.js";
     ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
     ctx.beginPath(); ctx.arc(3.4,-11.6,1.3,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = ink;
+    // v6.60 보스 모드: 악센트색으로 발광하는 눈 — 인간형 보스의 위압
+    if (o.boss && o.tierC){
+      ctx.fillStyle = o.tierC;
+      ctx.shadowColor = o.tierC;
+      ctx.shadowBlur = 7;
+      ctx.beginPath(); ctx.arc(3.4,-11.6,1.5,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = ink;
+    }
 
     const g = o.gear;
     ctx.lineWidth = 2;
@@ -13757,6 +13766,14 @@ import { FX } from "./fx.js";
         ctx.fillStyle = bfrac > (2-k)/3 ? ac0 : 'rgba(120,120,120,0.35)';
         ctx.beginPath(); ctx.arc(b.x - 14 + k*14, b.y - b.r - 26, 3, 0, Math.PI*2); ctx.fill();
       }
+      // v6.60 페이즈 전환 연출: 핍이 꺼지는 순간 악센트 충격파 + 방사광 + 흔들림
+      const pipN = Math.ceil(bfrac*3);
+      if (b._pipPrev!==undefined && pipN < b._pipPrev){
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:b.r*0.6, r1:b.r*3, col:ac0 });
+        effects.push({ type:'rays', x:b.x, y:b.y, life:0.5, age:0, col:ac0 });
+        shake = Math.min(14, shake+6);
+      }
+      b._pipPrev = pipN;
       // 빈사(25% 미만): 붉은 균열 파편
       if (bfrac < 0.25){
         ctx.globalAlpha = 0.25 + 0.15*Math.sin(performance.now()/90);
@@ -13903,11 +13920,12 @@ import { FX } from "./fx.js";
       ctx.restore();
 
     } else {
-      // 인간형 보스들
-      const scale = 1.9 * (b.emp?1.1:1) * (b.finale?1.5:1);
+      // 인간형 보스들 — v6.60: 숨쉬기 스케일 + 악센트 발광 눈 (살아있는 위압)
+      const breath = 1 + Math.sin(t*2.2 + b.x*0.01)*0.025;
+      const scale = 1.9 * (b.emp?1.1:1) * (b.finale?1.5:1) * breath;
       const walk = t*8;
       let robe = (b.kind==='backstab'||b.kind==='esper'||b.kind==='summoner'||b.kind==='root');
-      drawHumanoid(b.x, b.y-4, { face, walk, gear:null, scale, ink: b.emp? ink : ink2, robe });
+      drawHumanoid(b.x, b.y-4, { face, walk, gear:null, scale, ink: b.emp? ink : ink2, robe, boss:true, tierC: BOSS_ACCENTS[b.key] });
       ctx.save();
       ctx.translate(b.x, b.y-4);
       ctx.scale(face*scale, scale);
