@@ -17,6 +17,8 @@ export const BOSS_TYPES = {
     goDokGeun:   { name:'고독근',   kind:'centipede', r:20, hp:780, speed:130, contactDmg:14, xpValue:110 },
     gatekeeper:  { name:'균열의 수문장', kind:'beam',  r:28, hp:520, speed:40, contactDmg:16, xpValue:90 },
     jealousEx:   { name:'의부증 전여친 · 은재', kind:'jealous', r:26, hp:2800, speed:50, contactDmg:18, xpValue:400, finale:true },
+    protestEx:   { name:'전장연 시위대장', kind:'protest', r:27, hp:3400, speed:40, contactDmg:16, xpValue:450, finale:true },
+    heatwaveEx:  { name:'폭염 · 열대야', kind:'heatwave', r:30, hp:4000, speed:34, contactDmg:16, xpValue:500, finale:true },
     overtime:    { name:'야근',     kind:'clones',    r:23, hp:380, speed:58, contactDmg:13, xpValue:65 },
     rentday:     { name:'월세',     kind:'summoner',  r:25, hp:420, speed:44, contactDmg:14, xpValue:70 },
     aiface:      { name:'AI 면접관', kind:'esper',    r:24, hp:450, speed:46, contactDmg:13, xpValue:80 },

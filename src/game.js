@@ -4672,6 +4672,33 @@ import { FX } from "./fx.js";
     shake = Math.min(20, shake+10);
     SFX.play('warn');
   }
+  // QA 훅 (콘솔 전용): 관문 보스 강제 소환 — 잔몹 정리 + gate 플래그까지 실전과 동일
+  window.__qaGate = (key)=>{
+    try {
+      spawnBoss(key);
+      const gb = bosses[bosses.length-1];
+      if (gb){ gb.gate = true; for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1); }
+      return gb ? gb.name : 'spawn failed';
+    } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaGod = ()=>{
+    try { player.maxHp=999999; player.hp=999999; return 'god'; } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaBoss = (frac, aliveT)=>{
+    try {
+      bosses.forEach(b=>{ if (frac!==undefined) b.hp=b.maxHp*frac; if (aliveT!==undefined) b.aliveT=aliveT; });
+      refreshBossBar();
+      return bosses.map(b=>b.name+' '+Math.round(b.hp)+'/'+Math.round(b.maxHp)+' t'+Math.round(b.aliveT||0)).join('|') || 'no boss';
+    } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaState = ()=>{
+    try {
+      return JSON.stringify({
+        bosses: bosses.map(b=>({k:b.key, ph:b.jPhase, enr:!!b.jEnraged, wiped:!!(b.jWiped||b.hWiped), hp:Math.round(b.hp), t:Math.round(b.aliveT||0)})),
+        enemies: enemies.length, zones: zones.map(z=>z.type), hp: Math.round(player&&player.hp||0), err: window.__gameErr||null
+      });
+    } catch(e){ return 'ERR '+String(e); }
+  };
 
   function refreshBossBar(){
     if (bosses.length===0){ bossBar.style.display='none'; bossBar.innerHTML=''; return; }
@@ -4755,7 +4782,9 @@ import { FX } from "./fx.js";
     const empN = b.emp ? 1 : 0;
 
     // 시간 초과 기믹 — 90초 안에 못 잡으면 보스가 '초조'해진다 (단계적 강화)
+    // 관문 보스는 제외: 자체 전멸기 타임라인을 쓴다 (체력 회복 겹치면 이중 처벌)
     b.aliveT = (b.aliveT||0) + dt;
+    if (!b.gate){
     if (!b.impatient && b.aliveT > 90){
       b.impatient = 1;
       b.dmg = Math.round(b.dmg*1.25); b.speed *= 1.2;
@@ -4768,6 +4797,7 @@ import { FX } from "./fx.js";
       b.hp = Math.min(b.maxHp, b.hp + b.maxHp*0.15); refreshBossBar();
       toast('⏳ 보스 광폭화 2단계 — 체력 회복 + 대폭 강화!');
       SFX.play('warn');
+    }
     }
 
     // 분노 페이즈 — 체력 45% 이하에서 각성
@@ -4987,6 +5017,135 @@ import { FX } from "./fx.js";
         showBossBanner('전멸기 — 읽씹의 대가', '"...그래. 너도 똑같네."', '#b8362e');
         for (let k=0;k<24;k++){ const a2=(Math.PI*2/24)*k; hostileShot(b.x, b.y, a2, 150, 7, 60*ds, 4); }
         b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='protest'){
+      // 관문 보스 2호: 전장연 시위대장 — 도로 점거의 달인 (이원근이 후원한다)
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 점거 확대', '"우리도 시민이다!"', '#3f7a5c'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 총력 투쟁', '"오늘, 지하철은 멈춘다."', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){
+        b.jEnraged=true; showBossBanner('발악 — 결사 항전', '"마지막 한 명까지 연행돼도."', '#b8362e'); shake=Math.min(24,shake+14);
+      }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.8: ph===3?1.3:1), dt);
+      // 기믹 '출근길 봉쇄': 바리케이드 설치 — 닿으면 피해+밀쳐냄, 동선이 잘린다
+      b.jBarT = (b.jBarT===undefined?3:b.jBarT) - dt;
+      if (b.jBarT<=0 && zones.length<40){
+        if (ph>=3){
+          // 3페: 플레이어를 감싸는 포위 링
+          for (let k=0;k<6;k++){
+            const a2 = (Math.PI*2/6)*k + Math.random()*0.4;
+            zones.push({ x:player.x+Math.cos(a2)*135, y:player.y+Math.sin(a2)*135, r:24, dps:0, t:12, maxT:12, type:'block', hostile:true, hitT:0 });
+          }
+          addTextNum(player.x, player.y-40, '전면 봉쇄!');
+        } else {
+          for (let k=0;k<ph;k++){
+            const a2 = Math.random()*Math.PI*2;
+            zones.push({ x:player.x+Math.cos(a2)*(90+Math.random()*70), y:player.y+Math.sin(a2)*(90+Math.random()*70), r:24, dps:0, t:14, maxT:14, type:'block', hostile:true, hitT:0 });
+          }
+        }
+        SFX.play('tele');
+        b.jBarT = (ph===1?4.5 : ph===2?3.2 : 8) - empN*0.4;
+      }
+      // 일반 '피켓 투척': 조준 투사체 (페이즈별 갈래 증가)
+      b.jPickT = (b.jPickT===undefined?2.5:b.jPickT) - dt;
+      if (b.jPickT<=0){
+        const base = Math.atan2(player.y-b.y, player.x-b.x);
+        const n = enrage?5 : ph===1?1 : ph===2?3 : 5;
+        for (let k=0;k<n;k++) hostileShot(b.x, b.y, base+(k-(n-1)/2)*0.22, 195, 6, 11*ds, 2.6);
+        b.jPickT = (enrage?1.6 : 3.0 - ph*0.3) - empN*0.2;
+      }
+      // 특수 '방패벽' (2페+): 이원근의 지원 — 보스와 나 사이를 가로막는 소환수 (관문 예외: 패턴 소환)
+      if (ph>=2){
+        b.jWallT = (b.jWallT===undefined?9:b.jWallT) - dt;
+        if (b.jWallT<=0){
+          const wa = Math.atan2(player.y-b.y, player.x-b.x);
+          const mx = (b.x+player.x)/2, my = (b.y+player.y)/2;
+          for (let k=-1;k<=1;k++){
+            const sh = makeEnemy('brute', mx+Math.cos(wa+Math.PI/2)*k*46, my+Math.sin(wa+Math.PI/2)*k*46, false);
+            sh.name='이원근의 방패벽'; sh.hp*=1.6; sh.maxHp*=1.6; sh.speed*=0.45; sh.xpValue=0; sh.grade=0; sh.blessed=false;
+            enemies.push(sh);
+          }
+          addTextNum(b.x, b.y-b.r-14, '방패벽 강림');
+          SFX.play('warn');
+          b.jWallT = 20 - empN*2;
+        }
+      }
+      // 전멸기 '무기한 총파업': 120초 초과 시 전방위 탄막 + 필드 봉쇄 + 영구 강화
+      if ((b.aliveT||0) > 120 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 무기한 총파업', '"협상은 끝났다."', '#b8362e');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 145, 7, 55*ds, 4); }
+        for (let k=0;k<8 && zones.length<40;k++){
+          const a2=(Math.PI*2/8)*k;
+          zones.push({ x:player.x+Math.cos(a2)*170, y:player.y+Math.sin(a2)*170, r:26, dps:0, t:30, maxT:30, type:'block', hostile:true, hitT:0 });
+        }
+        b.dmg = Math.round(b.dmg*1.5); b.speed *= 1.35;
+      }
+    } else if (b.kind==='heatwave'){
+      // 관문 보스 3호: 폭염 · 열대야 — 이동하는 그늘만이 살길이다
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 체감 39도', '"에어컨 없는 자에게 자비란 없다."', '#d4772e'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 열대야', '"밤에도 식지 않는다. 그늘이 좁아진다."', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){
+        b.jEnraged=true; showBossBanner('발악 — 오존주의보', '"태양이 너만 노려본다."', '#b8362e'); shake=Math.min(24,shake+14);
+      }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.6:1), dt);
+      // 기믹 '한 뼘의 그늘': 유일한 안전지대가 천천히 이동한다 — 밖은 작열 도트
+      if (b.hShadeX===undefined){ b.hShadeX=player.x; b.hShadeY=player.y; b.hShadeA=Math.random()*Math.PI*2; }
+      b.hShadeA += (Math.random()-0.5)*dt*2.2;
+      const shSpd = (ph===1?36 : ph===2?50 : 66) * (enrage?1.8:1);
+      b.hShadeX += Math.cos(b.hShadeA)*shSpd*dt;
+      b.hShadeY += Math.sin(b.hShadeA)*shSpd*dt;
+      const shadeR = b.hWiped?42 : ph===1?115 : ph===2?88 : 64;
+      if (!b.hShadeZone || b.hShadeZone.t<=0){
+        b.hShadeZone = { x:b.hShadeX, y:b.hShadeY, r:shadeR, dps:0, t:0.6, maxT:0.6, type:'shade', hostile:true };
+        zones.push(b.hShadeZone);
+      }
+      b.hShadeZone.x=b.hShadeX; b.hShadeZone.y=b.hShadeY; b.hShadeZone.r=shadeR; b.hShadeZone.t=0.6;
+      // 작열 도트: 그늘 밖에 있으면 타들어간다
+      b.hDotT = (b.hDotT||0) + dt;
+      if (b.hDotT >= 0.8){
+        b.hDotT = 0;
+        const inShade = Math.hypot(player.x-b.hShadeX, player.y-b.hShadeY) < shadeR;
+        if (!inShade && player.invuln<=0){
+          if (playerHit(5*ds*(b.hWiped?3:1), 0.1, 2)) return true;
+          addTextNum(player.x, player.y-30, '작열');
+        }
+      }
+      // 일반 '자외선 직사': 조준 광선탄
+      b.hRayT = (b.hRayT===undefined?2.8:b.hRayT) - dt;
+      if (b.hRayT<=0){
+        const base = Math.atan2(player.y-b.y, player.x-b.x);
+        const n = ph===1?2 : ph===2?3 : 4;
+        for (let k=0;k<n;k++) hostileShot(b.x, b.y, base+(k-(n-1)/2)*0.14, 240, 5.5, 10*ds, 2.2);
+        addTextNum(b.x, b.y-b.r-14, '자외선 직사');
+        b.hRayT = (ph===3?2.0:2.8) - empN*0.3;
+      }
+      // 특수 '실외기 폭발' (2페+): 랜덤 위치 다중 폭발 — 그늘 안이라고 안심 금지
+      if (ph>=2){
+        b.hAcT = (b.hAcT===undefined?6:b.hAcT) - dt;
+        if (b.hAcT<=0){
+          for (let k=0;k<3+ph;k++){
+            addHazard(player.x+(Math.random()-0.5)*260, player.y+(Math.random()-0.5)*260, 56, 1.4, 15*ds, false);
+          }
+          addTextNum(player.x, player.y-44, '실외기 폭발!');
+          b.hAcT = (ph===3?5:6.5) - empN*0.5;
+        }
+      }
+      // 전멸기 '재난문자 — 폭염 경보': 120초 초과 시 그늘 붕괴 + 도트 3배 + 전방위 탄막
+      if ((b.aliveT||0) > 120 && !b.hWiped){
+        b.hWiped = true;
+        showBossBanner('전멸기 — 재난문자', '"[국민재난안전처] 폭염 경보. 야외활동을 자제하십시오."', '#b8362e');
+        for (let k=0;k<24;k++){ const a2=(Math.PI*2/24)*k; hostileShot(b.x, b.y, a2, 150, 7, 55*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.5);
       }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
@@ -6389,6 +6548,24 @@ import { FX } from "./fx.js";
         }
         zones.splice(i,1); continue;
       }
+      if (z.hostile){
+        // 관문 기믹 구역: 적에게 무해 — 플레이어와만 상호작용
+        if (z.type==='block'){
+          if (z.hitT>0) z.hitT -= dt;
+          const pd2 = Math.hypot(player.x-z.x, player.y-z.y);
+          if (pd2 < z.r+player.r){
+            const pa2 = Math.atan2(player.y-z.y, player.x-z.x) || 0;
+            const push = z.r+player.r-pd2+2;
+            player.x += Math.cos(pa2)*push;
+            player.y += Math.sin(pa2)*push;
+            if ((z.hitT||0)<=0 && player.invuln<=0){
+              z.hitT = 0.6;
+              if (playerHit(8*dmgScale(), 0.2, 4)) return;
+            }
+          }
+        }
+        continue;
+      }
       for (let k=enemies.length-1;k>=0;k--){
         const e = enemies[k];
         if (Math.hypot(e.x-z.x,e.y-z.y) < z.r+e.r){
@@ -6735,7 +6912,7 @@ import { FX } from "./fx.js";
       }
     }
     // 웨이브(스프린트) 모드: 45초마다 웨이브 상승 — 압축된 8웨이브 + 최종 보스
-    if (waveModeRun && sprintWave < 8 && elapsed >= sprintWave*45){
+    if (waveModeRun && sprintWave < 8 && elapsed >= sprintWave*45 && !gateActive){
       sprintWave += 1;
       showBossBanner('WAVE '+sprintWave+' / 8', sprintWave>=8 ? '최종 보스가 다가온다' : '웨이브 '+sprintWave+' 시작', sprintWave>=7 ? '#b8362e' : '#45474a');
       for (let k=0;k<sprintWave*3;k++){
@@ -7177,14 +7354,20 @@ import { FX } from "./fx.js";
     const finalAlive = bosses.some(b=>b.finale);
     if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
-      // 관문 보스: 위험도 8에서는 최종 보스 대신 관문 레이드 (오직 일대일)
-      const gateKey = (DB.peril===8) ? 'jealousEx' : null;
+      // 관문 보스: 특정 위험도에서는 최종 보스 대신 관문 레이드 (오직 일대일)
+      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx' };
+      const GATE_TOASTS = {
+        jealousEx:'⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.',
+        protestEx:'⚔ 관문 레이드 — 출근길이 막혔다. 시위대가 도로를 점거한다.',
+        heatwaveEx:'⚔ 관문 레이드 — 폭염 경보. 그늘을 벗어나면 타 죽는다.'
+      };
+      const gateKey = GATE_BOSSES[DB.peril] || null;
       spawnBoss(gateKey || MAP.final);
       if (gateKey){
         const gb = bosses[bosses.length-1];
         if (gb) gb.gate = true;
         for (let i=enemies.length-1;i>=0;i--) enemies.splice(i,1); // 전장 정리 — 보스와 나뿐
-        toast('⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.');
+        toast(GATE_TOASTS[gateKey]);
       }
     } else if (!finalAlive && rootDefeated && endless && nextRootAt>0 && elapsed>=nextRootAt){
       spawnBoss(MAP.final, true);
@@ -8994,6 +9177,8 @@ import { FX } from "./fx.js";
     monday:'영원히 돌아오는 재앙', deadline:'모든 것을 불태우는 최후 통첩', gatekeeper:'차원의 파수꾼',
     overtime:'끝나지 않는 잔업의 화신', rentday:'매달 강림하는 징수자', aiface:'감정 없는 심판자',
     jealousEx:'관문 — 최병우를 놓지 못한 자',
+    protestEx:'관문 — 출근길을 멈춘 자',
+    heatwaveEx:'관문 — 재난문자의 주인',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -9013,6 +9198,7 @@ import { FX } from "./fx.js";
     nukNukEX:'#9a6fc4', goDokGeun:'#3aa895',
     monday:'#5c6a8a', deadline:'#c9403a', gatekeeper:'#5c4a8a',
     overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9', jealousEx:'#c94f8a',
+    protestEx:'#3f7a5c', heatwaveEx:'#d4772e',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
@@ -9256,6 +9442,37 @@ import { FX } from "./fx.js";
         ctx.rotate(-t*1.5);
         ctx.beginPath(); ctx.ellipse(1,-6,11,4,Math.PI/3,0,Math.PI*2); ctx.stroke();
         ctx.restore();
+      } else if (b.kind==='jealous'){ // 의부증 전여친 은재: 긴 생머리 + 빛나는 핸드폰
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(-4,-15); ctx.quadraticCurveTo(-9,-2,-8,10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(6,-15); ctx.quadraticCurveTo(11,-2,10,10); ctx.stroke();
+        const glow = 0.5+Math.sin(t*6)*0.3;
+        ctx.fillStyle = 'rgba(201,79,138,'+glow+')';
+        ctx.fillRect(9,-6,5,8);
+        ctx.strokeStyle = ink; ctx.lineWidth = 1.2;
+        ctx.strokeRect(9,-6,5,8);
+      } else if (b.kind==='protest'){ // 시위대장: 붉은 머리띠 + 피켓
+        ctx.strokeStyle = '#b8362e'; ctx.lineWidth = 2.6;
+        ctx.beginPath(); ctx.moveTo(-5,-14); ctx.lineTo(9,-14); ctx.stroke();
+        ctx.strokeStyle = ink; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(10,4); ctx.lineTo(10,-22); ctx.stroke();
+        ctx.fillStyle = MAP.key==='abyss' ? '#3a3b40' : '#e8e6e0';
+        ctx.fillRect(4,-30,13,9);
+        ctx.strokeRect(4,-30,13,9);
+        ctx.strokeStyle = '#b8362e'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(6,-25.5); ctx.lineTo(15,-25.5); ctx.stroke();
+      } else if (b.kind==='heatwave'){ // 폭염: 태양 광배 — 방사 광선이 고동친다
+        ctx.strokeStyle = 'rgba(212,119,46,0.85)';
+        ctx.lineWidth = 2;
+        const pulse = 1+Math.sin(t*4)*0.12;
+        for (let k=0;k<8;k++){
+          const a2 = t*0.8 + k*(Math.PI/4);
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a2)*14*pulse, -6+Math.sin(a2)*14*pulse);
+          ctx.lineTo(Math.cos(a2)*21*pulse, -6+Math.sin(a2)*21*pulse);
+          ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(1,-6,12*pulse,0,Math.PI*2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -9340,9 +9557,10 @@ import { FX } from "./fx.js";
     if (FX.enabled){
       const fxZones = [];
       for (const z of zones){
+        if (z.type==='shade') continue; // 그늘은 빛이 아니라 어둠 — 캔버스에서만
         const tt = Math.min(1, z.t/z.maxT);
-        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : 0x6faa4e;
-        fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:0.22*tt });
+        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : z.type==='block' ? 0xb8362e : 0x6faa4e;
+        fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:(z.type==='block'?0.12:0.22)*tt });
       }
       // Pixi 4단계: 보스 오라 — 시그니처 색 광원 (분노 시 강렬하게)
       for (const b of bosses){
@@ -9424,6 +9642,30 @@ import { FX } from "./fx.js";
         ctx.restore();
         ctx.fillStyle = '#1a1420';
         ctx.beginPath(); ctx.arc(0,0,7,0,Math.PI*2); ctx.fill();
+      } else if (z.type==='block'){
+        // 시위 바리케이드: 줄무늬 통제선 원통 — 통행 불가
+        ctx.fillStyle = MAP.key==='abyss' ? 'rgba(60,44,46,'+(0.85*tt)+')' : 'rgba(200,180,168,'+(0.9*tt)+')';
+        ctx.strokeStyle = 'rgba(184,54,46,'+(0.85*tt)+')';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        // 경고 사선 줄무늬
+        ctx.save();
+        ctx.beginPath(); ctx.arc(0,0,z.r-3,0,Math.PI*2); ctx.clip();
+        ctx.strokeStyle = 'rgba(184,54,46,'+(0.5*tt)+')';
+        ctx.lineWidth = 4;
+        for (let k=-3;k<=3;k++){
+          ctx.beginPath(); ctx.moveTo(k*10-z.r, z.r); ctx.lineTo(k*10+z.r, -z.r); ctx.stroke();
+        }
+        ctx.restore();
+      } else if (z.type==='shade'){
+        // 폭염 속 한 뼘의 그늘: 유일한 안식처
+        ctx.fillStyle = 'rgba(30,36,52,0.30)';
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,140,200,0.55)';
+        ctx.setLineDash([6,6]);
+        ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
       } else {
         if (!FX.enabled){
           ctx.fillStyle = 'rgba(111,170,78,'+(0.13*tt)+')';
