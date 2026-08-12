@@ -895,6 +895,8 @@ import { FX } from "./fx.js";
     if ((out.sets.pilgrim||0)>=3){ out.setProc = 0.08; out.cdr += 8; }
     if ((out.sets.king||0)>=2) out.gold += 25;
     if ((out.sets.king||0)>=3){ out.luckSet = 30; out.setGoldPower = true; }
+    if ((out.sets.reaperset||0)>=2) out.setExec = 0.05;
+    if ((out.sets.reaperset||0)>=3) out.setReap3 = true;
     if ((out.sets.pilgrim||0)>=3 || (out.sets.king||0)>=3) unlockAch('set3');
     return out;
   }
@@ -920,6 +922,8 @@ import { FX } from "./fx.js";
     if (eq.setProc) p.procBonus = (p.procBonus||0) + eq.setProc;
     if (eq.luckSet) p.luck *= 1 + eq.luckSet/100;
     if (eq.setGoldPower) p.goldPower = true;
+    if (eq.setExec) p.execThresh = Math.min(0.6, (p.execThresh||0) + eq.setExec);
+    if (eq.setReap3){ p.lifesteal += 1; p.critMult += 0.4; }
     // 직업 전용 유물
     if (eq.relic==='manager'){ p.cdr*=0.92; p.dmgMult*=1.05; }
     else if (eq.relic==='sniper'){ p.critChance+=0.10; }
@@ -1087,6 +1091,29 @@ import { FX } from "./fx.js";
       const prec = (DB.pgw||{})[equipClassTab+'_'+pi];
       if (prec && prec.found){
         GW_LIST.push({ key:pkey, found:true, lv:prec.lv, def:WEAPONS[pkey], ds:'[직업 성장무기] 함께 싸운 만큼 자란다 (처치 성장)' });
+        // 격 돌파 의식: 레벨 10/20/30 벽 — 재료를 바쳐 다음 격 개방
+        const needAwk = {10:1,20:2,30:3}[prec.lv];
+        if (needAwk && (prec.awk||0) < needAwk){
+          const aw = document.createElement('div');
+          aw.className = 'shopItem';
+          aw.innerHTML = '<div class="info"><div class="nm">🔥 격(格) 돌파 의식 — '+WEAPONS[pkey].name+'</div>'
+            + '<div class="ds">Lv'+prec.lv+'의 벽 — ★2 ◆2 + 500G를 바쳐 다음 격을 연다</div></div>';
+          const ab = document.createElement('button');
+          ab.className = 'buy';
+          const canA = DB.mats.shard>=2 && DB.mats.essence>=2 && DB.gold>=500;
+          ab.textContent = '의식 거행';
+          ab.disabled = !canA;
+          ab.addEventListener('click', ()=>{
+            if (!canA) return;
+            DB.mats.shard-=2; DB.mats.essence-=2; DB.gold-=500;
+            prec.awk = (prec.awk||0)+1;
+            saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+            toast('🔥 격 돌파 — ['+WEAPONS[pkey].name+'] 다음 격이 열렸다');
+            SFX.play('evolve');
+          });
+          aw.appendChild(ab);
+          invList.appendChild(aw);
+        }
       } else {
         const c = PGW_COST[pi];
         const row = document.createElement('div');
@@ -2716,9 +2743,11 @@ import { FX } from "./fx.js";
   function renderClassCards(){
     classCardsEl.innerHTML = '';
     goldVal.textContent = DB.gold;
-    // 신규 확장 직업은 기본 직업 뒤에 배치
+    // 배치 순서: 기본 직업 → 신규 확장 5종 → 히든 직업
     const NEW5 = ['samurai','specialist','runeknight','druid','duelist'];
-    Object.keys(CLASSES).filter(k=>!NEW5.includes(k)).concat(NEW5.filter(k=>CLASSES[k])).forEach((key)=>{
+    const baseKeys = Object.keys(CLASSES).filter(k=>!NEW5.includes(k) && !CLASSES[k].hidden);
+    const hiddenKeys = Object.keys(CLASSES).filter(k=>!NEW5.includes(k) && CLASSES[k].hidden);
+    baseKeys.concat(NEW5.filter(k=>CLASSES[k])).concat(hiddenKeys).forEach((key)=>{
       const c = CLASSES[key];
       const unlocked = isClassUnlocked(key);
       const el = document.createElement('div');
@@ -4108,9 +4137,10 @@ import { FX } from "./fx.js";
   });
 
   // ---------- 직업 성장무기 (37직업 × 3종 = 111종): 공방 제작으로 얻고, 함께 싸운 만큼 자란다 ----------
+  // 전설·신화에서 가져온 이름들 — 무명검·침묵하는 활의 결을 잇는다
   const PGW_SUFFIX = {
-    war:['단련검','전장도끼','수호전추'], rng:['연마총신','정밀기관','장거리포'], mag:['수련장서','비전결정','심층지팡이'],
-    rog:['숫돌단도','연격쌍인','암연사슬'], pri:['기도성구','축성낫','성가호부'], mer:['계산주판','거래저울','황금망치'],
+    war:['그람','뒤랑달','아론다이트'], rng:['간디바','이치이발','아르테미스의 시위'], mag:['클라우 솔라스','네크로노미콘','카두케우스'],
+    rog:['카른웬난','미스틸테인','티르빙'], pri:['롱기누스','아스칼론','가브리엘의 나팔'], mer:['드라우프니르','황금양털','미다스의 저울'],
   };
   function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
   Object.keys(CGW_NAMES).forEach((ck)=>{
@@ -4120,9 +4150,9 @@ import { FX } from "./fx.js";
       const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3]; // 유일무기와 다른 원형 배치
       const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
       WEAPONS[key] = {
-        name: cname+'의 '+sfx, cgw:true, pgw:true, arch,
-        desc:'[직업 성장무기] '+cname+'의 '+sfx+' — 공방에서 벼려낸 무기, 함께 싸운 만큼 자란다',
-        evName: cname+'의 '+sfx+'·완성', evDesc:'수련이 결실을 맺습니다',
+        name: sfx+' · '+cname, cgw:true, pgw:true, arch,
+        desc:'[직업 성장무기] '+sfx+' — '+cname+'의 손에서 다시 벼려진 전설, 함께 싸운 만큼 자란다',
+        evName: sfx+'·진명 해방', evDesc:'전설이 본래의 이름을 되찾습니다',
         lvDesc:['','강화','피해 +25%','강화','강화'],
         baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
         dmg:(w)=>{
@@ -5154,7 +5184,7 @@ import { FX } from "./fx.js";
         const px2 = player.x + Math.cos(a)*(420+depth) + Math.cos(a+Math.PI/2)*off;
         const py2 = player.y + Math.sin(a)*(420+depth) + Math.sin(a+Math.PI/2)*off;
         const e = makeEnemy('swarm', px2, py2, false);
-        e.speed *= 1.6;
+        e.speed *= (elapsed < 240 ? 1.52 : 1.6); // 초반 5% 너프 — 대시로 빠져나갈 틈
         enemies.push(e);
       }
       warnText = '⚠ 돌격 대열 접근';
@@ -10432,6 +10462,25 @@ import { FX } from "./fx.js";
         + lines.join('<br>')
         + '<br><span style="opacity:0.6;">획득: 그 직업으로 보스 처치 1.5% · 상인의 흐릿한 도면(위험도 8+) · 대장장이 퀘스트의 덤 — 발견하면 금색으로 빛난다</span></div>');
     }
+    // 직업 성장무기 도감 (111종): 전체 공개 — 제작하면 금색 ✓Lv
+    {
+      let pFound = 0, pTotal = 0;
+      const plines = [];
+      Object.keys(CGW_NAMES).forEach(ck=>{
+        const cn = CLASSES[ck] ? CLASSES[ck].name : ck;
+        const g2 = CGW_CLASS_GROUP(ck);
+        const parts = (PGW_SUFFIX[g2]||[]).map((sfx,i)=>{
+          pTotal++;
+          const rec = (DB.pgw||{})[ck+'_'+i];
+          if (rec && rec.found){ pFound++; return '<b style="color:#8b5cf6;">'+sfx+' ✓Lv'+rec.lv+'</b>'; }
+          return '<span style="opacity:0.55;">'+sfx+'</span>';
+        });
+        plines.push((DB.lastClass===ck?'<b style="color:#8b5cf6;">▶ '+cn+'</b>':'<b>'+cn+'</b>')+': '+parts.join(' · '));
+      });
+      row('<div class="nm">⚒ 직업 성장무기 도감 ('+pFound+'/'+pTotal+')</div><div class="ds">'
+        + plines.join('<br>')
+        + '<br><span style="opacity:0.6;">획득: 장비창 공방 제작(재료+골드) · 장착한 런의 처치 수만큼 성장 · Lv10/20/30 격 돌파 의식</span></div>');
+    }
     // 테크 도감 — 처음부터 전체 공개 (획득한 것은 속성색 강조)
     const seen = DB.seenTech||{};
     for (const tk of SPEC_TREES){
@@ -11229,11 +11278,14 @@ import { FX } from "./fx.js";
       if (pw2){
         const rec2 = pgwRec(pw2.key.slice(4));
         rec2.xp = (rec2.xp||0) + killCount;
+        let walled = false;
         while (rec2.lv < 40 && rec2.xp >= 60 + rec2.lv*45){
+          const need = {10:1,20:2,30:3}[rec2.lv];
+          if (need && (rec2.awk||0) < need){ walled = true; break; } // 격(格)의 벽 — 장비창에서 격 돌파 의식 필요
           rec2.xp -= (60 + rec2.lv*45);
           rec2.lv += 1;
         }
-        toast('⚒ ['+WEAPONS[pw2.key].name+'] 성장 — Lv'+rec2.lv);
+        toast('⚒ ['+WEAPONS[pw2.key].name+'] 성장 — Lv'+rec2.lv + (walled?' (격의 벽 — 돌파 의식 필요)':''));
       }
     }
     questAdd('survive', Math.floor(elapsed));
