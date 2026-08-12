@@ -7731,7 +7731,7 @@ import { FX } from "./fx.js";
             }
             addTextNum(player.x, player.y-40, '말문이 막혔다...');
           } });
-        addTextNum(player.x, player.y-44, '❓ 훅 들어오는 질문 — 탭해서 받아쳐라!');
+        addTextNum(player.x, player.y-44, '❓ "그래서... 결혼은 언제?"');
         b.bdQT = 12;
       }
       // 신규 '메뉴판 선택' (2페+): 둘 중 하나를 밟아야 한다 — 된장찌개(소량 피해) vs 오마카세(골드 -80)
@@ -7747,7 +7747,7 @@ import { FX } from "./fx.js";
             onPick:()=>{ if (resolved) return; resolved=true; const pay=Math.min(runGold,80); runGold-=pay; addTextNum(player.x, player.y-30, '"오마카세 좋죠." (-'+pay+'G)'); },
             onFail:null };
           addGateObj(mk1); addGateObj(mk2);
-          addTextNum(player.x, player.y-44, '🍲/🍣 메뉴를 골라 밟아라 (5초)');
+          addTextNum(player.x, player.y-44, '🍲/🍣 "메뉴는 정했고?"');
           b.bdMenuT = 16;
         }
       }
@@ -7862,7 +7862,7 @@ import { FX } from "./fx.js";
             showBossBanner('그로기', '항의 방문 성공 — 5초간 피해 2배', '#3f7a5c');
           },
           onFail:()=>{ addTextNum(player.x, player.y-30, '초인종을 못 눌렀다...'); } });
-        addTextNum(player.x, player.y-44, '🔔 초인종 찬스 — 탭하면 그로기!');
+        addTextNum(player.x, player.y-44, '🔔 초인종이 울린다...');
         b.uBellT = 22;
       }
       if (b.uGroggy>0){
@@ -8033,7 +8033,7 @@ import { FX } from "./fx.js";
             addTextNum(player.x, player.y-40, '건너뛸 수 없는 광고!');
             SFX.play('boom');
           } });
-        addTextNum(player.x, player.y-44, '⏭ 광고가 재생된다 — 탭해서 스킵!');
+        addTextNum(player.x, player.y-44, '⏭ "광고 후 계속됩니다"');
         b.aiAdT = 14;
       }
       // 신규 '쿠키 수집' (2페+): 쿠키를 보스보다 먼저 밟아 없애라 — 방치 시 보스가 먹고 영구 강화
@@ -8044,7 +8044,7 @@ import { FX } from "./fx.js";
           addGateObj({ kind:'pick', icon:'🍪', x:b.x+Math.cos(a2)*180, y:b.y+Math.sin(a2)*180, r:20, maxT:6,
             onPick:()=>{ addTextNum(player.x, player.y-30, '쿠키 삭제 — 학습 차단'); },
             onFail:()=>{ b.dmg = Math.round(b.dmg*1.08); b.speed *= 1.04; addTextNum(b.x, b.y-b.r-14, '개인정보 수집 완료 (영구 강화)'); SFX.play('warn'); } });
-          addTextNum(player.x, player.y-44, '🍪 쿠키를 먼저 밟아 없애라!');
+          addTextNum(player.x, player.y-44, '🍪 쿠키가 수집되고 있다...');
           b.aiCookT = 12;
         }
       }
@@ -8150,7 +8150,7 @@ import { FX } from "./fx.js";
           addGateObj({ kind:'qte', icon:'📕', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:3,
             onTap:()=>{ addTextNum(player.x, player.y-30, '"만족스러운 답변이다."'); },
             onFail:()=>{ if (zones.length<40) zones.push({ x:player.x, y:player.y, r:130, dps:0, t:6, maxT:6, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '재교육 대상 지정'); } });
-          addTextNum(player.x, player.y-44, '📕 사상 검증 — 탭해서 통과하라!');
+          addTextNum(player.x, player.y-44, '📕 "사상이 의심스럽군."');
           b.cQuizT = 12;
         }
       }
@@ -8487,9 +8487,11 @@ import { FX } from "./fx.js";
       // v6.65 엔진 5호 · 거울 위병: 반사 자세 중엔 내 투사체가 반사탄이 되어 돌아온다 — 자세를 기다렸다 쏴라
       bossMoveToward(b, player.x, player.y, b.speed*(b.mrReflect>0?0.3:1), dt);
       b.mrCycT = (b.mrCycT===undefined?6:b.mrCycT) - dt;
+      // v6.71 전조: 반사 자세 0.7초 전 거울이 깜빡인다 — 사격을 멈춰야 할 때를 몸으로 안다
+      b.mrWarn = (b.mrCycT<=0.7 && b.mrCycT>0 && !(b.mrReflect>0));
       if (b.mrCycT<=0 && !(b.mrReflect>0)){
         b.mrReflect = 2.8; b.mrCycT = 8.5;
-        addTextNum(b.x, b.y-b.r-16, '🪞 반사 자세!');
+        addTextNum(b.x, b.y-b.r-16, '"비추어 보아라."');
         SFX.play('warn');
       }
       if (b.mrReflect>0){
@@ -8527,7 +8529,7 @@ import { FX } from "./fx.js";
           const hp2 = b.hgHist[idx];
           addHazard(hp2.x, hp2.y, 56, 1.0+k*0.12, 18*ds, false);
         }
-        addTextNum(player.x, player.y-40, '⏳ 지나온 길이 무너진다!');
+        addTextNum(player.x, player.y-40, '"...모래가 흐른다."');
         SFX.play('warn');
         b.hgT = 7.5;
       }
@@ -8538,7 +8540,7 @@ import { FX } from "./fx.js";
       b.txCycT = (b.txCycT===undefined?7:b.txCycT) - dt;
       if (b.txCycT<=0 && !(b.txPull>0)){
         b.txPull = 4; b.txCycT = 10;
-        showBossBanner('징수 개시', '💸 경험치 오브를 빼앗기기 전에 주워라!', '#8a6a3f');
+        showBossBanner('징수 개시', '"세금 낼 시간이다."', '#8a6a3f');
         SFX.play('warn');
       }
       if (b.txPull>0){
@@ -8588,7 +8590,7 @@ import { FX } from "./fx.js";
             if (b.tlDocs>=3){ b.tlDocs=0; b.tlGroggy=4; showBossBanner('그로기', '"자, 잠깐만—" 사직서 제출!', '#3f7a5c'); }
           },
           onFail:()=>{ b.dmg = Math.round(b.dmg*1.06); addTextNum(b.x, b.y-b.r-14, '"이건 내가 보관할게." (영구 강화)'); SFX.play('warn'); } });
-        addTextNum(player.x, player.y-44, '📄 사직서가 떨어졌다 — 팀장보다 먼저!');
+        addTextNum(player.x, player.y-44, '📄 사직서가 바람에 날린다...');
         b.tlDocT = 9 - ph;
       }
       // '업무 폭탄 돌리기': 대량 낙하
@@ -8618,7 +8620,7 @@ import { FX } from "./fx.js";
           addGateObj({ kind:'qte', icon:'📱', x:player.x+Math.cos(a2)*140, y:player.y+Math.sin(a2)*140, r:22, maxT:3,
             onTap:()=>{ addTextNum(player.x, player.y-30, '읽씹 성공'); },
             onFail:()=>{ if (zones.length<40) zones.push({ x:player.x, y:player.y, r:120, dps:0, t:5, maxT:5, type:'silence', hostile:true, hitT:0 }); addTextNum(player.x, player.y-40, '"토요일에 잠깐만 나올래?"'); } });
-          addTextNum(player.x, player.y-44, '📱 주말 출근 문자 — 탭해서 읽씹!');
+          addTextNum(player.x, player.y-44, '📱 주말 출근 문자가 왔다...');
           b.tlMsgT = 11;
         }
       }
@@ -8741,7 +8743,7 @@ import { FX } from "./fx.js";
           addGateObj({ kind:'qte', icon:'⏰', x:player.x+Math.cos(a2)*150, y:player.y+Math.sin(a2)*150, r:22, maxT:2.5,
             onTap:()=>{ addTextNum(player.x, player.y-30, '알람 정지 — 정신 차렸다'); },
             onFail:()=>{ player.skCds = player.skCds.map(cd=>Math.max(cd,6)); addTextNum(player.x, player.y-40, '5분만 더... (스킬 6초 잠금)'); SFX.play('warn'); } });
-          addTextNum(player.x, player.y-44, '⏰ 알람 — 탭해서 정신 차려라!');
+          addTextNum(player.x, player.y-44, '⏰ 알람이 울린다...');
           b.boAlmT = 10;
         }
       }
@@ -13166,6 +13168,31 @@ import { FX } from "./fx.js";
   }
   function drawGrid(){
     ctx.save();
+    // v6.71 원경 시차 레이어: 카메라보다 느리게 흐르는 희미한 실루엣 — 공간의 깊이감
+    {
+      const pfx = player.x*0.55, pfy = player.y*0.55;
+      const fcell = 620;
+      const fx0 = Math.floor((pfx-W/2)/fcell), fx1 = Math.ceil((pfx+W/2)/fcell);
+      const fy0 = Math.floor((pfy-H/2)/fcell), fy1 = Math.ceil((pfy+H/2)/fcell);
+      ctx.save();
+      ctx.translate(player.x-pfx, player.y-pfy); // 원경은 0.55배 속도로 흐른다
+      ctx.globalAlpha = MAP.key==='abyss' ? 0.05 : 0.045;
+      ctx.fillStyle = PAL.ink;
+      for (let fx=fx0; fx<=fx1; fx++){
+        for (let fy=fy0; fy<=fy1; fy++){
+          const fh = hash2(fx*31+5, fy*23+9);
+          if (fh > 0.4) continue;
+          const fpx = fx*fcell + hash2(fx+3,fy)*fcell;
+          const fpy = fy*fcell + hash2(fx,fy+3)*fcell;
+          if (fh < 0.15){ // 큰 원형 실루엣
+            ctx.beginPath(); ctx.arc(fpx, fpy, 70+fh*300, 0, Math.PI*2); ctx.fill();
+          } else { // 큰 사각 실루엣 (도시 그림자)
+            ctx.fillRect(fpx-60, fpy-90-fh*120, 120, 180+fh*120);
+          }
+        }
+      }
+      ctx.restore();
+    }
     ctx.strokeStyle = PAL.grid;
     ctx.lineWidth = 1;
     const step = 34;
@@ -13283,6 +13310,73 @@ import { FX } from "./fx.js";
           ctx.stroke();
           ctx.beginPath(); ctx.arc(px, py-14, 2.5, 0, Math.PI*2); ctx.fill();
           ctx.beginPath(); ctx.arc(px-14, py, 2.5, 0, Math.PI*2); ctx.fill();
+        }
+      }
+    }
+    // v6.71 대형 랜드마크: 아주 드물게 등장하는 큰 구조물 — "이 동네"라는 장소감
+    {
+      const L = 820;
+      const lx0 = Math.floor((player.x-W/2)/L), lx1 = Math.ceil((player.x+W/2)/L);
+      const ly0 = Math.floor((player.y-H/2)/L), ly1 = Math.ceil((player.y+H/2)/L);
+      ctx.lineWidth = 1.6;
+      for (let lx=lx0; lx<=lx1; lx++){
+        for (let ly=ly0; ly<=ly1; ly++){
+          const lh = hash2(lx*41+11, ly*37+17);
+          if (lh > 0.32) continue;
+          const px = lx*L + hash2(lx+9,ly)*L*0.6 + L*0.2;
+          const py = ly*L + hash2(lx,ly+9)*L*0.6 + L*0.2;
+          ctx.save();
+          ctx.globalAlpha = 0.5;
+          if (MAP.key==='office'){          // 대형 오피스 빌딩
+            ctx.strokeRect(px-30, py-84, 60, 84);
+            for (let wy2=0; wy2<7; wy2++) for (let wx2=0; wx2<4; wx2++){ if (hash2(lx*5+wx2, ly*7+wy2)<0.55) ctx.fillRect(px-24+wx2*14, py-78+wy2*11, 8, 6); }
+            ctx.fillRect(px-14, py-96, 28, 8); // 옥상 간판
+          } else if (MAP.key==='market'){   // 시장 아치 게이트
+            ctx.fillRect(px-42, py-8, 8, 46); ctx.fillRect(px+34, py-8, 8, 46);
+            ctx.beginPath(); ctx.arc(px, py-6, 42, Math.PI, 0); ctx.stroke();
+            ctx.fillRect(px-26, py-30, 52, 10); // 현수막
+          } else if (MAP.key==='tariffLine'){ // 항만 크레인
+            ctx.fillRect(px-4, py-90, 8, 90);
+            ctx.fillRect(px-4, py-90, 74, 6);
+            ctx.beginPath(); ctx.moveTo(px+62, py-84); ctx.lineTo(px+62, py-40); ctx.stroke();
+            ctx.strokeRect(px+50, py-40, 24, 16); // 매달린 컨테이너
+          } else if (MAP.key==='frontline'){ // 탱크 잔해
+            ctx.save(); ctx.translate(px, py); ctx.rotate(-0.12);
+            roundRect(-38, -12, 76, 22, 6); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, -18, 14, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(10, -22); ctx.lineTo(52, -34); ctx.stroke(); // 기울어진 포신
+            ctx.restore();
+          } else if (MAP.key==='towers'){    // 타워크레인
+            ctx.fillRect(px-3, py-110, 6, 110);
+            ctx.fillRect(px-56, py-110, 112, 5);
+            ctx.beginPath(); ctx.moveTo(px+40, py-105); ctx.lineTo(px+40, py-70); ctx.stroke();
+            ctx.fillRect(px+34, py-70, 12, 12); // 추
+          } else if (MAP.key==='feed'){      // 대형 스마트폰
+            roundRect(px-34, py-70, 68, 140, 12); ctx.stroke();
+            ctx.fillRect(px-12, py-64, 24, 5); // 노치
+            ctx.fillRect(px+26, py-40, 3, 46); // 스크롤바
+          } else if (MAP.key==='heatisland'){ // 급수탑
+            ctx.beginPath(); ctx.moveTo(px-26, py); ctx.lineTo(px-12, py-56); ctx.moveTo(px+26, py); ctx.lineTo(px+12, py-56); ctx.stroke();
+            roundRect(px-24, py-88, 48, 34, 8); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(px, py-96); ctx.lineTo(px, py-104); ctx.stroke();
+          } else if (MAP.key==='nightnoise'){ // 가로등 + 빛 웅덩이
+            ctx.fillRect(px-2.5, py-76, 5, 76);
+            ctx.beginPath(); ctx.moveTo(px, py-76); ctx.quadraticCurveTo(px+26, py-80, px+30, py-66); ctx.stroke();
+            ctx.globalAlpha = 0.12;
+            ctx.beginPath(); ctx.ellipse(px+30, py+4, 40, 18, 0, 0, Math.PI*2); ctx.fill();
+          } else if (MAP.key==='exchange'){   // 대형 전광판
+            ctx.fillRect(px-5, py-30, 10, 30); ctx.fillRect(px-48, py-78, 96, 48);
+            ctx.save(); ctx.globalAlpha = 0.7;
+            ctx.strokeStyle = MAP.key==='abyss' ? '#3fa85f' : PAL.deco;
+            ctx.beginPath(); ctx.moveTo(px-38, py-44); ctx.lineTo(px-16, py-62); ctx.lineTo(px+2, py-50); ctx.lineTo(px+34, py-70); ctx.stroke();
+            ctx.restore();
+          } else if (MAP.key==='grayend'){    // 거대 균열
+            ctx.beginPath();
+            ctx.moveTo(px-70, py+16); ctx.lineTo(px-30, py-6); ctx.lineTo(px-8, py+10); ctx.lineTo(px+22, py-16); ctx.lineTo(px+64, py-2);
+            ctx.stroke();
+            for (let k=0;k<3;k++){ ctx.save(); ctx.translate(px-30+k*34, py-26-hash2(lx+k,ly)*18); ctx.rotate(k*0.9); ctx.strokeRect(-5,-5,10,10); ctx.restore(); }
+          }
+          ctx.restore();
         }
       }
     }
@@ -15120,7 +15214,9 @@ import { FX } from "./fx.js";
       ctx.save();
       ctx.translate(b.x + Math.cos(aimM)*(b.r+10), b.y + Math.sin(aimM)*(b.r+10));
       ctx.rotate(aimM);
-      ctx.fillStyle = b.mrReflect>0 ? 'rgba(154,219,232,0.9)' : 'rgba(154,219,232,0.4)';
+      ctx.fillStyle = b.mrReflect>0 ? 'rgba(154,219,232,0.9)'
+        : (b.mrWarn && Math.floor(performance.now()/100)%2===0) ? 'rgba(154,219,232,0.75)'
+        : 'rgba(154,219,232,0.4)';
       ctx.fillRect(-3,-16,6,32);
       ctx.strokeStyle = PAL.ink;
       ctx.lineWidth = 1.4;
