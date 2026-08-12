@@ -13494,6 +13494,51 @@ import { FX } from "./fx.js";
       ctx.fillStyle = ink;
       // 허리 벨트 — 직업색 포인트
       if (o.tierC){ ctx.fillStyle=o.tierC; ctx.globalAlpha=0.9; ctx.fillRect(-4.2,1.8,8.4,1.7); ctx.globalAlpha=1; ctx.fillStyle=ink; }
+      // v6.72 의상 디테일 — 계열 의복이 한 겹 더 입혀진다
+      ctx.lineWidth = 1;
+      if (grp==='war'){                // 흉갑 중앙선 + 리벳
+        ctx.strokeStyle = 'rgba(246,246,244,0.35)';
+        ctx.beginPath(); ctx.moveTo(0,-6.5); ctx.lineTo(0,3.5); ctx.stroke();
+        ctx.fillStyle = 'rgba(246,246,244,0.4)';
+        ctx.beginPath();
+        ctx.arc(-3.5,-4.5,0.6,0,Math.PI*2); ctx.arc(3.5,-4.5,0.6,0,Math.PI*2);
+        ctx.arc(-3.5,0,0.6,0,Math.PI*2); ctx.arc(3.5,0,0.6,0,Math.PI*2);
+        ctx.fill();
+      } else if (grp==='rng'){         // 등 뒤 화살통
+        ctx.fillStyle = ink;
+        ctx.save(); ctx.translate(-5.5,-5); ctx.rotate(0.35);
+        roundRect(-1.8,-4,3.6,9,1.5); ctx.fill();
+        ctx.strokeStyle = 'rgba(246,246,244,0.5)'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(-0.8,-4); ctx.lineTo(-1.6,-7); ctx.moveTo(0.8,-4); ctx.lineTo(1.4,-7); ctx.stroke();
+        ctx.restore();
+      } else if (grp==='mag' || grp==='pri'){ // 칼라 트림 + 룬 점
+        if (o.tierC){
+          ctx.strokeStyle = o.tierC; ctx.globalAlpha = 0.75; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-3.5,-6.5); ctx.lineTo(0,-4); ctx.lineTo(3.5,-6.5); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = 'rgba(246,246,244,0.4)';
+        ctx.beginPath();
+        ctx.arc(-2,0,0.6,0,Math.PI*2); ctx.arc(0,2,0.6,0,Math.PI*2); ctx.arc(2,0,0.6,0,Math.PI*2);
+        ctx.fill();
+      } else if (grp==='rog'){         // 나부끼는 스카프 자락
+        ctx.fillStyle = o.tierC || ink;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-3,-6);
+        ctx.quadraticCurveTo(-8,-3+Math.sin(walk)*1.5,-10,1+Math.sin(walk*1.3)*2);
+        ctx.lineTo(-7,1);
+        ctx.quadraticCurveTo(-6,-3,-3,-4.5);
+        ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (grp==='mer'){         // 셔츠 단추 줄
+        ctx.fillStyle = 'rgba(246,246,244,0.45)';
+        ctx.beginPath();
+        ctx.arc(0,-3.5,0.55,0,Math.PI*2); ctx.arc(0,-1,0.55,0,Math.PI*2); ctx.arc(0,1.5,0.55,0,Math.PI*2);
+        ctx.fill();
+      }
+      ctx.fillStyle = ink;
+      ctx.strokeStyle = ink;
     }
     // 목
     ctx.lineWidth = 2.4;
@@ -13513,7 +13558,7 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(-1.5,-14.2,3.4,Math.PI*0.85,Math.PI*1.95); ctx.fill();
       }
     }
-    // eye
+    // 눈: 미니멀 외눈 점 유지 (v6.72 두 눈·눈썹 시도 → 모자에 가려지고 개성 없어 롤백 — 사용자 지시)
     ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
     ctx.beginPath(); ctx.arc(3.4,-11.6,1.3,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = ink;
