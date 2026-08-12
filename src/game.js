@@ -420,6 +420,35 @@ import { FX } from "./fx.js";
   wrap.addEventListener('pointercancel', endTouch);
   wrap.addEventListener('contextmenu', (e)=> e.preventDefault());
 
+  // 🎯 탭/클릭 마크: 짧은 탭(이동 드래그 아님)으로 표적 지정 — 자동사격이 그 표적을 최우선으로 노린다
+  // 기믹 보스('진짜 고르기' 등)를 내 손으로 공략하는 수단. 빈 곳 탭 = 해제. 데스크톱=클릭, 모바일=탭.
+  let tapInfo = null;
+  wrap.addEventListener('pointerdown', (e)=>{
+    if (state==='playing') tapInfo = { x:e.clientX, y:e.clientY, t:performance.now(), id:e.pointerId };
+  });
+  wrap.addEventListener('pointerup', (e)=>{
+    if (!tapInfo || e.pointerId!==tapInfo.id) return;
+    const dp = Math.hypot(e.clientX-tapInfo.x, e.clientY-tapInfo.y);
+    const held = performance.now()-tapInfo.t;
+    tapInfo = null;
+    if (state!=='playing' || dp>9 || held>320 || !player) return;
+    const rect = c.getBoundingClientRect();
+    const wx = (e.clientX-rect.left)*(W/rect.width) - W/2 + player.x;
+    const wy = (e.clientY-rect.top)*(H/rect.height) - H/2 + player.y;
+    let best=null, bd=70*70;
+    for (const en of enemies){ const d=(en.x-wx)**2+(en.y-wy)**2; if (d<bd){ bd=d; best=en; } }
+    for (const bs of bosses){ if (bs.ghost) continue; const d=(bs.x-wx)**2+(bs.y-wy)**2; if (d<bd){ bd=d; best=bs; } }
+    if (best){
+      player.markTarget = best;
+      effects.push({ type:'ring', x:best.x, y:best.y, life:0.4, age:0, r0:(best.r||12)+6, r1:(best.r||12)+22 });
+      addTextNum(best.x, best.y-(best.r||12)-10, '🎯 표적');
+      SFX.play('tele');
+    } else if (player.markTarget){
+      player.markTarget = null;
+      addTextNum(wx, wy, '표적 해제');
+    }
+  });
+
   const IS_TOUCH = ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   if (IS_TOUCH) dashBtn.style.display = 'flex';
   dashBtn.addEventListener('pointerdown', (e)=>{
@@ -5098,6 +5127,19 @@ import { FX } from "./fx.js";
           b.jScanT = ph===3 ? 1.8 : 2.8;
         }
       }
+      // 신규 '어디 숨었어?' (2페+): 화면 밖 사방에서 저격 관통탄
+      if (ph>=2){
+        b.jEdgeT = (b.jEdgeT===undefined?6:b.jEdgeT) - dt;
+        if (b.jEdgeT<=0){
+          for (let k=0;k<3+ph;k++){
+            const a2 = Math.random()*Math.PI*2;
+            const sx = player.x+Math.cos(a2)*430, sy = player.y+Math.sin(a2)*430;
+            hostileShot(sx, sy, Math.atan2(player.y-sy,player.x-sx)+(Math.random()-0.5)*0.2, 300, 6, 18*ds, 2.2);
+          }
+          addTextNum(player.x, player.y-44, '"어디 숨었어?"');
+          b.jEdgeT = ph===3?3.5:5;
+        }
+      }
       // 전멸기 '읽씹의 대가': 100초 초과 시 전방위 즉사급 탄막 + 영구 강화
       if ((b.aliveT||0) > 100 && !b.jWiped){
         b.jWiped = true;
@@ -5159,6 +5201,19 @@ import { FX } from "./fx.js";
           addTextNum(b.x, b.y-b.r-14, '방패벽 강림');
           SFX.play('warn');
           b.jWallT = 20 - empN*2;
+        }
+      }
+      // 신규 '구호 제창' (2페+): 함성 충격파 — 플레이어를 밀쳐내고 링 탄막
+      if (ph>=2){
+        b.jChantT = (b.jChantT===undefined?8:b.jChantT) - dt;
+        if (b.jChantT<=0){
+          const pa = Math.atan2(player.y-b.y, player.x-b.x);
+          player.knockX += Math.cos(pa)*420; player.knockY += Math.sin(pa)*420;
+          for (let k=0;k<12;k++){ const a2=(Math.PI*2/12)*k; hostileShot(b.x,b.y,a2,160,6,14*ds,2.8); }
+          effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:30, r1:340 });
+          addTextNum(b.x, b.y-b.r-14, '"물러나라! 물러나라!"');
+          SFX.play('sweep');
+          b.jChantT = ph===3?6:9;
         }
       }
       // 전멸기 '무기한 총파업': 100초 초과 시 전방위 탄막 + 필드 봉쇄 + 영구 강화
@@ -5225,6 +5280,15 @@ import { FX } from "./fx.js";
           }
           addTextNum(player.x, player.y-44, '실외기 폭발!');
           b.hAcT = (ph===3?5:6.5) - empN*0.5;
+        }
+      }
+      // 신규 '신기루' (2페+): 가짜 그늘 — 들어가는 순간 폭발 (진짜 그늘은 파란 점선, 신기루는 붉은 점선)
+      if (ph>=2){
+        b.hMirT = (b.hMirT===undefined?10:b.hMirT) - dt;
+        if (b.hMirT<=0 && zones.length<40){
+          const a2 = Math.random()*Math.PI*2;
+          zones.push({ x:player.x+Math.cos(a2)*(160+Math.random()*120), y:player.y+Math.sin(a2)*(160+Math.random()*120), r:70, dps:0, t:12, maxT:12, type:'mirage', hostile:true });
+          b.hMirT = 13 - ph*2;
         }
       }
       // 전멸기 '재난문자 — 폭염 경보': 100초 초과 시 그늘 붕괴 + 도트 3배 + 전방위 탄막
@@ -5327,6 +5391,20 @@ import { FX } from "./fx.js";
           b.bdRingT = 2.6;
         }
       }
+      // 신규 '프로필 검증': 주기적으로 표적 마크 소실 + 보스·디코이 자리 바꿈 (다시 골라야 한다)
+      b.bdShufT = (b.bdShufT===undefined?12:b.bdShufT) - dt;
+      if (b.bdShufT<=0){
+        const alive2 = (b.bdAll||[]).filter(e=>enemies.includes(e));
+        if (alive2.length){
+          const sw = alive2[(Math.random()*alive2.length)|0];
+          const tx=b.x, ty=b.y; b.x=sw.x; b.y=sw.y; sw.x=tx; sw.y=ty;
+        }
+        player.markTarget = null;
+        screenDimT = Math.max(screenDimT, 0.35);
+        addTextNum(player.x, player.y-44, '"프로필 다시 볼게요" — 표적 소실');
+        SFX.play('tele');
+        b.bdShufT = 13;
+      }
       // 전멸기 '주선자 실망': 100초 초과 — 자리를 파토낸다
       if ((b.aliveT||0) > 100 && !b.jWiped){
         b.jWiped = true;
@@ -5414,12 +5492,153 @@ import { FX } from "./fx.js";
           b.uReno = 0.55;
         }
       }
+      // 신규 '세탁기 탈수' (3페): 회전 나선 탄막
+      if (ph>=3){
+        b.uSpinA = (b.uSpinA||0) + dt*2.6;
+        b.uSpinT = (b.uSpinT===undefined?1:b.uSpinT) - dt;
+        if (b.uSpinT<=0){
+          for (let k=0;k<2;k++) hostileShot(b.x, b.y, b.uSpinA + k*Math.PI, 190, 6, 15*ds, 3.2);
+          b.uSpinT = 0.16;
+        }
+      }
       // 전멸기 '경비실 호출 무시': 100초 초과 — 온 건물이 울린다
       if ((b.aliveT||0) > 100 && !b.jWiped){
         b.jWiped = true;
         showBossBanner('전멸기 — 경비실 호출 무시', '"신고하시든가요. 저희 집인데."', '#b8362e');
         for (let k=0;k<28;k++){ const a2=(Math.PI*2/28)*k; hostileShot(b.x, b.y, a2, 145, 7, 60*ds, 4); }
         b.uRingT = 0; b.dmg = Math.round(b.dmg*1.6);
+      }
+    } else if (b.kind==='jeonse'){
+      // 관문 보스 6호: 전세 사기꾼 — 보증금을 지키는 재산 방어 레이드
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 특약 발동', '"계약서엔 그런 말 없었는데요?"', '#8a7a3f'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 경매 개시', '"낙찰되면 나가주셔야죠."', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage){
+        if (!b.jEnraged){ b.jEnraged=true; showBossBanner('발악 — 야반도주', '"...잠깐 화장실 좀."', '#b8362e'); shake=Math.min(24,shake+14); }
+        // 도주하며 후방 살포 — 놓치면 전멸기가 먼저 온다
+        bossMoveToward(b, player.x, player.y, -b.speed*2.0, dt);
+        b.zRunT = (b.zRunT||0) - dt;
+        if (b.zRunT<=0){
+          const away = Math.atan2(player.y-b.y, player.x-b.x);
+          for (let k=-1;k<=1;k++) hostileShot(b.x, b.y, away+Math.PI+k*0.3, 200, 6, 18*ds, 2.4);
+          b.zRunT = 0.8;
+        }
+      } else {
+        bossMoveToward(b, player.x, player.y, b.speed*(ph===3?1.3:1), dt);
+      }
+      // 기믹 '보증금 회수': 주기적으로 골드를 뜯어간다 — 못 내면 몸으로
+      b.zRentT = (b.zRentT===undefined?6:b.zRentT) - dt;
+      if (b.zRentT<=0){
+        const take = Math.min(runGold, 15 + ph*12);
+        if (take>0){ runGold -= take; b.zStolen=(b.zStolen||0)+take; addTextNum(player.x, player.y-30, '-'+take+'G 보증금 회수'); }
+        else if (player.invuln<=0){ if (playerHit(22*ds, 0.3, 6)) return true; addTextNum(player.x, player.y-30, '"돈이 없으면 몸으로."'); }
+        SFX.play('coin');
+        b.zRentT = 7 - ph;
+      }
+      // '깡통전세': 함정 장판 대량 살포
+      b.zTrapT = (b.zTrapT===undefined?4:b.zTrapT) - dt;
+      if (b.zTrapT<=0){
+        for (let k=0;k<3+ph*2;k++){
+          addHazard(player.x+(Math.random()-0.5)*340, player.y+(Math.random()-0.5)*340, 58, 1.3, 20*ds, false);
+        }
+        addTextNum(player.x, player.y-44, '깡통전세!');
+        b.zTrapT = (ph===3?3.6:5.2) - empN*0.4;
+      }
+      // '등기부 등본' (2페+): 휘어지며 쫓아오는 서류 탄
+      if (ph>=2){
+        b.zDocT = (b.zDocT===undefined?3:b.zDocT) - dt;
+        if (b.zDocT<=0){
+          const aim = Math.atan2(player.y-b.y, player.x-b.x);
+          for (let k=0;k<2+ph;k++) hostileShot(b.x, b.y, aim+(k-1)*0.4, 175, 7, 17*ds, 3.4, {kind:'tornado',curve:(k%2?1:-1)*1.3});
+          addTextNum(b.x, b.y-b.r-14, '등기부 등본');
+          b.zDocT = 4.2 - ph*0.5;
+        }
+      }
+      // 3페 '경매 개시': 전방위 낙찰봉
+      if (ph>=3){
+        b.zAucT = (b.zAucT===undefined?4:b.zAucT) - dt;
+        if (b.zAucT<=0){
+          for (let k=0;k<20;k++){ const a2=(Math.PI*2/20)*k; hostileShot(b.x, b.y, a2, 165, 6, 18*ds, 3.0); }
+          addTextNum(b.x, b.y-b.r-14, '유찰! 재경매!');
+          b.zAucT = 5;
+        }
+      }
+      // 전멸기 '전세사기 완성': 100초 — 재산 절반 증발 + 대탄막
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 전세사기 완성', '"명의는 이미 바지사장 겁니다."', '#b8362e');
+        const lost = Math.floor(runGold*0.5);
+        runGold -= lost;
+        toast('💸 런 골드 절반 증발 (-'+lost+'G)');
+        for (let k=0;k<32;k++){ const a2=(Math.PI*2/32)*k; hostileShot(b.x, b.y, a2, 150, 7, 60*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6); b.speed *= 1.3;
+      }
+    } else if (b.kind==='aialgo'){
+      // 관문 보스 7호: AI 알고리즘 — 너의 움직임을 학습한다 (예측 사격 레이드)
+      const ph = b.hp > b.maxHp*0.66 ? 1 : b.hp > b.maxHp*0.33 ? 2 : 3;
+      if (ph !== b.jPhase){
+        b.jPhase = ph;
+        if (ph===2){ showBossBanner('2페이즈 — 맞춤 추천', '「회원님이 좋아할 만한 탄막」', '#5ab8c9'); SFX.play('warn'); }
+        if (ph===3){ showBossBanner('3페이즈 — 무한 스크롤', '「다음 탄막이 자동 재생됩니다」', '#b8362e'); SFX.play('warn'); }
+      }
+      const enrage = b.hp < b.maxHp*0.12;
+      if (enrage && !b.jEnraged){
+        b.jEnraged=true; showBossBanner('발악 — A/B 테스트', '「어느 쪽에 죽는지 실험 중」', '#b8362e'); shake=Math.min(24,shake+14);
+      }
+      bossMoveToward(b, player.x, player.y, b.speed*(enrage?1.6:1), dt);
+      // 플레이어 속도 추정 (학습)
+      if (b.aiLX!==undefined){
+        b.aiVX = (player.x-b.aiLX)/Math.max(dt,0.001)*0.7 + (b.aiVX||0)*0.3;
+        b.aiVY = (player.y-b.aiLY)/Math.max(dt,0.001)*0.7 + (b.aiVY||0)*0.3;
+      }
+      b.aiLX = player.x; b.aiLY = player.y;
+      // 기믹 '알고리즘 추천': 예측 조준탄 — 이동 방향 앞을 노린다 (무빙을 읽힌다)
+      b.aiPredT = (b.aiPredT===undefined?2.5:b.aiPredT) - dt;
+      if (b.aiPredT<=0){
+        const lead = 0.55;
+        const tx = player.x + (b.aiVX||0)*lead, ty = player.y + (b.aiVY||0)*lead;
+        const aim = Math.atan2(ty-b.y, tx-b.x);
+        const n = 2+ph;
+        for (let k=0;k<n;k++) hostileShot(b.x, b.y, aim+(k-(n-1)/2)*0.10, 290, 6, 17*ds, 2.2);
+        addTextNum(b.x, b.y-b.r-14, '맞춤 추천');
+        b.aiPredT = (ph===3?1.6:2.3) - empN*0.2;
+      }
+      // '숏폼 늪' (2페+): 들어가면 스킬 봉인 + 도트 — 화면에서 눈을 못 뗀다
+      if (ph>=2){
+        b.aiFeedT = (b.aiFeedT===undefined?7:b.aiFeedT) - dt;
+        if (b.aiFeedT<=0 && zones.length<40){
+          zones.push({ x:player.x+(Math.random()-0.5)*160, y:player.y+(Math.random()-0.5)*160, r:110, dps:0, t:6, maxT:6, type:'silence', hostile:true, hitT:0 });
+          addTextNum(player.x, player.y-40, '숏폼 늪 — 손이 멈추지 않는다');
+          b.aiFeedT = 10 - ph;
+        }
+      }
+      // 3페 '무한 스크롤': 4갈래 회전 나선
+      if (ph>=3){
+        b.aiSpinA = (b.aiSpinA||0) + dt*2.2;
+        b.aiSpinT = (b.aiSpinT===undefined?1:b.aiSpinT) - dt;
+        if (b.aiSpinT<=0){
+          for (let k=0;k<4;k++) hostileShot(b.x, b.y, b.aiSpinA + k*Math.PI/2, 180, 6, 16*ds, 3.2);
+          b.aiSpinT = 0.20;
+        }
+      }
+      // 발악 'A/B 테스트': 예측탄·나선 고속 교차
+      if (enrage){
+        b.aiPredT = Math.min(b.aiPredT, 1.0);
+        b.aiSpinT = Math.min(b.aiSpinT===undefined?0.2:b.aiSpinT, 0.13);
+      }
+      // 전멸기 '계정 정지': 100초 — 스킬 잠금 + 대탄막
+      if ((b.aliveT||0) > 100 && !b.jWiped){
+        b.jWiped = true;
+        showBossBanner('전멸기 — 계정 정지', '「커뮤니티 가이드라인 위반: 생존 시도」', '#b8362e');
+        player.skCds = player.skCds.map(cd=>Math.max(cd,10));
+        player.ultCooldown = Math.max(player.ultCooldown, 10);
+        toast('🚫 모든 스킬 10초 잠금');
+        for (let k=0;k<28;k++){ const a2=(Math.PI*2/28)*k; hostileShot(b.x, b.y, a2, 155, 7, 60*ds, 4); }
+        b.dmg = Math.round(b.dmg*1.6);
       }
     } else if (b.kind==='berserk'){
       // 은재: 체력이 낮을수록 광폭화하는 광전사
@@ -5698,6 +5917,13 @@ import { FX } from "./fx.js";
     }
   }
   function nearestTarget(){
+    // 수동 마크 최우선: 클릭/탭으로 지정한 표적 (기믹 보스 '진짜 고르기' — 자동사격을 내가 조종한다)
+    const mk = player.markTarget;
+    if (mk){
+      const alive = (mk.isBoss ? bosses.includes(mk) && !mk.ghost : enemies.includes(mk));
+      if (alive && Math.hypot(mk.x-player.x, mk.y-player.y) < 560) return mk;
+      if (!alive) player.markTarget = null;
+    }
     // 조준 우선순위: 사거리 내 보스 > 엘리트·악몽 > 최근접 (자동 사격이 잡몹에 낭비되지 않게)
     for (const b of bosses){ if (!b.ghost && Math.hypot(b.x-player.x,b.y-player.y) < 420) return b; }
     let prio=null, pd=Infinity;
@@ -6824,7 +7050,17 @@ import { FX } from "./fx.js";
       }
       if (z.hostile){
         // 관문 기믹 구역: 적에게 무해 — 플레이어와만 상호작용
-        if (z.type==='silence'){
+        if (z.type==='mirage'){
+          // 신기루: 밟는 순간 폭발
+          if (Math.hypot(player.x-z.x, player.y-z.y) < z.r*0.8){
+            zones.splice(i,1);
+            effects.push({ type:'ring', x:z.x, y:z.y, life:0.5, age:0, r0:20, r1:z.r+60 });
+            addTextNum(player.x, player.y-36, '신기루!');
+            SFX.play('boom');
+            if (player.invuln<=0 && playerHit(24*dmgScale(), 0.4, 10)) return;
+            continue;
+          }
+        } else if (z.type==='silence'){
           // 어색한 침묵: 안에 있으면 스킬 봉인 + 도트
           if (Math.hypot(player.x-z.x, player.y-z.y) < z.r){
             player.zoneSilenceT = 0.25;
@@ -7110,6 +7346,15 @@ import { FX } from "./fx.js";
     }
     if (player.invuln>0) player.invuln -= dt;
     if (player.zoneSilenceT>0) player.zoneSilenceT -= dt;
+    // 마크 표적: 고동치는 링 표시
+    if (player.markTarget){
+      player.markPulseT = (player.markPulseT||0) - dt;
+      if (player.markPulseT<=0){
+        const mk = player.markTarget;
+        effects.push({ type:'ring', x:mk.x, y:mk.y, life:0.45, age:0, r0:(mk.r||12)+4, r1:(mk.r||12)+16 });
+        player.markPulseT = 0.5;
+      }
+    }
     if (player.hitFlash>0) player.hitFlash -= dt;
     if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
     // 흡혈 감쇠 윈도 리셋 (1초 단위)
@@ -7645,13 +7890,15 @@ import { FX } from "./fx.js";
     if (!rift){
     if (!finalAlive && !rootDefeated && elapsed>=runFinalAt){
       // 관문 보스: 특정 위험도에서는 최종 보스 대신 관문 레이드 (오직 일대일)
-      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx', 20:'blinddateEx', 24:'upstairsEx' };
+      const GATE_BOSSES = { 8:'jealousEx', 12:'protestEx', 16:'heatwaveEx', 20:'blinddateEx', 24:'upstairsEx', 28:'jeonseEx', 32:'aialgoEx' };
       const GATE_TOASTS = {
         jealousEx:'⚔ 관문 레이드 — 최병우를 놓지 못한 그녀가 왔다. 오직 일대일.',
         protestEx:'⚔ 관문 레이드 — 출근길이 막혔다. 시위대가 도로를 점거한다.',
         heatwaveEx:'⚔ 관문 레이드 — 폭염 경보. 그늘을 벗어나면 타 죽는다.',
         blinddateEx:'⚔ 관문 레이드 — 주선자가 자리를 깔았다. 셋 중 진짜는 하나.',
-        upstairsEx:'⚔ 관문 레이드 — 윗집이 깨어났다. 천장이 울린다.'
+        upstairsEx:'⚔ 관문 레이드 — 윗집이 깨어났다. 천장이 울린다.',
+        jeonseEx:'⚔ 관문 레이드 — "안전한 매물이에요." 보증금을 지켜라.',
+        aialgoEx:'⚔ 관문 레이드 — 알고리즘이 너를 학습하기 시작했다.'
       };
       const gateKey = GATE_BOSSES[DB.peril] || null;
       spawnBoss(gateKey || MAP.final);
@@ -9530,6 +9777,8 @@ import { FX } from "./fx.js";
     heatwaveEx:'관문 — 재난문자의 주인',
     blinddateEx:'관문 — 만남을 주선하는 자',
     upstairsEx:'관문 — 천장 위에 사는 자',
+    jeonseEx:'관문 — 보증금을 삼키는 자',
+    aialgoEx:'관문 — 너를 학습하는 것',
     awakenOseojin:'각성 — 차원의 종결자', awakenEunJae:'각성 — 광기의 화신', abyssGoDokGeun:'심연 그 자체'
   };
   function showBossBanner(title, name, color){
@@ -9550,6 +9799,9 @@ import { FX } from "./fx.js";
     monday:'#5c6a8a', deadline:'#c9403a', gatekeeper:'#5c4a8a',
     overtime:'#4a5568', rentday:'#8a6a3f', aiface:'#5ab8c9', jealousEx:'#c94f8a',
     protestEx:'#3f7a5c', heatwaveEx:'#d4772e', blinddateEx:'#b85c8a', upstairsEx:'#7a6a52',
+    jeonseEx:'#8a7a3f', aialgoEx:'#5ab8c9',
+    xiPingping:'#c9a13f', maoJu:'#b8362e', eggRice:'#e2b23f', trumpTariff:'#d4772e',
+    moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
   function drawBoss(b){
@@ -9840,6 +10092,18 @@ import { FX } from "./fx.js";
         ctx.fillStyle = '#7a6a52';
         ctx.beginPath(); ctx.ellipse(-4, 9, 5, 2.6, 0, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(6, 9, 5, 2.6, 0, 0, Math.PI*2); ctx.fill();
+      } else if (b.kind==='jeonse'){ // 전세 사기꾼: 서류가방 + 도망갈 준비된 선글라스
+        ctx.fillStyle = '#8a7a3f';
+        roundRect(6,-2,10,8,2); ctx.fill();
+        ctx.strokeStyle = ink; ctx.lineWidth=1.2; ctx.strokeRect(6,-2,10,8);
+        ctx.fillStyle = ink;
+        ctx.fillRect(-4,-13,5,3); ctx.fillRect(2.5,-13,5,3);
+        ctx.beginPath(); ctx.moveTo(1,-11.5); ctx.lineTo(2.5,-11.5); ctx.stroke();
+      } else if (b.kind==='aialgo'){ // AI 알고리즘: 모니터 두상 + 로딩 스피너
+        ctx.fillStyle = MAP.key==='abyss' ? '#1a2c30' : '#dff2f5';
+        ctx.fillRect(-6,-17,15,11);
+        ctx.strokeStyle = '#5ab8c9'; ctx.lineWidth=1.6; ctx.strokeRect(-6,-17,15,11);
+        ctx.beginPath(); ctx.arc(1.5,-11.5,3.2, t*4, t*4+Math.PI*1.4); ctx.stroke();
       }
       ctx.restore();
     }
@@ -9924,7 +10188,7 @@ import { FX } from "./fx.js";
     if (FX.enabled){
       const fxZones = [];
       for (const z of zones){
-        if (z.type==='shade') continue; // 그늘은 빛이 아니라 어둠 — 캔버스에서만
+        if (z.type==='shade' || z.type==='mirage') continue; // 그늘·신기루는 빛이 아니라 어둠 — 캔버스에서만
         const tt = Math.min(1, z.t/z.maxT);
         const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : z.type==='block' ? 0xb8362e : 0x6faa4e;
         fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:(z.type==='block'?0.12:0.22)*tt });
@@ -10042,6 +10306,16 @@ import { FX } from "./fx.js";
         ctx.fillStyle = 'rgba(30,36,52,0.30)';
         ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
         ctx.strokeStyle = 'rgba(90,140,200,0.55)';
+        ctx.setLineDash([6,6]);
+        ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (z.type==='mirage'){
+        // 신기루: 그늘과 닮았지만 테두리가 불그스름하게 아른거린다 — 관찰력이 생명
+        const wob = Math.sin(performance.now()/180 + z.x)*0.08;
+        ctx.fillStyle = 'rgba(38,34,46,'+(0.26+wob)+')';
+        ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = 'rgba(190,110,90,0.5)';
         ctx.setLineDash([6,6]);
         ctx.lineWidth = 1.8;
         ctx.beginPath(); ctx.arc(0,0,z.r,0,Math.PI*2); ctx.stroke();
