@@ -13357,6 +13357,12 @@ import { FX } from "./fx.js";
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = PAL.bg;
       ctx.beginPath(); ctx.arc(-3,-4,1.6,0,Math.PI*2); ctx.arc(3,-4,1.6,0,Math.PI*2); ctx.fill();
+      // v6.59: 울부짖는 입 + 뒤로 흩어지는 잔영
+      ctx.beginPath(); ctx.ellipse(0,-0.5,1.6,2.2+flap*0.8,0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = mid;
+      ctx.beginPath(); ctx.arc(-e.r*0.95, 4+flap*2, e.r*0.24, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
     } else if (sk==='wisp'){
       ctx.fillStyle = mid;
       ctx.globalAlpha = 0.85;
@@ -13364,14 +13370,26 @@ import { FX } from "./fx.js";
       ctx.globalAlpha = 0.4;
       ctx.beginPath(); ctx.arc(-e.r*0.6,e.r*0.5,e.r*0.45,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
+      // v6.59: 일렁이는 내부 화심 + 눈
       ctx.fillStyle = PAL.bg;
+      ctx.globalAlpha = 0.65;
+      ctx.beginPath(); ctx.ellipse(0, 1+Math.sin(t*7+e.x)*0.8, e.r*0.28, e.r*0.4, 0, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
       ctx.beginPath(); ctx.arc(2,-2,1.8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(2.4,-2,0.8,0,Math.PI*2); ctx.fill();
     } else if (sk==='glitch'){
       ctx.fillStyle = mid;
       const j = ()=> (Math.random()-0.5)*3;
       ctx.fillRect(-e.r*0.7+j(), -e.r*0.7+j(), e.r*1.4, e.r*0.5);
       ctx.fillRect(-e.r*0.7+j(), -e.r*0.15+j(), e.r*1.4, e.r*0.5);
       ctx.fillRect(-e.r*0.7+j(), e.r*0.4+j(), e.r*1.4, e.r*0.5);
+      // v6.59: 지지직거리는 눈 — 가끔 깜빡이며 사라진다
+      if (Math.floor(performance.now()/160)%3!==0){
+        ctx.fillStyle = PAL.bg;
+        ctx.fillRect(-3.4,-e.r*0.5,2.4,2.4);
+        ctx.fillRect(1.4+j()*0.4,-e.r*0.5,2.4,2.4);
+      }
     } else if (sk==='golem'){
       ctx.fillStyle = ink2;
       roundRect(-e.r*0.85,-e.r*0.7,e.r*1.7,e.r*1.5,4);
@@ -13412,6 +13430,10 @@ import { FX } from "./fx.js";
         ctx.lineTo(k*e.r*0.5+4,-e.r*0.55);
         ctx.closePath(); ctx.fill();
       }
+      // v6.59: 튀는 불티
+      if (Math.random()<0.3){
+        ctx.fillRect(-e.r*0.6+Math.random()*e.r*1.2, -e.r*1.15-Math.random()*4, 1.6, 1.6);
+      }
     } else if (sk==='drone'){
       ctx.fillStyle = mid;
       roundRect(-e.r*0.6,-e.r*0.6,e.r*1.2,e.r*1.2,3);
@@ -13422,6 +13444,15 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(-e.r,0); ctx.lineTo(e.r,0); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0,-e.r); ctx.lineTo(0,e.r); ctx.stroke();
       ctx.restore();
+      // v6.59: 감시 렌즈 + 깜빡이는 경고등
+      ctx.fillStyle = PAL.bg;
+      ctx.beginPath(); ctx.arc(0,0,e.r*0.3,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(0,0,e.r*0.13,0,Math.PI*2); ctx.fill();
+      if (Math.floor(performance.now()/300)%2===0){
+        ctx.fillStyle = '#c94f4f';
+        ctx.fillRect(e.r*0.32,-e.r*0.5,2.2,2.2);
+      }
     } else if (sk==='inkbow'){
       ctx.fillStyle = mid;
       ctx.beginPath(); ctx.arc(0,-2,e.r*0.55,0,Math.PI*2); ctx.fill();
@@ -13430,6 +13461,11 @@ import { FX } from "./fx.js";
       ctx.save(); ctx.rotate(aim);
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(e.r*0.8,0,e.r*0.6,-1.2,1.2); ctx.stroke();
+      // v6.59: 시위에 걸린 화살 — 어딜 겨누는지 보인다
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(e.r*0.25,0); ctx.lineTo(e.r*1.45,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(e.r*1.45,0); ctx.lineTo(e.r*1.2,-2);
+      ctx.moveTo(e.r*1.45,0); ctx.lineTo(e.r*1.2,2); ctx.stroke();
       ctx.restore();
     } else if (sk==='turret'){
       ctx.fillStyle = mid;
@@ -13438,9 +13474,17 @@ import { FX } from "./fx.js";
       const aim = Math.atan2(player.y-e.y, player.x-e.x);
       ctx.save(); ctx.rotate(aim);
       ctx.fillRect(0,-2,e.r*1.2,4);
+      // v6.59: 포구 조준 램프
+      if (Math.floor(performance.now()/400)%2===0){
+        ctx.fillStyle = '#c94f4f';
+        ctx.fillRect(e.r*1.1,-1.2,2.4,2.4);
+      }
       ctx.restore();
       ctx.fillStyle = PAL.bg;
       ctx.beginPath(); ctx.arc(0,0,2,0,Math.PI*2); ctx.fill();
+      // v6.59: 고정 볼트
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(-e.r*0.5,e.r*0.42,1,0,Math.PI*2); ctx.arc(e.r*0.5,e.r*0.42,1,0,Math.PI*2); ctx.fill();
     } else if (sk==='slime' || sk==='inkslime' || sk==='virus'){
       ctx.fillStyle = sk==='virus' ? ink2 : (sk==='inkslime' ? ink2 : soft);
       if (sk==='virus'){
