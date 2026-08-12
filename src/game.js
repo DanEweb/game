@@ -6,7 +6,7 @@ import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
 import { FX } from "./fx.js";
 
   const $ = (id)=> document.getElementById(id);
-  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const canvas = $('c'); let ctx = canvas.getContext('2d'); // let: 도트 렌더 파이프라인이 오프스크린으로 잠시 스왑
   const wrap = $('wrap'), overlay = $('overlay');
   const titleText = $('titleText'), subText = $('subText'), bestSub = $('bestSub');
   const btn = $('btn'), btn2 = $('btn2');
@@ -9332,7 +9332,7 @@ import { FX } from "./fx.js";
     const rs = (player.recoilScale||1) * (player.lungeThrow ? -0.9 : 1);
     player.recoilX = (player.recoilX||0) - Math.cos(a)*2.6*rs;
     player.recoilY = (player.recoilY||0) - Math.sin(a)*2.6*rs;
-    player.swingT = 0.16; // v6.48 공격 스윙 모션 (무기 프롭이 실제로 휘둘러진다)
+    player.swingT = 0.26; // v6.73 공격 3박자 모션 (예비→타격→복귀)
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
     const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3) || (player.dashCritT>0); // 그림자: 무피격 3초+ 확정 치명 / v6.52 거합: 대시 직후 확정 치명
@@ -9823,7 +9823,7 @@ import { FX } from "./fx.js";
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
         const imb = w.imbue;
         effects.push({ type: spin?'slash':'arc', x:player.x, y:player.y, a:baseA, arc: spin?2.4:arc, r: spin?radius:radius, life:0.26, age:0, friendly:true });
-        player.swingT = Math.max(player.swingT||0, 0.16);
+        player.swingT = Math.max(player.swingT||0, 0.26);
         const hitInArc2 = (tx, ty, tr)=>{
           const d = Math.hypot(tx-player.x, ty-player.y);
           if (d > radius+tr) return false;
@@ -10846,7 +10846,7 @@ import { FX } from "./fx.js";
           player._swMetro = (player._swMetro||0) - dt;
           if (player._swMetro <= 0){
             player._swMetro = auraState.on ? 0.7 : 0.55;
-            player.swingT = Math.max(player.swingT||0, 0.16);
+            player.swingT = Math.max(player.swingT||0, 0.26);
             // v6.50 런지: 가장 가까운 적 쪽으로 몸이 쏠린다 — '때리러 간다'는 느낌
             let lt=null, ld=1e9;
             for (const e9 of enemies){ const d9=Math.hypot(e9.x-player.x,e9.y-player.y); if (d9<ld){ ld=d9; lt=e9; } }
@@ -13420,10 +13420,85 @@ import { FX } from "./fx.js";
 
   // ---------- 인간형 캐릭터 ----------
   // 옆모습 치비: 다리(걷기 스윙) + 몸통 + 머리 + 직업 장비
+  // v6.73 도트 렌더 파이프라인: 휴머노이드를 저해상 오프스크린에 벡터로 그린 뒤 최근접 확대로 블릿 —
+  // 실루엣 아웃라인 + 상하 2톤 셰이딩 + 걸음 6프레임 양자화가 합쳐져 도트 게임 스프라이트 질감이 난다.
+  // localStorage.gs_dot='0' 으로 끄면 기존 벡터 렌더 (검수용)
   function drawHumanoid(x, y, o){
+    if (localStorage.gs_dot === '0'){ drawHumanoidVec(x, y, o); return; }
+    const D = drawHumanoid;
+    if (!D._c){
+      D.PPU = 1.2; D.SZ = 128;
+      D._c = document.createElement('canvas'); D._c.width = D._c.height = D.SZ;
+      D._cx = D._c.getContext('2d', { willReadFrequently:true });
+      D._o = document.createElement('canvas'); D._o.width = D._o.height = D.SZ;
+      D._ox = D._o.getContext('2d');
+    }
+    const PPU = D.PPU, SZ = D.SZ, dc = D._cx, oc = D._ox;
+    // 스프라이트 해상도는 캐릭터 크기와 무관하게 고정(PPU) — 커질수록 픽셀이 굵어지는 진짜 도트 확대 질감
+    const s = o.scale||1;
+    // 걸음 양자화 — 도트 특유의 딱딱 끊기는 6프레임 걸음
+    const step = Math.PI/3;
+    const o2 = Object.assign({}, o, { scale:1, walk: o.walk ? Math.round(o.walk/step)*step : 0 });
+    dc.setTransform(1,0,0,1,0,0);
+    dc.clearRect(0,0,SZ,SZ);
+    dc.setTransform(PPU,0,0,PPU,SZ/2,SZ/2);
+    const main = ctx;
+    ctx = dc;
+    try { drawHumanoidVec(0, 0, o2); } finally { ctx = main; }
+    // 2톤 셰이딩: 실루엣 안쪽만(source-atop) 위 하이라이트 · 아래 그림자
+    dc.setTransform(1,0,0,1,0,0);
+    dc.save();
+    dc.globalCompositeOperation = 'source-atop';
+    const sc = PPU;
+    // 대각 광원(좌상단) — 상단·앞면은 뜨고 하단·뒷면은 가라앉는 3톤 셰이딩
+    const gd = dc.createLinearGradient(0, SZ/2-17*sc, 0, SZ/2+13*sc);
+    gd.addColorStop(0,    'rgba(255,252,240,0.26)');
+    gd.addColorStop(0.38, 'rgba(255,252,240,0.07)');
+    gd.addColorStop(0.6,  'rgba(255,255,255,0)');
+    gd.addColorStop(1,    'rgba(4,4,16,0.30)');
+    dc.fillStyle = gd;
+    dc.fillRect(0,0,SZ,SZ);
+    dc.restore();
+    // 포스터라이즈: 알파 임계(반투명 가장자리 제거) + 색 밴드 양자화 — 도트 특유의 쨍한 픽셀·셰이딩 밴드
+    const im = dc.getImageData(0,0,SZ,SZ), d8 = im.data;
+    for (let i=0; i<d8.length; i+=4){
+      const a = d8[i+3];
+      if (a < 70){ d8[i+3] = 0; continue; }
+      d8[i+3] = 255;
+      d8[i]   = Math.min(255,(d8[i]  +8>>4)<<4);
+      d8[i+1] = Math.min(255,(d8[i+1]+8>>4)<<4);
+      d8[i+2] = Math.min(255,(d8[i+2]+8>>4)<<4);
+    }
+    dc.putImageData(im,0,0);
+    // 아웃라인: 4방향 실루엣 합성 → 잉크색 — 스프라이트 테두리
+    oc.setTransform(1,0,0,1,0,0);
+    oc.clearRect(0,0,SZ,SZ);
+    oc.drawImage(D._c,-1,0); oc.drawImage(D._c,1,0);
+    oc.drawImage(D._c,0,-1); oc.drawImage(D._c,0,1);
+    oc.save();
+    oc.globalCompositeOperation = 'source-in';
+    oc.fillStyle = o.ink || PAL.ink;
+    oc.fillRect(0,0,SZ,SZ);
+    oc.restore();
+    const half = SZ/2/PPU*s;
+    const sm = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(D._o, x-half, y-half, half*2, half*2);
+    ctx.drawImage(D._c, x-half, y-half, half*2, half*2);
+    ctx.imageSmoothingEnabled = sm;
+  }
+  // v6.73 색 분리: 아웃라인(순잉크) / 내부 잉크(살짝 밝은 차콜) / 몸통(직업색 물든 옷감) —
+  // 새까만 덩어리로 뭉개지던 실루엣이 도트 스프라이트처럼 층이 진다
+  function mixHex(a, b, t){
+    const p = (h)=>[parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+    const A = p(a), B = p(b);
+    const q = (v)=> ('0'+Math.round(v).toString(16)).slice(-2);
+    return '#'+q(A[0]+(B[0]-A[0])*t)+q(A[1]+(B[1]-A[1])*t)+q(A[2]+(B[2]-A[2])*t);
+  }
+  function drawHumanoidVec(x, y, o){
     const s = o.scale||1;
     const face = o.face||1;
-    const ink = o.ink || PAL.ink;
+    const ink = o.ink || (MAP.key==='abyss' ? '#42434d' : '#35363f');
     const walk = o.walk||0;
     const swing = Math.sin(walk)*3.5;
     ctx.save();
@@ -13437,7 +13512,34 @@ import { FX } from "./fx.js";
     // 기존과 동일하게 유지해 30여 개 직업 프롭·스윙·티어 외형이 그대로 맞물린다
     const grp = o.gear ? classResGroup(o.gear) : null;
     // 몸통 톤 분리 — 머리·팔다리(잉크)와 몸통(옷감 톤)을 나눠 실루엣이 덩어리지지 않게
-    const bodyTone = (ink===PAL.ink) ? (MAP.key==='abyss' ? '#36373d' : '#4d4f59') : ink;
+    // 옷감 톤 = 직업 악센트색을 어두운 회색에 섞은 것 — 직업마다 실루엣 색이 달라진다
+    const bodyTone = o.ink ? o.ink
+      : mixHex(MAP.key==='abyss' ? '#44454f' : '#5b5d69', o.tierC || '#767884', 0.42);
+    // v6.73 공격 3박자: 예비동작(뒤로 젖힘) → 타격(런지 + 스윙 + 참격 잔상) → 복귀 — 계열별 모션 분기
+    const atkN = o.atk||0;
+    let swRot = 0, lunge = 0, lunY = 0, smear = 0;
+    if (atkN > 0){
+      const t = 1 - atkN;
+      if (grp==='rng'){
+        // 반동: 총구가 확 들리고 몸이 뒤로 밀렸다 천천히 복귀 — 발사의 무게
+        if (t < 0.16){ const k=t/0.16; const e=1-(1-k)*(1-k); swRot = 0.68*e; lunge = -3.6*e; lunY = -1.2*e; }
+        else { const k=(t-0.16)/0.84; const e=k*k*(3-2*k); swRot = 0.68*(1-e); lunge = -3.6*(1-e); lunY = -1.2*(1-e); }
+      } else if (grp==='mag' || grp==='pri'){
+        // 지팡이 추진: 뒤로 당겨 기를 모았다가 앞으로 내지른다
+        if (t < 0.3){ const k=t/0.3; const e=k*k; swRot = 0.5*e; lunge = -1.6*e; lunY = 1.1*e; }
+        else if (t < 0.58){ const k=(t-0.3)/0.28; const e=1-Math.pow(1-k,3);
+          swRot = 0.5-1.05*e; lunge = -1.6+4.6*e; lunY = 1.1-2.1*e; smear = Math.sin(k*Math.PI)*0.7; }
+        else { const k=(t-0.58)/0.42; const e=k*k*(3-2*k); swRot = -0.55*(1-e); lunge = 3*(1-e); lunY = -1*(1-e); }
+      } else {
+        // 근접 참격: 무릎을 낮춰 크게 치켜들었다 몸째 실어 내리벤다 — 어깨축 -103° 풀 스윙
+        if (t < 0.22){ const k=t/0.22; const e=1-(1-k)*(1-k); swRot = 0.62*e; lunge = -1.8*e; lunY = 1.4*e; }
+        else if (t < 0.58){ const k=(t-0.22)/0.36; const e=1-Math.pow(1-k,3);
+          swRot = 0.62 - 2.42*e; lunge = -1.8 + 6.2*Math.sin(k*Math.PI*0.5);
+          lunY = 1.4 - 3.0*e; smear = Math.sin(k*Math.PI); }
+        else { const k=(t-0.58)/0.42; const e=k*k*(3-2*k); swRot = -1.8*(1-e); lunge = 4.4*(1-e); lunY = -1.6*(1-e); }
+      }
+    }
+    if (lunge || lunY) ctx.translate(lunge, lunY);
     if (o.robe){
       // 풀 로브 — 자락이 갈라지며 펄럭이고, 어깨선과 허리끈이 잡힌다
       ctx.fillStyle = bodyTone;
@@ -13574,10 +13676,24 @@ import { FX } from "./fx.js";
 
     const g = o.gear;
     ctx.lineWidth = 2;
-    // v6.48 공격 스윙: 발사·타격 순간 무기 프롭이 어깨를 축으로 휘둘러진다
+    // v6.73 공격 스윙: 3박자 곡선(swRot)으로 어깨축 회전 + 타격 순간 참격 잔상 호
     const atk = o.atk||0;
     const swung = atk>0;
-    if (swung){ ctx.save(); ctx.translate(3,-3); ctx.rotate(-atk*0.55); ctx.translate(-3,3); }
+    if (swung){
+      if (smear > 0.05){
+        ctx.save();
+        ctx.strokeStyle = o.tierC || ink;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = 0.4*smear;
+        ctx.lineWidth = 3.2;
+        ctx.beginPath(); ctx.arc(3,-3,13.5,-1.15,0.75); ctx.stroke();
+        ctx.globalAlpha = 0.16*smear;
+        ctx.lineWidth = 6.5;
+        ctx.beginPath(); ctx.arc(3,-3,10.5,-0.95,0.6); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.save(); ctx.translate(3,-3); ctx.rotate(swRot); ctx.translate(-3,3);
+    }
     // 앞팔 + 손 — 무기와 같은 축으로 휘둘러진다 (스윙 변환 안쪽)
     if (!o.robe){
       ctx.lineWidth = 2.8;
@@ -13925,7 +14041,7 @@ import { FX } from "./fx.js";
     }
     drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), {
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
-      atk: Math.max(0, (player.swingT||0)/0.16),            // v6.48 공격 스윙
+      atk: Math.max(0, (player.swingT||0)/0.26),            // v6.73 공격 3박자
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
     });
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
