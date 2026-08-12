@@ -2020,11 +2020,13 @@ import { FX } from "./fx.js";
         starCtx.strokeStyle = alloc ? '#f2f2f0' : 'rgba(232,232,230,0.4)';
         starCtx.beginPath(); starCtx.arc(p.x,p.y,R2+4*starView.scale,0,Math.PI*2); starCtx.stroke();
       }
-      // 투자 게이트 미달 노터블·키스톤: 자물쇠 표시
-      if (!alloc && (n.tier==='notable'||n.tier==='key') && !starGateOk(id) && starView.scale>0.55){
-        starCtx.font = Math.round(9*starView.scale+4)+'px sans-serif';
+      // 투자 게이트 미달 노터블·키스톤: 자물쇠 표시 — 확대했을 때만, 은은하게 (원경에서 자물쇠 벽이 되지 않게)
+      if (!alloc && (n.tier==='notable'||n.tier==='key') && !starGateOk(id) && starView.scale>0.85){
+        starCtx.globalAlpha = 0.55;
+        starCtx.font = Math.round(7*starView.scale+3)+'px sans-serif';
         starCtx.textAlign='center'; starCtx.textBaseline='middle';
         starCtx.fillText('🔒', p.x, p.y);
+        starCtx.globalAlpha = mine ? 1 : 0.15;
       }
       if (starHover===id){
         starCtx.strokeStyle = '#fff';
@@ -2043,10 +2045,25 @@ import { FX } from "./fx.js";
       starCtx.globalAlpha = 0.85;
       starCtx.fillText(br.name, lp.x, lp.y);
       // 승천 구역 라벨 (바깥)
-      const lp2 = starToScreen({ x:Math.cos(a-0.12*Math.PI/180*0+ -0.12)*(70+16.8*36), y:Math.sin(a-0.12)*(70+16.8*36) });
+      const lp2 = starToScreen({ x:Math.cos(a-0.12)*(70+16.8*36), y:Math.sin(a-0.12)*(70+16.8*36) });
       starCtx.globalAlpha = 0.5;
       starCtx.fillText('✦ '+br.name+' 승천 구역', lp2.x, lp2.y);
       starCtx.globalAlpha = 1;
+    }
+    // 직업 소성단 라벨: 확대하면 각 직업 별자리에 주인 이름이 보인다 (전용 여부 가시성)
+    if (starView.scale >= 0.7){
+      starCtx.font = '600 '+Math.max(9, Math.round(9.5*starView.scale))+'px "IBM Plex Sans KR", sans-serif';
+      for (const id in STAR_NODES){
+        if (id.indexOf('cs_')!==0 || id.slice(-2)!=='_n') continue;
+        const ck = id.slice(3, -2);
+        const cn = CLASSES[ck];
+        if (!cn) continue;
+        const nd = STAR_NODES[id];
+        const lp3 = starToScreen({ x:nd.x, y:nd.y });
+        if (lp3.x<-40||lp3.x>starC.clientWidth+40||lp3.y<-40||lp3.y>starC.clientHeight+40) continue;
+        starCtx.fillStyle = DB.lastClass===ck ? '#e8c56a' : 'rgba(200,200,198,0.55)';
+        starCtx.fillText((DB.lastClass===ck?'▶ ':'')+cn.name, lp3.x, lp3.y - 14*starView.scale - 6);
+      }
     }
     $('starPtsVal').textContent = starAvailPts();
   }
@@ -2082,7 +2099,19 @@ import { FX } from "./fx.js";
         lockMsg = '포인트 부족 ('+cost+'P 필요)';
       }
     }
-    info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b> <span style="opacity:0.8;">['+cost+'P]</span><br>'+n.desc
+    // 직업 전용 별: 누구의 별인지 크게 명시
+    let ownerLine = '';
+    if (id.indexOf('cs_')===0 || id.indexOf('csw_')===0){
+      const ck3 = id.split('_')[1];
+      const cn3 = CLASSES[ck3];
+      if (cn3){
+        const isMine = DB.lastClass===ck3;
+        ownerLine = '<div style="margin:3px 0; padding:2px 8px; display:inline-block; border-radius:5px;'
+          + 'background:'+(isMine?'rgba(232,197,106,0.18)':'rgba(120,120,124,0.18)')+'; color:'+(isMine?'#e8c56a':'#aeb0b2')+'; font-weight:700;">'
+          + '👤 ['+cn3.name+'] 전용'+(isMine?' — 현재 내 직업':' · 이 직업으로 출전해야 습득 가능')+'</div><br>';
+      }
+    }
+    info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b> <span style="opacity:0.8;">['+cost+'P]</span><br>' + ownerLine + n.desc
       + (id.indexOf('cs_')===0 && n.tier==='notable' ? '<br><span style="color:#e2b23f;">⭐ 진화하는 별 — 런 중 전직(1·2·3차)·각성 순간마다 한 단계씩 강해진다 (최대 Ⅳ→✦)</span>' : '')
       + (resCls ? '<br><span style="opacity:0.75;">공명 직업: '+resCls+' (공명 시 추가 보너스)</span>' : '')
       + '<br><span style="opacity:0.7;">'+(alloc?'습득 완료':(canBuy?'클릭하여 습득 ('+cost+'P)':lockMsg))+'</span>';
@@ -7341,7 +7370,7 @@ import { FX } from "./fx.js";
     }
     sk.fx();
     player.skCds[i] = sk.cd * 1.35 * player.cdr; // 전역 쿨타임 +35% — 스킬은 강하되 아껴 써야 한다
-    if (player.echoCast && Math.random()<0.3){ player.skCds[i] *= 0.1; addTextNum(player.x, player.y-46, '메아리!'); }
+    if (player.echoCast && Math.random() < (0.3 + (player.echoBoost?0.1:0))){ player.skCds[i] *= 0.1; addTextNum(player.x, player.y-46, '메아리!'); }
     addTextNum(player.x, player.y-34, sk.n);
   }
   document.querySelectorAll('.skillChip').forEach(b=>{
@@ -10054,46 +10083,99 @@ import { FX } from "./fx.js";
       { n:'2차 수호', d:'받는 피해 -6%, 재생 +0.5', cost:2, f:(p)=>{p.dmgTaken*=0.94;p.regen+=0.5;} },
       { n:'불멸의 정점', d:'[키스톤] 받는 피해 -10%, 회피 +5%', cost:3, f:(p)=>{p.dmgTaken*=0.9;p.dodge=Math.min(0.75,p.dodge+0.05);} } ] },
   ];
+  // 각 방위 4단(상위 키스톤 ◈3) — 1차 성반의 연구 깊이 확장
+  ASC_DIRS[0].nodes.push({ n:'학살 기계', d:'[상위 키스톤] 피해 +20%, 치명 배율 +0.4', cost:3, f:(p)=>{p.dmgMult*=1.2;p.critMult+=0.4;} });
+  ASC_DIRS[1].nodes.push({ n:'무한 탄창', d:'[상위 키스톤] 공속 +14%, 추가 투사체 +12%', cost:3, f:(p)=>{p.rateMult*=1.14;p.multishotCh=(p.multishotCh||0)+0.12;} });
+  ASC_DIRS[2].nodes.push({ n:'절대 요새', d:'[상위 키스톤] 받는 피해 -10%, 최대체력 +12%', cost:3, f:(p)=>{p.dmgTaken*=0.9;p.maxHp=Math.round(p.maxHp*1.12);p.hp=Math.min(p.maxHp,p.hp+25);} });
+  ASC_DIRS[3].nodes.push({ n:'빛의 잔상', d:'[상위 키스톤] 이속 +8%, 대시 쿨 -15%, 회피 +4%', cost:3, f:(p)=>{p.speed*=1.08;p.dashCdMax*=0.85;p.dodge=Math.min(0.75,p.dodge+0.04);} });
+  ASC_DIRS[4].nodes.push({ n:'무장 극한', d:'[상위 키스톤] 계열 극대화: 근접=반사 +60%·피해 +8% / 원거리=관통 +1·배율 +0.3 / 술법·지원=발동 +8%p', cost:3, f:(p)=>{
+    const g=classResGroup(p.classKey);
+    if (g==='war'){ p.thorns=(p.thorns||0)+0.6; p.dmgMult*=1.08; }
+    else if (g==='rng'||g==='rog'){ p.pierce+=1; p.critMult+=0.3; }
+    else { p.procBonus=(p.procBonus||0)+0.08; } } });
+  ASC_DIRS[5].nodes.push({ n:'이능 극한', d:'[상위 키스톤] 쿨다운 -10%, 스킬 환급 확률 +10%p', cost:3, f:(p)=>{p.cdr*=0.9;p.echoBoost=true;} });
+  // 3차 전직 링 (최외곽) — 정점의 연구
+  const ASC_DIRS3 = [
+    { n:'정점 일격', c:'#b8362e', nodes:[
+      { n:'파국의 격', d:'[3차 키스톤] 피해 +18%, 처형 +6%p, 치명 +6%', cost:3, f:(p)=>{p.dmgMult*=1.18;p.execThresh=Math.min(0.6,(p.execThresh||0)+0.06);p.critChance=Math.min(0.9,p.critChance+0.06);} } ] },
+    { n:'정점 불괴', c:'#4c6a9a', nodes:[
+      { n:'불멸의 격', d:'[3차 키스톤] 받는 피해 -12%, 재생 +1, 피격 무적 +0.15초', cost:3, f:(p)=>{p.dmgTaken*=0.88;p.regen+=1;p.hitInvuln=(p.hitInvuln||0)+0.15;} } ] },
+    { n:'정점 초월', c:'#8b5cf6', nodes:[
+      { n:'초월의 격', d:'[3차 키스톤] 계열 초월: 근접=학살 돌진 / 원거리=분신 사격 / 술법·지원=이중 시전 (미보유 시)', cost:3, f:(p)=>{
+        const g=classResGroup(p.classKey);
+        if (g==='war') p.bloodRush=true;
+        else if (g==='rng'||g==='rog') p.shadowClone=true;
+        else p.ultEcho=true; } } ] },
+  ];
+  // 각성 문장 — 각성한 자만 밟는 마지막 한 수
+  const ASC_AWAKEN = { n:'각성 문장', d:'[각성 전용] 모든 피해 +12%, 받는 피해 -6%, 최대체력 +8%', cost:4, f:(p)=>{p.dmgMult*=1.12;p.dmgTaken*=0.94;p.maxHp=Math.round(p.maxHp*1.08);p.hp=Math.min(p.maxHp,p.hp+20);} };
   const ascBoxEl = $('ascBox'), ascDial = $('ascDial'), ascInfo = $('ascInfo');
   function renderAscDial(){
     if (!ascDial || !player) return;
     ascDial.innerHTML = '';
-    ascDial.style.width = '380px'; ascDial.style.height = '380px';
-    const cx=190, cy=190;
-    // 외곽 링 (2차 전직 개방): 3방위 소형 버튼
-    if (player.jobs && player.jobs.length>=2){
-      ASC_DIRS2.forEach((dir, di)=>{
-        const a = -Math.PI/2 + di*(Math.PI*2/3) + Math.PI/6;
-        const bx = cx + Math.cos(a)*162, by = cy + Math.sin(a)*162;
-        const depth = (player.ascTaken2&&player.ascTaken2[di])||0;
+    ascDial.style.width = '420px'; ascDial.style.height = '420px';
+    const cx=210, cy=210;
+    // 범용 링 렌더러 — 미개방 링도 잠긴 모습으로 항상 표시 (다음 목표가 보이게)
+    function ring(dirs, takenKey, radius, size, offset, unlocked, unlockMsg){
+      dirs.forEach((dir, di)=>{
+        const a = -Math.PI/2 + di*(Math.PI*2/dirs.length) + offset;
+        const bx = cx + Math.cos(a)*radius, by = cy + Math.sin(a)*radius;
+        const arr = player[takenKey] = player[takenKey]||dirs.map(()=>0);
+        const depth = arr[di]||0;
         const next = dir.nodes[depth];
         const done = !next;
         const btn = document.createElement('button');
-        btn.style.cssText = 'position:absolute; left:'+(bx-30)+'px; top:'+(by-30)+'px; width:60px; height:60px; border-radius:50%;'
-          + 'background:rgba(24,25,28,'+(done?'0.95':'0.7')+'); color:#e8e8e6; cursor:pointer; border:2px dashed '+dir.c+';'
-          + 'font-size:9px; line-height:1.2;' + (done?'box-shadow:0 0 12px '+dir.c+'; border-style:solid;':'');
-        btn.innerHTML = '<b style="color:'+dir.c+';">'+dir.n+'</b><br>'+depth+'/'+dir.nodes.length+(done?'':'<br>◈'+next.cost);
-        btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = done ? '<b>'+dir.n+'</b> — 완성' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d; });
+        btn.style.cssText = 'position:absolute; left:'+(bx-size/2)+'px; top:'+(by-size/2)+'px; width:'+size+'px; height:'+size+'px; border-radius:50%;'
+          + 'background:rgba(24,25,28,'+(unlocked?(done?'0.95':'0.75'):'0.45')+'); color:'+(unlocked?'#e8e8e6':'#5c5e61')+'; cursor:pointer;'
+          + 'border:2px '+(unlocked?(done?'solid':'dashed'):'dotted')+' '+(unlocked?dir.c:'#4a4c50')+';'
+          + 'font-size:'+(size>70?'10.5':'9')+'px; line-height:1.2; font-family:"IBM Plex Sans KR",sans-serif;'
+          + (done&&unlocked?'box-shadow:0 0 12px '+dir.c+';':'');
+        btn.innerHTML = unlocked
+          ? '<b style="color:'+dir.c+';">'+dir.n+'</b><br>'+depth+'/'+dir.nodes.length+(done?'<br>✦':'<br>◈'+next.cost)
+          : '🔒<br><span style="font-size:8px;">'+dir.n+'</span>';
+        btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = !unlocked ? '🔒 '+unlockMsg : (done ? '<b>'+dir.n+'</b> — 완성' : '<b>'+next.n+'</b> (◈'+next.cost+') — '+next.d); });
         btn.addEventListener('click', ()=>{
-          const dep = (player.ascTaken2&&player.ascTaken2[di])||0;
+          if (!unlocked){ toast(unlockMsg); SFX.play('hit'); return; }
+          const dep = arr[di]||0;
           const nd = dir.nodes[dep];
           if (!nd){ SFX.play('hit'); return; }
           if ((player.ascStones||0) < nd.cost){ toast('승천석 부족 (◈'+nd.cost+')'); SFX.play('hit'); return; }
           player.ascStones -= nd.cost;
-          player.ascTaken2 = player.ascTaken2||[0,0,0];
-          player.ascTaken2[di] = dep+1;
+          arr[di] = dep+1;
           nd.f(player);
-          toast('외곽 승천: ['+dir.n+'] '+nd.n);
+          toast('승천: ['+dir.n+'] '+nd.n);
           SFX.play('evolve');
           renderAscDial();
         });
         ascDial.appendChild(btn);
       });
-    } else if (player.jobs && player.jobs.length===1){
-      const hint = document.createElement('div');
-      hint.style.cssText = 'position:absolute; left:0; right:0; top:2px; text-align:center; font-size:10px; color:#8f9194;';
-      hint.textContent = '외곽 링은 2차 전직에서 열린다';
-      ascDial.appendChild(hint);
+    }
+    ring(ASC_DIRS2, 'ascTaken2', 158, 58, Math.PI/6, player.jobs&&player.jobs.length>=2, '2차 전직에서 열린다');
+    ring(ASC_DIRS3, 'ascTaken3', 196, 52, 0, player.jobs&&player.jobs.length>=3, '3차 전직에서 열린다');
+    // 각성 문장: 각성한 자만 — 중앙 위
+    {
+      const aw = ASC_AWAKEN;
+      const unlocked = !!player.awakening;
+      const taken = !!player.ascAwakenTaken;
+      const btn = document.createElement('button');
+      btn.style.cssText = 'position:absolute; left:'+(cx-27)+'px; top:'+(cy-96)+'px; width:54px; height:54px; border-radius:50%;'
+        + 'background:rgba(30,26,40,'+(unlocked?'0.9':'0.45')+'); color:'+(unlocked?'#e8c56a':'#5c5e61')+';'
+        + 'border:2px '+(taken?'solid':'dashed')+' '+(unlocked?'#e8c56a':'#4a4c50')+'; font-size:9px; cursor:pointer;'
+        + (taken?'box-shadow:0 0 14px #e8c56a;':'');
+      btn.innerHTML = unlocked ? (taken?'✦<br>각성 문장':'🌌<br>각성 문장<br>◈'+aw.cost) : '🔒<br><span style="font-size:8px;">각성 문장</span>';
+      btn.addEventListener('mouseenter', ()=>{ if (ascInfo) ascInfo.innerHTML = unlocked ? (taken?'<b>각성 문장</b> — 새겨짐':'<b>'+aw.n+'</b> (◈'+aw.cost+') — '+aw.d) : '🔒 각성한 자만 새길 수 있다'; });
+      btn.addEventListener('click', ()=>{
+        if (!unlocked){ toast('각성한 자만 새길 수 있다'); SFX.play('hit'); return; }
+        if (player.ascAwakenTaken){ SFX.play('hit'); return; }
+        if ((player.ascStones||0) < aw.cost){ toast('승천석 부족 (◈'+aw.cost+')'); SFX.play('hit'); return; }
+        player.ascStones -= aw.cost;
+        player.ascAwakenTaken = true;
+        aw.f(player);
+        toast('🌌 각성 문장이 새겨졌다');
+        SFX.play('evolve');
+        renderAscDial();
+      });
+      ascDial.appendChild(btn);
     }
     const core = document.createElement('div');
     core.style.cssText = 'position:absolute; left:'+(cx-46)+'px; top:'+(cy-46)+'px; width:92px; height:92px; border-radius:50%;'
