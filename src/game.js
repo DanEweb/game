@@ -74,7 +74,8 @@ import { FX } from "./fx.js";
     gwq: { stage: 0 },   // 떠돌이 대장장이 영구 퀘스트 (유일무기 제3 루트)
     gateProg: {},        // 관문 레이드 체크포인트 — peril → 돌파한 관문 수 (다음 도전 시 이어서)
     cgw: {},             // 직업 유일무기 (37직업 × 3종, 극악 발견) — key '<class>_<i>' → {found,lv,xp}
-    pgw: {}              // 직업 성장무기 (37직업 × 3종, 공방 제작·처치 성장)
+    pgw: {},             // 직업 성장무기 (37직업 × 3종, 공방 제작·처치 성장)
+    armory: []           // 무기고 — 드랍된 일반 무기 인스턴스 (희귀도·접사)
   };
   function loadDB(){
     try{
@@ -118,6 +119,7 @@ import { FX } from "./fx.js";
           DB.gateProg = d.gateProg||{};
           DB.cgw = d.cgw||{};
           DB.pgw = d.pgw||{};
+          DB.armory = Array.isArray(d.armory) ? d.armory : [];
           // 영구 강화 폐지 — 기존 투자 골드 전액 환불 (1회)
           if (!DB.metaRefunded && d.meta){
             let refund = 0;
@@ -822,6 +824,36 @@ import { FX } from "./fx.js";
     const name = (curse ? '저주받은 ' : RARITY_PREFIX[r]+' ') + noun;
     return { id: DB.nextId++, slot, r, wt, name, stats, affix, curse };
   }
+  // 일반 무기 장비화: 드랍되는 무기 인스턴스 — 희귀도=시작 레벨, 접사는 소폭 보정 (밸런스 보수적)
+  const WAFFIX = [
+    { k:'rate', n:'공속', max:6 }, { k:'dmg', n:'피해', max:8 }, { k:'cdr', n:'쿨감', max:6 },
+    { k:'spd', n:'이속', max:5 }, { k:'crit', n:'치명', max:5 },
+  ];
+  function genWeaponItem(){
+    const pool = Object.keys(WEAPONS).filter(k=>!['fusion','gbow','gtome','gblade','nameless'].includes(k) && k.indexOf('cgw_')!==0 && k.indexOf('pgw_')!==0);
+    const wkey = pool[(Math.random()*pool.length)|0];
+    let r = 0;
+    const roll = Math.random()*100 + Math.floor((DB.peril||0)/2)*6;
+    if (roll>=106) r=4; else if (roll>=97) r=3; else if (roll>=84) r=2; else if (roll>=58) r=1;
+    const afN = r>=4 ? 2 : (r>=2 ? 1 : 0);
+    const afPool = WAFFIX.slice(); const affixes = [];
+    for (let i=0;i<afN;i++){
+      const a = afPool.splice((Math.random()*afPool.length)|0,1)[0];
+      affixes.push({ k:a.k, n:a.n, v: Math.max(2, Math.round(a.max*(0.5+0.5*Math.random()))) });
+    }
+    return { id:DB.nextId++, wkey, r, name: RARITY_PREFIX[r]+' '+WEAPONS[wkey].name, affixes };
+  }
+  function addWeaponItem(it){
+    DB.armory = DB.armory||[];
+    if (DB.armory.length >= 12){
+      let worst=null, wi=-1;
+      DB.armory.forEach((x,i)=>{ if (worst===null || x.r<worst.r){ worst=x; wi=i; } });
+      if (wi>=0){ DB.gold += SELL_PRICE[worst.r]; DB.armory.splice(wi,1); toast('무기고 가득! '+worst.name+' 자동 판매'); }
+    }
+    DB.armory.push(it);
+    saveDB();
+    toast('🗡 무기 획득: '+it.name+(it.affixes.length?' ['+it.affixes.map(a=>a.n+'+'+a.v+'%').join('·')+']':''));
+  }
   function addEquip(item){
     if (DB.inv.length >= 40){
       // auto-sell the cheapest unequipped item
@@ -1162,6 +1194,38 @@ import { FX } from "./fx.js";
         invList.appendChild(row);
       }
     }
+    // 🗡 무기고 — 드랍된 일반 무기 인스턴스 (장착 시 기본 무기 대체 + 희귀도만큼 강하게 시작)
+    (DB.armory||[]).forEach(it=>{
+      if (!WEAPONS[it.wkey]) return;
+      const on = lo.warm === it.id;
+      const row = document.createElement('div');
+      row.className = 'shopItem';
+      row.innerHTML = '<div class="info"><div class="nm"><span class="rbadge r'+it.r+'">'+RARITY_NAMES[it.r]+'</span>'
+        + it.name + (on?' <span style="font-size:9px;color:var(--ink-500);">[장착중]</span>':'') + '</div>'
+        + '<div class="ds">기본 무기 대체 · 시작 Lv'+(1+(it.r>=2?1:0)+(it.r>=4?1:0))
+        + (it.affixes.length?' · '+it.affixes.map(a=>a.n+' +'+a.v+'%').join(' · '):'')+'</div></div>';
+      const eb = document.createElement('button');
+      eb.className = 'buy';
+      eb.textContent = on ? '해제' : '장착';
+      eb.addEventListener('click', ()=>{
+        if (on) delete lo.warm; else { lo.warm = it.id; SFX.play('equip'); }
+        saveDB(); renderEquip();
+      });
+      row.appendChild(eb);
+      if (!on){
+        const sb = document.createElement('button');
+        sb.className = 'buy sec';
+        sb.textContent = SELL_PRICE[it.r]+'G 판매';
+        sb.addEventListener('click', ()=>{
+          DB.gold += SELL_PRICE[it.r];
+          DB.armory = DB.armory.filter(x=>x.id!==it.id);
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          SFX.play('coin');
+        });
+        row.appendChild(sb);
+      }
+      invList.appendChild(row);
+    });
     GW_LIST.filter(g=>g.found).forEach(g=>{
       const on = lo.gw === g.key;
       const row = document.createElement('div');
@@ -5410,6 +5474,11 @@ import { FX } from "./fx.js";
     }
     let roll = Math.random();
     if (player.chestPlus) roll *= 0.6; // 수집가: 상자 결과가 한 단계 좋아진다
+    // 일반 무기 장비화: 상자의 7%는 무기 인스턴스 (장비 몫에서 분할 — 총 드랍량 불변)
+    if (roll < 0.07){
+      addWeaponItem(genWeaponItem());
+      return;
+    }
     if (roll < 0.28){
       // 장비 드랍 테이블: 유물 > 유니크 > 세트 > 태초 > 일반 생성 (전부 극악 — 위험도가 유일한 지렛대)
       const pr = DB.peril||0;
@@ -11239,7 +11308,24 @@ import { FX } from "./fx.js";
         }
         picked.forEach(k2=>addWeapon(k2));
       } else {
-        addWeapon(cls.weapon);
+        // 무기고 장착 무기가 있으면 기본 무기를 대체 (희귀도=시작 레벨, 접사=소폭 보정 — 밸런스 보수)
+        const wlo = loadoutFor(classKey);
+        const warm = wlo && wlo.warm ? (DB.armory||[]).find(x=>x.id===wlo.warm) : null;
+        if (warm && WEAPONS[warm.wkey]){
+          addWeapon(warm.wkey);
+          const wo = player.weapons.find(w2=>w2.key===warm.wkey);
+          if (wo) wo.lv = Math.min(5, 1+(warm.r>=2?1:0)+(warm.r>=4?1:0));
+          for (const af of warm.affixes){
+            if (af.k==='rate') player.rateMult *= 1+af.v/100;
+            else if (af.k==='dmg') player.dmgMult *= 1+af.v/100;
+            else if (af.k==='cdr') player.cdr *= 1-af.v/100;
+            else if (af.k==='spd') player.speed *= 1+af.v/100;
+            else if (af.k==='crit') player.critChance = Math.min(0.9, player.critChance+af.v/100);
+          }
+          toast('🗡 무기고 출전: '+warm.name);
+        } else {
+          addWeapon(cls.weapon);
+        }
       }
     }
     // 무명자: 모든 직업 스킬 풀에서 무작위 4개 (레벨 3/8/15/25 재배정)
