@@ -1543,6 +1543,18 @@ import { FX } from "./fx.js";
             (B)=>{ (B.classPerks=B.classPerks||[]).push({ g:br.key, f:CL.nF }); }, [cprev], br.color);
         add(br.key+'_clk', Math.cos(an)*(rn+STEP), Math.sin(an)*(rn+STEP), 'key', CL.kN, CL.kD,
             (B)=>{ (B.classPerks=B.classPerks||[]).push({ g:br.key, f:CL.kF }); }, [br.key+'_cln'], br.color);
+        // 전직의 길 성좌 (영구): 런에서 같은 이름의 전직 가지를 고르면 1단계 무료 개방 — 영구 성도와 런 전직의 다리
+        const WAYS = { war:['공세','수호','광폭'], rng:['속사','관통','급소'], mag:['연산','원소','증폭'],
+                       rog:['그림자','급소','처형'], pri:['축복','수호','심판'], mer:['재화','행운','환전'] }[br.key];
+        if (WAYS){
+          WAYS.forEach((wn, wi2)=>{
+            const aw2 = th + 0.24 + wi2*0.09;
+            const rw = 70 + 14.2*STEP;
+            add(br.key+'_way'+wi2, Math.cos(aw2)*rw, Math.sin(aw2)*rw, 'notable', wn+'의 길 성좌',
+                '[전직 공명] 런에서 ['+wn+'의 길] 전직 가지를 고르는 순간 그 가지 1단계가 무료로 개방된다 · 즉시 효과: 모든 피해 +2%',
+                (B)=>{ B.dmg+=2; }, [br.key+'_k'], br.color);
+          });
+        }
       }
     });
     // v6.20: 32직업 개별 소성단 — 직업 성단 키스톤 너머, 그 직업으로 플레이할 때만 발동하는 전용 별
@@ -3244,6 +3256,7 @@ import { FX } from "./fx.js";
         fx:()=>{
           j.fx(player); player.jobs.push(j.n);
           (player.jobPicks=player.jobPicks||[])[0]={n:j.n, v:ji}; // 전직 선택지별 전용 가지 개방
+          wayStarResonate(1, ji);
           if (resonant){ player.dmgMult *= 1 + 0.004*rc; }
           evolveClassStar(1);
           setTimeout(()=>toast('🌌 승천반 개방 — J 키(전장에서)로 성반을 열어 승천석을 사용하라'), 900);
@@ -3259,6 +3272,7 @@ import { FX } from "./fx.js";
       const opts = list2.map((j, ji)=>({ l:'2차 전직: '+j.n, d:j.d + (base?' — ['+base+']의 길이 깊어진다':''), fx:()=>{
         j.fx(player); player.jobs.push(j.n);
         (player.jobPicks=player.jobPicks||[])[1]={n:j.n, v:ji};
+        wayStarResonate(2, ji);
         evolveClassStar(2);
         // 계승 공명: 승천반에 4석 이상 투자했다면 전직이 성반과 공명 — 투자한 길이 전직으로 이어진다
         const ascInv2 = (player.ascTaken||[]).reduce((s,v)=>s+v,0);
@@ -3274,6 +3288,7 @@ import { FX } from "./fx.js";
         j.fx(player, rc);
         player.jobs.push(j.n);
         (player.jobPicks=player.jobPicks||[])[2]={n:j.n, v:ji};
+        wayStarResonate(3, ji);
         evolveClassStar(3);
         const ascInv3 = (player.ascTaken||[]).reduce((s,v)=>s+v,0) + (player.ascTaken2||[]).reduce((s,v)=>s+v,0);
         if (ascInv3>=8){ player.dmgMult*=1.06; player.dmgTaken*=0.96; toast('✦ 대계승 공명 — 성반의 모든 별이 정점에 응답한다 (피해 +6%, 받는 피해 -4%)'); }
@@ -10211,6 +10226,22 @@ import { FX } from "./fx.js";
   ];
   // 각성 문장 — 각성한 자만 밟는 마지막 한 수
   const ASC_AWAKEN = { n:'각성 문장', d:'[각성 전용] 모든 피해 +12%, 받는 피해 -6%, 최대체력 +8%', cost:4, f:(p)=>{p.dmgMult*=1.12;p.dmgTaken*=0.94;p.maxHp=Math.round(p.maxHp*1.08);p.hp=Math.min(p.maxHp,p.hp+20);} };
+  // 길 성좌 공명: 성도에 그 길의 성좌를 찍어뒀다면, 런에서 그 길을 고르는 순간 가지 1단계 무료 개방
+  function wayStarResonate(tier, ji){
+    const g = classResGroup(player.classKey);
+    const kits = JOBVAR[g]||[];
+    const kit = kits[ji % kits.length];
+    if (!kit) return;
+    if (starHasName(kit.t+'의 길 성좌')){
+      player.jobBr = player.jobBr||{};
+      if (!player.jobBr[tier]){
+        player.jobBr[tier] = 1;
+        kit.f1(player, [1,1.4,1.9][tier-1]||1);
+        toast('🌟 길 성좌 공명 — ['+kit.t+'의 길] 1단계 무료 개방');
+        SFX.play('quest');
+      }
+    }
+  }
   // 전직 선택지별 전용 가지: 어떤 전직을 골랐느냐에 따라 성반에 다른 가지가 자란다
   // (선택지 인덱스 × 계열)로 변형 키트가 결정 — 같은 직업이라도 다른 전직을 고르면 다른 노드
   const JOBVAR = {
