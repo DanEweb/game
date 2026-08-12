@@ -13294,6 +13294,11 @@ import { FX } from "./fx.js";
     ctx.lineWidth = 1.4;
     const flap = Math.sin(t*10 + e.x*0.05);
     const sk = e.skin;
+    // v6.57 살아있는 몸짓: 걸음에 맞춰 통통 튀는 스쿼시&스트레치 (빙결 시 정지)
+    const hop = e.frozenT>0 ? 0 : Math.sin(performance.now()/110 + e.x*0.13);
+    ctx.save();
+    ctx.translate(0, -Math.max(0,hop)*e.r*0.14);
+    ctx.scale(1 - Math.abs(hop)*0.05, 1 + Math.abs(hop)*0.07);
 
     if (sk==='moth'){
       ctx.fillStyle = soft;
@@ -13485,9 +13490,31 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(-4,-16); ctx.lineTo(-8,-20); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(4,-16); ctx.lineTo(8,-20); ctx.stroke();
     } else {
+      // v6.57 기본 몹 리디자인 — 원 하나가 아니라 '생물': 몸통 + 노려보는 눈 + 으르렁대는 입 + 총총거리는 발
+      const chomp = Math.abs(Math.sin(t*6 + e.x*0.11));
+      ctx.fillStyle = ink2;
+      ctx.beginPath(); ctx.ellipse(-e.r*0.45, e.r*0.92, e.r*0.24, e.r*0.14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(e.r*0.45, e.r*0.92, e.r*0.24, e.r*0.14, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = mid;
       ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      const ea = Math.atan2(player.y-e.y, player.x-e.x);
+      const exo = Math.cos(ea)*e.r*0.16, eyo = Math.sin(ea)*e.r*0.16;
+      ctx.fillStyle = PAL.bg;
+      ctx.beginPath(); ctx.arc(-e.r*0.32+exo*0.5, -e.r*0.28+eyo*0.5, e.r*0.22, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*0.32+exo*0.5, -e.r*0.28+eyo*0.5, e.r*0.22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(-e.r*0.32+exo, -e.r*0.28+eyo, e.r*0.1, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.r*0.32+exo, -e.r*0.28+eyo, e.r*0.1, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, e.r*0.4, e.r*0.34, e.r*0.16*(0.35+chomp*0.65), 0, 0, Math.PI*2); ctx.fill();
+      if (chomp>0.45){
+        ctx.fillStyle = PAL.bg;
+        ctx.beginPath();
+        ctx.moveTo(-e.r*0.22, e.r*0.3); ctx.lineTo(-e.r*0.11, e.r*0.45); ctx.lineTo(0, e.r*0.3);
+        ctx.lineTo(e.r*0.11, e.r*0.45); ctx.lineTo(e.r*0.22, e.r*0.3);
+        ctx.closePath(); ctx.fill();
+      }
     }
+    ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
 
     // 엘리트 마커 + 특성 이름
     if (e.elite){
