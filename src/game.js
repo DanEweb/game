@@ -4536,6 +4536,10 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.maxHp+=40; p.hp=p.maxHp; p.regen+=1; } },
   ];
 
+  // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
+  // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
+  const MELEE_WEAPONS = { aura:1, scythe:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_ONLY_GROUPS = { war:1 };   // 전사군(돌격·성기사·사무라이·철혈·수도승 등)
   function ownedWeapon(key){
     for (const w of player.weapons){ if (w.key===key) return w; }
     return null;
@@ -4799,6 +4803,10 @@ import { FX } from "./fx.js";
           const def = WEAPONS[key];
           // v6.54 전향 무기: 계열 + 성도 타 계열 별 투자 조건을 만족해야만 카드로 등장
           if (def.cross && (!def.req || !def.req(player))) return;
+          // v6.80 무기 직업군화 1단계: 전사군(근접)에게 원거리 무기 카드가 그대로 나오던 문제.
+          // 성도 원거리 계열(rng)에 별을 하나라도 투자하면 해제 — '원거리화'를 선택한 사람만 열린다
+          if (!def.cross && MELEE_ONLY_GROUPS[classResGroup(player.classKey)]
+              && !MELEE_WEAPONS[key] && starBranchSpent('rng') < 1) return;
           // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
           const wri = rollCardRarity();
           const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
