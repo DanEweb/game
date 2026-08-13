@@ -4111,13 +4111,14 @@ import { FX } from "./fx.js";
     },
     // v6.93 근접 엔진 신설: 발도 — 모았다가 직선으로 길게 벤다 (역장·낫과 판정 형태가 겹치지 않는다)
     iaido: {
-      name:'발도', desc:'검을 모았다가 전방으로 길게 베어낸다 — 무피격이 길수록 참격이 무거워진다',
+      name:'발도', desc:'느리게 모았다가 전방을 한 번에 베어낸다 — 한 호흡이 길수록 참격이 무거워진다 (근접 단일 최강, 물량엔 불리)',
       evName:'발도 · 무명일섬', evDesc:'참격이 화면을 가르고, 벤 자리에 검흔이 남습니다',
       lvDesc:['','참격 연장','피해 +40%','참격 폭 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.5 : 1.9,
-      dmg:(w)=> (w.evolved ? 52 : [22,22,31,31,40][w.lv-1]),
-      reach:(w)=> (w.evolved ? 300 : [180,215,215,250,250][w.lv-1]),
-      halfW:(w)=> (w.evolved ? 26 : [16,16,16,22,22][w.lv-1])
+      // v6.94 근접 사거리로 축소(낫 72~120 대비 약간 길고 대신 훨씬 좁다) + 확실히 느리게·무겁게
+      baseCd:(w)=> w.evolved ? 2.2 : 2.8,
+      dmg:(w)=> (w.evolved ? 95 : [40,40,56,56,72][w.lv-1]),
+      reach:(w)=> (w.evolved ? 150 : [96,112,112,132,132][w.lv-1]),
+      halfW:(w)=> (w.evolved ? 24 : [14,14,14,19,19][w.lv-1])
     },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
@@ -9759,6 +9760,8 @@ import { FX } from "./fx.js";
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
     player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
+    player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
     if (player.rangeDmg){
       const t0 = nearestTarget();
@@ -14152,7 +14155,23 @@ import { FX } from "./fx.js";
       ctx.save(); ctx.translate(3,-3); ctx.rotate(swRot); ctx.translate(-3,3);
     }
     // 앞팔 + 손 — 무기와 같은 축으로 휘둘러진다 (스윙 변환 안쪽)
-    if (!o.robe){
+    if (o.satPose){
+      // v6.95 위성 조종 자세: 양팔을 좌우로 벌려 궤도를 떠받친다 (신드라식). 손끝에 궤도 광점
+      const br = Math.sin(walk*0.5 + (o.tierC?1:0))*0.6;      // 미세한 호흡
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(3,-5);  ctx.lineTo(9.5, -8.5+br); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-3,-5); ctx.lineTo(-9.5,-8.5-br); ctx.stroke();
+      const gc = o.tierC || '#7ec4e8';
+      ctx.fillStyle = gc;
+      ctx.beginPath(); ctx.arc(10.4,-9.2+br,2.0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10.4,-9.2-br,2.0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath(); ctx.arc(10.4,-9.2+br,3.6,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10.4,-9.2-br,3.6,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = ink; ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+    } else if (!o.robe){
       ctx.lineWidth = 2.8;
       ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(6.5+(swung?0:swing*0.3), 0.5); ctx.stroke();
       ctx.beginPath(); ctx.arc(7+(swung?0:swing*0.3), 1.2, 1.7, 0, Math.PI*2); ctx.fill();
@@ -14498,7 +14517,8 @@ import { FX } from "./fx.js";
     }
     drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), {
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
-      atk: Math.max(0, (player.swingT||0)/0.26),            // v6.73 공격 3박자
+      atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
+      satPose: player.satPose,
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
     });
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
