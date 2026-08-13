@@ -2804,7 +2804,8 @@ import { FX } from "./fx.js";
       name:'파일럿', tag:'드론', cost:700,
       desc:'[드론]으로 시작. 드론 피해 +30%, 아이템 드랍 +50%.',
       weapon:'drone',
-      apply:(p)=>{ p.droneBoost=1.45; p.luck*=1.5; p.rateMult*=1.05; }
+      //  v6.142 생존 10.8초로 원거리 최악이었다. 드론은 '호위 드론'이니 **호위답게 지켜 주는** 것이 정체성에 맞다
+      apply:(p)=>{ p.droneBoost=1.45; p.luck*=1.5; p.rateMult*=1.05; p.dmgTaken*=0.86; p.dodge=Math.min(0.7,p.dodge+0.06); }
     },
     // ---- RPG 확장 직업 (고전 아키타입, 새로운 이름) ----
     cheol: {
@@ -2898,7 +2899,9 @@ import { FX } from "./fx.js";
       cond:()=> (DB.perilMax||0)>=15,
       desc:'직접 싸우지 않는다. 터렛 1기·유령 소환으로 시작, 모든 소환물 +50% / 본인 투사체 -30%.',
       weapon:'satellite',
-      apply:(p)=>{ p.turretLv=1; p.turretDmg=10; p.necroChance=0.10; p.ghostCap=5; p.droneBoost+=0.5; p.ghostDmg=(p.ghostDmg||1)*1.5; p.projMult*=0.7; }
+      //  v6.142 위성 하향(v6.141)에도 97→130으로 **올랐다** — 이 직업의 화력은 위성이 아니라 소환물에서 나온다.
+      //   ⚠ 교훈: 밸런스는 **그 직업의 화력원**을 먼저 짚어야 한다. 들고 있는 무기가 곧 화력원은 아니다
+      apply:(p)=>{ p.turretLv=1; p.turretDmg=8; p.necroChance=0.10; p.ghostCap=4; p.droneBoost+=0.3; p.ghostDmg=(p.ghostDmg||1)*1.25; p.projMult*=0.7; }
     },
     tombraider: {
       name:'도굴꾼', tag:'히든', hidden:true,
@@ -6874,6 +6877,26 @@ import { FX } from "./fx.js";
   //  런이 끝나면 `showIdle()`로 타이틀에 돌아갈 수 있으므로 **한 페이지에서 전부** 돌린다.
   //  ⚠ 킬 축은 무적으로, 생존 축은 무적을 끄고 잰다 — v6.132의 교훈(위험을 0으로 만들어 놓고 보상만 재면 안 된다)
   window.__qaToTitle = ()=>{ try { showIdle(); return 'idle'; } catch(e){ return 'ERR '+String(e); } };
+  //  v6.142 `reps`로 **반복 평균**을 낸다. v6.141에서 단판 결과가 조정폭으로 설명되지 않는 변동을 냈다
+  //   (관광객 11→107, 지휘관 97→130 — 적용 배율은 ×1.3~3.7뿐이었다).
+  //   레벨업 카드 타이밍·스폰 위치가 판마다 다르므로 **한 판으로 계수를 고치면 다음 판에 뒤집힌다**
+  window.__qaBenchAvg = async (names, killSec, surviveSec, reps)=>{
+    const R = Math.max(1, reps||3), out = {};
+    for (const nm of names){
+      const ks = [], ds = [], sv = [];
+      for (let i=0;i<R;i++){
+        const one = await window.__qaBenchAll([nm], killSec, surviveSec);
+        const r = one[nm];
+        if (!r || r.err) continue;
+        ks.push(r['킬']); ds.push(r['초당피해']); sv.push(r['생존'] ? 1 : 0);
+      }
+      if (!ks.length){ out[nm] = { err:'all runs failed' }; continue; }
+      const avg = (a)=> +(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1);
+      out[nm] = { 킬평균: avg(ks), 킬범위: Math.min(...ks)+'~'+Math.max(...ks),
+                  초당피해: avg(ds), 생존율: avg(sv), 판수: ks.length };
+    }
+    return out;
+  };
   window.__qaBenchAll = async (names, killSec, surviveSec)=>{
     const out = {};
     for (const nm of names){
@@ -12587,7 +12610,7 @@ import { FX } from "./fx.js";
         if (_r && _r.v >= 1) _overflowT = Math.min(5, _overflowT + dt);
         else _overflowT = Math.max(0, _overflowT - dt*2); }
       if (player.frenzyFree>0) player.frenzyFree -= dt;                                                  // v6.107 광란 해방
-      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1) * (player.kiteT ? 1.20 : 1);   // v6.141 28%→20% (궁수가 18초 무피해로 버텼다 — 과했다)
+      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1) * (player.kiteT ? 1.10 : 1);   // v6.142 20%→10% — 20%로도 궁수가 18초 무피해였다. '위험 0'은 밸런스가 아니다
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
     }
