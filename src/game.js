@@ -2836,7 +2836,7 @@ import { FX } from "./fx.js";
       condDesc:'위험도 10 도달 시 해금',
       cond:()=> (DB.perilMax||0)>=10,
       desc:'무기 슬롯 1개. 단 하나의 무기와 함께 정진한다 — 그 무기 피해 +30%, 쿨다운 -10%.',
-      weapon:'aura',
+      weapon:'combo3',   // v6.104 역장 → 연격. 정진하는 자는 이어 치는 쪽이 맞다
       apply:(p)=>{ p.weaponCap=1; p.dmgMult*=1.3; p.cdr*=0.9; }
     },
     commander: {
@@ -4153,6 +4153,26 @@ import { FX } from "./fx.js";
       dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,32][w.lv-1]),
       radius:(w)=> (w.evolved ? 118 : [78,92,92,104,104][w.lv-1])
     },
+    // v6.104 엔진 5호: 연격 — 소유물은 '연쇄'. 끊기지 않고 이어질수록 강해진다(연 자원 내장)
+    combo3: {
+      name:'연격', desc:'전방을 빠르게 3연타 — 끊기지 않고 이어갈수록 다음 타가 무거워진다 (3타째는 밀쳐낸다)',
+      evName:'연격 · 백팔연타', evDesc:'연쇄 상한이 늘고 마무리가 폭발합니다',
+      lvDesc:['','연쇄 상한 +2','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.34 : 0.46,
+      dmg:(w)=> (w.evolved ? 24 : [9,9,13,13,17][w.lv-1]),
+      radius:(w)=> (w.evolved ? 74 : [52,52,52,64,64][w.lv-1]),
+      cap:(w)=> (w.evolved ? 8 : [5,7,7,7,7][w.lv-1])
+    },
+    // v6.104 엔진 6호: 후려치기 — 소유물은 '한 방'. 최대체력이 곧 위력(벌크업 자원 내장)
+    smash: {
+      name:'후려치기', desc:'가장 가까운 하나를 크게 후려친다 — 최대체력이 높을수록 무겁다 (느리지만 확실하다)',
+      evName:'후려치기 · 삼대 오백', evDesc:'충격이 주변으로 퍼지고 넉백이 커집니다',
+      lvDesc:['','사거리 확대','피해 +45%','충격 확산','피해 강화'],
+      baseCd:(w)=> w.evolved ? 1.25 : 1.6,
+      dmg:(w)=> (w.evolved ? 78 : [32,32,46,46,60][w.lv-1]),
+      reach:(w)=> (w.evolved ? 96 : [64,78,78,86,86][w.lv-1]),
+      splash:(w)=> (w.evolved ? 62 : [0,0,0,44,44][w.lv-1])
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4600,7 +4620,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9794,7 +9814,7 @@ import { FX } from "./fx.js";
     chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('combo3') || ownedWeapon('smash') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.98 돌진 자세 — 돌진 충격만 든 상태: 어깨를 낮추고 대기한다 (휘두르지 않는다)
@@ -10088,6 +10108,82 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='combo3'){
+        // 연 자원: 2.2초 안에 이어 때리면 연쇄가 쌓이고, 끊기면 0으로 (엔진 내장 자원)
+        if ((player.comboT||0) <= 0) player.comboN = 0;
+        player.comboT = 2.2;
+        player.comboN = Math.min(def.cap(w), (player.comboN||0) + 1);
+        const step = player.comboN;
+        const finisher = step % 3 === 0;                      // 3타째가 마무리
+        const radius = def.radius(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1)
+                  * (1 + (step-1)*0.16) * (finisher ? 2.1 : 1);
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        const arc = finisher ? 2.6 : 1.5;
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.18, age:0,
+                       friendly:true, col: finisher ? '#e0a94f' : CLASS_COLORS[player.classKey] });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, radius, baseA, arc);
+        if (finisher){ shake = Math.min(10, shake+4); hitStop(0.03); }
+        let cn = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e) continue;
+          const dd = Math.hypot(e.x-player.x, e.y-player.y);
+          if (dd > radius + e.r) continue;
+          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
+          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+          if (Math.abs(da) > arc/2) continue;
+          cn++;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(cn)*meleeCloseMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, finisher ? 0.6 : 0.3);
+          procOnHit(e, false, w.imbue);
+          if (finisher){ const ka=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(ka)*16; e.y+=Math.sin(ka)*16; }
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        if (step>=3) addTextNum(player.x, player.y-38, '연 '+step);
+        SFX.play(finisher ? 'sweep' : 'hit');
+      } else if (w.key==='smash'){
+        // 벌크업 자원: 최대체력이 곧 위력 (엔진 내장 — 별도 자원 없음)
+        const bulk = 1 + Math.min(1.0, Math.max(0, (player.maxHp-100)/260));
+        const reach = def.reach(w), splash = def.splash(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * bulk;
+        const t0 = nearestTarget();
+        if (!t0 || t0.isBoss && Math.hypot(t0.x-player.x,t0.y-player.y)>reach+t0.r){ /* 계속 */ }
+        if (!t0){ w.cd = 0.25; continue; }
+        const dd0 = Math.hypot(t0.x-player.x, t0.y-player.y);
+        if (dd0 > reach + (t0.r||0)){ w.cd = 0.25; continue; }
+        const baseA = Math.atan2(t0.y-player.y, t0.x-player.x);
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.1, r:reach, life:0.24, age:0,
+                       friendly:true, col:'#c96a3f' });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, reach, baseA, 1.3);
+        shake = Math.min(12, shake+5); hitStop(0.035);
+        const hitOne = (tg, mult)=>{
+          const isC = Math.random() < player.critChance;
+          const d = dmg*mult*(isC?player.critMult:1)*corrodeMult(tg);
+          tg.hp -= d; addDmgNum(tg.x, tg.y, d, isC);
+          staggerEnemy(tg, 0.7);
+          procOnHit(tg, !!tg.isBoss, w.imbue);
+          const ka=Math.atan2(tg.y-player.y,tg.x-player.x); tg.x+=Math.cos(ka)*22; tg.y+=Math.sin(ka)*22;
+          hitSpark(tg.x, tg.y, ka, '#c96a3f');
+        };
+        const ti = enemies.indexOf(t0);
+        if (ti >= 0){ hitOne(t0, 1); if (t0.hp<=0 && enemies[ti]===t0) defeatEnemy(ti); }
+        else if (t0.isBoss){ hitOne(t0, 1); if (t0.hp<=0){ const bi=bosses.indexOf(t0); if(bi>=0) defeatBoss(bi); } else refreshBossBar(); }
+        if (splash > 0){
+          for (let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i];
+            if (!e || e===t0) continue;
+            if (Math.hypot(e.x-t0.x, e.y-t0.y) > splash + e.r) continue;
+            hitOne(e, 0.45);
+            if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+          }
+        }
+        SFX.play('boom');
       } else if (w.key==='whirl'){
         // 응혈: 잃은 체력 비율에 비례해 강해진다 (엔진 내장 자원 — 별도 자원을 얹지 않는다)
         const lost = 1 - Math.max(0, Math.min(1, player.hp/Math.max(1,player.maxHp)));
@@ -11237,6 +11333,7 @@ import { FX } from "./fx.js";
       if (player.dashTime<=0 && player.bloodRush) dashExplosion(player.x, player.y, 25); // 피의 질주: 종료 폭발
     } else {
       if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
+      if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1);
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
