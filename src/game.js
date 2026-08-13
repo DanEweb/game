@@ -2675,7 +2675,7 @@ import { FX } from "./fx.js";
     samurai: {
       name:'사무라이', tag:'발도 일섬', cost:600,
       desc:'[역장]으로 시작. 무피격 2초 유지 후 첫 타격은 확정 치명 + 치명 배율 +0.5. 정중동(靜中動)의 검.',
-      weapon:'aura',
+      weapon:'iaido',   // v6.93 역장 → 발도. 정중동의 검이 장판일 수는 없다
       apply:(p)=>{ p.shadowStrike=true; p.critMult+=0.5; p.rateMult*=0.92; }
     },
     specialist: {
@@ -4109,6 +4109,16 @@ import { FX } from "./fx.js";
       radius:(w)=> (w.evolved ? 120 : [72,82,82,94,94][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 1.9)
     },
+    // v6.93 근접 엔진 신설: 발도 — 모았다가 직선으로 길게 벤다 (역장·낫과 판정 형태가 겹치지 않는다)
+    iaido: {
+      name:'발도', desc:'검을 모았다가 전방으로 길게 베어낸다 — 무피격이 길수록 참격이 무거워진다',
+      evName:'발도 · 무명일섬', evDesc:'참격이 화면을 가르고, 벤 자리에 검흔이 남습니다',
+      lvDesc:['','참격 연장','피해 +40%','참격 폭 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 1.5 : 1.9,
+      dmg:(w)=> (w.evolved ? 52 : [22,22,31,31,40][w.lv-1]),
+      reach:(w)=> (w.evolved ? 300 : [180,215,215,250,250][w.lv-1]),
+      halfW:(w)=> (w.evolved ? 26 : [16,16,16,22,22][w.lv-1])
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4556,7 +4566,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9748,7 +9758,7 @@ import { FX } from "./fx.js";
     auraState.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
     if (player.rangeDmg){
       const t0 = nearestTarget();
@@ -10027,6 +10037,48 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='iaido'){
+        // 발도: 가장 가까운 적 방향으로 직선 참격. 무피격 시간(noHitT)이 길수록 무겁다
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        const reach = def.reach(w), halfW = def.halfW(w);
+        const charge = 1 + Math.min(0.8, (noHitT||0)*0.22);      // 정중동 — 참을수록 세다
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * charge;
+        const ca = Math.cos(baseA), sa = Math.sin(baseA);
+        effects.push({ type:'iai', x:player.x, y:player.y, a:baseA, r:reach, hw:halfW, life:0.3, age:0,
+                       col: CLASS_COLORS[player.classKey], heavy: charge>1.5 });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        player.recoilX = (player.recoilX||0) + ca*5; player.recoilY = (player.recoilY||0) + sa*5;
+        cutHostileShots(player.x, player.y, reach*0.7, baseA, 0.9);   // 참격선 위의 탄도 벤다
+        shake = Math.min(12, shake + (charge>1.5?5:2.5));
+        const onLine = (tx,ty,tr)=>{
+          const dx = tx-player.x, dy = ty-player.y;
+          const along = dx*ca + dy*sa;                              // 진행 방향 거리
+          if (along < -tr || along > reach + tr) return false;
+          const side = Math.abs(-dx*sa + dy*ca);                    // 선에서 벗어난 거리
+          return side < halfW + tr;
+        };
+        let n2 = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || !onLine(e.x,e.y,e.r)) continue;
+          n2++;
+          const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3);
+          const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*crowdMult(n2);
+          e.hp -= d;
+          addDmgNum(e.x,e.y,d,isCrit);
+          staggerEnemy(e, 0.5);
+          procOnHit(e, false, w.imbue);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        for (let i=bosses.length-1;i>=0;i--){
+          const b = bosses[i];
+          if (!b || b.ghost || !onLine(b.x,b.y,b.r)) continue;
+          const d = dmg*corrodeMult(b);
+          b.hp -= d; addDmgNum(b.x,b.y,d,false); procOnHit(b, true, w.imbue);
+          if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+        }
+        SFX.play('sweep');
       } else if (w.key==='scythe'){
         // 낫: 부채꼴 스윕 (진화 시 360도)
         const t = nearestTarget();
@@ -16516,6 +16568,22 @@ import { FX } from "./fx.js";
           const ea = start + sweep*(0.82 + k*0.06);
           const er = fx.r*(0.96 + k*0.05) + tt*4;
           ctx.fillRect(Math.round(fx.x+Math.cos(ea)*er)-1, Math.round(fx.y+Math.sin(ea)*er)-1, 3, 3);
+        }
+        ctx.restore();
+      } else if (fx.type==='iai'){
+        // v6.93 발도 참격선 — 시작점에서 끝까지 훑고 지나가는 한 줄기 검흔
+        const pr = Math.min(1, fx.age/fx.life*1.6);
+        const len = fx.r*pr;
+        ctx.save();
+        ctx.translate(fx.x, fx.y); ctx.rotate(fx.a);
+        ctx.globalAlpha = tt;
+        ctx.fillStyle = fx.col || PAL.ink;
+        ctx.fillRect(0, -fx.hw*0.25, len, fx.hw*0.5);              // 심(芯)
+        ctx.globalAlpha = tt*0.35;
+        ctx.fillRect(0, -fx.hw, len, fx.hw*2);                     // 폭
+        if (fx.heavy){                                              // 무거운 일섬: 끝단이 터진다
+          ctx.globalAlpha = tt;
+          for (let k=0;k<3;k++) ctx.fillRect(len-2+k*4, -fx.hw*(0.6-k*0.15), 3, fx.hw*(1.2-k*0.3));
         }
         ctx.restore();
       } else if (fx.type==='slash'){
