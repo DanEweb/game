@@ -4122,11 +4122,13 @@ import { FX } from "./fx.js";
       size:(w)=> (w.evolved ? 12 : 7)
     },
     scythe: {
-      name:'낫', desc:'전방을 크게 베어 부채꼴 범위를 타격',
-      evName:'사신의 원무', evDesc:'낫이 360도로 회전하며 모든 방향을 벱니다',
+      // v6.110 사신 전용 '대낫 처형'과 구분: 낫은 **도적군 공용 근접**으로 재정의한다.
+      // (사신의 정체성은 처형 문턱에 있고, 이 무기는 넓게 베는 범용 근접이다)
+      name:'낫', desc:'[도적군 공용] 전방을 크게 베어 부채꼴 범위를 타격 — 넓게 훑는 범용 근접',
+      evName:'그믐의 원무', evDesc:'낫이 360도로 회전하며 모든 방향을 벱니다',
       lvDesc:['','범위 확장','피해 +35%','범위 확장','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.05 : 1.3,
-      dmg:(w)=> (w.evolved ? 34 : [14,14,19,19,25][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 34 : [14,14,19,19,25][w.lv-1]),
       radius:(w)=> (w.evolved ? 120 : [72,82,82,94,94][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 1.9)
     },
@@ -9661,6 +9663,50 @@ import { FX } from "./fx.js";
     { n:'확장 궤도', r:1.80, dmg:1.30, spin:0.72, cd:1.35, guard:0,    icept:0 },  // 멀리서 견제
   ];
   // v6.107 엔진 자원 — 이미 엔진이 쓰고 있는 값을 그대로 읽어 게이지로 만든다 (새 자원을 만들지 않는다)
+  // v6.110 장착한 근접 엔진의 판정 범위를 옅게 그린다. 형태가 엔진마다 달라 '무엇을 소유하는지'도 함께 읽힌다
+  function drawMeleeRange(){
+    if (!player || !player.weapons || auraState.on) return;      // 역장은 자체 링이 이미 보인다
+    const w = player.weapons.find(x => MELEE_WEAPONS[x.key] && x.key !== 'aura');
+    if (!w) return;
+    const def = WEAPONS[w.key];
+    if (!def) return;
+    const t0 = nearestTarget();
+    const face = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0 ? Math.PI : 0);
+    const col = CLASS_COLORS[player.classKey] || PAL.ink2;
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5,5]);
+    if (w.key === 'iaido' || w.key === 'smash'){
+      // 선형: 뻗는 방향으로 폭을 가진 통로
+      const R = def.reach ? def.reach(w) : 100;
+      const HW = def.halfW ? def.halfW(w) : 16;
+      ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(face);
+      ctx.strokeRect(0, -HW, R, HW*2);
+      ctx.restore();
+    } else if (w.key === 'charge'){
+      // 돌진: 대시가 지나갈 폭을 진행 방향으로
+      const WD = def.width ? def.width(w) : 24;
+      const da = Math.atan2(player.dashDir.y, player.dashDir.x);
+      ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(da);
+      ctx.strokeRect(0, -WD, 150, WD*2);
+      ctx.restore();
+    } else {
+      const R = def.radius ? def.radius(w) : 80;
+      const arc = def.arc ? def.arc(w) : (w.key==='whirl'||w.key==='riposte'||w.key==='reap' ? Math.PI*2 : 1.8);
+      ctx.beginPath();
+      if (arc >= Math.PI*2){ ctx.arc(player.x, player.y, R, 0, Math.PI*2); }
+      else {
+        ctx.moveTo(player.x, player.y);
+        ctx.arc(player.x, player.y, R, face-arc/2, face+arc/2);
+        ctx.closePath();
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
   function engineResource(){
     if (!player || !player.weapons) return null;
     if (ownedWeapon('iaido'))    return { n:'잔심', v:Math.min(1,(noHitT||0)/4.5),                 c:'#b04a3a' };
@@ -9683,7 +9729,7 @@ import { FX } from "./fx.js";
     if (!r || r.v < 1) return;
     const P = player.dmgMult;
     if (ownedWeapon('iaido')){          // 잔심: 조준 방향으로 화면을 가르는 장참 (확정 치명 부여 + 즉발 대형 참격)
-      player.dashCritT = Math.max(player.dashCritT||0, 1.2); noHitT = 0;
+      player.dashCritT = Math.max(player.dashCritT||0, 1.2);   // v6.110 noHitT 리셋 제거 — 자원을 쓰면 패시브가 날아가 오히려 손해였다
       const t0 = nearestTarget();
       const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
       const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 340, HW = 30;
@@ -17692,6 +17738,8 @@ import { FX } from "./fx.js";
       ctx.restore();
       ctx.globalAlpha = 1;
     }
+    // v6.110 근접 사거리 가이드 — 닿는 곳이 보여야 붙을지 뺄지 판단할 수 있다
+    drawMeleeRange();
     // v6.107 엔진 자원 게이지 — 캐릭터 발밑. 만충이면 맥동하며 'R' 안내가 뜬다
     {
       const rs = engineResource();
