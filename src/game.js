@@ -2767,9 +2767,9 @@ import { FX } from "./fx.js";
     },
     reaper: {
       name:'사신', tag:'대낫 · 처형', cost:800,
-      desc:'[낫]으로 시작. 낫이 크고 무겁게 휘둘러지며(피해 +25%), 체력 12% 이하 일반 적 즉사, 흡혈 1.',
-      weapon:'scythe',
-      apply:(p)=>{ p.execThresh=Math.max(p.execThresh,0.12); p.lifesteal+=1; p.scytheBoost=(p.scytheBoost||1)*1.25; }
+      desc:'[대낫 처형]으로 시작. 근접 엔진 피해 +25%, 약해진 적을 벨수록 수확이 빨리 찬다 — 만충 시 R로 문턱 아래를 전부 거둔다. 흡혈 1.',
+      weapon:'reap',    // v6.120 낫(도적군 공용) → 대낫 처형. 사신의 정체성은 처형 문턱에 있다
+      apply:(p)=>{ p.execThresh=Math.max(p.execThresh,0.12); p.lifesteal+=1; p.meleeBoost=(p.meleeBoost||1)*1.25; }
     },
     pilot: {
       name:'파일럿', tag:'드론', cost:700,
@@ -2780,9 +2780,9 @@ import { FX } from "./fx.js";
     // ---- RPG 확장 직업 (고전 아키타입, 새로운 이름) ----
     cheol: {
       name:'철혈', tag:'중장 전사', cost:900,
-      desc:'[낫]으로 시작. 받는 피해 -12%, 낫·역장 피해 +15%. [중갑 가능]',
+      desc:'[회전 참격]으로 시작. 받는 피해 -12%, 근접 엔진 피해 +15% — 피를 흘릴수록 응혈이 빨리 찬다. [중갑 가능]',
       weapon:'whirl',   // v6.103 낫 → 회전 참격. 중장 전사는 '몸을 돌려 사방을 베는' 쪽이 정체성에 맞다
-      apply:(p)=>{ p.dmgTaken*=0.88; p.scytheBoost=(p.scytheBoost||1)*1.15; p.auraBoost=(p.auraBoost||1)*1.15; }
+      apply:(p)=>{ p.dmgTaken*=0.88; p.meleeBoost=(p.meleeBoost||1)*1.15; }
     },
     voidc: {
       name:'공허술사', tag:'금단 마도', cost:1000,
@@ -2798,8 +2798,8 @@ import { FX } from "./fx.js";
     },
     bard: {
       name:'선율가', tag:'전장의 악사', cost:1000,
-      desc:'[역장]으로 시작. 콤보 유지 +1.5초, 피버 지속 +3초·피버 중 피해 +15%.',
-      weapon:'aura',
+      desc:'[박자 타격]으로 시작. 콤보가 곧 박의 속도 — 정박에 얹어 벨수록 박이 배로 찬다. 콤보 유지 +1.5초, 피버 지속 +3초·피버 중 피해 +15%.',
+      weapon:'cadence', // v6.120 역장 → 박자 타격. 콤보 정체성이 그대로 박의 속도가 된다
       apply:(p)=>{ p.comboKeep=1.5; p.feverPlus=3; p.feverDmg=true; }
     },
     // ---- 재미 직업 ----
@@ -2817,14 +2817,14 @@ import { FX } from "./fx.js";
     },
     gymbro: {
       name:'헬창', tag:'재미', cost:500,
-      desc:'[역장]으로 시작. 최대체력 +40, 체력이 높을수록 피해 증가. 이동은 조금 느리다 (벌크업).',
-      weapon:'aura',
+      desc:'[후려치기]로 시작. 최대체력 +40, 체력이 높을수록 피해 증가 — 몸집이 클수록 벌크가 빨리 찬다. 이동은 조금 느리다.',
+      weapon:'smash',   // v6.120 역장 → 후려치기. 진화명이 이미 '삼대 오백'인 헬창의 무기다
       apply:(p)=>{ p.maxHp+=40; p.hp+=40; p.gymbro=true; p.speed*=0.92; }
     },
     baeksu: {
       name:'백수', tag:'재미', cost:400,
-      desc:'[역장]으로 시작. 가만히 서 있으면 재생 3배 + 받는 피해 -20%. 움직이면 평범해진다. 원래 집이 최고다.',
-      weapon:'aura',
+      desc:'[반격 태세]로 시작. 가만히 서 있으면 재생 3배 + 받는 피해 -20%, 태세도 배로 찬다. 움직이면 평범해진다. 원래 집이 최고다.',
+      weapon:'riposte', // v6.120 역장 → 반격 태세. '가만히 있을수록 강해진다'가 백수 그 자체다
       apply:(p)=>{ p.baeksu=true; p.regen+=0.5; }
     },
     gambler: {
@@ -2846,8 +2846,8 @@ import { FX } from "./fx.js";
       name:'광인', tag:'히든', hidden:true,
       condDesc:'위험도 5 도달 시 해금',
       cond:()=> (DB.perilMax||0)>=5,
-      desc:'체력이 계속 새어나간다 (초당 0.8%). 대신 처치 회복 +3, 피해 +12%. 멈추면 죽는다 — 계속 사냥하라.',
-      weapon:'scythe',
+      desc:'[광란 난도질]로 시작. 체력이 계속 새어나간다 (초당 0.8%). 대신 처치 회복 +3, 피해 +12%. 멈추면 죽는다 — 계속 사냥하라.',
+      weapon:'frenzy',  // v6.120 낫 → 광란 난도질. 제 피를 태워 몰아치는 쪽이 광인이다
       apply:(p)=>{ p.madman=true; p.lifesteal+=3; p.dmgMult*=1.12; }
     },
     monk: {
@@ -2886,16 +2886,16 @@ import { FX } from "./fx.js";
       name:'전직 용사', tag:'히든', hidden:true,
       condDesc:'보스 누적 100회 처치 시 해금',
       cond:()=> (DB.prog.boss||0)>=100,
-      desc:'마왕을 잡고 은퇴했지만 몸이 기억한다. 레벨 5에 이미 1차 전직 상태로 시작.',
-      weapon:'scythe',
+      desc:'[용사의 검]으로 시작. 마왕을 잡고 은퇴했지만 몸이 기억한다 — 처치할 때마다 각성이 차오른다. 레벨 5에 이미 1차 전직 상태로 시작.',
+      weapon:'heroblade',  // v6.121 낫(공용) → 전용 엔진. 잡은 수로 차는 유일한 축
       apply:(p)=>{ p.exhero=true; }
     },
     shadow: {
       name:'그림자', tag:'히든', hidden:true,
       condDesc:'엘리트 누적 150회 처치 시 해금',
       cond:()=> (DB.prog.elite||0)>=150,
-      desc:'3초간 피격 없이 움직이면 다음 공격이 반드시 치명타가 된다. 회피 +10%.',
-      weapon:'shuriken',
+      desc:'[연참]으로 시작. 3초간 피격 없이 움직이면 다음 공격이 반드시 치명타. 서로 다른 적을 벨수록 표식이 빨리 찬다 — 만충 시 R로 적 사이를 순간이동하며 난무. 회피 +10%.',
+      weapon:'kesagiri', // v6.120 수리검(닌자와 공유) → 연참. 그림자는 던지는 쪽이 아니라 사이를 지나가는 쪽이다
       apply:(p)=>{ p.shadowStrike=true; p.dodge=Math.min(0.6,p.dodge+0.1); }
     },
     blackcat: {
@@ -3152,7 +3152,7 @@ import { FX } from "./fx.js";
     ],
     reaper: [
       { key:'ct_re1', name:'죽음의 문턱', desc:(m)=>'처형 임계값 +'+R(2*m)+'%p', apply:(p,m)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.02*m); } },
-      { key:'ct_re2', name:'낫질 숙련', desc:(m)=>'낫 피해 +'+R(13*m)+'%', apply:(p,m)=>{ p.scytheBoost=(p.scytheBoost||1)*(1+0.13*m); } },
+      { key:'ct_re2', name:'낫질 숙련', desc:(m)=>'근접 엔진 피해 +'+R(13*m)+'%', apply:(p,m)=>{ p.meleeBoost=(p.meleeBoost||1)*(1+0.13*m); } },
     ],
     pilot: [
       { key:'ct_pi1', name:'드론 개조', desc:(m)=>'드론 피해 +'+R(12*m)+'%', apply:(p,m)=>{ p.droneBoost+=0.12*m; } },
@@ -3172,7 +3172,7 @@ import { FX } from "./fx.js";
       { key:'ct_rt2', name:'예지', desc:(m)=>'리롤 +1', apply:(p,m)=>{ rerollsLeft+=1; } },
     ],
     cheol: [
-      { key:'ct_ch1', name:'전열 붕괴', desc:(m)=>'낫·역장 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.scytheBoost=(p.scytheBoost||1)*(1+0.10*m); p.auraBoost=(p.auraBoost||1)*(1+0.10*m); } },
+      { key:'ct_ch1', name:'전열 붕괴', desc:(m)=>'근접 엔진 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.meleeBoost=(p.meleeBoost||1)*(1+0.10*m); } },
       { key:'ct_ch2', name:'철벽', desc:(m)=>'받는 피해 -'+R(4*m)+'%', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; } },
     ],
     voidc: [
@@ -3401,7 +3401,7 @@ import { FX } from "./fx.js";
                 { n:'세인트', d:'받는 피해 -12%, 회복 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.healMult*=1.2; } },
                 { n:'심판관', d:'처형 임계 +8%p, 치명 +6%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.critChance=Math.min(0.85,p.critChance+0.06); } },
                 { n:'순례자', d:'이동 +10%, 재생 +0.6', fx:(p)=>{ p.speed*=1.1; p.regen+=0.6; } } ],
-    reaper:   [ { n:'수확자', d:'처형 임계 +8%p, 낫 피해 +15%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.scytheBoost=(p.scytheBoost||1)*1.15; } },
+    reaper:   [ { n:'수확자', d:'처형 임계 +8%p, 근접 엔진 +15%', fx:(p)=>{ p.execThresh=Math.min(0.35,p.execThresh+0.08); p.meleeBoost=(p.meleeBoost||1)*1.15; } },
                 { n:'소울브링어', d:'처치 시 15% 유령 소환', fx:(p)=>{ p.necroChance=Math.max(p.necroChance,0.15); } },
                 { n:'침묵', d:'회피 +10%, 치명 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.critChance=Math.min(0.85,p.critChance+0.08); } },
                 { n:'재앙', d:'모든 피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } } ],
@@ -3417,7 +3417,7 @@ import { FX } from "./fx.js";
                 { n:'기록자', d:'경험치 +15%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.15; } },
                 { n:'시간술사', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } },
                 { n:'순환자', d:'재생 +0.8, 회복 +15%', fx:(p)=>{ p.regen+=0.8; p.healMult*=1.15; } } ],
-    cheol:    [ { n:'파성퇴', d:'피해 +15%, 낫 피해 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.scytheBoost=(p.scytheBoost||1)*1.1; } },
+    cheol:    [ { n:'파성퇴', d:'피해 +15%, 근접 엔진 +10%', fx:(p)=>{ p.dmgMult*=1.15; p.meleeBoost=(p.meleeBoost||1)*1.1; } },
                 { n:'요새', d:'받는 피해 -12%, 체력 +20%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.2); } },
                 { n:'단조가', d:'모든 피해 +10%, 체력 +10%', fx:(p)=>{ p.dmgMult*=1.1; p.maxHp=Math.round(p.maxHp*1.1); } },
                 { n:'전장군주', d:'주변 아군 효과 — 유령·분신·터렛 피해 +30%', fx:(p)=>{ p.ghostDmg=(p.ghostDmg||1)*1.3; p.droneBoost+=0.3; p.turretDmg=(p.turretDmg||10)*1.3; } } ],
@@ -3516,7 +3516,7 @@ import { FX } from "./fx.js";
                 { n:'퇴마사', d:'악몽·엘리트 피해 +15%', fx:(p)=>{ p.eliteDmg*=1.15; } },
                 { n:'루미너스', d:'피해 +14%', fx:(p)=>{ p.dmgMult*=1.14; } },
                 { n:'수호천사', d:'재생 +1, 부활 시 체력 +25%p', fx:(p)=>{ p.regen+=1; } } ],
-    reaper:   [ { n:'절망의 낫', d:'처형 임계 +6%p, 낫 +12%', fx:(p)=>{ p.execThresh=Math.min(0.4,p.execThresh+0.06); p.scytheBoost=(p.scytheBoost||1)*1.12; } },
+    reaper:   [ { n:'절망의 낫', d:'처형 임계 +6%p, 근접 엔진 +12%', fx:(p)=>{ p.execThresh=Math.min(0.4,p.execThresh+0.06); p.meleeBoost=(p.meleeBoost||1)*1.12; } },
                 { n:'혼령사(魂靈士)', d:'유령 소환 +8%p', fx:(p)=>{ p.necroChance=(p.necroChance||0)+0.08; } },
                 { n:'다크 머천트', d:'처치 골드 확률 상승, 골드 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.15; } },
                 { n:'타나토스', d:'피해 +15%', fx:(p)=>{ p.dmgMult*=1.15; } } ],
@@ -3532,7 +3532,7 @@ import { FX } from "./fx.js";
                 { n:'가속자', d:'경험치 +20%', fx:(p)=>{ p.xpMult=(p.xpMult||1)*1.2; } },
                 { n:'인과 조율자', d:'쿨다운 -12%', fx:(p)=>{ p.cdr*=0.88; } },
                 { n:'생존 본능', d:'재생 +0.8, 받는 피해 -6%', fx:(p)=>{ p.regen+=0.8; p.dmgTaken*=0.94; } } ],
-    cheol:    [ { n:'파쇄자', d:'피해 +14%, 낫 +10%', fx:(p)=>{ p.dmgMult*=1.14; p.scytheBoost=(p.scytheBoost||1)*1.1; } },
+    cheol:    [ { n:'파쇄자', d:'피해 +14%, 근접 엔진 +10%', fx:(p)=>{ p.dmgMult*=1.14; p.meleeBoost=(p.meleeBoost||1)*1.1; } },
                 { n:'불침함', d:'받는 피해 -14%', fx:(p)=>{ p.dmgTaken*=0.86; } },
                 { n:'맹장', d:'엘리트·보스 피해 +14%', fx:(p)=>{ p.eliteDmg*=1.14; p.bossDmg*=1.14; } },
                 { n:'군단 사령관', d:'유령·터렛·드론 +25%', fx:(p)=>{ p.ghostDmg=(p.ghostDmg||1)*1.25; p.droneBoost+=0.25; p.turretDmg=(p.turretDmg||7)*1.25; } } ],
@@ -3587,7 +3587,7 @@ import { FX } from "./fx.js";
                 { n:'대천사', d:'재생 +1.5, 회복 +30%', fx:(p,rc)=>{ p.regen+=1.5; p.healMult*=1.3; } } ],
     reaper:   [ { n:'아포칼립스', d:'처형 임계 +12%p', fx:(p,rc)=>{ p.execThresh=Math.min(0.45,p.execThresh+0.12); } },
                 { n:'하데스', d:'유령 +3, 유령 피해 +40%', fx:(p,rc)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.4; } },
-                { n:'그림 리퍼', d:'낫 피해 +30% + 공명', fx:(p,rc)=>{ p.scytheBoost=(p.scytheBoost||1)*(1.3+0.004*rc); } } ],
+                { n:'그림 리퍼', d:'근접 엔진 피해 +30% + 공명', fx:(p,rc)=>{ p.meleeBoost=(p.meleeBoost||1)*(1.3+0.004*rc); } } ],
     pilot:    [ { n:'스카이 로드', d:'궁극 폭격 +50%', fx:(p,rc)=>{ p.ultDamage=Math.round((p.ultDamage||30)*1.5); } },
                 { n:'스웜 마스터', d:'드론 +50% + 공명', fx:(p,rc)=>{ p.droneBoost+=0.5+0.004*rc; } },
                 { n:'마하 브레이커', d:'공속 +20%, 이속 +15%', fx:(p,rc)=>{ p.rateMult*=1.2; p.speed*=1.15; } } ],
@@ -3952,7 +3952,7 @@ import { FX } from "./fx.js";
     returner: [ { n:'모든 것을 본 자', d:'속성 5계열까지 선택 가능', fx:(p)=>{ p.attrLimit=(p.attrLimit||3)+1; } },
                 { n:'되감기', d:'부활 +1', fx:(p)=>{ p.reviveLeft+=1; } } ],
     cheol:    [ { n:'강철의 화신', d:'받는 피해 -20%', fx:(p)=>{ p.dmgTaken*=0.8; } },
-                { n:'전쟁 기계', d:'피해 +22%, 낫·역장 +15%', fx:(p)=>{ p.dmgMult*=1.22; p.scytheBoost=(p.scytheBoost||1)*1.15; p.auraBoost=(p.auraBoost||1)*1.15; } } ],
+                { n:'전쟁 기계', d:'피해 +22%, 근접 엔진 +15%', fx:(p)=>{ p.dmgMult*=1.22; p.meleeBoost=(p.meleeBoost||1)*1.15; } } ],
     voidc:    [ { n:'공허와의 계약', d:'원소 발동 +12%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.12; } },
                 { n:'경계의 붕괴', d:'피해 +20%, 쿨다운 -8%', fx:(p)=>{ p.dmgMult*=1.2; p.cdr*=0.92; } } ],
     necro:    [ { n:'사령제왕', d:'유령 최대 +3, 피해 +30%', fx:(p)=>{ p.ghostCap+=3; p.ghostDmg=(p.ghostDmg||1)*1.3; } },
@@ -4125,13 +4125,25 @@ import { FX } from "./fx.js";
     scythe: {
       // v6.110 사신 전용 '대낫 처형'과 구분: 낫은 **도적군 공용 근접**으로 재정의한다.
       // (사신의 정체성은 처형 문턱에 있고, 이 무기는 넓게 베는 범용 근접이다)
-      name:'낫', desc:'[도적군 공용] 빠르게 전방을 훑어 벤다 — 예기가 차면 R로 사방을 세 번 베는 원무 (평타는 약하다)',
+      name:'사신의 낫', desc:'[전향 · 도적군] 빠르게 전방을 훑어 벤다 — 성도에 전사 별을 밝힌 도적만. 예기가 차면 R로 사방을 세 번 베는 원무',
+      cross:true, req:(p)=> classResGroup(p.classKey)==='rog' && starBranchSpent('war')>=1,
       evName:'그믐의 원무', evDesc:'낫이 360도로 회전하며 모든 방향을 벱니다',
       lvDesc:['','범위 확장','피해 +35%','범위 확장','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.42 : 0.50,
       dmg:(w)=> meleeAutoMult()*(w.evolved ? 13 : [5,5,6,6,9][w.lv-1]),
       radius:(w)=> (w.evolved ? 118 : [76,86,86,96,96][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 2.1)
+    },
+    // v6.121 근접 엔진 12호: 용사의 검 — 전직 용사 전용.
+    //  다른 11종은 전부 '때리면' 차는데 이것만 **'죽이면'** 찬다. 왕년의 용사는 잡은 수로 말한다
+    heroblade: {
+      name:'용사의 검', desc:'[전직 용사 전용] 정직한 정면 참격 — 평타로는 각성이 차지 않는다. **적을 처치할 때마다** 차오르고, 만충 시 R로 마왕 처단',
+      evName:'용사의 검 · 마왕을 벤 검', evDesc:'십자 참격이 화면을 가르고 처치당 각성이 더 크게 찹니다',
+      lvDesc:['','참격 확대','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.48 : 0.56,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 15 : [6,6,8,8,11][w.lv-1]),
+      radius:(w)=> (w.evolved ? 112 : [82,90,90,100,100][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.4 : 2.0)
     },
     // v6.93 근접 엔진 신설: 발도 — 모았다가 직선으로 길게 벤다 (역장·낫과 판정 형태가 겹치지 않는다)
     iaido: {
@@ -4710,7 +4722,14 @@ import { FX } from "./fx.js";
   }
   // 정의부에서 즉시 평가되지 않도록 getter로 노출 (dmg 함수는 매 발사마다 호출된다)
   Object.defineProperty(window, '__meleeAuto', { get: meleeAutoMult });
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, heroblade:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  // v6.121 근접 엔진은 **그 직업의 것**이다 — 일반 카드 풀에 두면 사무라이가 낫을 줍고 사신이 발도를 줍는다.
+  //  정체성으로 만든 것을 아무나 집게 두면 정체성이 아니게 된다.
+  const ENGINE_OWNER = {
+    iaido:'samurai', charge:'rusher', whirl:'cheol', combo3:'monk', reap:'reaper',
+    frenzy:'madman', smash:'gymbro', riposte:'baeksu', cadence:'bard', kesagiri:'shadow',
+    heroblade:'exhero',
+  };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -4985,6 +5004,8 @@ import { FX } from "./fx.js";
           // v6.80 무기 직업군화 1단계: 전사군(근접)에게 원거리 무기 카드가 그대로 나오던 문제.
           // 성도 원거리 계열(rng)에 별을 하나라도 투자하면 해제 — '원거리화'를 선택한 사람만 열린다
           if (!def.cross && !MELEE_WEAPONS[key] && isPureMeleeBuild() && starBranchSpent('rng') < 1) return;
+          // v6.121 남의 직업 엔진은 카드로 나오지 않는다 (자기 것은 이미 들고 있어 어차피 안 나온다)
+          if (ENGINE_OWNER[key]) return;
           // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
           const wri = rollCardRarity();
           const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
@@ -6291,6 +6312,12 @@ import { FX } from "./fx.js";
   function defeatEnemy(idx){
     const e = enemies[idx];
     killCount += 1;
+    // v6.121 용사의 검 — 유일하게 '처치'로 차는 엔진
+    if (player && player.weapons && ownedWeapon('heroblade')){
+      const before = player.mCharge||0;
+      player.mCharge = Math.min(1, before + (ownedWeapon('heroblade').evolved ? 0.12 : 0.085));
+      if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, '각성 만충 — R'); SFX.play('levelup'); }
+    }
     addCombo();
     questAdd('kill', 1);
     // 사망 버스트: 몹 등급·타입 색으로 (엘리트 금색 / 악몽 보라 / 축복 노랑 / 타입 틴트)
@@ -9740,6 +9767,7 @@ import { FX } from "./fx.js";
     reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   hint:'약해진 적을 벨수록 크게 찬다' },
     cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
     charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
+    heroblade:{res:'각성', gain:0.02, col:'#e0a94f', motion:null,     hint:'때려서는 안 찬다 — 처치할 때마다 찬다' },
   };
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
   let engineTicks = [];
@@ -9794,7 +9822,7 @@ import { FX } from "./fx.js";
       return;
     }
     player.spendFocus = focus;
-    const P = player.dmgMult * focus;                          // v6.113 적중 배율 반영
+    const P = player.dmgMult * focus * (player.meleeBoost||1);   // v6.113 적중 배율 · v6.120 근접 엔진 강화
     const key = meleeEngineKey();
     const COL = CLASS_COLORS[player.classKey];
     // 광역 1회 — 시그니처들이 공유하는 도구
@@ -9927,6 +9955,27 @@ import { FX } from "./fx.js";
       player.beatFreeT = 3;
       boom(150, 130*P, '#c9895a');
       addTextNum(player.x, player.y-40, '광시곡 3초');
+    } else if (key === 'heroblade'){
+      // 마왕 처단 — 가로세로로 화면을 가르는 십자 참격. 은퇴했어도 몸이 기억한다
+      const t0 = nearestTarget();
+      const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+      const RCH = 330, HW = 40;
+      for (const ax of [a0, a0 + Math.PI/2]){
+        const ca = Math.cos(ax), sa = Math.sin(ax);
+        effects.push({ type:'iai', x:player.x, y:player.y, a:ax, r:RCH, hw:HW, life:0.34, age:0, col:'#e0a94f', heavy:true });
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i]; if (!e) continue;
+          const dx=e.x-player.x, dy=e.y-player.y, along=dx*ca+dy*sa;
+          if (Math.abs(along) > RCH + e.r) continue;                    // 십자는 양방향으로 뻗는다
+          if (Math.abs(-dx*sa+dy*ca) > HW + e.r) continue;
+          const d = 120*P*corrodeMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, true); staggerEnemy(e, 1.0); procOnHit(e, false, null);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+      }
+      shake = Math.min(20, shake+11); hitStop(0.07);
+      player.swingT = Math.max(player.swingT||0, 0.4);
+      addTextNum(player.x, player.y-40, '마왕 처단!');
     } else if (key === 'charge'){
       // 파쇄 돌격 — 몸째 던져 일직선을 꿰뚫고, 멈춘 자리를 부순다
       const t0 = nearestTarget();
@@ -10489,7 +10538,8 @@ import { FX } from "./fx.js";
         const radius = def.radius(w), arcW = def.arc(w);
         const t0 = nearestTarget();
         const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        // v6.120 meleeBoost 복구 — v6.115 통합 때 읽기가 빠져 '낫 피해 +N%' 계열이 전부 무효였다
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1);
         const full = arcW >= Math.PI*2;
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
                        friendly:true, col: CLASS_COLORS[player.classKey] });
