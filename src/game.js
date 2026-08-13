@@ -361,6 +361,7 @@ import { FX } from "./fx.js";
       if (state==='playing'){ openInv(); }
       else if (state==='inv'){ closeInv(); }
     }
+    if (e.code==='KeyE' && state==='playing'){ cycleSatOrbit(); }   // v6.85 위성 궤도 전환
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (e.code==='KeyT' && state==='playing'){ openTechView(); }
     if (e.code==='KeyJ'){
@@ -9476,6 +9477,34 @@ import { FX } from "./fx.js";
   // ---------- weapons update ----------
   let satPos = [];
   let auraState = { on:false, r:0 };
+  // v6.85 위성 궤도 3단 — 반경/피해/회전/타격주기가 함께 움직여 어느 하나가 정답이 되지 않게
+  const SAT_ORBIT = [
+    { n:'밀착 궤도', r:0.62, dmg:0.85, spin:1.35, cd:0.72 },   // 좁고 빠름 — 나를 지킨다
+    { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00 },
+    { n:'확장 궤도', r:1.55, dmg:1.25, spin:0.78, cd:1.30 },   // 넓고 무겁다 — 멀리서 견제
+  ];
+  function cycleSatOrbit(){
+    if (!player.weapons.some(w=>w.key==='satellite')) return;
+    player.satOrbit = ((player.satOrbit===undefined?1:player.satOrbit) + 1) % 3;
+    const o = SAT_ORBIT[player.satOrbit];
+    addTextNum(player.x, player.y-32, '◎ '+o.n);
+    effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:player.r, r1:48*o.r });
+    SFX.play('tele');
+  }
+  // 과부하: 위성이 칠 때마다 차오르고, 만충 시 '궤도 해방' — 링 전체가 무기가 되고 회전이 가속된다
+  function satCharge(v){
+    if ((player.satBurstT||0) > 0) return;
+    player.satOver = (player.satOver||0) + v*(player.satOverRate||1);
+    if (player.satOver >= 1){
+      player.satOver = 0;
+      player.satBurstT = 4.5;
+      showBossBanner('궤도 해방', '위성이 고리째 타오른다', '#7ec4e8');
+      FX.ring(player.x, player.y, 0x7ec4e8, 20);
+      shake = Math.min(16, shake+7);
+      SFX.play('boom');
+      buzz(26);
+    }
+  }
   let dronePos = [];
 
   function fireProjectile(a, speed, dmg, pierce, life, extra){
@@ -9696,12 +9725,16 @@ import { FX } from "./fx.js";
 
       if (w.key==='satellite'){
         const n = def.count(w);
-        const orbitR = def.orbitR(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1);
-        w.angle += dt * def.spin(w);
+        // v6.85 궤도 3단: 좁히면 타격이 잦아지고(근접 방어), 넓히면 사거리를 얻는다(원거리 견제)
+        const om = SAT_ORBIT[player.satOrbit||1];
+        const burst = (player.satBurstT||0) > 0;
+        const orbitR = def.orbitR(w) * om.r;
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1)
+                  * om.dmg * (burst ? 1.35 : 1);
+        w.angle += dt * def.spin(w) * om.spin * (burst ? 1.7 : 1);
         for (let s=0;s<n;s++){
           const a = w.angle + (Math.PI*2/n)*s;
-          satPos.push({ x:player.x+Math.cos(a)*orbitR, y:player.y+Math.sin(a)*orbitR, ev:w.evolved, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
+          satPos.push({ x:player.x+Math.cos(a)*orbitR, y:player.y+Math.sin(a)*orbitR, ev:w.evolved||burst, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
         }
         continue;
       }
@@ -11594,7 +11627,8 @@ import { FX } from "./fx.js";
             if (!(e.satCd>0)){
               const sdmg = sp.dmg * corrodeMult(e);
               e.hp -= sdmg;
-              e.satCd = 0.28;
+              e.satCd = 0.28 * (SAT_ORBIT[player.satOrbit||1].cd);
+              satCharge(0.035);
               addDmgNum(e.x, e.y, sdmg, false);
               burst(sp.x,sp.y,3,90);
               procOnHit(e, false, sp.imbue);
@@ -11927,6 +11961,7 @@ import { FX } from "./fx.js";
 
     player._auraBeat = 0;   // v6.79 역장 타격 비트는 그 프레임에만 유효
 
+    if (player.satBurstT>0) player.satBurstT -= dt;   // v6.85 궤도 해방 지속
     if (shake>0) shake = Math.max(0, shake - dt*30);
 
     updateHud();
