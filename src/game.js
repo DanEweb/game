@@ -4130,6 +4130,16 @@ import { FX } from "./fx.js";
       width:(w)=> (w.evolved ? 32 : [18,18,18,25,25][w.lv-1]),
       cdCut:(w)=> (w.evolved ? 0.62 : [1,0.90,0.90,0.82,0.82][w.lv-1])
     },
+    // v6.97 근접 엔진 3호: 연참 — 벨 때마다 표식을 남기고, 표식이 차면 그 사이를 순간이동하며 전부 벤다
+    kesagiri: {
+      name:'연참', desc:'벨 때마다 표식을 남긴다 — 표식이 차오르면 그 사이를 순간이동하며 한 번에 베어낸다',
+      evName:'연참 · 무영난무', evDesc:'표식 요구가 줄고 연참 피해가 크게 오릅니다',
+      lvDesc:['','표식 요구 -1','피해 +40%','연참 피해 +50%','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.62 : 0.8,
+      dmg:(w)=> (w.evolved ? 30 : [12,12,17,17,22][w.lv-1]),
+      need:(w)=> (w.evolved ? 3 : [5,4,4,4,4][w.lv-1]),          // 연참 발동에 필요한 표식 수
+      burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 연참 1타 배율
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4577,7 +4587,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -6266,6 +6276,18 @@ import { FX } from "./fx.js";
       else { rerollsLeft+=1; addTextNum(e.x,e.y-14,'✨ 운명의 축복 (리롤+1)'); }
       effects.push({ type:'ring', x:e.x, y:e.y, life:0.4, age:0, r0:10, r1:70 });
       SFX.play('quest');
+    }
+    // v6.97 연참 표식 — 표식된 적 위에 마름모가 맥동한다 (몇 마리 걸렸는지 눈으로 센다)
+    if (player.marks && player.marks.indexOf(e) >= 0){
+      const mp = 0.6 + 0.4*Math.sin(performance.now()/160);
+      ctx.save();
+      ctx.translate(0, -e.r-13);
+      ctx.rotate(Math.PI/4);
+      ctx.globalAlpha = mp;
+      ctx.fillStyle = CLASS_COLORS[player.classKey] || '#c94f4f';
+      ctx.fillRect(-3,-3,6,6);
+      ctx.restore();
+      ctx.globalAlpha = 1;
     }
     if (e.elite){
       questAdd('elite', 1);
@@ -9771,7 +9793,7 @@ import { FX } from "./fx.js";
     chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
@@ -10062,6 +10084,62 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='kesagiri'){
+        const need = def.need(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        // 살아있는 표식만 남긴다
+        player.marks = (player.marks||[]).filter(m=> enemies.includes(m));
+        if (player.marks.length >= need){
+          // ── 연참: 표식된 적들 사이를 순간이동하며 연속으로 벤다
+          const list = player.marks.slice(0, 8);
+          const bd = dmg * def.burst(w);
+          let px0 = player.x, py0 = player.y;
+          for (const m of list){
+            effects.push({ type:'slash', x:m.x, y:m.y, a:Math.atan2(m.y-py0, m.x-px0), r:34, arc:2.2, life:0.2, age:0 });
+            particles.push({ x:px0, y:py0, vx:0, vy:0, life:0.3, age:0, r:player.r*0.8, ghost:true });  // 잔상
+            px0 = m.x; py0 = m.y;
+            const i2 = enemies.indexOf(m);
+            if (i2 < 0) continue;
+            const isC = Math.random() < player.critChance;
+            const d = bd*(isC?player.critMult:1)*corrodeMult(m);
+            m.hp -= d;
+            addDmgNum(m.x, m.y, d, isC);
+            staggerEnemy(m, 0.5);
+            procOnHit(m, false, w.imbue);
+            hitSpark(m.x, m.y, Math.random()*Math.PI*2, CLASS_COLORS[player.classKey]);
+            if (m.hp<=0 && enemies[i2]===m) defeatEnemy(i2);
+          }
+          // 마지막 표식 자리로 이동 — 실제로 '베고 지나간다'
+          if (list.length){
+            const last = list[list.length-1];
+            player.x = last.x; player.y = last.y;
+            player.invuln = Math.max(player.invuln, 0.25);
+          }
+          player.marks = [];
+          addTextNum(player.x, player.y-34, '연참 x'+list.length);
+          shake = Math.min(14, shake+6);
+          hitStop(0.05);
+          SFX.play('sweep');
+        } else {
+          // ── 평타: 가장 가까운 적을 짧게 베고 표식을 남긴다
+          const t0 = nearestTarget();
+          if (!t0 || t0.isBoss){ w.cd = 0.25; continue; }
+          const a0 = Math.atan2(t0.y-player.y, t0.x-player.x);
+          effects.push({ type:'slash', x:player.x, y:player.y, a:a0, r:30, arc:1.6, life:0.16, age:0 });
+          player.swingT = Math.max(player.swingT||0, 0.26);
+          const i3 = enemies.indexOf(t0);
+          if (i3 >= 0 && Math.hypot(t0.x-player.x, t0.y-player.y) < 90 + t0.r){
+            const isC = Math.random() < player.critChance;
+            const d = dmg*(isC?player.critMult:1)*corrodeMult(t0)*meleeCloseMult(t0);
+            t0.hp -= d;
+            addDmgNum(t0.x, t0.y, d, isC);
+            staggerEnemy(t0, 0.35);
+            procOnHit(t0, false, w.imbue);
+            if (t0.hp<=0 && enemies[i3]===t0) defeatEnemy(i3);
+            else if (player.marks.indexOf(t0) < 0) player.marks.push(t0);   // 살아남은 적에게만 표식
+          }
+          SFX.play('hit');
+        }
       } else if (w.key==='iaido'){
         // 발도: 가장 가까운 적 방향으로 직선 참격. 무피격 시간(noHitT)이 길수록 무겁다
         const t0 = nearestTarget();
