@@ -4781,7 +4781,9 @@ import { FX } from "./fx.js";
   // 결과: 모으고 → 쓰고 → 몰아치는 사이클이 생기고, 안 쓰면 명백히 약하다
   //  v6.136 0.46 → 0.62. 주기를 +45% 늘렸으므로 초당 총량은 v6.135와 같고 **한 방만 무거워진다**.
   //  (v6.135처럼 위력만 깎으면 '빠르게 툭툭 치는' 리듬이 그대로 남는다 — 사용자가 지적한 건 그 리듬이다)
-  const MELEE_AUTO_BASE = 0.62;
+  //  v6.144 0.62 → 0.50. *"초창기 사무라이는 공속도 느리고 기본공격도 별로였는데 지금은 기본공격 자체가 좋다"*
+  //   평타는 **약해야** 한다. 평타의 본업은 딜이 아니라 기력을 버는 것이다(v6.115 원칙)
+  const MELEE_AUTO_BASE = 0.50;
   let _overflowT = 0;      // 만충 방치 누적 시간
   function meleeAutoMult(){
     if (!player) return MELEE_AUTO_BASE;
@@ -6385,7 +6387,18 @@ import { FX } from "./fx.js";
     if (player && player.weapons && (meleeEngineKey() || ownedWeapon('aura'))){
       //  v6.134 초반 잡몹 체력이 20~30인데 dps 9면 3초 만에 저절로 죽는다 — '보조'가 아니라 주력이었다.
       //  피해를 낮추고 감속을 본체로 (자리를 소유한다는 정체성은 발을 묶는 것이지 대신 죽여주는 게 아니다)
-      spillGore(e.x, e.y, 3.5 * player.dmgMult * (player.meleeBoost||1));
+      //  v6.144 3.5 → 2.0. 영역은 **발을 묶는 것**이 본체지 대신 죽여 주는 게 아니다(v6.134 원칙의 재확인)
+      //
+      //  🔴 v6.144-b 사용자: *"전용기로 죽이면 몬스터가 멀리서 죽은 자리에 영역이 생기고,
+      //     또 그 영역이 죽인 애들에 영역이 생기고 이러면서 걷잡을 수 없어"*
+      //   두 개의 폭주 경로가 있었다:
+      //    ① **자기증식** — 피바다로 죽은 적이 **또 피바다를 낳는다**. 한 번 퍼지면 스스로 번진다
+      //    ② **원격 생성** — 전용기가 화면 끝의 적을 죽여도 거기에 영역이 깔린다.
+      //       *"벤 자리를 소유한다"* 는 컨셉인데 **베지 않은 자리까지 소유**하고 있었다
+      //   → ① 영역에 죽은 적은 새 영역을 만들지 않는다  ② 내 발밑 **190px 안**에서만 생긴다
+      if (!e.byZone && Math.hypot(e.x-player.x, e.y-player.y) <= 190){
+        spillGore(e.x, e.y, 2.0 * player.dmgMult * (player.meleeBoost||1));
+      }
     }
     // v6.121 용사의 검 — 유일하게 '처치'로 차는 엔진
     if (player && player.weapons && ownedWeapon('heroblade')){
@@ -9773,7 +9786,9 @@ import { FX } from "./fx.js";
     for (const z of zones){
       if (z.type !== 'gore') continue;
       if (Math.hypot(z.x-x, z.y-y) < z.r*0.8){
-        z.r = Math.min(96, z.r + 5); z.t = z.maxT = Math.max(z.t, 3.2); z.dps = Math.max(z.dps, power);
+        //  v6.144 겹칠 때마다 dps가 **최대값으로 갱신**돼 밀집에서 초당딜이 계속 올라갔다.
+        //   넓이·수명만 갱신하고 **위력은 올리지 않는다** — 넓어지는 것으로 충분하다
+        z.r = Math.min(88, z.r + 4); z.t = z.maxT = Math.max(z.t, 3.2);
         return;
       }
     }
@@ -10349,7 +10364,9 @@ import { FX } from "./fx.js";
     if (!player) return 0;
     return Math.min(4, (player.jobs ? player.jobs.length : 0) + (player.awakening ? 1 : 0));
   }
-  function spendTierMult(){ return [1, 1.15, 1.32, 1.55, 1.85][spendTier()]; }   // 위력
+  //  v6.144 1.85 → 1.45. 전직·각성으로 전용기가 두 배 가까이 커지면 **후반에 스킬·궁극과 겹쳐 붕괴한다**.
+  //   진화의 체감은 위력이 아니라 **타수·범위·연출**로 준다(아래 두 줄은 유지)
+  function spendTierMult(){ return [1, 1.10, 1.20, 1.32, 1.45][spendTier()]; }   // 위력
   function spendTierR(){   return [1, 1.06, 1.12, 1.20, 1.30][spendTier()]; }    // 범위
   function spendTierN(){   return [0, 0, 1, 1, 2][spendTier()]; }                // 타수/횟수 가산
   function spendTargets(){
@@ -10387,7 +10404,9 @@ import { FX } from "./fx.js";
       return;
     }
     // v6.133 전직·각성 진화가 여기서 한 번에 곱해진다
-    const P = player.dmgMult * focus * (player.meleeBoost||1) * spendTierMult();
+    //  v6.144 전용기 −35%. 여기 한 곳이 **모든 소비기의 위력**을 지난다.
+    //   전용기는 '쓸어담는 기술'이 아니라 '판을 뒤집는 기술'이다 — 위력으로 주면 스킬·궁극과 곱해져 반드시 무너진다
+    const P = player.dmgMult * focus * (player.meleeBoost||1) * spendTierMult() * 0.65;
     const TR = spendTierR(), TN = spendTierN(), TNAME = SPEND_TIER_NAME[spendTier()];
     let key = meleeEngineKey();
     // v6.123 무명자 — 이름이 없으니 소비기도 고정되지 않는다. 누를 때마다 다른 엔진의 시그니처가 나간다
@@ -10889,7 +10908,7 @@ import { FX } from "./fx.js";
     //  처치 시 피바다만으로는 '영역을 구성해 보조한다'는 원래 느낌이 아니었다.
     //  R를 쓴 자리가 잠시 내 땅이 된다 — 그 위에서 싸우면 이득이고, 밀려나면 잃는다
     if (meleeEngineKey() || ownedWeapon('aura')){
-      spillGore(player.x, player.y, 6 * player.dmgMult * (player.meleeBoost||1));
+      spillGore(player.x, player.y, 3.2 * player.dmgMult * (player.meleeBoost||1));
       for (const z of zones){
         if (z.type==='gore' && Math.hypot(z.x-player.x, z.y-player.y) < 40){ z.r = 92; z.t = z.maxT = 5.0; break; }
       }
@@ -11532,13 +11551,13 @@ import { FX } from "./fx.js";
           if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
         }
         if (SHP === 'zone' && Math.random() < 0.5){                 // 장판: 박이 바닥에 남는다
-          spillGore(player.x, player.y, 5 * player.dmgMult * (player.meleeBoost||1));
+          spillGore(player.x, player.y, 2.6 * player.dmgMult * (player.meleeBoost||1));
         }
         SFX.play('hit');
         w.cd *= heatCdMult();                                // v6.122 뜨거울수록 빠르다
         if ((player.rushT||0) > 0) w.cd *= 0.55;             // v6.115 피의 광시곡 — 소비기가 평타를 바꾼다
         //  v6.136 주기 +45%. 12%는 체감이 안 바뀐다 — 근접 평타는 '느리고 무거운 한 방'이어야 한다
-        w.cd *= 1.45;
+        w.cd *= 1.62;   // v6.144 +45% → +62%. 근접은 '느리게 무겁게'가 컨셉이다
         //  후반에 평타가 기관총이 되는 진짜 원인은 rateMult 누적이다(공속 카드·광혈·과부하가 전부 곱해진다).
         //  근접 평타에 한해 공속 증가분을 **절반만** 먹인다 — 배수는 살리되 리듬은 지킨다
         if (rate > 1) w.cd *= rate / (1 + (rate - 1) * 0.5);
@@ -12251,6 +12270,7 @@ import { FX } from "./fx.js";
         const e = enemies[k];
         if (Math.hypot(e.x-z.x,e.y-z.y) < z.r+e.r){
           e.hp -= z.dps*dt * (z.type==='grav' ? 1+(player.crushAmp||0) : 1);
+          e.byZone = true;   // v6.144-b 영역에 죽은 적은 새 영역을 낳지 않는다 (자기증식 차단)
           if (z.type==='fire' && Math.random()<dt*2){ e.burnT=2.5; e.burnDps=Math.max(e.burnDps||0, (player.burnDps||5)*D); }
           if (z.type==='acid' && Math.random()<dt*2){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+1); e.corrodeT=5; }
           if (z.type==='frost' && Math.random()<dt*2.5){ e.chillS=Math.min(3,(e.chillS||0)+1); e.chillT=2.5; }
