@@ -6102,6 +6102,10 @@ import { FX } from "./fx.js";
       : (ENEMY_TINTS[e.type] ? parseInt(ENEMY_TINTS[e.type].slice(1),16) : 0xbfc2c7);
     burst(e.x,e.y, e.elite?20:(e.type==='brute'?16:8), e.elite?230:(e.type==='brute'?200:130), deathTint);
     FX.puff(e.x, e.y, deathTint, e.r); // 디졸브 퍼프
+    // v6.75 픽셀 파편: 도트 스프라이트가 조각나 흩어진다 — 몸집이 클수록 조각도 크고 많다
+    pixBurst(e.x, e.y, e.elite?14:(e.r>18?10:7), 120+e.r*3.5,
+      '#'+deathTint.toString(16).padStart(6,'0'), e.r>18 ? 2.2 : 1.6);
+    hitStop(e.elite ? 0.07 : 0.02);                     // 처치 히트스톱 — 손맛의 핵심
     // 혈마 혈폭: 처치 시 핏빛 연쇄 폭발
     if (player.bloodBurstCh>0 && Math.random()<player.bloodBurstCh){
       friendlyBlast(e.x, e.y, 60, player.bloodBurstDmg*player.dmgMult, true);
@@ -6349,6 +6353,20 @@ import { FX } from "./fx.js";
   };
   window.__qaWeapon = (key)=>{ // v6.54 QA: 무기 강제 지급 (전향 무기 등 발사 엔진 검증용)
     try { addWeapon(key); return 'weapon+'+key; } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaFlood = (n)=>{ // v6.75 QA: 다수 개체 성능 회귀 측정용 — 몹을 한꺼번에 소환
+    try { for (let i=0;i<(n||40);i++) spawnEnemy(); return 'enemies='+enemies.length; } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaPerf = (frames)=>{ // v6.75 QA: 렌더 프레임 시간 측정 (평균/최대 ms)
+    return new Promise((res)=>{
+      const N = frames||120; const ts = []; let prev = performance.now();
+      const step = ()=>{ const now = performance.now(); ts.push(now-prev); prev = now;
+        if (ts.length >= N){ const s = ts.slice(10);
+          res({ avg:+(s.reduce((a,b)=>a+b,0)/s.length).toFixed(2), max:+Math.max(...s).toFixed(2),
+                enemies: enemies.length, sprites: SPR.size }); }
+        else requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    });
   };
   window.__qaState = ()=>{
     try {
@@ -9113,6 +9131,35 @@ import { FX } from "./fx.js";
       particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.35+Math.random()*0.25, age:0, r:1.5+Math.random()*2, col });
     }
   }
+  // v6.75 히트스톱 — 타격 순간 한두 프레임 멈춰 손맛을 만든다.
+  // 쿨다운이 없으면 초당 수십 마리를 잡을 때 매 프레임 멈춰 게임이 절반 속도로 느려진다
+  let _hsT = 0;
+  function hitStop(sec){
+    const now = performance.now();
+    if (now - _hsT < 200) return;
+    _hsT = now;
+    freeze = Math.max(freeze, sec);
+  }
+  // v6.75 픽셀 파편 버스트 — 도트 캐릭터가 조각나 튀는 처치 연출. 중력을 받아 떨어지며 사라진다
+  function pixBurst(x, y, n, spread, col, size){
+    if (particles.length > 420) return;
+    for (let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const s = (spread||130)*(0.35+Math.random()*0.9);
+      particles.push({ x:x+Math.cos(a)*2, y:y+Math.sin(a)*2, vx:Math.cos(a)*s, vy:Math.sin(a)*s - 40,
+        life:0.34+Math.random()*0.3, age:0, r:size||1.6, col, pix:true });
+    }
+  }
+  // v6.75 타격 스파크 — 맞은 지점에서 튀는 밝은 픽셀 몇 개 (타격 위치가 눈에 보인다)
+  function hitSpark(x, y, dirA, col){
+    if (particles.length > 420) return;
+    for (let i=0;i<3;i++){
+      const a = dirA + (Math.random()-0.5)*1.5;
+      const s = 120+Math.random()*90;
+      particles.push({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.16+Math.random()*0.1, age:0,
+        r:1.2, col: col||'#f6f6f4', pix:true });
+    }
+  }
   function nearestTarget(){
     // 수동 마크 최우선: 클릭/탭으로 지정한 표적 (기믹 보스 '진짜 고르기' — 자동사격을 내가 조종한다)
     const mk = player.markTarget;
@@ -11711,6 +11758,7 @@ import { FX } from "./fx.js";
       p.x += p.vx*dt; p.y += p.vy*dt;
       p.vx *= (1 - Math.min(1,dt*3));
       p.vy *= (1 - Math.min(1,dt*3));
+      if (p.pix) p.vy += 420*dt;      // 픽셀 파편은 중력을 받아 떨어진다
     }
 
     if (shake>0) shake = Math.max(0, shake - dt*30);
@@ -13422,12 +13470,13 @@ import { FX } from "./fx.js";
   // 옆모습 치비: 다리(걷기 스윙) + 몸통 + 머리 + 직업 장비
   // v6.73 도트 버퍼 풀 — 크기별로 오프스크린 한 쌍(본체·아웃라인)을 재사용
   const DOT_BUFS = {};
-  function dotBuf(sz){
-    let b = DOT_BUFS[sz];
+  function dotBuf(sz, slot){
+    const k = sz + '_' + (slot||0);            // 중첩 렌더(몹 안의 휴머노이드 등)가 같은 버퍼를 덮지 않게
+    let b = DOT_BUFS[k];
     if (!b){
       const c = document.createElement('canvas'); c.width = c.height = sz;
       const o = document.createElement('canvas'); o.width = o.height = sz;
-      b = DOT_BUFS[sz] = { c, cx: c.getContext('2d', { willReadFrequently:true }), o, ox: o.getContext('2d') };
+      b = DOT_BUFS[k] = { c, cx: c.getContext('2d', { willReadFrequently:true }), o, ox: o.getContext('2d') };
     }
     return b;
   }
@@ -13455,36 +13504,63 @@ import { FX } from "./fx.js";
     b.ox.fillRect(0,0,sz,sz);
     b.ox.restore();
   }
-  // v6.73 범용 도트 래퍼: dotPush~dotPop 사이의 드로잉을 오프스크린에 받아 픽셀 스프라이트로 블릿.
-  // 현재 변환의 선형부를 그대로 물려받아(1 로컬 유닛 = 1 화면 px) 몹·보스도 플레이어와 같은 픽셀 격자에 놓인다.
+  // v6.75 스프라이트 캐시 — 같은 (대상·프레임) 조합은 한 번만 그려두고 재사용한다.
+  // v6.74의 도트 래퍼는 몹마다 매 프레임 getImageData를 돌려서(GPU→CPU 리드백 + 픽셀 루프)
+  // 개체 수가 늘수록 모바일이 급격히 느려졌다. 캐시가 그 비용을 '스킨×프레임' 횟수로 못박는다.
+  const SPR = new Map();
+  const SPR_MAX = 400;
+  function sprGet(key){
+    const v = SPR.get(key);
+    if (v){ SPR.delete(key); SPR.set(key, v); }     // LRU: 최근 사용을 뒤로
+    return v;
+  }
+  function sprPut(key, cv){
+    if (SPR.size >= SPR_MAX) SPR.delete(SPR.keys().next().value);
+    SPR.set(key, cv);
+  }
+  // v6.73 범용 도트 래퍼: dotPush~dotPop 사이의 드로잉을 저해상 오프스크린에 받아 픽셀 스프라이트로 블릿.
+  // ppu = 로컬 1유닛당 스프라이트 픽셀 수(작을수록 굵은 도트). 블릿은 현재 로컬 좌표계에서 하므로
+  // 카메라·스쿼시 같은 바깥 변환은 그대로 먹고, 스프라이트 내용은 위치와 무관해져 캐시가 성립한다.
   const DOTW = { st: [] };
-  function dotPush(span, ink){
-    if (localStorage.gs_dot === '0') return false;
-    const m = ctx.getTransform();
-    const lin = Math.max(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d));
-    const need = span*lin*2 + 10;
-    const sz = need <= 128 ? 128 : need <= 256 ? 256 : need <= 384 ? 384 : need <= 512 ? 512 : 0;
-    if (!sz) return false;                       // 버퍼보다 큰 대상은 기존 벡터 렌더로
-    const b = dotBuf(sz);
+  function dotPush(span, opt){
+    if (localStorage.gs_dot === '0') return 0;
+    opt = opt || {};
+    const ppu = opt.ppu || 1;
+    const px = Math.ceil((span*2 + 6) * ppu / 8) * 8;
+    if (px > 512 || px < 8) return 0;               // 너무 크면 기존 벡터 렌더로
+    if (opt.key){
+      const hit = sprGet(opt.key);
+      if (hit){ DOTW.st.push({ cv: hit, px, ppu, cached: true }); return 2; }
+    }
+    const b = dotBuf(px, DOTW.st.length + 1);
     b.cx.setTransform(1,0,0,1,0,0);
-    b.cx.clearRect(0,0,sz,sz);
-    b.cx.setTransform(m.a, m.b, m.c, m.d, sz/2, sz/2);
-    DOTW.st.push({ main: ctx, m, sz, b, ink: ink || PAL.ink });
+    b.cx.clearRect(0,0,px,px);
+    b.cx.setTransform(ppu,0,0,ppu, px/2, px/2);
+    DOTW.st.push({ main: ctx, b, px, ppu, key: opt.key, ink: opt.ink || PAL.ink });
     ctx = b.cx;
-    return true;
+    return 1;
   }
   function dotPop(){
     const s = DOTW.st.pop();
     if (!s) return;
-    ctx = s.main;
-    dotPosterize(s.b.cx, s.sz);
-    dotOutline(s.b, s.sz, s.ink);
-    ctx.save();
-    ctx.setTransform(1,0,0,1,0,0);
+    let cv = s.cv;
+    if (!s.cached){
+      ctx = s.main;
+      dotPosterize(s.b.cx, s.px);
+      dotOutline(s.b, s.px, s.ink);
+      if (s.key){                                   // 본체+아웃라인을 한 장으로 합쳐 캐시
+        cv = document.createElement('canvas'); cv.width = cv.height = s.px;
+        const g = cv.getContext('2d');
+        g.drawImage(s.b.o, 0, 0); g.drawImage(s.b.c, 0, 0);
+        sprPut(s.key, cv);
+      }
+    }
+    const half = s.px/2/s.ppu;
+    const sm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(s.b.o, Math.round(s.m.e - s.sz/2), Math.round(s.m.f - s.sz/2));
-    ctx.drawImage(s.b.c, Math.round(s.m.e - s.sz/2), Math.round(s.m.f - s.sz/2));
-    ctx.restore();
+    if (cv) ctx.drawImage(cv, -half, -half, half*2, half*2);
+    else { ctx.drawImage(s.b.o, -half, -half, half*2, half*2); ctx.drawImage(s.b.c, -half, -half, half*2, half*2); }
+    ctx.imageSmoothingEnabled = sm;
   }
   // v6.73 도트 렌더 파이프라인: 휴머노이드를 저해상 오프스크린에 벡터로 그린 뒤 최근접 확대로 블릿 —
   // 실루엣 아웃라인 + 상하 2톤 셰이딩 + 걸음 6프레임 양자화가 합쳐져 도트 게임 스프라이트 질감이 난다.
@@ -13494,7 +13570,7 @@ import { FX } from "./fx.js";
     const D = drawHumanoid;
     if (!D._c){
       D.PPU = 1.2; D.SZ = 128;
-      const b = dotBuf(D.SZ);
+      const b = dotBuf(D.SZ, 'hum');   // 전용 슬롯 — 몹 스프라이트 버퍼와 겹치면 서로 덮어쓴다
       D._c = b.c; D._cx = b.cx; D._o = b.o; D._ox = b.ox;
     }
     const PPU = D.PPU, SZ = D.SZ, dc = D._cx, oc = D._ox;
@@ -14348,9 +14424,22 @@ import { FX } from "./fx.js";
     ctx.translate(e.x, e.y);
     // v6.47 타격 플래시 + 저체력 연출 (비주얼 대개편)
     if (e._phk===undefined) e._phk = e.hp;
-    if (e.hp < e._phk - 0.4) e._fT = performance.now();
+    if (e.hp < e._phk - 0.4){
+      e._fT = performance.now();
+      // v6.75 타격 스파크: 플레이어 반대편으로 밝은 픽셀이 튄다 — 어디를 때렸는지 눈에 보인다
+      const sa = Math.atan2(e.y-player.y, e.x-player.x);
+      hitSpark(e.x - Math.cos(sa)*e.r*0.6, e.y - Math.sin(sa)*e.r*0.6, sa);
+    }
     e._phk = e.hp;
-    if (e._fT && performance.now() - e._fT < 70) ctx.filter = 'brightness(1.9) saturate(0.5)';
+    const hitAge = e._fT ? (performance.now()-e._fT)/165 : 2;
+    if (hitAge < 1){
+      // v6.75 피격 리액션: 맞은 순간 뒤로 밀리고 납작해졌다 되돌아온다 (연출 전용 — 판정 좌표는 그대로)
+      const k = (1-hitAge)*(1-hitAge);
+      const ka = Math.atan2(e.y-player.y, e.x-player.x);
+      ctx.translate(Math.cos(ka)*4.5*k, Math.sin(ka)*4.5*k);
+      ctx.scale(1 + 0.22*k, 1 - 0.18*k);
+    }
+    if (e._fT && performance.now() - e._fT < 70) ctx.filter = 'brightness(2.4) saturate(0.4)';
     if (e.maxHp && e.hp/e.maxHp < 0.35) ctx.translate((Math.random()-0.5)*1.3, (Math.random()-0.5)*1.3); // 빈사 경련
     drawShadow(0, e.r*0.95, e.r*0.85);
     // 타입 틴트 오라
@@ -14409,19 +14498,40 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(0,0,e.r*1.18,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
     }
-    const t = performance.now()/1000;
+    // v6.75 몹 애니메이션을 8프레임으로 양자화 — 도트 게임 특유의 딱딱 끊기는 몸짓이면서,
+    // 동시에 (스킨·크기·프레임) 조합이 유한해져 스프라이트 캐시가 성립한다
+    const sk = e.skin;
+    const afN = 8;
+    const af = e.frozenT>0 ? 0 : (Math.floor(performance.now()/95 + e.x*0.21) % afN + afN) % afN;
+    const aph = af/afN*Math.PI*2;
+    const t = af*0.0125;                       // 프레임에서 파생 — 캐시와 어긋나지 않게
     const ink = PAL.ink, ink2 = PAL.ink2, mid = PAL.mid, soft = PAL.soft;
     ctx.strokeStyle = ink2;
     ctx.lineWidth = 1.4;
-    const flap = Math.sin(t*10 + e.x*0.05);
-    const sk = e.skin;
+    const flap = Math.sin(aph);
+    const blink2 = af % 4 < 2;                 // 2프레임 점멸
+    const blink3 = af % 6 < 4;                 // 3프레임 점멸
     // v6.57 살아있는 몸짓: 걸음에 맞춰 통통 튀는 스쿼시&스트레치 (빙결 시 정지)
-    const hop = e.frozenT>0 ? 0 : Math.sin(performance.now()/110 + e.x*0.13);
+    const hop = e.frozenT>0 ? 0 : Math.sin(aph);
     ctx.save();
     ctx.translate(0, -Math.max(0,hop)*e.r*0.14);
     ctx.scale(1 - Math.abs(hop)*0.05, 1 + Math.abs(hop)*0.07);
     // v6.73 몹도 같은 픽셀 격자로 — 플레이어만 도트고 몹은 매끈한 벡터인 불일치 제거
-    const eDot = dotPush(e.r*2.1 + 16);
+    // 스쿼시는 스프라이트 밖(블릿 단계) 변환이라 프레임 키가 늘지 않는다
+    // 스프라이트 내용이 인스턴스 상태에 따라 달라지는 스킨은 그 상태도 키에 넣는다
+    // (조준 방향 16분할 / 폭탄 도화선 / 보물 타이머는 글자라 도트화 제외)
+    let vkey = '';
+    if (sk==='inkbow' || sk==='turret' || sk==='fish' || sk==='jieun' || e.type==='clone'){
+      // 조준 8분할 × 몸짓 4프레임 — 조합 폭발을 막으려 이 계열만 프레임을 절반으로
+      vkey = '|a'+(Math.round(Math.atan2(player.y-e.y, player.x-e.x)/(Math.PI/4)) & 7)+'h'+(af>>1);
+    } else if (sk==='kamikaze'){
+      vkey = '|f'+(e.fuse>=0?1:0);
+    }
+    const eDot = sk==='treasure' ? 0 : dotPush(e.r*2.1 + 16, {
+      key: 'e|'+sk+'|'+Math.round(e.r)+'|'+af+'|'+(e.frozenT>0?1:0)+'|'+MAP.key+vkey,
+      ppu: 0.62
+    });
+    if (eDot !== 2) {
 
     if (sk==='moth'){
       ctx.fillStyle = soft;
@@ -14508,7 +14618,7 @@ import { FX } from "./fx.js";
       ctx.fillRect(-e.r*0.7+j(), -e.r*0.15+j(), e.r*1.4, e.r*0.5);
       ctx.fillRect(-e.r*0.7+j(), e.r*0.4+j(), e.r*1.4, e.r*0.5);
       // v6.59: 지지직거리는 눈 — 가끔 깜빡이며 사라진다
-      if (Math.floor(performance.now()/160)%3!==0){
+      if (af % 3 !== 0){
         ctx.fillStyle = PAL.bg;
         ctx.fillRect(-3.4,-e.r*0.5,2.4,2.4);
         ctx.fillRect(1.4+j()*0.4,-e.r*0.5,2.4,2.4);
@@ -14572,7 +14682,7 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(0,0,e.r*0.3,0,Math.PI*2); ctx.fill();
       ctx.fillStyle = ink;
       ctx.beginPath(); ctx.arc(0,0,e.r*0.13,0,Math.PI*2); ctx.fill();
-      if (Math.floor(performance.now()/300)%2===0){
+      if (blink2){
         ctx.fillStyle = '#c94f4f';
         ctx.fillRect(e.r*0.32,-e.r*0.5,2.2,2.2);
       }
@@ -14598,7 +14708,7 @@ import { FX } from "./fx.js";
       ctx.save(); ctx.rotate(aim);
       ctx.fillRect(0,-2,e.r*1.2,4);
       // v6.59: 포구 조준 램프
-      if (Math.floor(performance.now()/400)%2===0){
+      if (blink3){
         ctx.fillStyle = '#c94f4f';
         ctx.fillRect(e.r*1.1,-1.2,2.4,2.4);
       }
@@ -14718,6 +14828,7 @@ import { FX } from "./fx.js";
         ctx.lineTo(e.r*0.11, e.r*0.45); ctx.lineTo(e.r*0.22, e.r*0.3);
         ctx.closePath(); ctx.fill();
       }
+    }
     }
     if (eDot) dotPop();
     ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
@@ -16537,6 +16648,12 @@ import { FX } from "./fx.js";
         ctx.rotate(p.rot + p.age*p.vr);
         ctx.fillRect(-p.r,-p.r*0.6,p.r*2,p.r*1.2);
         ctx.restore();
+      } else if (p.pix){
+        // v6.75 픽셀 파편 — 도트 스프라이트가 조각나 흩어진다 (원형 퍼프 대신)
+        ctx.globalAlpha = a>0.35 ? 1 : a/0.35;      // 알파 대신 크기로 사라져 도트 느낌 유지
+        ctx.fillStyle = p.col || PAL.ink;
+        const s2 = Math.max(1, Math.round(p.r*(0.5+a*0.5)));
+        ctx.fillRect(Math.round(p.x)-s2, Math.round(p.y)-s2, s2*2, s2*2);
       } else {
         ctx.globalAlpha = a*(p.col?0.8:0.5);
         ctx.fillStyle = p.col || PAL.ink;
