@@ -43,7 +43,7 @@ import { FX } from "./fx.js";
     canvas.height = Math.floor(chh*DPR);
     // v6.78 모바일 시야 보정: 좁은 화면일수록 카메라를 축소해 보이는 월드 폭을 확보한다.
     // (지금까지 월드 1유닛 = CSS 1px 고정이라 375px 폰은 데스크탑 대비 가시 면적이 1/4 — 탄막 회피가 불가능했다)
-    VS = Math.max(0.72, Math.min(1, cw / 560));
+    VS = Math.max(0.80, Math.min(1, cw / 500));
     W = cw / VS;                      // 이후 W·H 는 '월드 기준 가시 범위' — 스폰 거리·컬링·그리드가 이 값을 쓴다
     H = chh / VS;
     ctx.setTransform(DPR*VS,0,0,DPR*VS,0,0);
@@ -9232,12 +9232,17 @@ import { FX } from "./fx.js";
   }
   // v6.75 히트스톱 — 타격 순간 한두 프레임 멈춰 손맛을 만든다.
   // 쿨다운이 없으면 초당 수십 마리를 잡을 때 매 프레임 멈춰 게임이 절반 속도로 느려진다
+  // v6.83 햅틱 — 모바일 전용 손맛. 지원 안 하는 기기·데스크탑에서는 조용히 무시된다
+  function buzz(ms){
+    try { if (navigator.vibrate && !DB.muted) navigator.vibrate(ms); } catch(e){}
+  }
   let _hsT = 0;
   function hitStop(sec){
     const now = performance.now();
     if (now - _hsT < 200) return;
     _hsT = now;
     freeze = Math.max(freeze, sec);
+    buzz(sec >= 0.06 ? 24 : 10);        // 엘리트 처치는 길게, 잡몹은 톡
   }
   // v6.75 픽셀 파편 버스트 — 도트 캐릭터가 조각나 튀는 처치 연출. 중력을 받아 떨어지며 사라진다
   function pixBurst(x, y, n, spread, col, size){
