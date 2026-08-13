@@ -9993,7 +9993,25 @@ import { FX } from "./fx.js";
     shuriken:  { res:'회전', gain:0.170, col:'#6d5cc4', hint:'던진 것이 돌아올 때 찬다' },
     lightning: { res:'대전', gain:0.105, col:'#c9b04a', hint:'번개가 떨어질 때마다 찬다' },
     satellite: { res:'과부하', gain:0.040, col:'#7ec4e8', hint:'위성이 부딪힐 때마다 찬다' },
+    //  ⚠ drone을 빠뜨려 관광객·파일럿이 **자원도 R도 없는 상태**였다 (스모크에서 R후 mCharge=1로 잡힘).
+    //     원거리 무기를 추가할 땐 RANGED_ENGINE 등록이 먼저다 — 안 하면 그 직업은 소비기가 통째로 없다
+    drone:     { res:'가동', gain:0.085, col:'#c96a3f', hint:'드론이 사격할 때마다 찬다' },
   };
+  // v6.131 원거리 직업 전용화 — 같은 무기라도 **직업이 다르면 자원 이름·차는 조건·R가 다르다**.
+  //  무기를 쪼개지 않고 직업으로 분기한다 (쪼개면 카드 풀·성장무기·전향 판정이 전부 배로 늘어난다)
+  const RANGED_CLASS = {
+    sniper:     { res:'장전', sig:'snipe',   col:'#3b82c4', mult:(p)=> 1 + (p.aim||0)*1.4 },
+    specialist: { res:'전술', sig:'volley',  col:'#8b5cf6', mult:()=> 1.15 },
+    gambler:    { res:'배당', sig:'jackpot', col:'#c9a227', mult:()=> 0.8 + Math.random()*1.2 },
+    stonks:     { res:'변동', sig:'shortsell', col:'#4c9a55', mult:(p)=> 1 + (p.aim||0)*0.9 },
+    returner:   { res:'회귀', sig:'rewind',  col:'#7ec4e8', mult:()=> 1.1 },
+    debug:      { res:'로그', sig:'forcequit', col:'#9aa0a6', mult:()=> 1.3 },
+    tourist:    { res:'추억', sig:'flash',   col:'#e0a94f', mult:()=> 1.0 },
+    pilot:      { res:'연료', sig:'bombrun', col:'#c96a3f', mult:()=> 1.0 },
+  };
+  function rangedClassCfg(){
+    return (player && RANGED_CLASS[player.classKey]) || null;
+  }
   function rangedEngineKey(){
     if (!player || !player.weapons) return null;
     for (const w of player.weapons){ if (RANGED_ENGINE[w.key]) return w.key; }
@@ -10020,7 +10038,11 @@ import { FX } from "./fx.js";
     if (mk){ const E = MELEE_ENGINE[mk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
     // v6.130 원거리도 같은 기력 게이지를 쓴다 — HUD·모바일 R 버튼·넘침 손실이 그대로 붙는다
     const rk = rangedEngineKey();
-    if (rk){ const E = RANGED_ENGINE[rk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
+    if (rk){
+      const RC = rangedClassCfg();                              // v6.131 직업 전용 이름·색이 있으면 그것을 쓴다
+      const E = RANGED_ENGINE[rk];
+      return { n:(RC?RC.res:E.res), v:Math.min(1,(player.mCharge||0)), c:(RC?RC.col:E.col) };
+    }
     return null;
   }
   // 만충 시 소비 — 엔진마다 '모아둔 것을 터뜨리는' 방식이 다르다
@@ -10053,12 +10075,14 @@ import { FX } from "./fx.js";
     player.guardKind = isRangedBuild() ? 'shoot' : 'parry';
     SFX.play('tele');
     if (player.guardKind === 'shoot'){
-      // 요격 — 창 안의 적탄을 즉시 쏘아 떨어뜨린다. 떨군 수만큼 다음 사격이 무거워진다
+      // v6.131 요격은 **누르는 순간 전부 지우는 버튼이 아니다.**
+      //  창(0.22초) 동안 반경 118 안으로 **들어온** 탄만 떨군다 — 미리 누르면 아무것도 안 맞는다.
+      //  (아래 프레임 루프가 창이 열려 있는 동안 매 프레임 잡는다. 여기서는 '이미 안에 있던 것'만 처리)
       let n = 0;
       for (let i=hostileShots.length-1;i>=0;i--){
         const b = hostileShots[i];
         if (!b) continue;
-        if (Math.hypot(b.x-player.x, b.y-player.y) > 165) continue;
+        if (Math.hypot(b.x-player.x, b.y-player.y) > 118) continue;
         // v6.129 격추 연출: 총구에서 탄까지 예광선 + 터지는 파편 + 이중 파문
         const ia = Math.atan2(b.y-player.y, b.x-player.x);
         effects.push({ type:'chain', x1:player.x+Math.cos(ia)*14, y1:player.y+Math.sin(ia)*14, x2:b.x, y2:b.y, life:0.14, age:0 });
@@ -10068,15 +10092,15 @@ import { FX } from "./fx.js";
         if (FX.enabled) FX.burst(b.x, b.y, 0x7ec4e8, 6, 120, 0.4);
         hostileShots.splice(i,1); n++;
       }
-      effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0, r0:player.r, r1:165 });
-      effects.push({ type:'ring', x:player.x, y:player.y, life:0.34, age:0, r0:player.r+8, r1:120 });
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0, r0:player.r, r1:118 });
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.34, age:0, r0:player.r+8, r1:90 });
       effects.push({ type:'muzzle', x:player.x+(player.faceX<0?-16:16), y:player.y-4, life:0.14, age:0 });
+      player.interceptHit = n;                                   // 창이 닫힐 때 총합으로 평가한다
       if (n){
         player.interceptN = Math.min(5, (player.interceptN||0) + n);
-        player.interceptT = 4;                                   // 4초 안에 쓰지 않으면 식는다
-        addTextNum(player.x, player.y-40, '요격 ×'+n);
+        player.interceptT = 4;
         shake = Math.min(9, shake+3); SFX.play('sweep');
-      } else addTextNum(player.x, player.y-40, '빗나감');
+      }
     } else {
       // 패링 — 창 안에 맞아야 성립한다. 여기서는 **막는 자세**를 세운다 (성립 연출은 아래 playerHit)
       const fa = (player.faceX<0?Math.PI:0);
@@ -10357,6 +10381,69 @@ import { FX } from "./fx.js";
       addTextNum(player.x, player.y-40, '파쇄 돌격!');
     } else if (key === null && rangedEngineKey()){
       const rk2 = rangedEngineKey();
+      const RC2 = rangedClassCfg();
+      if (RC2 && (rk2 === 'missile' || rk2 === 'drone') && RC2.sig !== 'snipe'){
+        // v6.131 같은 추적 탄환이라도 직업마다 터뜨리는 방식이 다르다
+        if (RC2.sig === 'volley'){
+          // 스페셜리스트 '전술 일제사격' — 전방위 12발 유도탄
+          for (let k=0;k<12;k++){ const a2=(Math.PI*2/12)*k;
+            fireProjectile(a2, 380, 62*P, 1, 1.6, { homing:true, r:5, splash:46 }); }
+          addTextNum(player.x, player.y-40, '전술 일제사격');
+        } else if (RC2.sig === 'jackpot'){
+          // 도박사 '잭팟' — 위력이 0.4~3.0배로 굴러간다. 도박사답게
+          const roll = 0.4 + Math.random()*2.6;
+          boom(180, 190*P*roll, '#c9a227');
+          addTextNum(player.x, player.y-40, roll>2.2 ? '잭팟!!' : roll<0.8 ? '꽝...' : '배당 ×'+roll.toFixed(1));
+          if (roll>2.2){ shake = Math.min(20, shake+12); hitStop(0.07); }
+        } else if (RC2.sig === 'shortsell'){
+          // 주식쟁이 '공매도' — 체력이 높은 적일수록 아프다 (비싼 걸 떨어뜨린다)
+          for (let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i]; if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 200+e.r) continue;
+            const frac = e.maxHp ? Math.max(0,Math.min(1,e.hp/e.maxHp)) : 1;
+            const d = (70 + 150*frac)*P*corrodeMult(e);
+            e.hp -= d; addDmgNum(e.x, e.y, d, frac>0.7);
+            if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+          }
+          spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 200+b.r, 210*P);
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.34, age:0, r0:20, r1:200 });
+          addTextNum(player.x, player.y-40, '공매도!');
+        } else if (RC2.sig === 'rewind'){
+          // 회귀자 '되감기' — 체력을 되돌리고 잠시 무적. 죽음을 무르는 자
+          player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.28);
+          player.invuln = Math.max(player.invuln, 1.2);
+          boom(150, 120*P, '#7ec4e8');
+          addTextNum(player.x, player.y-40, '되감기');
+        } else if (RC2.sig === 'forcequit'){
+          // 디버거 '강제 종료' — 범위 내 잡몹을 확률로 즉시 제거 (버그를 지운다)
+          let n2 = 0;
+          for (let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i]; if (!e || e.elite) continue;
+            if (Math.hypot(e.x-player.x,e.y-player.y) > 170+e.r) continue;
+            if (Math.random() < 0.45){ e.hp = 0; addTextNum(e.x, e.y-10, 'kill -9'); n2++; defeatEnemy(i); }
+          }
+          boom(170, 110*P, '#9aa0a6');
+          addTextNum(player.x, player.y-40, n2 ? ('강제 종료 ×'+n2) : '프로세스 없음');
+        } else if (RC2.sig === 'flash'){
+          // 관광객 '플래시' — 눈이 멀 만큼 터뜨리고 주변을 전부 경직시킨다
+          boom(200, 100*P, '#e0a94f');
+          for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y) < 200+e.r) staggerEnemy(e, 2.0); }
+          shake = Math.min(14, shake+7);
+          addTextNum(player.x, player.y-40, '찰칵!');
+        } else if (RC2.sig === 'bombrun'){
+          // 파일럿 '폭격 항로' — 진행 방향으로 길게 폭탄을 떨군다
+          const a0 = player.faceX<0?Math.PI:0;
+          queueTicks(8, 0.09, (i)=>{ if (state!=='playing') return;
+            const bx = player.x + Math.cos(a0)*(60+i*52), by2 = player.y + Math.sin(a0)*(60+i*52);
+            effects.push({ type:'ring', x:bx, y:by2, life:0.22, age:0, r0:4, r1:52 });
+            friendlyBlast(bx, by2, 62, 58*P, false);
+            SFX.play('boom');
+          });
+          addTextNum(player.x, player.y-40, '폭격 항로');
+        }
+        player.surgeT = 3; _overflowT = 0; resetSpentResource();
+        addTextNum(player.x, player.y-54, '각성 3초');
+        return;
+      }
       if (rk2 === 'arrow'){
         // 화살비 — 조준 방향 넓은 지역에 쏟아붓는다. 원거리는 '자리를 덮는다'
         const t0 = nearestTarget();
@@ -10777,6 +10864,8 @@ import { FX } from "./fx.js";
                 pierce:0, life:0.9, tracer:true, imbue:w.imbue
               });
             }
+            { const RC = rangedClassCfg();                       // v6.131 가동 — 드론이 쏠 때마다 찬다
+              rangedCharge('drone', RC ? RC.mult(player) : 1); }
             SFX.play('shoot');
           } else { w.cd = 0.15; }
         }
@@ -10799,7 +10888,8 @@ import { FX } from "./fx.js";
           fireProjectile(a, 430, dmg, player.pierce, 1.3,
             w.evolved ? { homing:true, r:5, imbue:w.imbue, splash:_sp } : { imbue:w.imbue, splash:_sp });
         }
-        rangedCharge('missile', 1 + (player.aim||0)*1.4);   // v6.130 장전 — 겨눈 만큼 빨리 찬다
+        { const RC = rangedClassCfg();                          // v6.131 직업마다 차는 방식이 다르다
+          rangedCharge('missile', RC ? RC.mult(player) : 1 + (player.aim||0)*1.4); }
         effects.push({ type:'muzzle', x:player.x+Math.cos(baseA)*16, y:player.y+Math.sin(baseA)*16, life:0.1, age:0 });
         SFX.play('shoot');
 
@@ -12024,7 +12114,32 @@ import { FX } from "./fx.js";
       updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
       updateAim(dt);                                                                                     // v6.128 원거리 지속 축(조준)
       if (player.guardCd>0) player.guardCd -= dt;                                                         // v6.127 D축 쿨다운
-      if (player.guardT>0) player.guardT -= dt;                                                           // v6.127 방어 창
+      if (player.guardT>0){                                                                              // v6.127 방어 창
+        // v6.131 요격: 창이 열려 있는 동안 **새로 들어온** 탄을 잡는다. 이게 타이밍을 만든다
+        if (player.guardKind === 'shoot'){
+          for (let i=hostileShots.length-1;i>=0;i--){
+            const b = hostileShots[i];
+            if (!b || Math.hypot(b.x-player.x, b.y-player.y) > 118) continue;
+            const ia = Math.atan2(b.y-player.y, b.x-player.x);
+            effects.push({ type:'chain', x1:player.x+Math.cos(ia)*14, y1:player.y+Math.sin(ia)*14, x2:b.x, y2:b.y, life:0.12, age:0 });
+            effects.push({ type:'ring', x:b.x, y:b.y, life:0.18, age:0, r0:2, r1:16 });
+            burst(b.x, b.y, 6, 160);
+            hostileShots.splice(i,1);
+            player.interceptHit = (player.interceptHit||0) + 1;
+            player.interceptN = Math.min(5, (player.interceptN||0) + 1);
+            player.interceptT = 4;
+          }
+        }
+        player.guardT -= dt;
+        if (player.guardT <= 0){
+          // 창이 닫혔다 — 하나도 못 떨궜으면 쿨만 날아간다 (패링이 헛치면 손해인 것과 같다)
+          if (player.guardKind === 'shoot'){
+            if (player.interceptHit) addTextNum(player.x, player.y-40, '요격 ×'+player.interceptHit);
+            else addTextNum(player.x, player.y-40, '빗나감');
+          }
+          player.interceptHit = 0;
+        }
+      }
       if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
       // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
       if (ownedWeapon('noname')) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);
