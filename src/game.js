@@ -4539,7 +4539,14 @@ import { FX } from "./fx.js";
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
   const MELEE_WEAPONS = { aura:1, scythe:1, xbayonet:1, xmanablade:1, xrunenova:1 };
-  const MELEE_ONLY_GROUPS = { war:1 };   // 전사군(돌격·성기사·사무라이·철혈·수도승 등)
+  // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
+  // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
+  // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
+  function isPureMeleeBuild(){
+    const ws = player.weapons || [];
+    if (!ws.length) return false;
+    return ws.every(w => MELEE_WEAPONS[w.key]);   // 원거리 무기를 하나라도 들면 하이브리드 → 제한 없음
+  }
   function ownedWeapon(key){
     for (const w of player.weapons){ if (w.key===key) return w; }
     return null;
@@ -4805,8 +4812,7 @@ import { FX } from "./fx.js";
           if (def.cross && (!def.req || !def.req(player))) return;
           // v6.80 무기 직업군화 1단계: 전사군(근접)에게 원거리 무기 카드가 그대로 나오던 문제.
           // 성도 원거리 계열(rng)에 별을 하나라도 투자하면 해제 — '원거리화'를 선택한 사람만 열린다
-          if (!def.cross && MELEE_ONLY_GROUPS[classResGroup(player.classKey)]
-              && !MELEE_WEAPONS[key] && starBranchSpent('rng') < 1) return;
+          if (!def.cross && !MELEE_WEAPONS[key] && isPureMeleeBuild() && starBranchSpent('rng') < 1) return;
           // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
           const wri = rollCardRarity();
           const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
