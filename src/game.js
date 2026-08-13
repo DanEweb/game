@@ -6312,6 +6312,10 @@ import { FX } from "./fx.js";
   function defeatEnemy(idx){
     const e = enemies[idx];
     killCount += 1;
+    // v6.122 C 영역 지배 — 근접으로 벤 자리에 피바다가 남는다
+    if (player && player.weapons && (meleeEngineKey() || ownedWeapon('aura'))){
+      spillGore(e.x, e.y, 9 * player.dmgMult * (player.meleeBoost||1));
+    }
     // v6.121 용사의 검 — 유일하게 '처치'로 차는 엔진
     if (player && player.weapons && ownedWeapon('heroblade')){
       const before = player.mCharge||0;
@@ -6627,7 +6631,13 @@ import { FX } from "./fx.js";
     try {
       return JSON.stringify({
         bosses: bosses.map(b=>({k:b.key, ph:b.jPhase, enr:!!b.jEnraged, wiped:!!(b.jWiped||b.hWiped), hp:Math.round(b.hp), t:Math.round(b.aliveT||0)})),
-        enemies: enemies.length, zones: zones.map(z=>z.type), hp: Math.round(player&&player.hp||0), err: window.__gameErr||null
+        enemies: enemies.length, zones: zones.map(z=>z.type), hp: Math.round(player&&player.hp||0), err: window.__gameErr||null,
+        // v6.122 근접 축 계측 — 감사·벤치에서 '실제로 도는지'를 눈이 아니라 값으로 확인한다
+        cls: player&&player.classKey, weapons: (player&&player.weapons||[]).map(w=>w.key),
+        heat: +((player&&player.heat)||0).toFixed(3),
+        mCharge: +((player&&player.mCharge)||0).toFixed(3),
+        gore: zones.filter(z=>z.type==='gore').length,
+        kills: killCount
       });
     } catch(e){ return 'ERR '+String(e); }
   };
@@ -9415,6 +9425,36 @@ import { FX } from "./fx.js";
   }
   // v6.86 ② 군중 다중 타격 — 한 번의 스윙이 걸친 적 수에 비례해 강해진다.
   // 근접이 가장 위험한 상황(포위)에서 정확히 가장 강해지는 구조. 관통 수가 고정된 원거리엔 줄 수 없는 이득
+  // v6.122 ③ 리스크 게이지 '열기' — 근접에게만 있는 리스크-보상 축.
+  //  붙어 있는 동안 차오르고 물러나면 식는다. 뜨거울수록 평타가 빠르고 아프다.
+  //  *도망치면 약해지고 버티면 강해진다* — 근접이 거리를 좁힐 이유를 숫자로 만든다
+  const HEAT_R = 118;
+  function updateHeat(dt){
+    if (!player || !player.weapons) return;
+    if (!meleeEngineKey() && !ownedWeapon('aura')){ player.heat = 0; return; }
+    let n = 0;
+    for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < HEAT_R){ n++; if (n>=4) break; } }
+    if (!n) for (const b of bosses){ if (b && !b.ghost && Math.hypot(b.x-player.x, b.y-player.y) < HEAT_R + b.r){ n = 3; break; } }
+    const h = player.heat || 0;
+    // 붙을수록 빨리 오르고(최대 4마리), 떨어지면 두 배로 빨리 식는다 — 유지가 곧 조작이다
+    player.heat = n ? Math.min(1, h + dt * (0.17 + n*0.055)) : Math.max(0, h - dt*0.62);
+  }
+  // v6.122 C 영역 지배 — 근접이 처치한 자리에 피바다가 남아 지속 피해 + 감속.
+  //  원거리는 쏘고 빠지지만 **근접은 벤 자리를 소유한다**. 밀집 구간일수록 바닥이 굳는다
+  function spillGore(x, y, power){
+    if (typeof zones === 'undefined' || zones.length >= 40) return;
+    // 가까운 기존 피바다가 있으면 넓히고 수명만 갱신 — 같은 자리에 수십 개가 겹치지 않게
+    for (const z of zones){
+      if (z.type !== 'gore') continue;
+      if (Math.hypot(z.x-x, z.y-y) < z.r*0.8){
+        z.r = Math.min(96, z.r + 5); z.t = z.maxT = Math.max(z.t, 3.2); z.dps = Math.max(z.dps, power);
+        return;
+      }
+    }
+    zones.push({ x, y, r:36, dps:power, t:3.2, maxT:3.2, type:'gore' });
+  }
+  function heatDmgMult(){ return 1 + (player.heat||0) * 0.38; }   // 만충 시 평타 +38%
+  function heatCdMult(){ return 1 - (player.heat||0) * 0.24; }    // 만충 시 평타 주기 -24%
   function crowdMult(n){ return 1 + Math.min(0.60, Math.max(0, n-1) * 0.06); }
   // v6.86 F 탄막 베기 — 스윙 호 안에 들어온 적 투사체를 잘라낸다. "원거리는 피하고, 근접은 벤다"
   function cutHostileShots(cx, cy, radius, baseA, arc){
@@ -9821,7 +9861,6 @@ import { FX } from "./fx.js";
       resetSpentResource();
       return;
     }
-    player.spendFocus = focus;
     const P = player.dmgMult * focus * (player.meleeBoost||1);   // v6.113 적중 배율 · v6.120 근접 엔진 강화
     const key = meleeEngineKey();
     const COL = CLASS_COLORS[player.classKey];
@@ -10539,7 +10578,7 @@ import { FX } from "./fx.js";
         const t0 = nearestTarget();
         const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
         // v6.120 meleeBoost 복구 — v6.115 통합 때 읽기가 빠져 '낫 피해 +N%' 계열이 전부 무효였다
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1) * heatDmgMult();
         const full = arcW >= Math.PI*2;
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
                        friendly:true, col: CLASS_COLORS[player.classKey] });
@@ -10577,6 +10616,7 @@ import { FX } from "./fx.js";
           if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
         }
         SFX.play('hit');
+        w.cd *= heatCdMult();                                // v6.122 뜨거울수록 빠르다
         if ((player.rushT||0) > 0) w.cd *= 0.55;             // v6.115 피의 광시곡 — 소비기가 평타를 바꾼다
         if (!hn) continue;                                  // 헛스윙은 기력을 주지 않는다
         // ── 기력 충전: 여기서만 엔진이 갈린다. '어떻게 빨리 채우나'가 곧 조작이다
@@ -11293,6 +11333,9 @@ import { FX } from "./fx.js";
             e.x += Math.cos(va)*90*dt;
             e.y += Math.sin(va)*90*dt;
           }
+          if (z.type==='gore'){                       // v6.122 피바다: 발이 묶인다
+            e.mireT = Math.max(e.mireT||0, 0.2);
+          }
           if (Math.random()<dt*1.2) addDmgNum(e.x,e.y,z.dps*0.7,false);
           if (e.hp<=0) defeatEnemy(k);
         }
@@ -11569,7 +11612,8 @@ import { FX } from "./fx.js";
     } else {
       if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
-      if (player.frenzyT>0){ player.frenzyT -= dt; if (player.frenzyT<=0) player.frenzyN = 0; }      // v6.105 광기 냉각
+      // v6.122 광기 냉각 제거 — v6.115에서 광기 자원이 공통 기력(mCharge)으로 통합되며 frenzyN은 아무도 읽지 않는다
+      updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
       runEngineTicks(dt);                                                                                // v6.115 소비기 다단 히트
       if (player.rushT>0) player.rushT -= dt;                                                             // v6.115 광시곡 가속
       if (player.beatFreeT>0) player.beatFreeT -= dt;                                                     // v6.115 전정박
@@ -12062,6 +12106,7 @@ import { FX } from "./fx.js";
       if (e.chillS>0) speedFactor *= Math.max(0.3, 1 - player.chillPower*e.chillS);
       // v6.77 근접 경직: 베인 적은 잠시 휘청인다 (넉백이 아니라 감속 — 위치를 안 밀어서 락이 안 걸린다)
       if (e.stagT>0){ e.stagT -= dt; speedFactor *= 0.55; }
+      if (e.mireT>0){ e.mireT -= dt; speedFactor *= 0.62; }        // v6.122 피바다에 발이 묶인다
       // v6.47 전직 오라 (3차 전직 선택별 상시 오라)
       if (player.jobAura===2 && ed < 130+e.r) speedFactor *= 0.86; // 🌀 지배 오라
       if (player.jobAura===0 && ed < 110+e.r){ // ⚔ 공세 오라
@@ -12495,7 +12540,9 @@ import { FX } from "./fx.js";
         if (shot){ hostileShots.splice(i,1); continue; }
       }
       const dd = Math.hypot(p.x-player.x, p.y-player.y);
-      if (dd < p.r+player.r && player.invuln<=0){
+      // v6.122 catSmall(검은 고양이): 여태 쓰기만 있고 읽는 곳이 없던 죽은 플래그였다.
+      //  '작다'는 정체성에 맞게 **적탄 피격 판정만** 추가로 줄인다 (근접 판정·아이템 습득은 그대로)
+      if (dd < p.r + player.r * (player.catSmall ? 0.72 : 1) && player.invuln<=0){
         hostileShots.splice(i,1);
         if (p.kind==='web'){ player.slowT = 2.0; addTextNum(player.x, player.y-16, '속박!'); }
         if (playerHit(p.damage, 0.5, 10)) return;
@@ -16866,7 +16913,7 @@ import { FX } from "./fx.js";
       for (const z of zones){
         if (z.type==='shade' || z.type==='mirage') continue; // 그늘·신기루는 빛이 아니라 어둠 — 캔버스에서만
         const tt = Math.min(1, z.t/z.maxT);
-        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : z.type==='block' ? 0xb8362e : 0x6faa4e;
+        const tint = z.type==='fire' ? 0xe2603f : z.type==='void' ? 0x9a6fc4 : z.type==='grav' ? 0x6a5acd : z.type==='frost' ? 0x3fa8c9 : z.type==='block' ? 0xb8362e : z.type==='gore' ? 0xa3302c : 0x6faa4e;
         fxZones.push({ x:z.x, y:z.y, r:z.r, tint, alpha:(z.type==='block'?0.12:0.22)*tt });
       }
       // Pixi 4단계: 보스 오라 — 시그니처 색 광원 (분노 시 강렬하게)
@@ -17933,6 +17980,16 @@ import { FX } from "./fx.js";
           // v6.111 방치할수록 경고가 진해진다 — '넘치고 있다'가 보여야 쓸 이유가 생긴다
           ctx.fillStyle = _overflowT > 1 ? '#c9403a' : rs.c;
           ctx.fillText(_overflowT > 1 ? 'R  넘침!' : 'R', player.x, by + 12);
+        }
+        if ((player.heat||0) > 0.02){         // v6.122 열기 — 붙어 있으면 차고 물러나면 식는다
+          const hh = player.heat;
+          ctx.globalAlpha = 0.30;
+          ctx.fillStyle = PAL.ink2;
+          ctx.fillRect(player.x-22, by-5.5, 44, 2.2);
+          ctx.globalAlpha = 0.55 + hh*0.45;
+          ctx.fillStyle = hh >= 0.999 ? '#e0a94f' : '#c9403a';
+          ctx.fillRect(player.x-22, by-5.5, 44*hh, 2.2);
+          ctx.globalAlpha = 1;
         }
         if (full){                            // v6.113 지금 쓰면 몇 마리가 걸리는지 — 판단 근거를 보여준다
           const n2 = spendTargets();
