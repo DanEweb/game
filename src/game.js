@@ -10171,12 +10171,26 @@ import { FX } from "./fx.js";
     return null;
   }
   // 원거리 자원 충전 — 무기 발사/명중 지점에서 부른다
+  //  v6.140 **조준 게이트** — 원거리 전용기의 대가. 모든 원거리 충전이 이 함수를 지나므로 여기 한 곳이면 된다.
+  //   근접은 '붙어야/맞아야/멈춰야' 차는데 원거리는 그냥 쏘면 찼다 — 전용기가 공짜였다.
+  //   ⚠ 0으로 만들지 않는다(하한 0.30). 물량에 파묻힌 순간 R가 영영 막히면 '관리'가 아니라 '봉인'이다
+  function aimChargeMult(){ return 0.30 + Math.min(1, player.aim||0) * 0.90; }
+  let _aimHintT = 0;
   function rangedCharge(key, mult){
     const E = RANGED_ENGINE[key];
     if (!E || !player) return;
     if (rangedEngineKey() !== key) return;          // 주 무기가 아닐 땐 안 찬다 (하이브리드가 두 배로 차지 않게)
+    //  v6.140-b 직업별 '차는 조건'은 **여기서** 읽는다.
+    //   호출부에서 넘기던 시절엔 추적 탄환·드론 두 곳만 넘겨서 나머지 11직업이 조용히 1.0이었다
+    const RCg = rangedClassCfg();
+    const cm = RCg ? RCg.mult(player) : 1;
+    const g8 = aimChargeMult();
     const before = player.mCharge || 0;
-    player.mCharge = Math.min(1, before + E.gain * (mult||1));
+    player.mCharge = Math.min(1, before + E.gain * (mult||1) * cm * g8);
+    //  ⚠ 보이지 않는 감속은 '버그'로 읽힌다 — 왜 안 차는지 말해 준다
+    if (g8 < 0.55 && before < 1 && (_aimHintT -= 1) <= 0){
+      _aimHintT = 150; addTextNum(player.x, player.y-46, '너무 가깝다 — '+E.res+' 더디게');
+    }
     if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
   }
   function meleeEngineKey(){
@@ -11163,7 +11177,7 @@ import { FX } from "./fx.js";
               });
             }
             { const RC = rangedClassCfg();                       // v6.131 가동 — 드론이 쏠 때마다 찬다
-              rangedCharge('drone', RC ? RC.mult(player) : 1); }
+              rangedCharge('drone'); }                       // v6.140-b 배율은 rangedCharge 안에서 읽는다
             SFX.play('shoot');
           } else { w.cd = 0.15; }
         }
@@ -11192,7 +11206,7 @@ import { FX } from "./fx.js";
             w.evolved ? { homing:true, r:5, imbue:w.imbue, splash:_sp } : { imbue:w.imbue, splash:_sp });
         }
         { const RC = rangedClassCfg();                          // v6.131 직업마다 차는 방식이 다르다
-          rangedCharge('missile', RC ? RC.mult(player) : 1 + (player.aim||0)*1.4); }
+          rangedCharge('missile'); }                          // v6.140-b 배율은 rangedCharge 안에서 읽는다
         effects.push({ type:'muzzle', x:player.x+Math.cos(baseA)*16, y:player.y+Math.sin(baseA)*16, life:0.1, age:0 });
         SFX.play('shoot');
 
