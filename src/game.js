@@ -13569,7 +13569,8 @@ import { FX } from "./fx.js";
     if (localStorage.gs_dot === '0'){ drawHumanoidVec(x, y, o); return; }
     const D = drawHumanoid;
     if (!D._c){
-      D.PPU = 1.2; D.SZ = 128;
+      // ppu는 몹(0.62)과 같은 픽셀 굵기가 되도록 — 플레이어만 곱게 찍히면 격자가 어긋나 보인다
+      D.PPU = 0.8; D.SZ = 112;
       const b = dotBuf(D.SZ, 'hum');   // 전용 슬롯 — 몹 스프라이트 버퍼와 겹치면 서로 덮어쓴다
       D._c = b.c; D._cx = b.cx; D._o = b.o; D._ox = b.ox;
     }
