@@ -2717,8 +2717,8 @@ import { FX } from "./fx.js";
     },
     duelist: {
       name:'결투가', tag:'일대일 오의', cost:700,
-      desc:'[추적 탄환]으로 시작. 보스·엘리트 피해 +25% / 잡몹 피해 -10%. 강자만 상대한다.',
-      weapon:'missile',
+      desc:'[결투 자세]로 시작. 한 상대를 물고 늘어질수록 집중이 찬다 — 보스·엘리트 피해 +25% / 잡몹 피해 -10%. 강자만 상대한다.',
+      weapon:'duel',   // v6.123 추적 탄환(원거리) → 전용 근접 엔진. 전사군인데 원거리로 시작하던 어긋남 해소
       apply:(p)=>{ p.bossDmg=(p.bossDmg||1)*1.25; p.eliteDmg=(p.eliteDmg||1)*1.25; p.dmgMult*=0.95; }
     },
     manager: {
@@ -2761,7 +2761,7 @@ import { FX } from "./fx.js";
     },
     paladin: {
       name:'성기사', tag:'방패 반격', cost:600,
-      desc:'[역장]으로 시작. 받는 피해 -20%, 최대체력 +25, 접촉 피해의 40%를 방패로 반격. [중갑 가능]',
+      desc:'[신성 구역]으로 시작. 받는 피해 -20%, 최대체력 +25, 접촉 피해의 40%를 방패로 반격 — 구역이 적을 지질수록 신념이 차고 R로 심판의 원. [중갑 가능]',
       weapon:'aura',
       apply:(p)=>{ p.dmgTaken=0.8; p.maxHp+=25; p.hp+=25; p.thorns=Math.max(p.thorns||0, 0.4); }
     },
@@ -2878,8 +2878,8 @@ import { FX } from "./fx.js";
       name:'무명자(無名者)', tag:'히든', hidden:true,
       condDesc:'위험도 30 도달 시 해금',
       cond:()=> (DB.perilMax||0)>=30,
-      desc:'이름도 직업도 없다. 모든 직업의 스킬 풀에서 무작위 4개를 배운다 — 매 판이 다른 직업.',
-      weapon:'missile',
+      desc:'[무명검술]로 시작. 이름도 직업도 없다 — 모든 직업의 스킬 풀에서 무작위 4개를 배우고, R을 누를 때마다 다른 엔진의 시그니처가 나간다.',
+      weapon:'noname',  // v6.123 추적 탄환 → 전용 근접 엔진. '고정된 것이 없다'가 곧 정체성
       apply:(p)=>{ p.randomSkills=true; }
     },
     exhero: {
@@ -4134,6 +4134,26 @@ import { FX } from "./fx.js";
       radius:(w)=> (w.evolved ? 118 : [76,86,86,96,96][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 2.1)
     },
+    // v6.123 근접 엔진 13호: 결투 자세 — 결투가 전용. 같은 적을 계속 때릴수록 집중이 찬다
+    duel: {
+      name:'결투 자세', desc:'[결투가 전용] 한 상대를 파고들며 찌른다 — **같은 적을 계속 때릴수록** 집중이 빨리 차고, 상대를 바꾸면 흩어진다. 만충 시 R로 일대일 오의',
+      evName:'결투 자세 · 최후의 예의', evDesc:'집중이 더 빨리 차고 오의가 확정 치명이 됩니다',
+      lvDesc:['','간격 확대','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.44 : 0.50,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 14 : [5,5,7,7,10][w.lv-1]),
+      radius:(w)=> (w.evolved ? 108 : [80,88,88,98,98][w.lv-1]),
+      arc:(w)=> (w.evolved ? 1.3 : 1.0)                    // 좁다 — 하나를 겨눈다
+    },
+    // v6.123 근접 엔진 14호: 무명검술 — 무명자 전용. 이름이 없으니 형태도 고정되지 않는다
+    noname: {
+      name:'무명검술(無名劍術)', desc:'[무명자 전용] 아무 형태도 없는 검 — 조건 없이 저절로 차오르고, **R을 누를 때마다 다른 엔진의 시그니처가 나간다**',
+      evName:'무명검술 · 이름 없는 자', evDesc:'더 빨리 차오르고 시그니처가 두 번 나갑니다',
+      lvDesc:['','참격 확대','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.46 : 0.54,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 14 : [5,5,7,7,10][w.lv-1]),
+      radius:(w)=> (w.evolved ? 108 : [78,86,86,96,96][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.3 : 1.9)
+    },
     // v6.121 근접 엔진 12호: 용사의 검 — 전직 용사 전용.
     //  다른 11종은 전부 '때리면' 차는데 이것만 **'죽이면'** 찬다. 왕년의 용사는 잡은 수로 말한다
     heroblade: {
@@ -4722,13 +4742,13 @@ import { FX } from "./fx.js";
   }
   // 정의부에서 즉시 평가되지 않도록 getter로 노출 (dmg 함수는 매 발사마다 호출된다)
   Object.defineProperty(window, '__meleeAuto', { get: meleeAutoMult });
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, heroblade:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, heroblade:1, duel:1, noname:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.121 근접 엔진은 **그 직업의 것**이다 — 일반 카드 풀에 두면 사무라이가 낫을 줍고 사신이 발도를 줍는다.
   //  정체성으로 만든 것을 아무나 집게 두면 정체성이 아니게 된다.
   const ENGINE_OWNER = {
     iaido:'samurai', charge:'rusher', whirl:'cheol', combo3:'monk', reap:'reaper',
     frenzy:'madman', smash:'gymbro', riposte:'baeksu', cadence:'bard', kesagiri:'shadow',
-    heroblade:'exhero',
+    heroblade:'exhero', duel:'duelist', noname:'mumyeong',
   };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
@@ -6637,7 +6657,10 @@ import { FX } from "./fx.js";
         heat: +((player&&player.heat)||0).toFixed(3),
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
-        kills: killCount
+        kills: killCount,
+        // v6.123 소비기 진단 — R이 왜 안 먹는지는 값을 봐야 알 수 있다
+        eng: meleeEngineKey(), surgeT:+((player&&player.surgeT)||0).toFixed(2),
+        windT:+((player&&player.spendWindT)||0).toFixed(2), pend: !!(player&&player.spendPend)
       });
     } catch(e){ return 'ERR '+String(e); }
   };
@@ -9808,6 +9831,9 @@ import { FX } from "./fx.js";
     cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
     charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
     heroblade:{res:'각성', gain:0.02, col:'#e0a94f', motion:null,     hint:'때려서는 안 찬다 — 처치할 때마다 찬다' },
+    duel:    { res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  hint:'같은 적을 계속 때릴수록 찬다 (바꾸면 흩어진다)' },
+    noname:  { res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     hint:'조건이 없다 — 저절로 차오른다' },
+    aura:    { res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'신성 구역이 적을 지질 때마다 찬다' },
   };
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
   let engineTicks = [];
@@ -9862,7 +9888,13 @@ import { FX } from "./fx.js";
       return;
     }
     const P = player.dmgMult * focus * (player.meleeBoost||1);   // v6.113 적중 배율 · v6.120 근접 엔진 강화
-    const key = meleeEngineKey();
+    let key = meleeEngineKey();
+    // v6.123 무명자 — 이름이 없으니 소비기도 고정되지 않는다. 누를 때마다 다른 엔진의 시그니처가 나간다
+    if (key === 'noname'){
+      const POOL = ['iaido','scythe','kesagiri','whirl','combo3','smash','riposte','reap','cadence','heroblade','charge'];
+      key = POOL[Math.floor(Math.random()*POOL.length)];
+      addTextNum(player.x, player.y-58, '무명 — '+(WEAPONS[key] ? WEAPONS[key].name : key));
+    }
     const COL = CLASS_COLORS[player.classKey];
     // 광역 1회 — 시그니처들이 공유하는 도구
     const boom = (R, D, col) => {
@@ -10015,6 +10047,35 @@ import { FX } from "./fx.js";
       shake = Math.min(20, shake+11); hitStop(0.07);
       player.swingT = Math.max(player.swingT||0, 0.4);
       addTextNum(player.x, player.y-40, '마왕 처단!');
+    } else if (key === 'duel'){
+      // 일대일 오의 — 겨눈 하나에게 전부 싣는다. 잡몹 상대로는 낭비고 강자 상대로는 최대다
+      const t0 = nearestTarget();
+      if (t0){
+        const a0 = Math.atan2(t0.y-player.y, t0.x-player.x);
+        const stack = 1 + Math.min(1.6, ((player.duelN||1)-1)*0.24);          // 물고 늘어진 만큼 무겁다
+        effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:160, hw:26, life:0.3, age:0, col:'#8b5cf6', heavy:true });
+        const d = 300*P*stack*corrodeMult(t0);
+        t0.hp -= d; addDmgNum(t0.x, t0.y, d, true); staggerEnemy(t0, 1.2); procOnHit(t0, !!t0.isBoss, null);
+        const ti = enemies.indexOf(t0);
+        if (t0.hp<=0){ if (ti>=0 && enemies[ti]===t0) defeatEnemy(ti);
+                       else { const bi=bosses.indexOf(t0); if(bi>=0) defeatBoss(bi); } }
+        else if (t0.isBoss) refreshBossBar();
+        addTextNum(player.x, player.y-40, '일대일 오의 ×'+(player.duelN||1));
+      } else boom(120, 90*P, '#8b5cf6');
+      player.duelN = 0;
+      shake = Math.min(16, shake+8); hitStop(0.06);
+      player.swingT = Math.max(player.swingT||0, 0.36); player.atkMotion = 'lunge';
+    } else if (key === 'aura'){
+      // 심판의 원 — 신성 구역이 한 번 크게 타오른다. 안의 적을 지지고 자신은 회복한다
+      const R2 = (auraState.r||90) * 2.1;
+      effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:R2, life:0.34, age:0, friendly:true, col:'#e8c56a' });
+      friendlyBlast(player.x, player.y, R2, 175*P, true);
+      cutHostileShots(player.x, player.y, R2, 0, Math.PI*2);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.14);
+      player.invuln = Math.max(player.invuln, 0.6);
+      for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y) < R2 + e.r) staggerEnemy(e, 1.0); }
+      shake = Math.min(16, shake+8); hitStop(0.05);
+      addTextNum(player.x, player.y-40, '심판의 원');
     } else if (key === 'charge'){
       // 파쇄 돌격 — 몸째 던져 일직선을 꿰뚫고, 멈춘 자리를 부순다
       const t0 = nearestTarget();
@@ -10637,6 +10698,13 @@ import { FX } from "./fx.js";
           if (player.hp > player.maxHp*0.15 && !(player.frenzyFree>0)) player.hp = Math.max(1, player.hp - player.maxHp*0.006);
         }
         else if (w.key==='reap')    g *= 1 + Math.min(1.6, (woundSum/Math.max(1,hn))*2.2);        // 약해진 적을 벤다
+        else if (w.key==='duel'){                                                  // 한 상대를 물고 늘어진다
+          const first = hitIds[0];
+          if (first && player.duelTarget === first) player.duelN = Math.min(8, (player.duelN||0)+1);
+          else { player.duelTarget = first; player.duelN = 1; }
+          g *= 0.6 + Math.min(2.0, (player.duelN-1)*0.34);
+        }
+        else if (w.key==='noname') g *= 1.0;                                       // 조건 없음 (아래에서 시간으로도 찬다)
         else if (w.key==='cadence'){                                               // 정박에 얹는다
           const beat = 0.9 / (1 + Math.min(1.2, (combo||0)*0.06));
           const ph = (elapsed % beat) / beat;
@@ -11614,6 +11682,22 @@ import { FX } from "./fx.js";
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       // v6.122 광기 냉각 제거 — v6.115에서 광기 자원이 공통 기력(mCharge)으로 통합되며 frenzyN은 아무도 읽지 않는다
       updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
+      // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
+      if (ownedWeapon('noname')) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);
+      // v6.123 성기사 '신념' — 구역 안에 적을 오래 붙들고 있을수록 찬다.
+      //  ⚠ 첫 시도는 역장 피해 루프 안에 넣었다가 실패했다 — `_auraBeat`는 비트 프레임에만 켜져
+      //    4초에 0.008밖에 안 찼다. 매 프레임 도는 여기로 옮긴다
+      //  ⚠ 2차 시도도 실패했다 — `auraState.on`은 무기 루프가 매 프레임 리셋했다가 다시 켜는 값이라
+      //    이 지점에서는 꺼져 있을 때가 많았다(0.018/s). 무기에서 반경을 직접 읽는다
+      const _aw = ownedWeapon('aura');
+      if (_aw){
+        const _ar = WEAPONS.aura.radius(_aw);
+        let an = 0;
+        for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < _ar + e.r){ an++; if (an>=6) break; } }
+        //  3차: 실측 0.034/s라 만충에 28초가 걸렸다(타 엔진 3~5초). 구역이 좁아 동시에 1~2마리만 들어온다 →
+        //  기본값을 올리고 마리당 가중도 키운다. 역장 반경은 레벨·진화로 커지므로 후반엔 자연히 더 빨라진다
+        if (an) player.mCharge = Math.min(1, (player.mCharge||0) + dt*(0.10 + an*0.055));
+      }
       runEngineTicks(dt);                                                                                // v6.115 소비기 다단 히트
       if (player.rushT>0) player.rushT -= dt;                                                             // v6.115 광시곡 가속
       if (player.beatFreeT>0) player.beatFreeT -= dt;                                                     // v6.115 전정박
