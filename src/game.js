@@ -9524,16 +9524,20 @@ import { FX } from "./fx.js";
   let satPos = [];
   let auraState = { on:false, r:0 };
   // v6.85 위성 궤도 3단 — 반경/피해/회전/타격주기가 함께 움직여 어느 하나가 정답이 되지 않게
+  // v6.88 세 모드를 '방어 / 균형 / 견제'로 확실히 갈랐다.
+  // 밀착은 몸에 달라붙어 도는 방패(요격 반경 +7, 받는 피해 -18%)이고 화력은 낮다.
   const SAT_ORBIT = [
-    { n:'밀착 궤도', r:0.62, dmg:0.85, spin:1.35, cd:0.72 },   // 좁고 빠름 — 나를 지킨다
-    { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00 },
-    { n:'확장 궤도', r:1.55, dmg:1.25, spin:0.78, cd:1.30 },   // 넓고 무겁다 — 멀리서 견제
+    // r은 0.46이 하한 — 그보다 좁히면 위성이 캐릭터 스프라이트 뒤로 들어가 보이지 않는다
+    // (렌더 순서상 위성이 플레이어보다 먼저 그려진다)
+    { n:'밀착 궤도', r:0.46, dmg:0.72, spin:2.10, cd:0.55, guard:0.18, icept:7 },  // 몸에 붙는 방패
+    { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00, guard:0,    icept:0 },
+    { n:'확장 궤도', r:1.80, dmg:1.30, spin:0.72, cd:1.35, guard:0,    icept:0 },  // 멀리서 견제
   ];
   function cycleSatOrbit(){
     if (!player.weapons.some(w=>w.key==='satellite')) return;
     player.satOrbit = ((player.satOrbit===undefined?1:player.satOrbit) + 1) % 3;
     const o = SAT_ORBIT[player.satOrbit];
-    addTextNum(player.x, player.y-32, '◎ '+o.n);
+    addTextNum(player.x, player.y-32, '◎ '+o.n+(o.guard?' (방어)':o.r>1?' (견제)':' (균형)'));
     effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:player.r, r1:48*o.r });
     SFX.play('tele');
   }
@@ -11877,7 +11881,7 @@ import { FX } from "./fx.js";
       if (satPos.length){
         let shot = false;
         for (const sp of satPos){
-          if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11)){
+          if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11) + (SAT_ORBIT[player.satOrbit||1].icept||0)){
             pixBurst(p.x, p.y, 4, 100, '#7ec4e8', 1.4);
             satCharge(0.02);
             shot = true; break;
@@ -12058,7 +12062,10 @@ import { FX } from "./fx.js";
       return false;
     }
     // v6.77 포위 저항: 근접 무기를 든 채 무리에 파묻힐수록 덜 아프다 (최대 -30%)
-    let d = dmg * player.dmgTaken * buffMult('dr') * encircleCut();
+    // v6.88 밀착 궤도: 위성이 몸을 감싸 도는 동안 받는 피해가 준다 (방어 모드의 실체)
+    const satGuard = (player.weapons && player.weapons.some(w=>w.key==='satellite'))
+      ? (1 - (SAT_ORBIT[player.satOrbit||1].guard||0)) : 1;
+    let d = dmg * player.dmgTaken * buffMult('dr') * encircleCut() * satGuard;
     if (player.baeksu && (player.__baeksuT||0)>0.8) d *= 0.8; // 백수: 집콕 방어
     // 불굴: 낮은 체력 피해 감소
     if (player.undyingDR>0 && player.hp < player.maxHp*0.3) d *= (1-player.undyingDR);
