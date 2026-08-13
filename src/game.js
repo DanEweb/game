@@ -43,7 +43,7 @@ import { FX } from "./fx.js";
     canvas.height = Math.floor(chh*DPR);
     // v6.78 모바일 시야 보정: 좁은 화면일수록 카메라를 축소해 보이는 월드 폭을 확보한다.
     // (지금까지 월드 1유닛 = CSS 1px 고정이라 375px 폰은 데스크탑 대비 가시 면적이 1/4 — 탄막 회피가 불가능했다)
-    VS = Math.max(0.62, Math.min(1, cw / 640));
+    VS = Math.max(0.72, Math.min(1, cw / 560));
     W = cw / VS;                      // 이후 W·H 는 '월드 기준 가시 범위' — 스폰 거리·컬링·그리드가 이 값을 쓴다
     H = chh / VS;
     ctx.setTransform(DPR*VS,0,0,DPR*VS,0,0);
@@ -4710,8 +4710,8 @@ import { FX } from "./fx.js";
       const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
       WEAPONS[key] = {
         name: sfx+' · '+cname, cgw:true, pgw:true, arch,
-        desc:'[직업 성장무기] '+sfx+' — '+cname+'의 손에서 다시 벼려진 전설, 함께 싸운 만큼 자란다',
-        evName: sfx+'·진명 해방', evDesc:'전설이 본래의 이름을 되찾습니다',
+        desc:'[직업 성장무기] 이름을 잃은 채 '+cname+'의 손에 들어온 무기. 베어낼수록 스스로가 『'+sfx+'』였음을 기억해낸다',
+        evName: sfx+' · 진명 해방', evDesc:'마침내 제 이름을 전부 기억해냈다 — 전설이 본래의 힘으로 돌아옵니다',
         lvDesc:['','강화','피해 +25%','강화','강화'],
         baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
         dmg:(w)=>{
