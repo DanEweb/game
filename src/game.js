@@ -363,6 +363,7 @@ import { FX } from "./fx.js";
     }
     if (e.code==='KeyE' && state==='playing'){ cycleSatOrbit(); }   // v6.85 위성 궤도 전환
     if (e.code==='KeyR' && state==='playing'){ spendResource(); }   // v6.107 엔진 자원 소비
+    if ((e.code==='ShiftLeft'||e.code==='ShiftRight') && state==='playing'){ e.preventDefault(); tryGuard(); }  // v6.127 패링/요격
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (e.code==='KeyT' && state==='playing'){ openTechView(); }
     if (e.code==='KeyJ'){
@@ -574,6 +575,21 @@ import { FX } from "./fx.js";
     resBtn.style.color = full ? '#12141a' : 'rgba(246,246,244,0.55)';
     resBtn.style.borderColor = full ? r.c : 'rgba(246,246,244,0.25)';
   }
+  // v6.127 패링/요격 버튼 — 쿨이 돌면 어두워지고, 준비되면 계열 색으로 살아난다
+  function refreshGuardBtn(){
+    const gb = $('guardBtn');
+    if (!gb) return;
+    const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.length;
+    gb.style.display = on ? 'flex' : 'none';
+    if (!on) return;
+    const ranged = isRangedBuild();
+    const ready = (player.guardCd||0) <= 0;
+    gb.textContent = ranged ? '요격' : '패링';
+    const col = ranged ? '#7ec4e8' : '#e8e8ea';
+    gb.style.background  = ready ? col : 'rgba(32,33,36,0.55)';
+    gb.style.color       = ready ? '#12141a' : 'rgba(246,246,244,0.45)';
+    gb.style.borderColor = ready ? col : 'rgba(246,246,244,0.25)';
+  }
   function refreshOrbBtn(){
     if (!orbBtn) return;
     const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
@@ -592,6 +608,12 @@ import { FX } from "./fx.js";
   if (resBtn) resBtn.addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
     if (state==='playing') spendResource();
+  });
+  // v6.127 모바일 패링/요격 — Shift가 없는 환경에서도 D축을 쓸 수 있어야 한다
+  const guardBtn = $('guardBtn');
+  if (guardBtn) guardBtn.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation(); e.preventDefault(); SFX.unlock();
+    if (state==='playing') tryGuard();
   });
   // v6.86 모바일 궤도 전환 — E키가 없는 환경에서도 위성 조작이 가능해야 한다
   const orbBtn = $('orbBtn');
@@ -6641,6 +6663,33 @@ import { FX } from "./fx.js";
   // v6.125 QA: 단일 대상 DPS 벤치용 — 보스를 세워 두고 맞는 양을 잰다.
   //  밀집 벤치(__qaFlood)만으로는 저격수·기술자 같은 **단일 대상형**이 부당하게 낮게 나온다.
   //  hp를 아주 크게 잡아 20초 안에 죽지 않게 하고, 죽지 않으므로 페이즈 전환도 끼어들지 않는다
+  // v6.127 QA: 벤치가 '가만히 서서 평타만 치는' 조건이라 이동·스킬이 정체성인 직업이 계속 과소평가됐다.
+  //  실제 플레이에 가깝게 **이동·대시·스킬(1~4)·궁극(Q)·자원(R)·패링(Shift)** 을 자동으로 굴린다
+  window.__qaAuto = (on)=>{
+    try {
+      if (window.__qaAutoT){ clearInterval(window.__qaAutoT); window.__qaAutoT = null;
+        for (const c of ['KeyW','KeyA','KeyS','KeyD']) window.dispatchEvent(new KeyboardEvent('keyup',{code:c,bubbles:true})); }
+      if (on === false) return 'auto off';
+      let t = 0, cur = null;
+      const DIRS = ['KeyW','KeyD','KeyS','KeyA'];
+      window.__qaAutoT = setInterval(()=>{
+        t++;
+        // 원을 그리며 돈다 — 붙었다 떨어졌다 하는 실제 카이팅에 가깝다
+        if (t % 6 === 0){
+          const nx = DIRS[(t/6|0) % 4];
+          if (cur) window.dispatchEvent(new KeyboardEvent('keyup',{code:cur,bubbles:true}));
+          cur = nx; window.dispatchEvent(new KeyboardEvent('keydown',{code:cur,bubbles:true}));
+        }
+        if (t % 14 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',bubbles:true}));       // 대시
+        if (t % 9  === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyR',bubbles:true}));        // 자원 소비
+        if (t % 11 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyQ',bubbles:true}));        // 궁극
+        if (t % 17 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'ShiftLeft',bubbles:true}));   // 패링/요격
+        const sn = 'Digit' + (1 + (t % 4));
+        if (t % 5 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:sn,bubbles:true}));             // 스킬 1~4
+      }, 100);
+      return 'auto on';
+    } catch(e){ return 'ERR '+String(e); }
+  };
   window.__qaDummy = (key)=>{
     try {
       enemies.length = 0; bosses.length = 0;
@@ -9936,6 +9985,43 @@ import { FX } from "./fx.js";
       if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
     }
   }
+  // v6.127 D축 — 패링(근접) / 요격(원거리). 자동이 아니라 **누르는 것**이다
+  const GUARD_WIN = 0.22, GUARD_CD = 1.6;
+  function isRangedBuild(){
+    if (!player || !player.weapons) return false;
+    return !meleeEngineKey() && !ownedWeapon('aura');
+  }
+  function tryGuard(){
+    if (state!=='playing' || !player) return;
+    if ((player.guardCd||0) > 0){ addTextNum(player.x, player.y-30, '아직'); return; }
+    player.guardCd = GUARD_CD;
+    player.guardT = GUARD_WIN;
+    player.guardKind = isRangedBuild() ? 'shoot' : 'parry';
+    SFX.play('tele');
+    if (player.guardKind === 'shoot'){
+      // 요격 — 창 안의 적탄을 즉시 쏘아 떨어뜨린다. 떨군 수만큼 다음 사격이 무거워진다
+      let n = 0;
+      for (let i=hostileShots.length-1;i>=0;i--){
+        const b = hostileShots[i];
+        if (!b) continue;
+        if (Math.hypot(b.x-player.x, b.y-player.y) > 165) continue;
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.16, age:0, r0:2, r1:14 });
+        burst(b.x, b.y, 4, 110);
+        hostileShots.splice(i,1); n++;
+      }
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0, r0:player.r, r1:165 });
+      if (n){
+        player.interceptN = Math.min(5, (player.interceptN||0) + n);
+        player.interceptT = 4;                                   // 4초 안에 쓰지 않으면 식는다
+        addTextNum(player.x, player.y-40, '요격 ×'+n);
+        shake = Math.min(9, shake+3); SFX.play('sweep');
+      } else addTextNum(player.x, player.y-40, '빗나감');
+    } else {
+      // 패링 — 창 안에 맞아야 성립한다. 여기서는 자세만 잡는다
+      effects.push({ type:'arc', x:player.x, y:player.y, a:(player.faceX<0?Math.PI:0), arc:1.9, r:player.r+22,
+                     life:0.2, age:0, friendly:true, col:'#e8e8ea' });
+    }
+  }
   function spendTargets(){
     let n = 0;
     for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < SPEND_R){ n++; if (n>=5) break; } }
@@ -10261,6 +10347,12 @@ import { FX } from "./fx.js";
     if (player.weaponCap1 && player.weapons[0]) dmg *= player.weaponCap1 / 1.3;
     // v6.77 복구: multishotCh — '추가 투사체 확률'이 어디서도 읽히지 않아 궁수 계열 특성이 전부 죽어 있었다.
     // 재귀 폭주를 막으려 한 번의 발사에서 딱 1발만 갈라진다
+    // v6.127 요격 보상 — 쏘아 떨어뜨린 탄 수만큼 다음 사격이 무겁다 (탄 하나당 +12%, 최대 +60%)
+    if (player.interceptN > 0){
+      dmg *= 1 + Math.min(0.60, player.interceptN * 0.12);
+      player.interceptN -= 1;
+      if (player.interceptN <= 0) player.interceptT = 0;
+    }
     if (player.multishotCh>0 && !fireProjectile._split && Math.random()<player.multishotCh){
       fireProjectile._split = true;
       try { fireProjectile(a + (Math.random()<0.5?-1:1)*0.14, speed, dmg, pierce, life, extra); }
@@ -11786,6 +11878,9 @@ import { FX } from "./fx.js";
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       // v6.122 광기 냉각 제거 — v6.115에서 광기 자원이 공통 기력(mCharge)으로 통합되며 frenzyN은 아무도 읽지 않는다
       updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
+      if (player.guardCd>0) player.guardCd -= dt;                                                         // v6.127 D축 쿨다운
+      if (player.guardT>0) player.guardT -= dt;                                                           // v6.127 방어 창
+      if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
       // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
       if (ownedWeapon('noname')) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);
       // v6.123 성기사 '신념' — 구역 안에 적을 오래 붙들고 있을수록 찬다.
@@ -12889,12 +12984,26 @@ import { FX } from "./fx.js";
     updateHud();
     refreshOrbBtn();      // v6.86 위성 보유 시에만 모바일 궤도 버튼 노출
     refreshResBtn();      // v6.108 엔진 자원 보유 시에만 모바일 소비 버튼 노출
+    refreshGuardBtn();    // v6.127 패링/요격 버튼 (쿨 상태를 색으로)
     maybeOpenLevelUp();
   }
 
   // ---------- player damage ----------
   function playerHit(dmg, invulnTime, shakeAmt){
     if (player.invuln>0) return false;
+    // v6.127 패링 — 방어 창 안에 맞으면 무효 + 반격 + 기력 회수. 손맛의 핵심이라 자동이 아니다
+    if ((player.guardT||0) > 0 && player.guardKind === 'parry'){
+      player.guardT = 0;
+      player.invuln = Math.max(player.invuln, 0.5);
+      addTextNum(player.x, player.y-16, '패링!');
+      hitStop(0.07); shake = Math.min(14, shake+6); buzz(30); SFX.play('boom');
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.32, age:0, r0:player.r, r1:118 });
+      friendlyBlast(player.x, player.y, 118, 95*player.dmgMult*(player.meleeBoost||1), false);
+      cutHostileShots(player.x, player.y, 130, 0, Math.PI*2);
+      player.mCharge = Math.min(1, (player.mCharge||0) + 0.25);   // 되받아친 만큼 기력이 돌아온다
+      player.guardCd = Math.min(player.guardCd, 0.5);             // 성공하면 쿨이 짧아진다 — 잘하면 더 자주
+      return false;
+    }
     if (player.dodge>0 && Math.random()<player.dodge){
       addTextNum(player.x, player.y-14, 'MISS');
       player.invuln = 0.25;
