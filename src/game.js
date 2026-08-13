@@ -362,6 +362,7 @@ import { FX } from "./fx.js";
       else if (state==='inv'){ closeInv(); }
     }
     if (e.code==='KeyE' && state==='playing'){ cycleSatOrbit(); }   // v6.85 위성 궤도 전환
+    if (e.code==='KeyR' && state==='playing'){ spendResource(); }   // v6.107 엔진 자원 소비
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
     if (e.code==='KeyT' && state==='playing'){ openTechView(); }
     if (e.code==='KeyJ'){
@@ -9638,6 +9639,53 @@ import { FX } from "./fx.js";
     { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00, guard:0.10, icept:4 },
     { n:'확장 궤도', r:1.80, dmg:1.30, spin:0.72, cd:1.35, guard:0,    icept:0 },  // 멀리서 견제
   ];
+  // v6.107 엔진 자원 — 이미 엔진이 쓰고 있는 값을 그대로 읽어 게이지로 만든다 (새 자원을 만들지 않는다)
+  function engineResource(){
+    if (!player || !player.weapons) return null;
+    if (ownedWeapon('iaido'))    return { n:'잔심', v:Math.min(1,(noHitT||0)/4.5),                 c:'#b04a3a' };
+    // 응혈은 '잃은 체력'이라 1.0 = 사망이다. 체력 30% 지점을 만충으로 잡아 도달 가능하게 정규화
+    if (ownedWeapon('whirl'))    return { n:'응혈', v:(1-Math.max(0,Math.min(1,player.hp/Math.max(1,player.maxHp))))/0.7, c:'#c9403a' };
+    if (ownedWeapon('combo3'))   return { n:'연',   v:Math.min(1,(player.comboN||0)/5),            c:'#b8956a' };
+    if (ownedWeapon('riposte'))  return { n:'태세', v:Math.min(1,(player.stanceN||0)/3),           c:'#9aa0a6' };
+    if (ownedWeapon('frenzy'))   return { n:'광기', v:Math.min(1,(player.frenzyN||0)/12),          c:'#c9403a' };
+    if (ownedWeapon('kesagiri')) return { n:'표식', v:Math.min(1,((player.marks||[]).length)/3),   c:'#6d5cc4' };
+    if (ownedWeapon('charge'))   return { n:'돌파', v:1-Math.min(1,(player.dashCd||0)/Math.max(0.01,player.dashCdMax)), c:'#c94f4f' };
+    if (ownedWeapon('cadence'))  return { n:'박',   v:Math.min(1,(combo||0)/15),                   c:'#c9895a' };
+    if (ownedWeapon('smash'))    return { n:'벌크', v:Math.min(1,Math.max(0,(player.maxHp-100)/260)), c:'#c96a3f' };
+    if (ownedWeapon('reap'))     return { n:'수확', v:Math.min(1,(player.execThresh||0)/0.3),      c:'#7a4fa8' };
+    if (ownedWeapon('satellite'))return { n:'과부하', v:Math.min(1,(player.satOver||0)),           c:'#7ec4e8' };
+    return null;
+  }
+  // 만충 시 소비 — 엔진마다 '모아둔 것을 터뜨리는' 방식이 다르다
+  function spendResource(){
+    const r = engineResource();
+    if (!r || r.v < 1) return;
+    if (ownedWeapon('iaido')){          // 잔심: 다음 한 발이 확정 치명 + 화면을 가르는 장참
+      player.dashCritT = Math.max(player.dashCritT||0, 1.2); noHitT = 0;
+      addTextNum(player.x, player.y-40, '거합!');
+    } else if (ownedWeapon('whirl')){   // 응혈: 피를 태워 즉시 회복 + 광역 폭발
+      const heal = player.maxHp*0.22;
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      friendlyBlast(player.x, player.y, 150, 40*player.dmgMult, true);
+      addTextNum(player.x, player.y-40, '응혈 폭발');
+    } else if (ownedWeapon('combo3')){  // 연: 쌓인 연을 한 번에 터뜨린다
+      friendlyBlast(player.x, player.y, 120, 26*player.dmgMult*(player.comboN||1), true);
+      player.comboN = 0; addTextNum(player.x, player.y-40, '연 해방');
+    } else if (ownedWeapon('riposte')){ // 태세: 전방위 반격 + 잠깐 무적
+      friendlyBlast(player.x, player.y, 140, 34*player.dmgMult, true);
+      player.invuln = Math.max(player.invuln, 0.8);
+      player.stanceN = 0; addTextNum(player.x, player.y-40, '요지부동');
+    } else if (ownedWeapon('frenzy')){  // 광기: 3초간 자해 없이 최대 가속
+      player.frenzyFree = 3; addTextNum(player.x, player.y-40, '광란 해방');
+    } else if (ownedWeapon('satellite')){
+      player.satOver = 1; satCharge(0.01);   // 과부하는 기존 궤도 해방으로 연결
+      return;
+    } else {
+      friendlyBlast(player.x, player.y, 130, 30*player.dmgMult, true);
+      addTextNum(player.x, player.y-40, r.n+' 해방');
+    }
+    shake = Math.min(14, shake+6); hitStop(0.05); buzz(24); SFX.play('boom');
+  }
   function cycleSatOrbit(){
     if (!player.weapons.some(w=>w.key==='satellite')) return;
     player.satOrbit = ((player.satOrbit===undefined?0:player.satOrbit) + 1) % SAT_ORBIT.length;
@@ -10259,7 +10307,7 @@ import { FX } from "./fx.js";
         player.swingT = Math.max(player.swingT||0, 0.26);
         cutHostileShots(player.x, player.y, radius, baseA, 1.7);
         // 자해: 가속할수록 제 피가 더 깎인다 (진화 시 절반)
-        const selfCut = (player.maxHp*0.004) * (rush-1) * (w.evolved?0.5:1);
+        const selfCut = (player.frenzyFree>0 ? 0 : (player.maxHp*0.004) * (rush-1) * (w.evolved?0.5:1));
         if (selfCut > 0 && player.hp > player.maxHp*0.12) player.hp = Math.max(1, player.hp - selfCut);
         let fn = 0;
         for (let i=enemies.length-1;i>=0;i--){
@@ -11505,6 +11553,7 @@ import { FX } from "./fx.js";
       if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       if (player.frenzyT>0){ player.frenzyT -= dt; if (player.frenzyT<=0) player.frenzyN = 0; }      // v6.105 광기 냉각
+      if (player.frenzyFree>0) player.frenzyFree -= dt;                                                  // v6.107 광란 해방
       const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1);
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
@@ -17605,6 +17654,27 @@ import { FX } from "./fx.js";
       }
       ctx.restore();
       ctx.globalAlpha = 1;
+    }
+    // v6.107 엔진 자원 게이지 — 캐릭터 발밑. 만충이면 맥동하며 'R' 안내가 뜬다
+    {
+      const rs = engineResource();
+      if (rs){
+        const bw = 34, bx = player.x - bw/2, by = player.y + 20;
+        ctx.save();
+        ctx.fillStyle = 'rgba(32,33,36,0.22)';
+        ctx.fillRect(bx, by, bw, 3.5);
+        const full = rs.v >= 1;
+        ctx.globalAlpha = full ? (0.75 + 0.25*Math.sin(performance.now()/110)) : 0.9;
+        ctx.fillStyle = rs.c;
+        ctx.fillRect(bx, by, bw*Math.max(0,Math.min(1,rs.v)), 3.5);
+        if (full){
+          ctx.globalAlpha = 0.9;
+          ctx.font = "700 8px 'IBM Plex Mono', monospace";
+          ctx.textAlign = 'center';
+          ctx.fillText('R', player.x, by + 12);
+        }
+        ctx.restore();
+      }
     }
     drawSatellitesFront();   // v6.89 앞으로 돈 위성은 캐릭터 위에
     drawGateObjs(); // v6.69 최상위 레이어로 이동 — 기믹 오브젝트가 보스 몸에 가려지지 않게
