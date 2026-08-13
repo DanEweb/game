@@ -566,8 +566,8 @@ import { FX } from "./fx.js";
     const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
     orbBtn.style.display = on ? 'flex' : 'none';
     if (on){
-      const om = SAT_ORBIT[player.satOrbit||1];
-      orbBtn.textContent = om.r < 1 ? '◉' : om.r > 1 ? '◎' : '○';   // 밀착·표준·확장을 아이콘으로 구분
+      const om = SAT_ORBIT[player.satOrbit||0];
+      orbBtn.textContent = om.r > 1 ? '◎' : '○';
     }
   }
   dashBtn.addEventListener('pointerdown', (e)=>{
@@ -4062,7 +4062,8 @@ import { FX } from "./fx.js";
       lvDesc:['','위성 +1','타격 피해 +45%','위성 +1','타격 피해 강화'],
       dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,33][w.lv-1]),
       // v6.87 시작 개수 1 → 2: 위성 1기로는 적과 스치는 빈도가 너무 낮아 처치가 안 됐다 (접촉 기회 = 화력)
-      count:(w)=> (w.evolved ? 5 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      // v6.90 기본 3기 — 2기로는 고리 사이 각도가 비어 "맞추기 어렵다"는 체감이 남았다
+      count:(w)=> (w.evolved ? 6 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
       orbitR:(w)=> (w.evolved ? 62 : 48),
       spin:(w)=> (w.evolved ? 6.4 : 5.0)   // v6.87 접촉 빈도가 곧 화력 — 회전 대폭 상향
     },
@@ -9523,21 +9524,20 @@ import { FX } from "./fx.js";
   // ---------- weapons update ----------
   let satPos = [];
   let auraState = { on:false, r:0 };
+  const satRings = [];   // v6.89 기울어진 궤도 고리 (원자 모형)
   // v6.85 위성 궤도 3단 — 반경/피해/회전/타격주기가 함께 움직여 어느 하나가 정답이 되지 않게
   // v6.88 세 모드를 '방어 / 균형 / 견제'로 확실히 갈랐다.
   // 밀착은 몸에 달라붙어 도는 방패(요격 반경 +7, 받는 피해 -18%)이고 화력은 낮다.
   const SAT_ORBIT = [
-    // r은 0.46이 하한 — 그보다 좁히면 위성이 캐릭터 스프라이트 뒤로 들어가 보이지 않는다
-    // (렌더 순서상 위성이 플레이어보다 먼저 그려진다)
-    { n:'밀착 궤도', r:0.46, dmg:0.72, spin:2.10, cd:0.55, guard:0.18, icept:7 },  // 몸에 붙는 방패
-    { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00, guard:0,    icept:0 },
+    // v6.89 밀착 모드 폐지 — 고리가 기울어 돌면서 위성이 몸 가까이까지 지나가므로 별도 밀착이 필요 없다
+    { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00, guard:0.10, icept:4 },
     { n:'확장 궤도', r:1.80, dmg:1.30, spin:0.72, cd:1.35, guard:0,    icept:0 },  // 멀리서 견제
   ];
   function cycleSatOrbit(){
     if (!player.weapons.some(w=>w.key==='satellite')) return;
-    player.satOrbit = ((player.satOrbit===undefined?1:player.satOrbit) + 1) % 3;
+    player.satOrbit = ((player.satOrbit===undefined?0:player.satOrbit) + 1) % SAT_ORBIT.length;
     const o = SAT_ORBIT[player.satOrbit];
-    addTextNum(player.x, player.y-32, '◎ '+o.n+(o.guard?' (방어)':o.r>1?' (견제)':' (균형)'));
+    addTextNum(player.x, player.y-32, '◎ '+o.n+(o.r>1?' (견제)':' (균형)'));
     effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:player.r, r1:48*o.r });
     SFX.play('tele');
   }
@@ -9776,15 +9776,25 @@ import { FX } from "./fx.js";
       if (w.key==='satellite'){
         const n = def.count(w);
         // v6.85 궤도 3단: 좁히면 타격이 잦아지고(근접 방어), 넓히면 사거리를 얻는다(원거리 견제)
-        const om = SAT_ORBIT[player.satOrbit||1];
+        const om = SAT_ORBIT[player.satOrbit||0];
         const burst = (player.satBurstT||0) > 0;
         const orbitR = def.orbitR(w) * om.r;
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1)
                   * om.dmg * (burst ? 1.35 : 1);
         w.angle += dt * def.spin(w) * om.spin * (burst ? 1.7 : 1) * (player.satRush||1);
-        for (let s=0;s<n;s++){
-          const a = w.angle + (Math.PI*2/n)*s;
-          satPos.push({ x:player.x+Math.cos(a)*orbitR, y:player.y+Math.sin(a)*orbitR, ev:w.evolved||burst, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
+        // v6.89 두 고리에 나눠 배치하고, 각 고리는 서로 반대로 기운 채 세차운동한다
+        satRings.length = 0;
+        for (let k=0;k<2;k++){
+          // v6.90 고리마다 세차 속도·방향·텀블 주기를 다르게 — 두 고리가 계속 어긋나며 교차해
+          // 훑는 방향이 한쪽에 몰리지 않는다(전방위감). 기울기 진폭은 줄여 타원이 항상 열려 있게
+          const tilt = (k===0 ? 1 : -1) * (0.52 + Math.sin(elapsed*(k===0?0.41:0.67) + k*1.7) * 0.30);
+          const ph   = elapsed * (k===0 ? 1.18 : -1.63) + k*Math.PI/2;   // v6.91 체감 속도 상향
+          satRings.push({ tilt, ph, r:orbitR });
+          for (let i=k; i<n; i+=2){
+            const a = w.angle + (Math.PI*2/n)*i;
+            const q = ringPoint(a, tilt, ph, orbitR);
+            satPos.push({ x:player.x+q.x, y:player.y+q.y, z:q.z, ev:w.evolved||burst, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
+          }
         }
         continue;
       }
@@ -15927,17 +15937,58 @@ import { FX } from "./fx.js";
     ctx.beginPath(); ctx.arc(player.x, player.y, r, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
   }
-  function drawSatellites(){
+  // v6.89 기울어진 고리를 화면에 투영한다. 위에서 내려다보는 시점이라 세로를 눌러(0.62) 타원이 된다.
+  // z는 깊이 — 양수면 플레이어 앞, 음수면 뒤. 이걸로 위성이 몸을 돌아 지나가는 게 보인다
+  const SAT_SQUASH = 0.78;   // v6.90 덜 눕힌다 — 납작할수록 '왕복'으로 보인다
+  function ringPoint(a, tilt, ph, R){
+    const lx = Math.cos(a)*R, ly = Math.sin(a)*R;
+    const y2 = ly*Math.cos(tilt), z = ly*Math.sin(tilt);       // 고리를 기울인다
+    const c = Math.cos(ph), sn = Math.sin(ph);                  // 고리 자체를 세차 회전
+    return { x: lx*c - y2*sn, y: (lx*sn + y2*c)*SAT_SQUASH, z };
+  }
+  function drawSatRing(rg, alpha){
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let i=0;i<=48;i++){
+      const q = ringPoint((Math.PI*2/48)*i, rg.tilt, rg.ph, rg.r);
+      if (i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawSatOrbs(front){
+    for (const sp of satPos){
+      if (front !== ((sp.z||0) > 0)) continue;
+      // v6.91 깊이 강조: 크기 ±75% + 뒤쪽은 더 흐리게 + 살짝 위로(원근) → z축 통과가 눈에 보인다
+      const zn = (sp.z||0)/Math.max(1,sp.orbitR);               // -1(뒤) ~ +1(앞)
+      const dep = 1 + zn*0.75;
+      const rr = Math.max(2.5, (sp.ev?8:6)*dep);
+      ctx.globalAlpha = front ? 1 : 0.42;
+      ctx.fillStyle = sp.ev ? PAL.ink : PAL.ink2;
+      ctx.beginPath(); ctx.arc(sp.x, sp.y - (zn<0 ? -zn*3 : 0), rr, 0, Math.PI*2); ctx.fill();
+      if (front && sp.ev){ ctx.strokeStyle='#7ec4e8'; ctx.lineWidth=1.4; ctx.stroke(); }
+      if (front){                                               // 앞으로 나온 구체엔 하이라이트
+        ctx.globalAlpha = 0.5; ctx.fillStyle = '#dff6fb';
+        ctx.beginPath(); ctx.arc(sp.x - rr*0.3, sp.y - rr*0.35, rr*0.32, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawSatellites(){          // 플레이어 뒤쪽 반: 고리 + 뒤로 돈 위성
     if (!satPos.length) return;
     ctx.save();
-    const orbitR = satPos[0].orbitR;
     ctx.strokeStyle = satPos[0].ev ? PAL.ink : PAL.soft;
-    ctx.lineWidth = satPos[0].ev ? 2.5 : 1;
-    ctx.beginPath(); ctx.arc(player.x, player.y, orbitR, 0, Math.PI*2); ctx.stroke();
-    for (const sp of satPos){
-      ctx.fillStyle = sp.ev ? PAL.ink : PAL.ink2;
-      ctx.beginPath(); ctx.arc(sp.x,sp.y, sp.ev?8:6, 0, Math.PI*2); ctx.fill();
-    }
+    ctx.lineWidth = satPos[0].ev ? 2.2 : 1;
+    for (const rg of satRings) drawSatRing(rg, 0.5);
+    drawSatOrbs(false);
+    ctx.restore();
+  }
+  function drawSatellitesFront(){     // 플레이어 앞쪽 반 — 캐릭터 위에 겹쳐 그린다
+    if (!satPos.length) return;
+    ctx.save();
+    drawSatOrbs(true);
     ctx.restore();
   }
   function drawDrones(){
@@ -16978,6 +17029,7 @@ import { FX } from "./fx.js";
     drawGhosts();
     drawEffects();
     drawPlayerChar();
+    drawSatellitesFront();   // v6.89 앞으로 돈 위성은 캐릭터 위에
     drawGateObjs(); // v6.69 최상위 레이어로 이동 — 기믹 오브젝트가 보스 몸에 가려지지 않게
     drawDmgNums();
 
