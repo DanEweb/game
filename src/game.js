@@ -4137,7 +4137,7 @@ import { FX } from "./fx.js";
       lvDesc:['','표식 요구 -1','피해 +40%','연참 피해 +50%','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.62 : 0.8,
       dmg:(w)=> (w.evolved ? 30 : [12,12,17,17,22][w.lv-1]),
-      need:(w)=> (w.evolved ? 3 : [5,4,4,4,4][w.lv-1]),          // 연참 발동에 필요한 표식 수
+      need:(w)=> (w.evolved ? 2 : [3,3,3,3,3][w.lv-1]),          // v6.99 요구 축소 — 표식은 좌표에 남는다
       burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 연참 1타 배율
     },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
@@ -6276,18 +6276,6 @@ import { FX } from "./fx.js";
       else { rerollsLeft+=1; addTextNum(e.x,e.y-14,'✨ 운명의 축복 (리롤+1)'); }
       effects.push({ type:'ring', x:e.x, y:e.y, life:0.4, age:0, r0:10, r1:70 });
       SFX.play('quest');
-    }
-    // v6.97 연참 표식 — 표식된 적 위에 마름모가 맥동한다 (몇 마리 걸렸는지 눈으로 센다)
-    if (player.marks && player.marks.indexOf(e) >= 0){
-      const mp = 0.6 + 0.4*Math.sin(performance.now()/160);
-      ctx.save();
-      ctx.translate(0, -e.r-13);
-      ctx.rotate(Math.PI/4);
-      ctx.globalAlpha = mp;
-      ctx.fillStyle = CLASS_COLORS[player.classKey] || '#c94f4f';
-      ctx.fillRect(-3,-3,6,6);
-      ctx.restore();
-      ctx.globalAlpha = 1;
     }
     if (e.elite){
       questAdd('elite', 1);
@@ -10090,27 +10078,30 @@ import { FX } from "./fx.js";
       } else if (w.key==='kesagiri'){
         const need = def.need(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
-        // 살아있는 표식만 남긴다
-        player.marks = (player.marks||[]).filter(m=> enemies.includes(m));
+        // v6.99 표식은 좌표에 남는다 — 적이 죽어도 유지된다. 수명 6초
+        player.marks = (player.marks||[]).filter(m=> (m.t -= dt) > 0);
         if (player.marks.length >= need){
-          // ── 연참: 표식된 적들 사이를 순간이동하며 연속으로 벤다
+          // ── 연참: 표식 좌표를 순서대로 훑으며 그 지점 주변을 벤다
           const list = player.marks.slice(0, 8);
           const bd = dmg * def.burst(w);
           let px0 = player.x, py0 = player.y;
           for (const m of list){
-            effects.push({ type:'slash', x:m.x, y:m.y, a:Math.atan2(m.y-py0, m.x-px0), r:34, arc:2.2, life:0.2, age:0 });
+            effects.push({ type:'slash', x:m.x, y:m.y, a:Math.atan2(m.y-py0, m.x-px0), r:38, arc:2.4, life:0.2, age:0 });
             particles.push({ x:px0, y:py0, vx:0, vy:0, life:0.3, age:0, r:player.r*0.8, ghost:true });  // 잔상
             px0 = m.x; py0 = m.y;
-            const i2 = enemies.indexOf(m);
-            if (i2 < 0) continue;
-            const isC = Math.random() < player.critChance;
-            const d = bd*(isC?player.critMult:1)*corrodeMult(m);
-            m.hp -= d;
-            addDmgNum(m.x, m.y, d, isC);
-            staggerEnemy(m, 0.5);
-            procOnHit(m, false, w.imbue);
-            hitSpark(m.x, m.y, Math.random()*Math.PI*2, CLASS_COLORS[player.classKey]);
-            if (m.hp<=0 && enemies[i2]===m) defeatEnemy(i2);
+            // 표식 지점 주변을 광역으로 벤다 (그 자리 적이 바뀌었어도 성립)
+            for (let i2=enemies.length-1;i2>=0;i2--){
+              const en = enemies[i2];
+              if (!en || Math.hypot(en.x-m.x, en.y-m.y) > 44 + en.r) continue;
+              const isC = Math.random() < player.critChance;
+              const d = bd*(isC?player.critMult:1)*corrodeMult(en);
+              en.hp -= d;
+              addDmgNum(en.x, en.y, d, isC);
+              staggerEnemy(en, 0.5);
+              procOnHit(en, false, w.imbue);
+              hitSpark(en.x, en.y, Math.random()*Math.PI*2, CLASS_COLORS[player.classKey]);
+              if (en.hp<=0 && enemies[i2]===en) defeatEnemy(i2);
+            }
           }
           // 마지막 표식 자리로 이동 — 실제로 '베고 지나간다'
           if (list.length){
@@ -10138,8 +10129,10 @@ import { FX } from "./fx.js";
             addDmgNum(t0.x, t0.y, d, isC);
             staggerEnemy(t0, 0.35);
             procOnHit(t0, false, w.imbue);
+            // v6.99 맞힌 자리에 좌표 표식 — 처치해도 남는다(처치가 손해가 되지 않게)
+            player.marks.push({ x:t0.x, y:t0.y, t:6 });
+            if (player.marks.length > 12) player.marks.shift();
             if (t0.hp<=0 && enemies[i3]===t0) defeatEnemy(i3);
-            else if (player.marks.indexOf(t0) < 0) player.marks.push(t0);   // 살아남은 적에게만 표식
           }
           SFX.play('hit');
         }
@@ -17274,6 +17267,20 @@ import { FX } from "./fx.js";
     drawGhosts();
     drawEffects();
     drawPlayerChar();
+    // v6.99 연참 표식 — 바닥에 남은 좌표 표식이 맥동한다 (몇 개 찼는지 눈으로 센다)
+    if (player.marks && player.marks.length){
+      ctx.save();
+      ctx.fillStyle = CLASS_COLORS[player.classKey] || '#c94f4f';
+      for (const m of player.marks){
+        const mp = Math.min(1, m.t/6) * (0.55 + 0.45*Math.sin(performance.now()/150));
+        ctx.globalAlpha = mp;
+        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(Math.PI/4);
+        ctx.fillRect(-3.5,-3.5,7,7);
+        ctx.restore();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
     drawSatellitesFront();   // v6.89 앞으로 돈 위성은 캐릭터 위에
     drawGateObjs(); // v6.69 최상위 레이어로 이동 — 기믹 오브젝트가 보스 몸에 가려지지 않게
     drawDmgNums();
