@@ -9942,7 +9942,8 @@ import { FX } from "./fx.js";
         const arc = def.arc(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.scytheBoost||1);
         const scytheImbue = w.imbue;
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0, friendly:true });
+        // v6.84 궤적에 직업 악센트색 — 무기·직업마다 베는 색이 다르다
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0, friendly:true, col: CLASS_COLORS[player.classKey] });
         const hitInArc = (tx, ty, tr)=>{
           const d = Math.hypot(tx-player.x, ty-player.y);
           if (d > radius+tr) return false;
@@ -16327,16 +16328,37 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI*2); ctx.stroke();
         ctx.setLineDash([]);
       } else if (fx.type==='arc'){
+        // v6.84 근접 궤적 재작업: 옅은 부채꼴(α0.22)이라 배경에 묻혀 "아무 이펙트도 없다"는 피드백.
+        // → 날이 지나간 자리를 '긁는' 초승달로: 바깥 밝은 날 + 안쪽 그림자 + 끝단 스파크
         const sweep = fx.arc >= Math.PI*2 ? Math.PI*2 : fx.arc;
         const start = fx.a - sweep/2 + (fx.age/fx.life)*0.4;
-        ctx.fillStyle = dark ? 'rgba(255,255,255,'+(0.25*tt)+')' : 'rgba(32,33,36,'+(0.22*tt)+')';
+        const acc = fx.col || (dark ? '#e8f2f6' : '#f6f6f4');
+        ctx.save();
+        // 안쪽 그림자 — 베인 자리가 어두워진다
+        ctx.fillStyle = dark ? 'rgba(255,255,255,'+(0.20*tt)+')' : 'rgba(24,25,29,'+(0.30*tt)+')';
         ctx.beginPath();
         ctx.moveTo(fx.x, fx.y);
-        ctx.arc(fx.x, fx.y, fx.r, start, start+sweep);
-        ctx.closePath();
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*(0.9+0.1*tt), start, start+sweep); ctx.stroke();
+        ctx.arc(fx.x, fx.y, fx.r*0.92, start, start+sweep);
+        ctx.closePath(); ctx.fill();
+        // 날 — 굵고 밝은 호가 바깥을 훑는다
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = acc;
+        ctx.globalAlpha = 0.95*tt;
+        ctx.lineWidth = 5.5*tt + 1.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*(0.94+0.06*tt), start, start+sweep); ctx.stroke();
+        // 잔상 — 한 겹 더 안쪽에 얇게
+        ctx.globalAlpha = 0.45*tt;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*0.74, start+0.12, start+sweep-0.12); ctx.stroke();
+        // 끝단 스파크 — 날이 빠져나간 지점에서 픽셀이 튄다
+        ctx.globalAlpha = tt;
+        ctx.fillStyle = acc;
+        for (let k=0;k<3;k++){
+          const ea = start + sweep*(0.82 + k*0.06);
+          const er = fx.r*(0.96 + k*0.05) + tt*4;
+          ctx.fillRect(Math.round(fx.x+Math.cos(ea)*er)-1, Math.round(fx.y+Math.sin(ea)*er)-1, 3, 3);
+        }
+        ctx.restore();
       } else if (fx.type==='slash'){
         // v6.51 근접 타격 궤적 — 초승달 베기 아크가 적 방향으로 쓸린다 (실제 휘두르는 프레임)
         const prog = fx.age/fx.life;
