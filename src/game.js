@@ -6690,6 +6690,33 @@ import { FX } from "./fx.js";
       return 'auto on';
     } catch(e){ return 'ERR '+String(e); }
   };
+  // v6.132 QA: **생존 벤치** — 지금까지 모든 벤치가 god 모드라 '위험'을 0으로 만들어 놓고 보상만 쟀다.
+  //  그래서 "근접이 위험한데 왜 원거리와 같은 킬수냐"에 답할 근거가 없었다.
+  //  무적을 끄고 실제로 맞으며 **얼마나 버티는가 / 초당 몇 대 맞는가**를 잰다
+  window.__qaSurvive = (sec)=>{
+    return new Promise((res)=>{
+      if (!player) return res({ err:'no player' });
+      //  ⚠ `__qaGod()`는 최대체력을 999999로 올리는 것뿐이다 — 생존 벤치에서는 **부르면 안 된다**
+      player.invuln = 0;
+      const hp0 = player.hp, t0 = performance.now();
+      let lastHp = hp0, hits = 0, taken = 0;
+      const step = ()=>{
+        const el = (performance.now()-t0)/1000;
+        if (player && player.hp < lastHp){ hits++; taken += (lastHp - player.hp); lastHp = player.hp; }
+        else if (player) lastHp = Math.min(lastHp, player.hp);
+        //  ⚠ `state !== 'playing'`으로 끊으면 **레벨업 카드가 뜰 때마다 조기 종료**된다
+        //     (1차 실행에서 체력 71/80인데 6.7초에 '생존 false'로 찍혔다). 사망만 종료 조건으로 본다
+        const dead = !player || player.hp <= 0;
+        if (dead || el >= (sec||30)){
+          return res({ sec:+el.toFixed(1), 생존:!dead, 남은체력:Math.round(player?player.hp:0),
+                       최대체력:Math.round(player?player.maxHp:0), 피격수:hits, 받은피해:Math.round(taken),
+                       초당피해:+(taken/Math.max(0.1,el)).toFixed(1) });
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  };
   window.__qaDummy = (key)=>{
     try {
       enemies.length = 0; bosses.length = 0;
