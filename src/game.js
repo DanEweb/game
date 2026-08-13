@@ -10301,6 +10301,9 @@ import { FX } from "./fx.js";
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0,
                        friendly:true, col: CLASS_COLORS[player.classKey] });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'drag';
+        player.atkMotion = 'crouch';
+        player.atkMotion = 'spin';
         cutHostileShots(player.x, player.y, radius, baseA, arc);
         let rn = 0, reaped = 0;
         for (let i=enemies.length-1;i>=0;i--){
@@ -10339,6 +10342,7 @@ import { FX } from "./fx.js";
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc: onBeat?2.6:1.6, r:radius,
                        life:0.18, age:0, friendly:true, col: onBeat ? '#e0a94f' : CLASS_COLORS[player.classKey] });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'beat';
         cutHostileShots(player.x, player.y, radius, baseA, onBeat?2.6:1.6);
         if (onBeat){ shake = Math.min(9, shake+3); addTextNum(player.x, player.y-38, '정박!'); }
         let bn = 0;
@@ -10402,6 +10406,7 @@ import { FX } from "./fx.js";
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.7, r:radius, life:0.14, age:0,
                        friendly:true, col:'#c9403a' });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'flurry';
         cutHostileShots(player.x, player.y, radius, baseA, 1.7);
         // 자해: 가속할수록 제 피가 더 깎인다 (진화 시 절반)
         const selfCut = (player.frenzyFree>0 ? 0 : (player.maxHp*0.004) * (rush-1) * (w.evolved?0.5:1));
@@ -10439,6 +10444,7 @@ import { FX } from "./fx.js";
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.18, age:0,
                        friendly:true, col: finisher ? '#e0a94f' : CLASS_COLORS[player.classKey] });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'combo';
         cutHostileShots(player.x, player.y, radius, baseA, arc);
         if (finisher){ shake = Math.min(10, shake+4); hitStop(0.03); }
         let cn = 0;
@@ -10475,6 +10481,7 @@ import { FX } from "./fx.js";
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.1, r:reach, life:0.24, age:0,
                        friendly:true, col:'#c96a3f' });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'heavy';
         cutHostileShots(player.x, player.y, reach, baseA, 1.3);
         shake = Math.min(12, shake+5); hitStop(0.035);
         const hitOne = (tg, mult)=>{
@@ -10607,6 +10614,7 @@ import { FX } from "./fx.js";
         effects.push({ type:'iai', x:player.x, y:player.y, a:baseA, r:reach, hw:halfW, life:0.3, age:0,
                        col: CLASS_COLORS[player.classKey], heavy: charge>1.5 });
         player.swingT = Math.max(player.swingT||0, 0.26);
+        player.atkMotion = 'iai';
         player.recoilX = (player.recoilX||0) + ca*5; player.recoilY = (player.recoilY||0) + sa*5;
         cutHostileShots(player.x, player.y, reach*0.7, baseA, 0.9);   // 참격선 위의 탄도 벤다
         shake = Math.min(12, shake + (charge>1.5?5:2.5));
@@ -14603,6 +14611,50 @@ import { FX } from "./fx.js";
         else if (t < 0.58){ const k=(t-0.3)/0.28; const e=1-Math.pow(1-k,3);
           swRot = 0.5-1.05*e; lunge = -1.6+4.6*e; lunY = 1.1-2.1*e; smear = Math.sin(k*Math.PI)*0.7; }
         else { const k=(t-0.58)/0.42; const e=k*k*(3-2*k); swRot = -0.55*(1-e); lunge = 3*(1-e); lunY = -1*(1-e); }
+      } else if (o.motion === 'iai'){
+        // 거합: 예비를 길게 끌다(칼을 뽑지 않고 버틴다) 순간적으로 벤다
+        if (t < 0.62){ const k=t/0.62; swRot = 0.75*k*k; lunge = -1.2*k; lunY = 0.8*k; }
+        else if (t < 0.74){ const k=(t-0.62)/0.12; swRot = 0.75 - 2.6*k; lunge = -1.2 + 7.5*k; lunY = 0.8-1.8*k; smear = 1; }
+        else { const k=(t-0.74)/0.26; const e=k*k*(3-2*k); swRot = -1.85*(1-e); lunge = 6.3*(1-e); lunY = -1*(1-e); }
+      } else if (o.motion === 'heavy'){
+        // 후려치기: 크게 치켜들고 **한 박자 늦게** 내려찍는다 (예비가 가장 길다)
+        if (t < 0.55){ const k=t/0.55; const e=1-(1-k)*(1-k); swRot = 1.15*e; lunge = -2.6*e; lunY = 2.2*e; }
+        else if (t < 0.7){ swRot = 1.15; lunge = -2.6; lunY = 2.2; }                    // 정지(무게를 싣는다)
+        else if (t < 0.86){ const k=(t-0.7)/0.16; const e=1-Math.pow(1-k,3);
+          swRot = 1.15-3.1*e; lunge = -2.6+8*e; lunY = 2.2-4.4*e; smear = Math.sin(k*Math.PI); }
+        else { const k=(t-0.86)/0.14; swRot = -1.95*(1-k); lunge = 5.4*(1-k); lunY = -2.2*(1-k); }
+      } else if (o.motion === 'spin'){
+        // 회전 참격: 몸이 실제로 한 바퀴 돈다
+        swRot = -(1-t) * Math.PI*2;
+        lunge = Math.cos(t*Math.PI*2)*1.4; lunY = Math.sin(t*Math.PI*2)*1.0;
+        smear = Math.sin(t*Math.PI);
+      } else if (o.motion === 'combo'){
+        // 연격: 짧고 빠르게 — 예비 최소, 타격 즉시
+        if (t < 0.12){ const k=t/0.12; swRot = 0.35*k; lunge = -0.6*k; }
+        else if (t < 0.5){ const k=(t-0.12)/0.38; const e=1-Math.pow(1-k,3);
+          swRot = 0.35-1.7*e; lunge = -0.6+4.4*e; smear = Math.sin(k*Math.PI)*0.8; }
+        else { const k=(t-0.5)/0.5; const e=k*k*(3-2*k); swRot = -1.35*(1-e); lunge = 3.8*(1-e); }
+      } else if (o.motion === 'flurry'){
+        // 광란: 아주 짧고 잦은 난타 — 잔상이 겹치도록 진폭을 작게, 왕복을 빠르게
+        const w2 = Math.sin((1-t)*Math.PI*3);
+        swRot = w2*0.9; lunge = 2.2 + w2*1.6; smear = Math.abs(w2)*0.6;
+      } else if (o.motion === 'crouch'){
+        // 반격 태세: 웅크렸다 튀어나온다
+        if (t < 0.45){ const k=t/0.45; swRot = 0.3*k; lunge = -2.2*k; lunY = 2.6*k; }
+        else { const k=(t-0.45)/0.55; const e=1-Math.pow(1-k,3);
+          swRot = 0.3-1.9*e; lunge = -2.2+6.6*e; lunY = 2.6-4.2*e; smear = Math.sin(k*Math.PI); }
+      } else if (o.motion === 'drag'){
+        // 대낫 처형: 낫을 끌었다가 크게 회수한다 (뒤로 길게 → 앞으로 훑기)
+        if (t < 0.42){ const k=t/0.42; swRot = 0.9*k; lunge = -3.2*k; }
+        else { const k=(t-0.42)/0.58; const e=1-Math.pow(1-k,2.4);
+          swRot = 0.9-2.5*e; lunge = -3.2+7.4*e; smear = Math.sin(k*Math.PI); }
+      } else if (o.motion === 'beat'){
+        // 박자 타격: 박에 맞춰 몸이 크게 튄다 (위아래 바운스가 크다)
+        const k2 = 1-t;
+        swRot = Math.sin(k2*Math.PI)* -1.5;
+        lunge = Math.sin(k2*Math.PI)*4.2;
+        lunY = -Math.abs(Math.sin(k2*Math.PI*2))*2.6;
+        smear = Math.sin(k2*Math.PI)*0.9;
       } else {
         // 근접 참격: 무릎을 낮춰 크게 치켜들었다 몸째 실어 내리벤다 — 어깨축 -103° 풀 스윙
         if (t < 0.22){ const k=t/0.22; const e=1-(1-k)*(1-k); swRot = 0.62*e; lunge = -1.8*e; lunY = 1.4*e; }
@@ -15143,6 +15195,7 @@ import { FX } from "./fx.js";
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
       atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
       satPose: player.satPose, chargePose: player.chargePose,
+      motion: player.atkMotion,        // v6.112 엔진별 모션 프로필
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
     });
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
