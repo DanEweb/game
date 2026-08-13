@@ -566,9 +566,6 @@ import { FX } from "./fx.js";
     const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
     orbBtn.style.display = on ? 'flex' : 'none';
     if (on){
-      const r = dashBtn.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
-      orbBtn.style.right = '20px';
-      orbBtn.style.bottom = Math.round(wr.bottom - r.top + 10) + 'px';
       const om = SAT_ORBIT[player.satOrbit||1];
       orbBtn.textContent = om.r < 1 ? '◉' : om.r > 1 ? '◎' : '○';   // 밀착·표준·확장을 아이콘으로 구분
     }
@@ -4064,9 +4061,10 @@ import { FX } from "./fx.js";
       evName:'궤도 레이저', evDesc:'위성 4기 + 궤도 링 전체가 레이저가 됩니다',
       lvDesc:['','위성 +1','타격 피해 +45%','위성 +1','타격 피해 강화'],
       dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,33][w.lv-1]),
-      count:(w)=> (w.evolved ? 4 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      // v6.87 시작 개수 1 → 2: 위성 1기로는 적과 스치는 빈도가 너무 낮아 처치가 안 됐다 (접촉 기회 = 화력)
+      count:(w)=> (w.evolved ? 5 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
       orbitR:(w)=> (w.evolved ? 62 : 48),
-      spin:(w)=> (w.evolved ? 4.2 : 3.2)
+      spin:(w)=> (w.evolved ? 6.4 : 5.0)   // v6.87 접촉 빈도가 곧 화력 — 회전 대폭 상향
     },
     arrow: {
       name:'화살', desc:'전방 부채꼴로 관통 화살을 발사',
@@ -6149,6 +6147,10 @@ import { FX } from "./fx.js";
     pixBurst(e.x, e.y, e.elite?14:(e.r>18?10:7), 120+e.r*3.5,
       '#'+deathTint.toString(16).padStart(6,'0'), e.r>18 ? 2.2 : 1.6);
     hitStop(e.elite ? 0.07 : 0.02);                     // 처치 히트스톱 — 손맛의 핵심
+    // v6.87 위성 상시 메리트: 처치할 때마다 궤도가 잠깐 빨라진다 (최대 1.6배, 서서히 감쇠)
+    if (player.weapons && player.weapons.some(w=>w.key==='satellite')){
+      player.satRush = Math.min(1.6, (player.satRush||1) + 0.06);
+    }
     // v6.77 근접 기동 보상: 썰수록 대시가 빨리 돌아온다 → 도망가는 보물 골렘도 따라잡을 수 있다
     if (player.meleeStance && player.dashCd > 0) player.dashCd = Math.max(0, player.dashCd - 0.35);
     // 혈마 혈폭: 처치 시 핏빛 연쇄 폭발
@@ -9775,7 +9777,7 @@ import { FX } from "./fx.js";
         const orbitR = def.orbitR(w) * om.r;
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1)
                   * om.dmg * (burst ? 1.35 : 1);
-        w.angle += dt * def.spin(w) * om.spin * (burst ? 1.7 : 1);
+        w.angle += dt * def.spin(w) * om.spin * (burst ? 1.7 : 1) * (player.satRush||1);
         for (let s=0;s<n;s++){
           const a = w.angle + (Math.PI*2/n)*s;
           satPos.push({ x:player.x+Math.cos(a)*orbitR, y:player.y+Math.sin(a)*orbitR, ev:w.evolved||burst, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
@@ -11870,6 +11872,19 @@ import { FX } from "./fx.js";
       if (player.dragField>0 && Math.hypot(p.x-player.x, p.y-player.y) < 160) dragMul = 1 - player.dragField;
       p.x += p.vx*dt*dragMul; p.y += p.vy*dt*dragMul; p.life -= dt;
       if (p.life<=0 || Math.hypot(p.x-player.x,p.y-player.y) > Math.hypot(W,H)*0.8){ hostileShots.splice(i,1); continue; }
+      // v6.87 위성 요격 — 위성에 닿은 적 탄은 격추된다. 조작 없이 상시 작동하는 '방어막'이
+      // 위성 계열의 상시 메리트: 근접은 베고(조작), 위성은 자동으로 막는다(구조)
+      if (satPos.length){
+        let shot = false;
+        for (const sp of satPos){
+          if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11)){
+            pixBurst(p.x, p.y, 4, 100, '#7ec4e8', 1.4);
+            satCharge(0.02);
+            shot = true; break;
+          }
+        }
+        if (shot){ hostileShots.splice(i,1); continue; }
+      }
       const dd = Math.hypot(p.x-player.x, p.y-player.y);
       if (dd < p.r+player.r && player.invuln<=0){
         hostileShots.splice(i,1);
@@ -12009,6 +12024,7 @@ import { FX } from "./fx.js";
     player._auraBeat = 0;   // v6.79 역장 타격 비트는 그 프레임에만 유효
 
     if (player.satBurstT>0) player.satBurstT -= dt;   // v6.85 궤도 해방 지속
+    if (player.satRush>1) player.satRush = Math.max(1, player.satRush - dt*0.35);   // v6.87 처치 가속 감쇠
     if (shake>0) shake = Math.max(0, shake - dt*30);
 
     updateHud();

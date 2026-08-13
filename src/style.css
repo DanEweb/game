@@ -439,6 +439,8 @@
     .skillChip{ width:54px; height:54px; font-size:15px; }
     #dashBtn{ width:84px; height:84px; font-size:12px; right:14px; bottom:calc(16px + env(safe-area-inset-bottom)); }
     #ultBtn{ width:64px; height:64px; right:24px; bottom:calc(112px + env(safe-area-inset-bottom)); }
+    /* v6.87 궤도 버튼: Q 버튼 바로 위 — 겹침 해소 */
+    #orbBtn{ width:56px; height:56px; right:28px; bottom:calc(186px + env(safe-area-inset-bottom)); }
     #skillBar{ left:10px; right:auto; transform:none; bottom:calc(8px + env(safe-area-inset-bottom)); }
     #mobMenu{ left:10px; bottom:calc(72px + env(safe-area-inset-bottom)); }
     #keyHints{ display:none !important; }
