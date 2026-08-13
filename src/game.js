@@ -6681,6 +6681,19 @@ import { FX } from "./fx.js";
   window.__qaGod = ()=>{
     try { player.qaGod = true; player.hp = player.maxHp; return 'god'; } catch(e){ return 'ERR '+String(e); }
   };
+  // v6.137 QA: **레벨업 카드 치우기**. 카드가 떠 있으면 `state==='levelup'`이라 게임이 멈추고,
+  //  그 상태에서 `KeyR`은 소비기가 아니라 **리롤**이 된다 — 그래서 "궁수 R이 아무 반응 없음"이라는
+  //  가짜 결론이 두 번 나왔다(실제로는 각성 창이 정상 작동, 69→105 dps).
+  //  ⚠ R·스킬을 검증하기 전에는 반드시 이걸 먼저 부를 것
+  window.__qaCards = async ()=>{
+    for (let i=0;i<40;i++){
+      const c = document.getElementById('cards');
+      if (!c || getComputedStyle(c).display === 'none') return 'clear';
+      window.dispatchEvent(new KeyboardEvent('keydown',{code:'Digit1',bubbles:true}));
+      await new Promise(x=>setTimeout(x,120));
+    }
+    return 'still open';
+  };
   window.__qaBoss = (frac, aliveT)=>{
     try {
       bosses.forEach(b=>{ if (frac!==undefined) b.hp=b.maxHp*frac; if (aliveT!==undefined) b.aliveT=aliveT; });
@@ -10947,6 +10960,11 @@ import { FX } from "./fx.js";
       w.cd -= dt;
       if (w.cd > 0) continue;
       w.cd = def.baseCd(w) * player.cdr / (rate * (w.__rate||1));
+      //  v6.137 **원거리 각성 창** — 지금까지 `surgeT`는 `meleeAutoMult()` 한 곳에서만 읽혔다.
+      //   원거리 8직업은 R를 쓰고 '각성 3초' 문구까지 띄우는데 **효과가 0**이었다.
+      //   ⚠ `audit.mjs`는 이걸 못 잡는다 — 스탯은 '읽히고' 있고, 다만 **쓰는 계열이 안 읽을** 뿐이다.
+      //   근접은 평타 피해로 보상받으므로, 원거리는 **연사**로 보상한다 (계열마다 각성의 모양이 다르다)
+      if ((player.surgeT||0) > 0 && !MELEE_ENGINE[w.key]) w.cd /= 1.45;
 
       if (w.key==='missile'){
         const t = nearestTarget();
