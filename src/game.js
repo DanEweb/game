@@ -1899,7 +1899,7 @@ import { FX } from "./fx.js";
     });
     // v6.20: 32직업 개별 소성단 — 직업 성단 키스톤 너머, 그 직업으로 플레이할 때만 발동하는 전용 별
     const CS = {
-      rusher:{n:'맹진',d:'[돌격병 전용] 피해 +8%, 이속 +5%',f:(p)=>{p.dmgMult*=1.08;p.speed*=1.05;}},
+      rusher:{n:'맹진(猛進)',d:'[창기병 전용] 피해 +8%, 이속 +5%',f:(p)=>{p.dmgMult*=1.08;p.speed*=1.05;}},
       paladin:{n:'서약의 방패',d:'[성기사 전용] 받는 피해 -8%, 재생 +0.4',f:(p)=>{p.dmgTaken*=0.92;p.regen+=0.4;}},
       cheol:{n:'철혈의 심장',d:'[철혈 전용] 최대체력 +15%, 가시 +30%',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.15);p.hp=p.maxHp;p.thorns=(p.thorns||0)+0.3;}},
       exhero:{n:'전성기의 기억',d:'[전직 용사 전용] 피해 +10%, 경험치 +8%',f:(p)=>{p.dmgMult*=1.1;p.xpMult=(p.xpMult||1)*1.08;}},
@@ -2024,7 +2024,7 @@ import { FX } from "./fx.js";
           manager:[{sn:'결재 이중화',kn:'전결 남발'},{sn:'업무 과부하',kn:'권한 폭주'},{sn:'칼퇴 본능',kn:'시간 외 수당'}],
           voidc:[{sn:'공허 영창',kn:'이중 균열'},{sn:'심연 친화',kn:'공허 폭주'},{sn:'차원 감각',kn:'시공 왜곡'}],
           commander:[{sn:'예비 편대',kn:'전 부대 일제사격'},{sn:'화망 구성',kn:'집중 포화'},{sn:'긴급 재배치',kn:'전술 시간표'}],
-          rusher:[{sn:'돌파 기세',kn:'전선 붕괴'},{sn:'철조망 갑주',kn:'참호의 왕'},{sn:'전장의 눈',kn:'섬멸 명령'}],
+          rusher:[{sn:'돌파 기세',kn:'전선 붕괴'},{sn:'마갑(馬甲)',kn:'철기의 왕'},{sn:'기수의 눈',kn:'돌격 명령'}],
           paladin:[{sn:'성스러운 담금질',kn:'심판의 낙인'},{sn:'수호 서약',kn:'축성된 성벽'},{sn:'단죄의 시선',kn:'천벌 선고'}],
           cheol:[{sn:'끓는 혈기',kn:'혈철 폭류'},{sn:'강철 비늘',kn:'불괴의 철갑'},{sn:'파쇄 본능',kn:'뼈를 부수는 자'}],
           exhero:[{sn:'녹슨 검의 기억',kn:'용사의 잔광'},{sn:'낡은 방패의 긍지',kn:'전설의 재현'},{sn:'노장의 감각',kn:'마지막 필살기'}],
@@ -2056,7 +2056,7 @@ import { FX } from "./fx.js";
         };
         // 시그니처 키스톤: 갈래 0의 키스톤은 직업마다 이름·효과가 완전히 다르다 (정체성)
         const SIGKEY = {
-          rusher:{n:'브레이크 없는 돌격',d:'대시 학살 돌진 + 대시 쿨 -20%',f:(p)=>{p.bloodRush=true;p.dashCdMax*=0.8;}},
+          rusher:{n:'멈추지 않는 기병',d:'대시 학살 돌진 + 대시 쿨 -20%',f:(p)=>{p.bloodRush=true;p.dashCdMax*=0.8;}},
           paladin:{n:'불침의 성벽',d:'받는 피해 -12%, 피격 시 신성 폭발',f:(p)=>{p.dmgTaken*=0.88;p.holyRet=true;}},
           cheol:{n:'혈철 순환',d:'가시 120% + 피격 시 재생 가속(재생 +1)',f:(p)=>{p.thorns=Math.max(p.thorns||0,1.2);p.regen+=1;}},
           exhero:{n:'전성기 재림',d:'피해 +14%, 경험치 +10%',f:(p)=>{p.dmgMult*=1.14;p.xpMult=(p.xpMult||1)*1.1;}},
@@ -2096,7 +2096,7 @@ import { FX } from "./fx.js";
         };
         // 시그니처 2호 (갈래 1): 32직업 고유 효과 — 갈래 1 키스톤도 직업마다 완전히 다르다
         const SIGKEY2 = {
-          rusher:{d:'돌진 경로에 화상 (반사 +50%, 피해 +6%)',f:(p)=>{p.thorns=(p.thorns||0)+0.5;p.dmgMult*=1.06;}},
+          rusher:{d:'말발굽 자리에 불길 (반사 +50%, 피해 +6%)',f:(p)=>{p.thorns=(p.thorns||0)+0.5;p.dmgMult*=1.06;}},
           paladin:{d:'수호 성역 (받는 피해 -10%, 회복 +20%)',f:(p)=>{p.dmgTaken*=0.9;p.healMult*=1.2;}},
           cheol:{d:'철벽 요새 (최대체력 +18%, 반사 +40%)',f:(p)=>{p.maxHp=Math.round(p.maxHp*1.18);p.hp=p.maxHp;p.thorns=(p.thorns||0)+0.4;}},
           exhero:{d:'노장의 관록 (받는 피해 -8%, 피해 +8%)',f:(p)=>{p.dmgTaken*=0.92;p.dmgMult*=1.08;}},
@@ -2136,7 +2136,7 @@ import { FX } from "./fx.js";
         };
         // 시그니처 3호 (갈래 2): 마지막 키스톤까지 32직업 전부 고유 — 웹의 세 극의 완성
         const SIGKEY3 = {
-          rusher:{d:'멈추지 않는 전차 (이속 +8%, 피해 +10%)',f:(p)=>{p.speed*=1.08;p.dmgMult*=1.1;}},
+          rusher:{d:'멈추지 않는 철기 (이속 +8%, 피해 +10%)',f:(p)=>{p.speed*=1.08;p.dmgMult*=1.1;}},
           paladin:{d:'천벌 선고 (피해 +12%, 발동 +6%p)',f:(p)=>{p.dmgMult*=1.12;p.procBonus=(p.procBonus||0)+0.06;}},
           cheol:{d:'뼈를 부수는 자 (피해 +14%, 처형 +5%p)',f:(p)=>{p.dmgMult*=1.14;p.execThresh=Math.min(0.6,(p.execThresh||0)+0.05);}},
           exhero:{d:'마지막 필살기 (전용기 이중 시전)',f:(p)=>{p.ultEcho=true;}},
@@ -2734,8 +2734,8 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.critChance=0.20; p.critMult=2.9; p.rateMult*=0.38; p.projMult*=2.9; p.recoilScale=3; p.rangeDmg=true; }
     },
     rusher: {
-      name:'돌격병', tag:'돌진 베기',
-      desc:'[역장]으로 시작. 이동 +20%, 처치 시 회복, 대시가 곧 공격 — 돌파 폭발 기본 장착. [중갑 가능]',
+      name:'창기병', tag:'기마 돌격',
+      desc:'[돌격창]으로 시작. 말 위에서 랜스로 꿰뚫는다 — 이동 +20%, 처치 시 회복, 대시로 관통할수록 돌파가 찬다. [중갑 가능]',
       weapon:'charge',   // v6.96 역장 → 돌진 충격. '대시가 곧 공격'이 실제 엔진이 된다
       // v6.101 기본 dashBlast 제거 — 돌진 충격 엔진이 이미 경로 피해를 담당한다.
       // 둘이 겹치면 '지나간 자리에서 파동이 터지는' 그림이 되어 돌격 느낌이 사라진다 (테크로는 여전히 획득 가능)
@@ -3028,8 +3028,8 @@ import { FX } from "./fx.js";
       strengthen:(p)=>{ p.ultMult+=1; p.ultCooldownMax=Math.max(2.5,p.ultCooldownMax-0.6); }
     },
     rusher: {
-      key:'ult_whirl', name:'회전베기', desc:'4초마다 검을 휘둘러 주변 전체를 베어냅니다.',
-      strengthenDesc:'베기 피해·범위 증가',
+      key:'ult_whirl', name:'선회 창격', desc:'4초마다 말을 돌려 창으로 사방을 훑어냅니다.',
+      strengthenDesc:'창격 피해·범위 증가',
       unlock:(p)=>{ p.ultReady=true; p.ultCooldownMax=4; p.ultCooldown=1; p.ultDamage=22; p.ultRadius=90; },
       strengthen:(p)=>{ p.ultDamage+=10; p.ultRadius+=15; }
     },
@@ -3130,8 +3130,9 @@ import { FX } from "./fx.js";
       { key:'ct_sn2', name:'철갑탄', desc:(m)=>'투사체 피해 +'+R(8*m)+'%, 관통 +1', apply:(p,m)=>{ p.projMult*=1+0.08*m; p.pierce+=1; } },
     ],
     rusher: [
-      { key:'ct_ru1', name:'전장의 광기', desc:(m)=>'처치 시 회복 +'+Math.max(1,R(m))+', 이동속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(m)); p.speed*=1+0.04*m; } },
-      { key:'ct_ru2', name:'역장 증폭', desc:(m)=>'역장 초당 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.auraBoost=(p.auraBoost||1)*(1+0.15*m); } },
+      { key:'ct_ru1', name:'군마의 광기', desc:(m)=>'처치 시 회복 +'+Math.max(1,R(m))+', 이동속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(m)); p.speed*=1+0.04*m; } },
+      // v6.118 '역장 증폭'은 역장을 쓰지 않는 창기병에게 아무 일도 하지 않았다 — 실제로 도는 값으로 교체
+      { key:'ct_ru2', name:'창날 연마', desc:(m)=>'피해 +'+R(9*m)+'%, 대시 쿨 -'+R(5*m)+'%', apply:(p,m)=>{ p.dmgMult*=1+0.09*m; p.dashCdMax*=1-0.05*m; } },
     ],
     archer: [
       { key:'ct_ar1', name:'명사수', desc:(m)=>'투사체 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.projMult*=1+0.10*m; } },
@@ -3216,10 +3217,10 @@ import { FX } from "./fx.js";
       { n:'데드아이', lv:25, cd:26, d:'적 8명을 즉시 저격', fx:()=>{ let n=0; for (let i=enemies.length-1;i>=0&&n<8;i--,n++){ const e=enemies[i]; const d2=40*player.dmgMult*player.critMult; e.hp-=d2; addDmgNum(e.x,e.y,d2,true); burst(e.x,e.y,6,140); if(e.hp<=0) defeatEnemy(i); } SFX.play('boom'); } },
     ],
     rusher: [
-      { n:'돌격', lv:3, cd:9, d:'전방 돌진 + 경로 폭발', fx:()=>{ tryDashFree(); dashExplosion(player.x,player.y,30); } },
-      { n:'전투 함성', lv:8, cd:15, d:'4초간 피해 +25%', fx:()=>{ tbuff('dmg',1.25,4); addTextNum(player.x,player.y-26,'함성!'); SFX.play('warn'); } },
-      { n:'피의 소용돌이', lv:15, cd:13, d:'주변을 베고 처치당 회복', fx:()=>{ const before=killCount; skNova(150,26); const k=killCount-before; if(k>0){ player.hp=Math.min(player.maxHp,player.hp+k*3*player.healMult); } } },
-      { n:'무모함', lv:25, cd:28, d:'5초간 받는 피해 -70%', fx:()=>{ tbuff('dr',0.3,5); addTextNum(player.x,player.y-26,'무모함!'); } },
+      { n:'기병 돌격', lv:3, cd:9, d:'말을 몰아 앞을 꿰뚫는다', fx:()=>{ tryDashFree(); dashExplosion(player.x,player.y,30); } },
+      { n:'진군 나팔', lv:8, cd:15, d:'4초간 피해 +25%', fx:()=>{ tbuff('dmg',1.25,4); addTextNum(player.x,player.y-26,'진군!'); SFX.play('warn'); } },
+      { n:'선회 창격', lv:15, cd:13, d:'말을 돌려 사방을 훑고 처치당 회복', fx:()=>{ const before=killCount; skNova(150,26); const k=killCount-before; if(k>0){ player.hp=Math.min(player.maxHp,player.hp+k*3*player.healMult); } } },
+      { n:'불퇴전(不退轉)', lv:25, cd:28, d:'5초간 받는 피해 -70%', fx:()=>{ tbuff('dr',0.3,5); addTextNum(player.x,player.y-26,'불퇴전!'); } },
     ],
     archer: [
       { n:'관통 사격', lv:3, cd:8, d:'초관통 화살 3연발', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; for(let k=-1;k<=1;k++) projectiles.push({x:player.x,y:player.y,vx:Math.cos(a+k*0.12)*560,vy:Math.sin(a+k*0.12)*560,r:4,damage:18*player.dmgMult,crit:false,pierce:12,life:1.1,arrow:true}); SFX.play('shoot'); } },
@@ -3380,10 +3381,10 @@ import { FX } from "./fx.js";
                 { n:'레인저', d:'이동 +10%, 공속 +8%', fx:(p)=>{ p.speed*=1.1; p.rateMult*=1.08; } },
                 { n:'헤비 배럴', d:'투사체 피해 +15%, 관통 +1', fx:(p)=>{ p.projMult*=1.15; p.pierce+=1; } },
                 { n:'탄도학자', d:'⚙ 관통을 다한 탄환이 근처 적에게 도탄한다 (피해 85%) + 관통 +1', fx:(p)=>{ p.ricochet=true; p.pierce+=1; } } ],
-    rusher:   [ { n:'버서커', d:'피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; } },
-                { n:'뱅가드', d:'이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; } },
-                { n:'수호기사', d:'받는 피해 -12%, 체력 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.15); } },
-                { n:'글래디에이터', d:'치명 확률 +12%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); } } ],
+    rusher:   [ { n:'랜서', d:'🐎 군마 · 피해 +15%, 흡혈 +2', fx:(p)=>{ p.dmgMult*=1.15; p.lifesteal+=2; p.mountKind='horse'; } },
+                { n:'뱅가드', d:'🐎 군마 · 이동 +12%, 대시 쿨 -15%', fx:(p)=>{ p.speed*=1.12; p.dashCdMax*=0.85; p.mountKind='horse'; } },
+                { n:'캐터프랙트', d:'🛡 마갑마로 갈아탄다 · 받는 피해 -12%, 체력 +15%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.15); p.mountKind='armored'; } },
+                { n:'투기창사', d:'🐎 군마 · 치명 확률 +12%', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.12); p.mountKind='horse'; } } ],
     archer:   [ { n:'헌터', d:'공속 +12%, 이동 +6%', fx:(p)=>{ p.rateMult*=1.12; p.speed*=1.06; } },
                 { n:'마크스맨', d:'치명 +8%, 관통 +2', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.08); p.pierce+=2; } },
                 { n:'와일드헌터', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
@@ -3495,10 +3496,10 @@ import { FX } from "./fx.js";
                 { n:'스핏파이어', d:'공속 +16%', fx:(p)=>{ p.rateMult*=1.16; } },
                 { n:'대물 저격수', d:'보스 피해 +15%, 관통 +1', fx:(p)=>{ p.bossDmg*=1.15; p.pierce+=1; } },
                 { n:'고스트 스나이퍼', d:'회피 +10%, 이동 +8%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.1); p.speed*=1.08; } } ],
-    rusher:   [ { n:'블러드 나이트', d:'흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; } },
-                { n:'아이언 월', d:'받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); } },
-                { n:'드라군', d:'⚙ 대시가 창격 돌진이 된다 — 경로의 적을 꿰뚫어 피해 + 이속 +12%', fx:(p)=>{ p.speed*=1.12; p.dashRam=true; p.dashBlast=(p.dashBlast||20)+15; } },
-                { n:'슬레이어', d:'치명 +10%, 처형 임계 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
+    rusher:   [ { n:'블러드 랜서', d:'🐎 군마 · 흡혈 +2, 피해 +10%', fx:(p)=>{ p.lifesteal+=2; p.dmgMult*=1.1; p.mountKind='horse'; } },
+                { n:'철기(鐵騎)', d:'🛡 마갑마 · 받는 피해 -12%, 체력 +12%', fx:(p)=>{ p.dmgTaken*=0.88; p.maxHp=Math.round(p.maxHp*1.12); p.mountKind='armored'; } },
+                { n:'드라군', d:'🐉 비룡을 탄다 — 대시가 창격 돌진이 되어 경로의 적을 꿰뚫는다 + 이속 +12%', fx:(p)=>{ p.speed*=1.12; p.dashRam=true; p.dashBlast=(p.dashBlast||20)+15; p.mountKind='wyvern'; } },
+                { n:'임페일러', d:'🐎 군마 · 치명 +10%, 처형 임계 +4%p', fx:(p)=>{ p.critChance=Math.min(0.85,p.critChance+0.1); p.execThresh=Math.min(0.35,p.execThresh+0.04); } } ],
     archer:   [ { n:'보우마스터', d:'공속 +14%, 화살 +1', fx:(p)=>{ p.rateMult*=1.14; } },
                 { n:'크로스보우 마스터', d:'관통 +2, 투사체 +10%', fx:(p)=>{ p.pierce+=2; p.projMult*=1.1; } },
                 { n:'스피릿 아처', d:'원소 발동 +8%p', fx:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; } },
@@ -3569,9 +3570,9 @@ import { FX } from "./fx.js";
     sniper:   [ { n:'신살자(神殺)', d:'보스 피해 +25% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.25+0.004*rc; } },
                 { n:'제로 디스턴스', d:'치명 배율 +1.0', fx:(p,rc)=>{ p.critMult+=1.0+0.01*Math.min(20,rc); } },
                 { n:'신궁(神弓)', d:'공속 +15%, 이속 +10% (묵직함 완화)', fx:(p,rc)=>{ p.rateMult*=1.15; p.speed*=1.1; } } ],
-    rusher:   [ { n:'워로드', d:'피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; } },
-                { n:'불사왕(不死王)', d:'체력 +30%, 부활 +1', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.reviveLeft+=1; } },
-                { n:'스톰 로드', d:'이속 +15%, 대시 쿨 -20%', fx:(p,rc)=>{ p.speed*=1.15; p.dashCdMax*=0.8; } } ],
+    rusher:   [ { n:'창기대장(槍騎大將)', d:'🛡 마갑마 · 피해 +22% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.22+0.004*rc; p.mountKind='armored'; } },
+                { n:'불사왕(不死王)', d:'💀 해골마를 타고 돌아온다 · 체력 +30%, 부활 +1', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.reviveLeft+=1; p.mountKind='skeletal'; } },
+                { n:'드래곤 랜서', d:'🐉 비룡 · 이속 +15%, 대시 쿨 -20%', fx:(p,rc)=>{ p.speed*=1.15; p.dashCdMax*=0.8; p.mountKind='wyvern'; } } ],
     archer:   [ { n:'애로우 템페스트', d:'공속 +20% + 공명', fx:(p,rc)=>{ p.rateMult*=1.2+0.003*rc; } },
                 { n:'성궁(星弓)', d:'관통 +3, 투사체 +15%', fx:(p,rc)=>{ p.pierce+=3; p.projMult*=1.15; } },
                 { n:'엘븐 킹', d:'원소 발동 +12%p', fx:(p,rc)=>{ p.procBonus=(p.procBonus||0)+0.12; } } ],
@@ -3932,8 +3933,8 @@ import { FX } from "./fx.js";
                 { n:'무결성', d:'받는 피해 -15%, 방벽 즉시 충전', fx:(p)=>{ p.dmgTaken*=0.85; p.shieldReady=true; if(!p.shieldCdMax) p.shieldCdMax=12; } } ],
     sniper:   [ { n:'일격의 화신', d:'치명 배율 +0.8', fx:(p)=>{ p.critMult+=0.8; } },
                 { n:'유령 사수', d:'회피 +12%, 공속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); p.rateMult*=1.1; } } ],
-    rusher:   [ { n:'전신(戰神)', d:'피해 +25% / 받는 피해 +8%', fx:(p)=>{ p.dmgMult*=1.25; p.dmgTaken*=1.08; } },
-                { n:'불사조', d:'부활 +1, 흡혈 +2', fx:(p)=>{ p.reviveLeft+=1; p.lifesteal+=2; } } ],
+    rusher:   [ { n:'군신(軍神)의 창', d:'🐉 비룡 · 피해 +25% / 받는 피해 +8%', fx:(p)=>{ p.dmgMult*=1.25; p.dmgTaken*=1.08; p.mountKind='wyvern'; } },
+                { n:'불사조 기수', d:'🔥 불사조를 탄다 · 부활 +1, 흡혈 +2', fx:(p)=>{ p.reviveLeft+=1; p.lifesteal+=2; p.mountKind='phoenix'; } } ],
     archer:   [ { n:'바람의 사도', d:'공속 +20%, 이동 +10%', fx:(p)=>{ p.rateMult*=1.2; p.speed*=1.1; } },
                 { n:'별을 쏘는 자', d:'관통 +3, 투사체 피해 +12%', fx:(p)=>{ p.pierce+=3; p.projMult*=1.12; } } ],
     ninja:    [ { n:'그림자 그 자체', d:'회피 +15%, 대시 무적 +0.2초', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.15); p.dashInvuln+=0.2; } },
@@ -4145,10 +4146,10 @@ import { FX } from "./fx.js";
     },
     // v6.96 근접 엔진 2호: 돌진 충격 — 자동 발사가 없다. 대시가 곧 공격이며, 레벨이 오르면 더 자주 돌진한다
     charge: {
-      name:'돌진 충격', desc:'총검으로 앞을 찌르며 파고든다 — 대시로 꿰뚫을수록 돌파가 빨리 찬다. 만충 시 R로 파쇄 돌격',
-      evName:'돌진 충격 · 파쇄 돌격', evDesc:'경로가 넓어지고 지나간 자리가 폭발합니다',
+      name:'돌격창', desc:'말 위에서 랜스로 앞을 꿰뚫는다 — 대시로 관통할수록 돌파가 빨리 찬다. 만충 시 R로 파쇄 돌격',
+      evName:'돌격창 · 천기(千騎)의 창', evDesc:'말이 더 크게 내달리고 지나간 자리가 폭발합니다',
       lvDesc:['','대시 쿨 -10%','피해 +38%','경로 확대·쿨 -18%','피해 강화'],
-      // v6.116 평타(총검 찌르기)를 얻었다 — 좁지만 앞으로 길다
+      // v6.116 평타(랜스 찌르기)를 얻었다 — 좁지만 앞으로 길다
       baseCd:(w)=> w.evolved ? 0.41 : 0.48,
       // v6.100 벤치 결과 반영: 25초 36킬로 타 직업(73~76)의 절반이었다.
       // 대시 쿨이 도는 동안 아무 공격도 못 하는 공백이 원인 — 한 방을 크게 올리고 쿨을 더 줄인다
@@ -4824,7 +4825,7 @@ import { FX } from "./fx.js";
     druid:['quake','rain','orbitb'], duelist:['lance','cross','snipe'],
   };
   const CGW_NAMES = {
-    rusher:['파성추','진각 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
+    rusher:['파성추','창격 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
     exhero:['녹슨 영광','전성기의 잔향','노장의 일섬'], madman:['광소곡','피보라','붉은 송곳'], monk:['백보권압','기의 파문','일념 관수'],
     archer:['바람 가르기','화살비','추적 살촉'], sniper:['제로인 탄도','산탄 제압','철갑 저격탄'], pilot:['공대지 레이저','플레어 살포','레일 피어서'],
     manager:['결재 도장 미사일','기각 폭풍','서류 폭격'], voidc:['심연 추적자','공허 방출','균열 낙하'], commander:['지원 포격 요청','탄막 지시','유도 신호탄'],
@@ -9738,7 +9739,7 @@ import { FX } from "./fx.js";
     frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', hint:'제 피를 깎아가며 빨리 찬다' },
     reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   hint:'약해진 적을 벨수록 크게 찬다' },
     cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
-    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'대시로 꿰뚫을수록 크게 찬다' },
+    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
   };
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
   let engineTicks = [];
@@ -14445,6 +14446,139 @@ import { FX } from "./fx.js";
     const q = (v)=> ('0'+Math.round(v).toString(16)).slice(-2);
     return '#'+q(A[0]+(B[0]-A[0])*t)+q(A[1]+(B[1]-A[1])*t)+q(A[2]+(B[2]-A[2])*t);
   }
+  // v6.119 탈것 — 옆모습. 로컬 좌표는 기수 기준(엉덩이 y≈3, 발 y≈12)이고 탈것은 그 아래를 채운다.
+  //  말이 말로 보이려면: 깊은 가슴 / 둥근 엉덩이 / 활처럼 휜 목 / 무릎·비절에서 두 번 꺾이는 다리
+  function drawMountVec(kind, walk, ink, bodyTone, tierC){
+    const gA = Math.sin(walk*1.15), gB = Math.sin(walk*1.15 + 2.2);
+    const flap = Math.sin(walk*1.6);
+    const bone = kind==='skeletal';
+    const fire = kind==='phoenix';
+    const wing = kind==='wyvern' || fire;
+    // 탈것 가죽은 기수 옷보다 어둡게 — 같은 톤이면 사람과 말이 한 덩어리로 뭉쳐 보인다
+    const hide = fire ? (tierC||'#c96a3f') : bone ? '#6d6f78' : mixHex(bodyTone, ink, 0.5);
+
+    // ── 뒤쪽(먼) 다리 두 개 — 흐리고 가늘게. 이것만으로 깊이가 생긴다
+    ctx.globalAlpha = 0.42; ctx.strokeStyle = ink; ctx.lineCap = 'round';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(-8.0, 10.0); ctx.lineTo(-10.4+gA*2.2, 15.2); ctx.lineTo(-9.0+gA*4.0, 20.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( 6.2, 10.0); ctx.lineTo( 7.6-gA*2.2, 15.2); ctx.lineTo( 6.4-gA*4.0, 20.6); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // ── 몸통: 어깨(가슴)에서 배로 내려갔다 엉덩이로 올라오는 하나의 덩어리
+    ctx.fillStyle = hide; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-13.0, 6.4);                                   // 엉덩이 위
+    ctx.quadraticCurveTo(-14.6, 12.6, -9.0, 13.8);            // 둥근 엉덩이
+    ctx.quadraticCurveTo(-2.0, 15.4, 4.2, 14.2);              // 배 (아래로 처진다)
+    ctx.quadraticCurveTo( 9.8, 13.2, 10.4, 7.6);              // 깊은 가슴
+    ctx.quadraticCurveTo( 8.6, 4.4, 2.0, 4.0);                // 기갑(어깨 등선)
+    ctx.quadraticCurveTo(-6.0, 3.6, -13.0, 6.4);              // 등 — 살짝 파인다
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // ── 목: 밑동이 굵고 위로 갈수록 좁아지는 활 모양
+    ctx.beginPath();
+    ctx.moveTo( 5.2, 4.2);
+    ctx.quadraticCurveTo(12.4, 1.8, 16.8, -1.4);              // 목덜미(볼록) — 낮고 앞으로
+    ctx.lineTo(18.2, 1.4);
+    ctx.quadraticCurveTo(14.0, 4.4, 10.2, 8.0);               // 목 앞(오목)
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // ── 머리: 이마에서 주둥이로 좁아지는 쐐기 + 아래턱
+    ctx.fillStyle = bone ? '#8b8d95' : ink;
+    ctx.beginPath();
+    ctx.moveTo(16.0, -2.4); ctx.lineTo(24.4, 1.4); ctx.lineTo(23.6, 4.0); ctx.lineTo(15.4, 1.6);
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 1.3; ctx.strokeStyle = ink;
+    ctx.beginPath(); ctx.moveTo(16.4,-2.2); ctx.lineTo(15.6,-5.4); ctx.stroke();   // 귀 두 개
+    ctx.beginPath(); ctx.moveTo(18.0,-1.6); ctx.lineTo(17.6,-4.6); ctx.stroke();
+
+    // ── 앞쪽(가까운) 다리 두 개 — 무릎·비절에서 두 번 꺾인다
+    ctx.strokeStyle = ink; ctx.lineWidth = 3.1;
+    ctx.beginPath(); ctx.moveTo(-9.4, 10.6);                                        // 뒷다리(비절이 뒤로)
+    ctx.lineTo(-12.2-gB*1.6, 15.4); ctx.lineTo(-10.0-gB*4.2, 20.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( 7.0, 10.6);                                        // 앞다리(무릎이 앞으로)
+    ctx.lineTo( 8.6+gB*1.6, 15.4); ctx.lineTo( 7.6+gB*4.2, 20.8); ctx.stroke();
+    ctx.lineWidth = 2.2; ctx.fillStyle = ink;                                        // 발굽
+    ctx.fillRect(-11.6-gB*4.2, 20.4, 3.4, 1.8);
+    ctx.fillRect( 6.2+gB*4.2, 20.4, 3.4, 1.8);
+
+    if (bone){
+      // 해골마 — 갈비뼈가 드러난다
+      ctx.globalAlpha = 0.85; ctx.lineWidth = 1.1; ctx.strokeStyle = '#e8e8ea';
+      for (let i=0;i<4;i++){
+        ctx.beginPath();
+        ctx.moveTo(-2.0+i*3.0, 5.2); ctx.quadraticCurveTo(-1.2+i*3.0, 10.4, -3.0+i*3.0, 13.4); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.strokeStyle = ink;
+    } else if (kind==='armored'){
+      // 마갑 — 목·가슴을 덮는 판금과 이마 뿔
+      ctx.fillStyle = mixHex(hide, '#e8e8ea', 0.22); ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(5.6, 4.6); ctx.quadraticCurveTo(12.6, 2.2, 16.4,-0.8);
+      ctx.lineTo(17.4, 1.2); ctx.quadraticCurveTo(13.0, 4.6, 10.0, 6.8);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(-4.0, 7.4, 6.2, 3.0, -0.06, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(18.2,-1.8); ctx.lineTo(21.4,-5.6); ctx.stroke();   // 이마 뿔
+    }
+
+    if (wing){
+      // 비룡·불사조 — 등 뒤로 펼쳐진 날개 (걷기 위상에 맞춰 퍼덕인다)
+      ctx.save();
+      // 날개는 몸보다 밝아야 한다 — 같은 어둠이면 등 뒤에 붙은 검은 판때기로 보인다
+      ctx.globalAlpha = fire ? 0.72 : 0.8;
+      ctx.fillStyle = fire ? (tierC||'#c96a3f') : mixHex(bodyTone, '#e8e8ea', 0.28);
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(-1.0, 4.6);
+      ctx.quadraticCurveTo(-12.0, -10.0 - flap*5.0, -22.0, -4.0 - flap*4.0);
+      ctx.quadraticCurveTo(-13.0, -3.0 - flap*2.0, -2.0, 6.0);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (!fire){                                                     // 비룡 — 날개 뼈대(지골)
+        ctx.globalAlpha = 0.9; ctx.lineWidth = 1.4;
+        for (let i=1;i<=3;i++){
+          ctx.beginPath(); ctx.moveTo(-1.5, 5.0);
+          ctx.lineTo(-6.0 - i*5.2, -8.0 - flap*4.4 + i*1.6); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    if (fire){
+      // 불사조 — 몸에서 불길이 피어오른다
+      ctx.globalAlpha = 0.5; ctx.fillStyle = tierC || '#e0a94f';
+      for (let i=0;i<5;i++){
+        const fx2 = -10 + i*5.2, fy2 = 4.2 - Math.abs(Math.sin(walk*1.4 + i))*4.4;
+        ctx.beginPath(); ctx.ellipse(fx2, fy2, 2.6, 4.0, 0, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── 갈기 / 꼬리
+    ctx.strokeStyle = bone ? '#9a9ca4' : ink;
+    ctx.globalAlpha = fire ? 0.9 : 0.78; ctx.lineWidth = 1.9;
+    for (let i=0;i<6;i++){
+      const t2 = i/5;
+      ctx.beginPath();
+      ctx.moveTo( 5.6 + t2*11.0, 3.8 - t2*5.4);
+      ctx.lineTo( 2.6 + t2*11.0 - gA*1.8, 1.4 - t2*5.0);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(-12.8, 6.0);
+    ctx.quadraticCurveTo(-20.0, 7.0 + gA*2.6, -18.6, 15.0 + gA*2.6);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // ── 안장 · 고삐 · 뱃대끈
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(-4.6, 4.2); ctx.lineTo(-3.8, 14.4); ctx.stroke();
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.moveTo(1.6, 3.4); ctx.quadraticCurveTo(10.0, 1.6, 18.4, 0.6); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.ellipse(-1.2, 3.6, 4.6, 1.7, -0.05, 0, Math.PI*2); ctx.fill();   // 안장
+  }
   function drawHumanoidVec(x, y, o){
     const s = o.scale||1;
     const face = o.face||1;
@@ -14467,7 +14601,7 @@ import { FX } from "./fx.js";
       : mixHex(MAP.key==='abyss' ? '#44454f' : '#5b5d69', o.tierC || '#767884', 0.42);
     // v6.73 공격 3박자: 예비동작(뒤로 젖힘) → 타격(런지 + 스윙 + 참격 잔상) → 복귀 — 계열별 모션 분기
     const atkN = o.atk||0;
-    let swRot = 0, lunge = 0, lunY = 0, smear = 0;
+    let swRot = 0, lunge = 0, lunY = 0, smear = 0, thrust = 0;   // v6.118 thrust = 창이 앞으로 뻗는 길이
     if (atkN > 0){
       const t = 1 - atkN;
       if (grp==='rng'){
@@ -14493,12 +14627,13 @@ import { FX } from "./fx.js";
         else { const k=(t-0.55)/0.45; const e=k*k*(3-2*k);        // 납도: 곧장 자세로 되돌아온다
           swRot = -1.7*(1-e); lunge = 3.8*(1-e); lunY = -0.9*(1-e); }
       } else if (o.motion === 'lunge'){
-        // 총검 찌르기: 팔을 당겼다가 몸째 앞으로 던진다 — 회전이 거의 없고 전진이 크다
-        if (t < 0.34){ const k=t/0.34; swRot = 0.28*k; lunge = -2.4*k; lunY = 0.5*k; }
-        else if (t < 0.52){ const k=(t-0.34)/0.18; const e=1-Math.pow(1-k,3);
-          swRot = 0.28-0.5*e; lunge = -2.4+9.4*e; lunY = 0.5-0.9*e; smear = Math.sin(k*Math.PI); }
-        else { const k=(t-0.52)/0.48; const e=k*k*(3-2*k);
-          swRot = -0.22*(1-e); lunge = 7.0*(1-e); lunY = -0.4*(1-e); }
+        // 랜스 찌르기: 창을 뒤로 당겨 겨누었다가(예비) **창을 앞으로 내지른다**.
+        //  몸은 조금만 따라간다 — 몸이 크게 밀리면 '찌르기'가 아니라 '몸통 박치기'로 읽힌다
+        if (t < 0.36){ const k=t/0.36; swRot = 0.16*k; lunge = -1.5*k; thrust = -3.4*k; }        // 당긴다
+        else if (t < 0.5){ const k=(t-0.36)/0.14; const e=1-Math.pow(1-k,3);                     // 내지른다
+          swRot = 0.16-0.24*e; lunge = -1.5+3.6*e; thrust = -3.4+15.5*e; smear = Math.sin(k*Math.PI); }
+        else { const k=(t-0.5)/0.5; const e=k*k*(3-2*k);                                         // 거둔다
+          swRot = -0.08*(1-e); lunge = 2.1*(1-e); thrust = 12.1*(1-e); }
       } else if (o.motion === 'heavy'){
         // 후려치기: 크게 치켜들고 **한 박자 늦게** 내려찍는다 (예비가 가장 길다)
         if (t < 0.55){ const k=t/0.55; const e=1-(1-k)*(1-k); swRot = 1.15*e; lunge = -2.6*e; lunY = 2.2*e; }
@@ -14569,12 +14704,25 @@ import { FX } from "./fx.js";
       // 뒷팔 — 몸 뒤에서 걷기에 맞춰 흔들린다
       ctx.lineWidth = 2.4;
       ctx.beginPath(); ctx.moveTo(-3,-4); ctx.lineTo(-5-swing*0.5, 2); ctx.stroke();
+      if (o.mount){
+        drawMountVec(o.mount, walk, ink, bodyTone, o.tierC);
+        // 기수 다리 — 안장에 걸터앉아 등자를 밟는다 (허벅지는 앞아래, 종아리는 거의 수직)
+        ctx.strokeStyle = ink; ctx.fillStyle = ink;
+        ctx.lineWidth = 3.0;
+        ctx.beginPath(); ctx.moveTo(0.2, 3.0); ctx.lineTo(5.6, 6.6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(5.6, 6.6); ctx.lineTo(5.0, 11.6); ctx.stroke();
+        ctx.fillRect(3.2, 11.4, 4.2, 2.2);
+        ctx.lineWidth = 1.3;                                        // 등자
+        ctx.beginPath(); ctx.moveTo(2.2, 7.6); ctx.lineTo(4.4, 11.6); ctx.stroke();
+      } else {
       // 다리 — 볼륨 있는 캡슐 + 부츠
       ctx.lineWidth = 3.2;
       ctx.beginPath(); ctx.moveTo(-1.5,3); ctx.lineTo(-2.4+swing, 10.6); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(1.5,3); ctx.lineTo(2.4-swing, 10.6); ctx.stroke();
       ctx.fillRect(-4.4+swing, 10.2, 4.2, 2.5);
       ctx.fillRect(0.4-swing, 10.2, 4.2, 2.5);
+      }
+      ctx.strokeStyle = ink; ctx.fillStyle = ink;
       // 몸통 — 계열별 실루엣 (옷감 톤 + 잉크 윤곽)
       ctx.fillStyle = bodyTone;
       ctx.strokeStyle = ink;
@@ -14692,12 +14840,22 @@ import { FX } from "./fx.js";
         ctx.save();
         ctx.strokeStyle = o.tierC || ink;
         ctx.lineCap = 'round';
-        ctx.globalAlpha = 0.4*smear;
-        ctx.lineWidth = 3.2;
-        ctx.beginPath(); ctx.arc(3,-3,13.5,-1.15,0.75); ctx.stroke();
-        ctx.globalAlpha = 0.16*smear;
-        ctx.lineWidth = 6.5;
-        ctx.beginPath(); ctx.arc(3,-3,10.5,-0.95,0.6); ctx.stroke();
+        if (o.motion === 'lunge'){
+          // v6.118 찌르기 잔상 — 호가 아니라 **창이 지나간 직선**이 남아야 찌르기로 읽힌다
+          ctx.globalAlpha = 0.42*smear;
+          ctx.lineWidth = 3.0;
+          ctx.beginPath(); ctx.moveTo(6,-3.2); ctx.lineTo(29+thrust,-9.2); ctx.stroke();
+          ctx.globalAlpha = 0.15*smear;
+          ctx.lineWidth = 8.0;
+          ctx.beginPath(); ctx.moveTo(10,-4.0); ctx.lineTo(27+thrust,-8.8); ctx.stroke();
+        } else {
+          ctx.globalAlpha = 0.4*smear;
+          ctx.lineWidth = 3.2;
+          ctx.beginPath(); ctx.arc(3,-3,13.5,-1.15,0.75); ctx.stroke();
+          ctx.globalAlpha = 0.16*smear;
+          ctx.lineWidth = 6.5;
+          ctx.beginPath(); ctx.arc(3,-3,10.5,-0.95,0.6); ctx.stroke();
+        }
         ctx.restore();
       }
       ctx.save(); ctx.translate(3,-3); ctx.rotate(swRot); ctx.translate(-3,3);
@@ -14749,11 +14907,21 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.moveTo(9,-3.4); ctx.lineTo(9,0); ctx.stroke();
     } else if (g==='rusher'){
-      ctx.beginPath(); ctx.arc(1,-13,6.2,Math.PI,0); ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(5,-1); ctx.lineTo(16,-8); ctx.stroke();
-      ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(7.5,-5.5); ctx.lineTo(10,-1.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(1,-13,6.2,Math.PI,0); ctx.fill();      // 투구
+      ctx.fillRect(-6,-13.4,14,1.8);                                   // 챙
+      // v6.118 랜스 — 겨드랑이에 끼고, 찌를 때 **창 자체가 thrust만큼 앞으로 뻗는다**
+      const TH = thrust;
+      ctx.lineWidth = 2.8;
+      ctx.beginPath(); ctx.moveTo(-9+TH*0.3, 1.4); ctx.lineTo(24+TH, -7.4); ctx.stroke();   // 자루
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();                                                  // 창날 (긴 삼각)
+      ctx.moveTo(31.0+TH, -9.4); ctx.lineTo(22.6+TH, -5.2); ctx.lineTo(23.4+TH, -9.0);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(3.0+TH*0.7, -1.8, 1.9, 3.4, -0.26, 0, Math.PI*2); ctx.fill();  // 손 보호판
+      ctx.globalAlpha = 0.55;                                           // 창끝 기운
+      ctx.fillStyle = o.tierC || '#c94f4f';
+      ctx.beginPath(); ctx.ellipse(29.0+TH, -8.6, 3.6, 2.1, -0.26, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.fillStyle = ink;
     } else if (g==='archer'){
       ctx.beginPath(); ctx.arc(0,-12,6.4,Math.PI*0.9,Math.PI*0.1); ctx.fill();
       ctx.lineWidth = 1.8;
@@ -15078,6 +15246,7 @@ import { FX } from "./fx.js";
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
       atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
       satPose: player.satPose, chargePose: player.chargePose,
+      mount: player.mountKind || (player.classKey === 'rusher' ? 'horse' : null),   // v6.119 전직이 곧 타는 것
       motion: player.atkMotion,        // v6.112 엔진별 모션 프로필
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
     });
