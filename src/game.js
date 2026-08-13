@@ -2718,7 +2718,9 @@ import { FX } from "./fx.js";
       name:'돌격병', tag:'돌진 베기',
       desc:'[역장]으로 시작. 이동 +20%, 처치 시 회복, 대시가 곧 공격 — 돌파 폭발 기본 장착. [중갑 가능]',
       weapon:'charge',   // v6.96 역장 → 돌진 충격. '대시가 곧 공격'이 실제 엔진이 된다
-      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; p.dashBlast=(p.dashBlast||0)+18; p.dashCdMax*=0.62; }
+      // v6.101 기본 dashBlast 제거 — 돌진 충격 엔진이 이미 경로 피해를 담당한다.
+      // 둘이 겹치면 '지나간 자리에서 파동이 터지는' 그림이 되어 돌격 느낌이 사라진다 (테크로는 여전히 획득 가능)
+      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; p.dashCdMax*=0.62; }
     },
     archer: {
       name:'궁수', tag:'속사',
@@ -11139,7 +11141,10 @@ import { FX } from "./fx.js";
             addDmgNum(ce.x, ce.y, cd2, false);
             staggerEnemy(ce, 0.55);
             procOnHit(ce, false, chargeEng.imbue);
-            hitSpark(ce.x, ce.y, Math.atan2(ce.y-player.y, ce.x-player.x), '#e0a94f');
+            // v6.101 부딪히는 순간에만 터진다 — 진행 방향으로 튀는 스파크 + 짧은 충격 호
+            hitSpark(ce.x, ce.y, Math.atan2(player.dashDir.y, player.dashDir.x), '#e0a94f');
+            effects.push({ type:'slash', x:ce.x, y:ce.y, a:Math.atan2(player.dashDir.y, player.dashDir.x),
+                           r:chargeEng.width*0.9, arc:1.1, life:0.14, age:0 });
             const ka2 = Math.atan2(ce.y-player.y, ce.x-player.x);
             ce.x += Math.cos(ka2)*10; ce.y += Math.sin(ka2)*10;   // 밀치고 지나간다
             if (ce.hp<=0 && enemies[ci]===ce) defeatEnemy(ci);
@@ -11157,10 +11162,12 @@ import { FX } from "./fx.js";
             if (cb.hp<=0){ if (bosses[bi]===cb) defeatBoss(bi); } else refreshBossBar();
           }
         }
-        // 충격대: 지나간 자리에 잠깐 남는다 (진화 시 더 크게)
-        if (Math.random() < 0.7){
-          effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0,
-                         r0:chargeEng.width*0.4, r1:chargeEng.width*(chargeEng.ev?1.5:1.1) });
+        // v6.101 파동처럼 보이던 확장 링 제거 → 진행 방향으로 늘어지는 잔상만 남긴다
+        // ('지나간 자리가 터진다'가 아니라 '몸이 훑고 지나간다')
+        if (Math.random() < 0.85){
+          particles.push({ x:player.x - player.dashDir.x*6, y:player.y - player.dashDir.y*6,
+                           vx:-player.dashDir.x*40, vy:-player.dashDir.y*40,
+                           life:0.22, age:0, r:player.r*(chargeEng.ev?0.95:0.8), ghost:true });
         }
       }
       // v6.51 질풍 창기병: 대시가 창격 돌진 — 경로의 적을 꿰뚫어 피해 + 넉백
@@ -11306,11 +11313,11 @@ import { FX } from "./fx.js";
     // — 역장 가동 중이거나, 근접 계열이 적과 붙어 있으면 리듬 스윙
     {
       const gsw = classResGroup(player.classKey);
-      // v6.98 자동 공격하는 근접 무기가 하나라도 있어야 스윙 모션을 돌린다.
-      // 돌진 충격은 대시가 곧 공격이라 평소엔 휘두르지 않는다 — 피해 없는 헛스윙 제거
-      const autoMelee = !!(auraState.on || ownedWeapon('scythe') || ownedWeapon('iaido')
-                        || ownedWeapon('kesagiri') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
-      const meleeish = autoMelee && (auraState.on || gsw==='war' || gsw==='rog');
+      // v6.101 메트로놈은 **역장 전용**. 역장은 이산 공격이 없어 리듬 모션이 필요하고,
+      // 피해도 v6.79에서 스윙 박자에 동기화돼 있다.
+      // 낫·발도·연참 등은 각자 발사할 때 swingT를 세우므로, 메트로놈까지 돌면
+      // 공격 주기(발도 2.8초)와 모션 주기(0.55초)가 어긋나 헛스윙 5회가 생긴다
+      const meleeish = auraState.on;
       if (meleeish){
         let near = auraState.on; // 역장은 상시 가동감
         if (!near){ for (const e9 of enemies){ if (Math.hypot(e9.x-player.x, e9.y-player.y) < 130+e9.r){ near = true; break; } } }
