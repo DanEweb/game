@@ -4071,12 +4071,14 @@ import { FX } from "./fx.js";
   const MAX_WEAPONS = 4;
   const WEAPONS = {
     missile: {
-      name:'추적 탄환', desc:'가장 가까운 적을 향해 자동 사격',
+      name:'추적 탄환', desc:'가장 가까운 적을 향해 자동 사격 — 맞은 자리가 작게 터진다',
       evName:'유도 미사일', evDesc:'적을 스스로 쫓는 유도탄을 연발합니다',
       lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
       baseCd:(w)=> w.evolved ? 0.5 : (w.lv>=5 ? 0.62 : 0.75),
       dmg:(w)=> (w.evolved ? 26 : [10,10,14,14,19][w.lv-1]),
-      count:(w)=> (w.evolved ? 4 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0))
+      count:(w)=> (w.evolved ? 4 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      // v6.124 착탄 폭발 — 이게 없어서 밀집에서 항상 1마리만 때렸다 (저격수 10킬 / 결투가 21킬)
+      splash:(w)=> (w.evolved ? 58 : [40,40,46,46,52][w.lv-1])
     },
     satellite: {
       name:'위성', desc:'주위를 도는 위성이 부딪히는 적을 타격',
@@ -4098,11 +4100,13 @@ import { FX } from "./fx.js";
       count:(w)=> (w.evolved ? 6 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + (w.lv>=5?1:0))
     },
     lightning: {
-      name:'낙뢰', desc:'무작위 적에게 번개가 내리칩니다',
+      name:'낙뢰', desc:'무작위 적에게 번개가 내리칩니다 — 떨어진 자리 주변이 함께 감전됩니다',
       evName:'연쇄 뇌격', evDesc:'번개가 근처 적에게 연쇄로 튑니다',
       lvDesc:['','낙뢰 +1','피해 +40%','낙뢰 +1','낙뢰 +1, 피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.3 : 1.6,
+      baseCd:(w)=> w.evolved ? 1.1 : 1.35,
       dmg:(w)=> (w.evolved ? 38 : [16,16,22,22,30][w.lv-1]),
+      // v6.124 낙뢰점 감전 반경 — 무작위 1마리만 때리던 것이 기술자 6킬의 원인이었다
+      zap:(w)=> (w.evolved ? 62 : [46,46,52,52,58][w.lv-1]),
       count:(w)=> (w.evolved ? 5 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + (w.lv>=5?1:0))
     },
     aura: {
@@ -9725,7 +9729,7 @@ import { FX } from "./fx.js";
   }
 
   // ---------- lightning ----------
-  function lightningStrike(dmg, chain){
+  function lightningStrike(dmg, chain, zapR){
     if (enemies.length===0 && bosses.length===0) return false;
     let target = null, isBoss = false;
     if (enemies.length && (bosses.length===0 || Math.random()<0.8)){
@@ -9742,6 +9746,19 @@ import { FX } from "./fx.js";
     addDmgNum(target.x, target.y, d, isCrit);
     burst(target.x, target.y, 6, 140);
     SFX.play('hit');
+    // v6.124 낙뢰점 감전 — 떨어진 자리 주변도 함께 지진다 (본체의 50%)
+    if (zapR > 0){
+      effects.push({ type:'ring', x:target.x, y:target.y, life:0.24, age:0, r0:6, r1:zapR });
+      for (let k=enemies.length-1;k>=0;k--){
+        const o = enemies[k];
+        if (!o || o===target) continue;
+        if (Math.hypot(o.x-target.x, o.y-target.y) > zapR + o.r) continue;
+        const zd = d*0.50*corrodeMult(o);
+        o.hp -= zd; addDmgNum(o.x, o.y, zd, false);
+        procOnHit(o, false, null);
+        if (o.hp<=0) defeatEnemy(k);
+      }
+    }
     if (chain){
       let cn=null, cd2=130*130;
       for (const e of enemies){
@@ -10458,7 +10475,9 @@ import { FX } from "./fx.js";
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
         for (let i=0;i<n;i++){
           const a = baseA + (i - (n-1)/2) * 0.14;
-          fireProjectile(a, 430, dmg, player.pierce, 1.3, w.evolved ? { homing:true, r:5, imbue:w.imbue } : { imbue:w.imbue });
+          const _sp = def.splash(w);
+          fireProjectile(a, 430, dmg, player.pierce, 1.3,
+            w.evolved ? { homing:true, r:5, imbue:w.imbue, splash:_sp } : { imbue:w.imbue, splash:_sp });
         }
         effects.push({ type:'muzzle', x:player.x+Math.cos(baseA)*16, y:player.y+Math.sin(baseA)*16, life:0.1, age:0 });
         SFX.play('shoot');
@@ -10484,7 +10503,7 @@ import { FX } from "./fx.js";
         const n = def.count(w);
         const dmg = def.dmg(w) * player.dmgMult * (player.boltBoost||1);
         let any = false;
-        for (let i=0;i<n;i++){ if (lightningStrike(dmg, w.evolved || player.boltChain)) any = true; }
+        for (let i=0;i<n;i++){ if (lightningStrike(dmg, w.evolved || player.boltChain, def.zap(w))) any = true; }
         if (!any) w.cd = 0.2;
 
       } else if (def.cgw){
@@ -12367,6 +12386,21 @@ import { FX } from "./fx.js";
               }
             }
             e.burnT = 3; e.burnDps = Math.max(e.burnDps||0, (player.burnDps||6)*player.dmgMult);
+          }
+          // v6.124 착탄 폭발(splash) — 추적 탄환이 맞은 자리를 작게 터뜨린다.
+          //  본체 피해의 55%. 관통과 달리 '뒤에 있는 적'이 아니라 '옆에 있는 적'을 잡는다
+          if (p.splash > 0){
+            effects.push({ type:'ring', x:p.x, y:p.y, life:0.22, age:0, r0:6, r1:p.splash });
+            burst(p.x, p.y, 5, 120);
+            for (let k=enemies.length-1;k>=0;k--){
+              const o = enemies[k];
+              if (!o || o===e) continue;
+              if (Math.hypot(o.x-p.x, o.y-p.y) > p.splash + o.r) continue;
+              const sd = p.damage*0.55*corrodeMult(o);
+              o.hp -= sd; addDmgNum(o.x, o.y, sd, false);
+              procOnHit(o, false, p.imbue);
+              if (o.hp<=0) defeatEnemy(k);
+            }
           }
           // 얼음창: 빙결 확률
           if (p.kind==='icelance' && Math.random()<0.25){
