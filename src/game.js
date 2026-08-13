@@ -2696,7 +2696,7 @@ import { FX } from "./fx.js";
       name:'저격수', tag:'한 방 묵직',
       desc:'[추적 탄환]으로 시작. 공속 -45%, 대신 탄환 피해 +150% · 20% 확률 3배 치명타. 한 발 한 발이 무겁다.',
       weapon:'missile',
-      apply:(p)=>{ p.critChance=0.18; p.critMult=2.6; p.rateMult*=0.52; p.projMult*=2.0; p.recoilScale=3; p.rangeDmg=true; }
+      apply:(p)=>{ p.critChance=0.20; p.critMult=2.9; p.rateMult*=0.38; p.projMult*=2.9; p.recoilScale=3; p.rangeDmg=true; }
     },
     rusher: {
       name:'돌격병', tag:'돌진 베기',
@@ -6277,6 +6277,31 @@ import { FX } from "./fx.js";
     rentday:['보증금을 야금야금 먹는','월급날 직후에 오는','계약 갱신을 노리는'],
     aiface:['자소서를 3초 만에 거른','표정 관리가 완벽한','탈락 사유를 안 알려주는'],
   };
+  // v6.79 공용 이명 풀 — 어떤 보스에게나 붙을 수 있는 이명 60종.
+  // 보스별 전용 이명(3종)과 합쳐 뽑으므로, 보스 하나가 달고 나올 수 있는 이명이 60여 가지가 된다.
+  const BOSS_COMIC_ANY = [
+    '엘리베이터를 붙잡고 안 놔주는','회의를 회의로 마무리하는','전화보다 카톡이 편한',
+    '퇴사한다고 3년째 말하는','법인카드 한도를 시험하는','주말에 단톡을 울리는',
+    '보고서 폰트만 바꾸는','참조에 대표를 넣는','오탈자를 회식에서 지적하는',
+    '월요일 아침에 회의를 잡는','휴가 중에도 답장하는','반차를 반차답게 못 쓰는',
+    '엘리베이터에서 눈을 피하는','점심시간을 잠식하는','커피값만 계산 안 하는',
+    '남의 자리에 앉는','에어컨 온도를 몰래 바꾸는','냉장고 이름표를 무시하는',
+    '프린터를 늘 고장 낸 채 도망가는','회의실을 예약만 하고 안 오는',
+    '어제 말한 걸 오늘 뒤집는','피드백을 피드백이라 우기는','일단 시작하자고만 하는',
+    '잘 되면 자기 덕인','안 되면 남 탓인','회식 2차를 강행하는',
+    '건배사를 준비해오는','노래방 예약을 3곡 잡는','택시비를 정산 안 하는',
+    '단톡방을 나갔다 다시 들어온','읽고 이모지만 남기는','전화를 끊고 다시 거는',
+    '알람을 열 개 맞추는','지각하고 당당한','출근길에 이미 지친',
+    '점심 메뉴를 남에게 미루는','수저를 안 놓는','마지막 한 조각을 노리는',
+    '냉면에 식초를 붓는','탕수육을 부어 먹는','치킨 다리를 먼저 집는',
+    '적금을 깨러 가는 길인','카드 값을 다음 달의 나에게 미룬','장바구니만 열두 개인',
+    '무료배송을 위해 더 사는','리뷰를 별 하나로 남기는','환불을 끝까지 밀어붙이는',
+    '중고로 되팔 생각부터 하는','영수증을 절대 안 버리는','포인트를 소수점까지 챙기는',
+    '운동을 등록만 한','작심삼일을 삼일마다 하는','내일부터를 평생 하는',
+    '이불을 개지 않는','알림을 999개 쌓아둔','배터리를 늘 3%로 사는',
+    '충전기를 안 챙겨 다니는','비밀번호를 매번 재설정하는','업데이트를 미루고 미룬',
+    '뒤로가기를 연타하는','새로고침만 하는',
+  ];
   function isEmpoweredCycle(){
     return bossOrderIdx > MAP.bosses.length; // 한 바퀴 다 만난 뒤부터는 강화형
   }
@@ -6287,9 +6312,10 @@ import { FX } from "./fx.js";
     const encScale = def.finale ? 1 : (1 + 0.45*Math.max(0, bossEncounterCount-1));
     const empMult = emp ? 1.7 : 1;
     // 이명(코믹 칭호) 출현: 40% 확률 — 칭호가 붙은 보스는 더 강하다 (칭호는 풀에서 랜덤)
-    const cpool = BOSS_COMIC[key];
+    // v6.79 전용 이명(정체성) + 공용 이명 60종을 합쳐 뽑는다 — 같은 보스라도 매번 다른 이명
+    const cpool = (BOSS_COMIC[key]||[]).concat(BOSS_COMIC_ANY);
     const bountyOn = player && player.bounty && !def.finale;
-    const comic = (!def.finale && cpool && (bountyOn || Math.random()<0.4)) ? cpool[(Math.random()*cpool.length)|0] : null;
+    const comic = (!def.finale && cpool.length && (bountyOn || Math.random()<0.45)) ? cpool[(Math.random()*cpool.length)|0] : null;
     const comicMult = comic ? 1.35 : 1;
     const hp = def.hp * encScale * empMult * comicMult * MAP.mult.ehp;
     const b = {
@@ -10981,7 +11007,9 @@ import { FX } from "./fx.js";
         if (near){
           player._swMetro = (player._swMetro||0) - dt;
           if (player._swMetro <= 0){
-            player._swMetro = auraState.on ? 0.7 : 0.55;
+            const beat = auraState.on ? 0.7 : 0.55;
+            player._auraBeat = beat;          // v6.79 이 프레임에 역장 피해를 몰아서 터뜨린다
+            player._swMetro = beat;
             player.swingT = Math.max(player.swingT||0, 0.26);
             // v6.50 런지: 가장 가까운 적 쪽으로 몸이 쏠린다 — '때리러 간다'는 느낌
             let lt=null, ld=1e9;
@@ -11332,12 +11360,19 @@ import { FX } from "./fx.js";
       }
       if (auraState.on && ed < auraState.r + e.r){
         speedFactor *= auraState.slow;
-        e.hp -= auraState.dps*dt*auraFalloff(e);      // v6.77 역장 감쇠 — 중심 1.30배, 가장자리 0.75배
+        // v6.79 스윙 동기화: 지속 틱 대신 스윙 박자에 맞춰 한 번에 (총량은 dps × 박자 간격으로 동일)
+        if (player._auraBeat){
+          const ad = auraState.dps * player._auraBeat * auraFalloff(e) * meleeCloseMult(e);
+          e.hp -= ad;
+          addDmgNum(e.x, e.y, ad, false);
+          staggerEnemy(e, 0.3);
+          hitSpark(e.x, e.y, Math.atan2(e.y-player.y, e.x-player.x));
+        }
         // v6.77 버그: 역장 틱이 procOnHit 을 안 불러 원소·시간 절단이 전혀 발동하지 않았다.
         // 매 프레임 발동하면 과하므로 대상별 0.4초 쿨다운으로 '타격 1회'처럼 취급한다
         e.auraProcCd = (e.auraProcCd||0) - dt;
         if (e.auraProcCd <= 0){ e.auraProcCd = 0.4; procOnHit(e, false, auraState.imbue); }
-        if (Math.random() < dt*1.5) addDmgNum(e.x, e.y, auraState.dps*0.66, false);
+
         if (e.hp<=0){ defeatEnemy(i); continue; }
         if (auraState.ev){ player.hp = Math.min(player.maxHp, player.hp + 1.0*player.healMult*dt); }
       }
@@ -11407,8 +11442,14 @@ import { FX } from "./fx.js";
       if (e.elite && e.frozenT<=0){
         e.affT -= dt;
         if (e.affix==='regen' || e.affix2==='regen'){
-          e.hp = Math.min(e.maxHp, e.hp + e.maxHp*0.02*dt);
+          // v6.79 피격 중엔 재생 정지 — 때리는 동안 체력바가 멈춰 무적처럼 보이던 원인
+          const recent = e._fT && (performance.now() - e._fT) < 2500;
+          if (!recent && e.hp < e.maxHp){
+            e.hp = Math.min(e.maxHp, e.hp + e.maxHp*0.009*dt);
+            e._regenFx = 0.6;                     // 회복 중임을 보여줄 연출 타이머
+          }
         }
+        if (e._regenFx>0) e._regenFx -= dt;
         // 이중 어픽스: 두 번째 어픽스도 주기적으로 발동 (탄막/소환)
         if (e.affix2 && e.affix2!==e.affix){
           e.aff2T = (e.aff2T===undefined ? 3 : e.aff2T) - dt;
@@ -11678,7 +11719,11 @@ import { FX } from "./fx.js";
         }
         if (!bosses[i] || bosses[i]!==b) continue;
         if (auraState.on && Math.hypot(b.x-player.x, b.y-player.y) < auraState.r + b.r){
-          b.hp -= auraState.dps*dt;
+          if (player._auraBeat){
+            const abd = auraState.dps * player._auraBeat;
+            b.hp -= abd;
+            addDmgNum(b.x, b.y, abd, false);
+          }
           if (b.hp<=0){ defeatBoss(i); continue; }
           refreshBossBar();
         }
@@ -11859,6 +11904,8 @@ import { FX } from "./fx.js";
       p.vy *= (1 - Math.min(1,dt*3));
       if (p.pix) p.vy += 420*dt;      // 픽셀 파편은 중력을 받아 떨어진다
     }
+
+    player._auraBeat = 0;   // v6.79 역장 타격 비트는 그 프레임에만 유효
 
     if (shake>0) shake = Math.max(0, shake - dt*30);
 
