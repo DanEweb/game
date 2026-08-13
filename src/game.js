@@ -9796,6 +9796,9 @@ import { FX } from "./fx.js";
     player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
+    // v6.98 돌진 자세 — 돌진 충격만 든 상태: 어깨를 낮추고 대기한다 (휘두르지 않는다)
+    player.chargePose = chargeEng.on && !ownedWeapon('scythe') && !ownedWeapon('iaido')
+                        && !ownedWeapon('kesagiri') && !auraState.on;
     // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
     if (player.rangeDmg){
       const t0 = nearestTarget();
@@ -11308,7 +11311,11 @@ import { FX } from "./fx.js";
     // — 역장 가동 중이거나, 근접 계열이 적과 붙어 있으면 리듬 스윙
     {
       const gsw = classResGroup(player.classKey);
-      const meleeish = auraState.on || gsw==='war' || gsw==='rog';
+      // v6.98 자동 공격하는 근접 무기가 하나라도 있어야 스윙 모션을 돌린다.
+      // 돌진 충격은 대시가 곧 공격이라 평소엔 휘두르지 않는다 — 피해 없는 헛스윙 제거
+      const autoMelee = !!(auraState.on || ownedWeapon('scythe') || ownedWeapon('iaido')
+                        || ownedWeapon('kesagiri') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+      const meleeish = autoMelee && (auraState.on || gsw==='war' || gsw==='rog');
       if (meleeish){
         let near = auraState.on; // 역장은 상시 가동감
         if (!near){ for (const e9 of enemies){ if (Math.hypot(e9.x-player.x, e9.y-player.y) < 130+e9.r){ near = true; break; } } }
@@ -14292,7 +14299,18 @@ import { FX } from "./fx.js";
       ctx.save(); ctx.translate(3,-3); ctx.rotate(swRot); ctx.translate(-3,3);
     }
     // 앞팔 + 손 — 무기와 같은 축으로 휘둘러진다 (스윙 변환 안쪽)
-    if (o.satPose){
+    if (o.chargePose){
+      // v6.98 돌진 자세: 팔을 몸에 붙이고 어깨를 앞으로 — 휘두르는 대신 '밀고 들어갈' 준비
+      ctx.lineWidth = 3.0;
+      ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(7.5, -1.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(8.2,-1.0,1.9,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.5;                                   // 어깨 앞의 충격 기운
+      ctx.fillStyle = o.tierC || '#c94f4f';
+      ctx.beginPath(); ctx.ellipse(8.5,-4, 3.2, 5.2, -0.35, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = ink; ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+    } else if (o.satPose){
       // v6.95 위성 조종 자세: 양팔을 좌우로 벌려 궤도를 떠받친다 (신드라식). 손끝에 궤도 광점
       const br = Math.sin(walk*0.5 + (o.tierC?1:0))*0.6;      // 미세한 호흡
       ctx.lineWidth = 2.6;
@@ -14655,7 +14673,7 @@ import { FX } from "./fx.js";
     drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), {
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
       atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
-      satPose: player.satPose,
+      satPose: player.satPose, chargePose: player.chargePose,
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
     });
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
