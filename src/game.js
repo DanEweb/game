@@ -4173,6 +4173,26 @@ import { FX } from "./fx.js";
       reach:(w)=> (w.evolved ? 96 : [64,78,78,86,86][w.lv-1]),
       splash:(w)=> (w.evolved ? 62 : [0,0,0,44,44][w.lv-1])
     },
+    // v6.105 엔진 7호: 반격 태세 — 소유물은 '정지'. 멈춰 있는 시간이 곧 위력(태세 자원 내장)
+    riposte: {
+      name:'반격 태세', desc:'가만히 서 있을수록 태세가 쌓이고, 적이 다가오면 쌓인 만큼 한 번에 되받아친다',
+      evName:'반격 태세 · 요지부동', evDesc:'태세 상한이 오르고 반격이 주변 전체로 퍼집니다',
+      lvDesc:['','태세 상한 +1','피해 +40%','반격 범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.75 : 0.95,
+      dmg:(w)=> (w.evolved ? 34 : [14,14,20,20,26][w.lv-1]),
+      radius:(w)=> (w.evolved ? 108 : [72,72,72,88,88][w.lv-1]),
+      cap:(w)=> (w.evolved ? 5 : [3,4,4,4,4][w.lv-1])
+    },
+    // v6.105 엔진 8호: 광란 난도질 — 소유물은 '가속'. 때릴수록 빨라지고 제 피도 깎인다(광기 자원 내장)
+    frenzy: {
+      name:'광란 난도질', desc:'짧게 마구 베어댄다 — 벨수록 빨라지지만 제 피도 함께 깎인다 (멈추면 식는다)',
+      evName:'광란 난도질 · 피의 광시곡', evDesc:'가속 상한이 크게 오르고 자해가 줄어듭니다',
+      lvDesc:['','가속 상한 +','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.30 : 0.40,
+      dmg:(w)=> (w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
+      radius:(w)=> (w.evolved ? 82 : [58,58,58,70,70][w.lv-1]),
+      rush:(w)=> (w.evolved ? 2.4 : 1.9)                       // 가속 상한
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4620,7 +4640,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9814,7 +9834,7 @@ import { FX } from "./fx.js";
     chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('combo3') || ownedWeapon('smash') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('combo3') || ownedWeapon('smash') || ownedWeapon('riposte') || ownedWeapon('frenzy') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.98 돌진 자세 — 돌진 충격만 든 상태: 어깨를 낮추고 대기한다 (휘두르지 않는다)
@@ -10108,6 +10128,72 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='riposte'){
+        // 태세 자원: 멈춰 있는 동안 차오르고, 움직이면 즉시 흩어진다 (엔진 내장)
+        const still = Math.hypot(player.vx||0, player.vy||0) < 18 && player.dashTime<=0;
+        const cap = def.cap(w);
+        if (still) player.stanceN = Math.min(cap, (player.stanceN||0) + 1);
+        else { player.stanceN = 0; w.cd = 0.3; continue; }      // 움직이는 동안엔 반격하지 않는다
+        const st = player.stanceN;
+        const radius = def.radius(w) * (1 + (st-1)*0.06);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (1 + (st-1)*0.55);
+        let near = false;
+        for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y) < radius + e.r){ near = true; break; } }
+        if (!near){ w.cd = 0.3; continue; }                     // 다가온 적이 있어야 되받아친다
+        effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:radius, life:0.24, age:0,
+                       friendly:true, col: st>=cap ? '#e0a94f' : CLASS_COLORS[player.classKey] });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, radius, 0, Math.PI*2);
+        if (st>=cap){ shake = Math.min(11, shake+4); hitStop(0.03); addTextNum(player.x, player.y-38, '태세 만충'); }
+        let rn = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
+          rn++;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(rn);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, 0.5);
+          procOnHit(e, false, w.imbue);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        player.stanceN = 0;                                     // 되받아치면 태세를 소모한다
+        SFX.play('sweep');
+      } else if (w.key==='frenzy'){
+        // 광기 자원: 벨수록 가속(최대 rush배), 2초 안 때리면 식는다. 대가로 제 피가 깎인다
+        if ((player.frenzyT||0) <= 0) player.frenzyN = 0;
+        player.frenzyT = 2.0;
+        player.frenzyN = Math.min(20, (player.frenzyN||0) + 1);
+        const rush = 1 + (def.rush(w)-1) * Math.min(1, player.frenzyN/12);
+        w.cd = def.baseCd(w) / rush;                            // 스스로 주기를 당긴다
+        const radius = def.radius(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * rush;
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.7, r:radius, life:0.14, age:0,
+                       friendly:true, col:'#c9403a' });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, radius, baseA, 1.7);
+        // 자해: 가속할수록 제 피가 더 깎인다 (진화 시 절반)
+        const selfCut = (player.maxHp*0.004) * (rush-1) * (w.evolved?0.5:1);
+        if (selfCut > 0 && player.hp > player.maxHp*0.12) player.hp = Math.max(1, player.hp - selfCut);
+        let fn = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
+          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
+          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+          if (Math.abs(da) > 0.85) continue;
+          fn++;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(fn)*meleeCloseMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, 0.25);
+          procOnHit(e, false, w.imbue);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        if (player.frenzyN>=12) addTextNum(player.x, player.y-38, '광란');
+        SFX.play('hit');
       } else if (w.key==='combo3'){
         // 연 자원: 2.2초 안에 이어 때리면 연쇄가 쌓이고, 끊기면 0으로 (엔진 내장 자원)
         if ((player.comboT||0) <= 0) player.comboN = 0;
@@ -11334,6 +11420,7 @@ import { FX } from "./fx.js";
     } else {
       if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
+      if (player.frenzyT>0){ player.frenzyT -= dt; if (player.frenzyT<=0) player.frenzyN = 0; }      // v6.105 광기 냉각
       const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1);
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
