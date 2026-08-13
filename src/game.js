@@ -4193,6 +4193,26 @@ import { FX } from "./fx.js";
       radius:(w)=> (w.evolved ? 82 : [58,58,58,70,70][w.lv-1]),
       rush:(w)=> (w.evolved ? 2.4 : 1.9)                       // 가속 상한
     },
+    // v6.106 엔진 9호: 대낫 처형 — 소유물은 '문턱'. 약해진 적일수록 급격히 아프다
+    reap: {
+      name:'대낫 처형', desc:'무겁게 베어낸다 — 적의 체력이 낮을수록 피해가 급증하고, 문턱 아래는 그 자리에서 거둔다',
+      evName:'대낫 처형 · 수확의 밤', evDesc:'문턱이 오르고 거둘 때마다 낫이 잠시 넓어집니다',
+      lvDesc:['','문턱 +4%p','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 1.0 : 1.25,
+      dmg:(w)=> (w.evolved ? 40 : [16,16,23,23,30][w.lv-1]),
+      radius:(w)=> (w.evolved ? 118 : [80,80,80,98,98][w.lv-1]),
+      arc:(w)=> (w.evolved ? Math.PI*2 : 2.1),
+      thr:(w)=> (w.evolved ? 0.26 : [0.12,0.16,0.16,0.16,0.16][w.lv-1])   // 처형 문턱
+    },
+    // v6.106 엔진 10호: 박자 타격 — 소유물은 '박'. 박에 맞춰 치면 강해진다
+    cadence: {
+      name:'박자 타격', desc:'박자에 맞춰 벤다 — 박에 정확히 얹으면 크게 울리고, 이어갈수록 박이 빨라진다',
+      evName:'박자 타격 · 광시곡', evDesc:'박이 더 빨라지고 정박 보너스가 커집니다',
+      lvDesc:['','박 가속','피해 +40%','범위 확대','피해 강화'],
+      baseCd:(w)=> w.evolved ? 0.44 : 0.58,
+      dmg:(w)=> (w.evolved ? 26 : [11,11,15,15,20][w.lv-1]),
+      radius:(w)=> (w.evolved ? 88 : [62,62,62,76,76][w.lv-1])
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4640,7 +4660,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9834,7 +9854,7 @@ import { FX } from "./fx.js";
     chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('combo3') || ownedWeapon('smash') || ownedWeapon('riposte') || ownedWeapon('frenzy') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('combo3') || ownedWeapon('smash') || ownedWeapon('riposte') || ownedWeapon('frenzy') || ownedWeapon('reap') || ownedWeapon('cadence') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.98 돌진 자세 — 돌진 충격만 든 상태: 어깨를 낮추고 대기한다 (휘두르지 않는다)
@@ -10128,6 +10148,70 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='reap'){
+        const radius = def.radius(w), arc = def.arc(w), thr = def.thr(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0,
+                       friendly:true, col: CLASS_COLORS[player.classKey] });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, radius, baseA, arc);
+        let rn = 0, reaped = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
+          if (arc < Math.PI*2){
+            let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
+            while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+            if (Math.abs(da) > arc/2) continue;
+          }
+          rn++;
+          const frac = e.maxHp ? Math.max(0, Math.min(1, e.hp/e.maxHp)) : 1;
+          // 문턱: 체력이 낮을수록 급증 (1.0 → 2.2배), 문턱 아래는 즉시 수확
+          const wounded = 1 + (1-frac)*1.2;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*wounded*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(rn);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, 0.45);
+          procOnHit(e, false, w.imbue);
+          if (e.hp>0 && !e.elite && frac < thr){ e.hp = 0; addTextNum(e.x, e.y-12, '수확'); reaped++; }
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        if (reaped){ hitStop(0.04); shake = Math.min(10, shake+3); }
+        SFX.play('sweep');
+      } else if (w.key==='cadence'){
+        // 박 자원: 콤보가 길수록 박이 빨라지고, 정박에 얹으면 크게 울린다 (엔진 내장)
+        // 전역 콤보 카운터(`combo`)를 그대로 쓴다 — 선율가의 콤보 정체성이 곧 박의 속도가 된다
+        const beat = 0.9 / (1 + Math.min(1.2, (combo||0)*0.06));  // 박 간격
+        const now = elapsed;
+        const phase = ((now % beat) / beat);
+        const onBeat = phase < 0.22 || phase > 0.86;             // 정박 창
+        const radius = def.radius(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (onBeat ? 2.0 : 1);
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc: onBeat?2.6:1.6, r:radius,
+                       life:0.18, age:0, friendly:true, col: onBeat ? '#e0a94f' : CLASS_COLORS[player.classKey] });
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        cutHostileShots(player.x, player.y, radius, baseA, onBeat?2.6:1.6);
+        if (onBeat){ shake = Math.min(9, shake+3); addTextNum(player.x, player.y-38, '정박!'); }
+        let bn = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
+          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
+          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+          if (Math.abs(da) > (onBeat?1.3:0.8)) continue;
+          bn++;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(bn)*meleeCloseMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, onBeat?0.5:0.25);
+          procOnHit(e, false, w.imbue);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        SFX.play(onBeat ? 'sweep' : 'hit');
       } else if (w.key==='riposte'){
         // 태세 자원: 멈춰 있는 동안 차오르고, 움직이면 즉시 흩어진다 (엔진 내장)
         const still = Math.hypot(player.vx||0, player.vy||0) < 18 && player.dashTime<=0;
