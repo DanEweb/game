@@ -4145,13 +4145,17 @@ import { FX } from "./fx.js";
     },
     // v6.96 근접 엔진 2호: 돌진 충격 — 자동 발사가 없다. 대시가 곧 공격이며, 레벨이 오르면 더 자주 돌진한다
     charge: {
-      name:'돌진 충격', desc:'대시가 곧 공격 — 지나간 경로의 적을 꿰뚫고 충격대를 남긴다 (자동 공격 없음)',
+      name:'돌진 충격', desc:'총검으로 앞을 찌르며 파고든다 — 대시로 꿰뚫을수록 돌파가 빨리 찬다. 만충 시 R로 파쇄 돌격',
       evName:'돌진 충격 · 파쇄 돌격', evDesc:'경로가 넓어지고 지나간 자리가 폭발합니다',
       lvDesc:['','대시 쿨 -10%','피해 +38%','경로 확대·쿨 -18%','피해 강화'],
-      baseCd:(w)=> 999,                                    // 무기 루프로는 발사되지 않는다
+      // v6.116 평타(총검 찌르기)를 얻었다 — 좁지만 앞으로 길다
+      baseCd:(w)=> w.evolved ? 0.41 : 0.48,
       // v6.100 벤치 결과 반영: 25초 36킬로 타 직업(73~76)의 절반이었다.
       // 대시 쿨이 도는 동안 아무 공격도 못 하는 공백이 원인 — 한 방을 크게 올리고 쿨을 더 줄인다
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 130 : [52,52,72,72,92][w.lv-1]),
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 12 : [5,5,6,6,9][w.lv-1]),
+      radius:(w)=> (w.evolved ? 104 : [72,80,80,90,90][w.lv-1]),
+      arc:(w)=> (w.evolved ? 1.5 : 1.1),                   // 찌르기 — 좁고 길다
+      dashDmg:(w)=> meleeAutoMult()*(w.evolved ? 58 : [24,24,32,32,42][w.lv-1]),   // 대시 경로 판정
       width:(w)=> (w.evolved ? 38 : [24,24,24,32,32][w.lv-1]),
       cdCut:(w)=> (w.evolved ? 0.45 : [0.78,0.70,0.70,0.62,0.62][w.lv-1])
     },
@@ -9734,6 +9738,7 @@ import { FX } from "./fx.js";
     frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', hint:'제 피를 깎아가며 빨리 찬다' },
     reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   hint:'약해진 적을 벨수록 크게 찬다' },
     cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
+    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'대시로 꿰뚫을수록 크게 찬다' },
   };
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
   let engineTicks = [];
@@ -9756,7 +9761,6 @@ import { FX } from "./fx.js";
     // v6.115 근접은 전부 하나의 기력 게이지를 쓴다 — 채우는 방법만 엔진마다 다르다
     const mk = meleeEngineKey();
     if (mk){ const E = MELEE_ENGINE[mk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
-    if (ownedWeapon('charge'))   return { n:'돌파', v:1-Math.min(1,(player.dashCd||0)/Math.max(0.01,player.dashCdMax)), c:'#c94f4f' };
     if (ownedWeapon('satellite'))return { n:'과부하', v:Math.min(1,(player.satOver||0)),           c:'#7ec4e8' };
     return null;
   }
@@ -9922,6 +9926,32 @@ import { FX } from "./fx.js";
       player.beatFreeT = 3;
       boom(150, 130*P, '#c9895a');
       addTextNum(player.x, player.y-40, '광시곡 3초');
+    } else if (key === 'charge'){
+      // 파쇄 돌격 — 몸째 던져 일직선을 꿰뚫고, 멈춘 자리를 부순다
+      const t0 = nearestTarget();
+      const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+      const ca = Math.cos(a0), sa = Math.sin(a0), LEN = 440, WD = 46;
+      const sx = player.x, sy = player.y;
+      for (let i=enemies.length-1;i>=0;i--){
+        const e = enemies[i]; if (!e) continue;
+        const dx=e.x-sx, dy=e.y-sy, along=dx*ca+dy*sa;
+        if (along < -e.r || along > LEN + e.r) continue;
+        if (Math.abs(-dx*sa+dy*ca) > WD + e.r) continue;
+        const d = 205*P*corrodeMult(e);
+        e.hp -= d; addDmgNum(e.x, e.y, d, true); procOnHit(e, false, null); staggerEnemy(e, 1.1);
+        const ka = Math.atan2(e.y-sy, e.x-sx); e.x += Math.cos(ka)*40; e.y += Math.sin(ka)*40;
+        if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+      }
+      // 경로에 잔상을 깔고 끝점으로 몸을 옮긴다
+      for (let i=0;i<7;i++){
+        particles.push({ x:sx+ca*(LEN/7)*i, y:sy+sa*(LEN/7)*i, vx:0, vy:0, life:0.34, age:0, r:player.r*0.9, ghost:true });
+      }
+      player.x = sx + ca*LEN; player.y = sy + sa*LEN;
+      player.invuln = Math.max(player.invuln, 0.35);              // 뚫고 지나가는 동안은 안 맞는다
+      boom(158, 150*P, '#c94f4f');                                 // 멈춘 자리를 부순다
+      shake = Math.min(18, shake+10); hitStop(0.06); buzz(30);
+      player.atkMotion = 'lunge'; player.swingT = Math.max(player.swingT||0, 0.36);
+      addTextNum(player.x, player.y-40, '파쇄 돌격!');
     } else if (ownedWeapon('satellite')){
       player.satOver = 1; satCharge(0.01);
       return;
@@ -10215,12 +10245,12 @@ import { FX } from "./fx.js";
       if (w.key==='charge'){
         // 발사하지 않는다 — 대시 루프가 이 값을 읽어 판정을 만든다
         chargeEng.on = true;
-        chargeEng.dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        chargeEng.dmg = def.dashDmg(w) * player.dmgMult * (w.imbueDmg||1);   // v6.116 대시 판정은 별도 수치
         chargeEng.width = def.width(w);
         chargeEng.imbue = w.imbue;
         chargeEng.ev = w.evolved;
         player.chargeCdCut = def.cdCut(w);
-        continue;
+        // v6.116 continue 하지 않는다 — 아래 공통 평타 루프로 흘려보낸다 (총검 찌르기)
       }
       if (w.key==='aura'){
         auraState.on = true;
@@ -11430,6 +11460,7 @@ import { FX } from "./fx.js";
           if (ce.__chgT && ce.__chgT > elapsed) continue;
           if (Math.hypot(ce.x-player.x, ce.y-player.y) < ce.r + chargeEng.width){
             ce.__chgT = elapsed + 0.4;
+            player.mCharge = Math.min(1, (player.mCharge||0) + 0.085);   // v6.116 꿰뚫은 만큼 돌파가 찬다
             const cd2 = chargeEng.dmg * corrodeMult(ce);
             ce.hp -= cd2;
             addDmgNum(ce.x, ce.y, cd2, false);
@@ -14461,6 +14492,13 @@ import { FX } from "./fx.js";
           swRot = 0.5-2.2*e; lunge = -1.4+5.2*e; lunY = 0.9-1.8*e; smear = Math.sin(k*Math.PI); }
         else { const k=(t-0.55)/0.45; const e=k*k*(3-2*k);        // 납도: 곧장 자세로 되돌아온다
           swRot = -1.7*(1-e); lunge = 3.8*(1-e); lunY = -0.9*(1-e); }
+      } else if (o.motion === 'lunge'){
+        // 총검 찌르기: 팔을 당겼다가 몸째 앞으로 던진다 — 회전이 거의 없고 전진이 크다
+        if (t < 0.34){ const k=t/0.34; swRot = 0.28*k; lunge = -2.4*k; lunY = 0.5*k; }
+        else if (t < 0.52){ const k=(t-0.34)/0.18; const e=1-Math.pow(1-k,3);
+          swRot = 0.28-0.5*e; lunge = -2.4+9.4*e; lunY = 0.5-0.9*e; smear = Math.sin(k*Math.PI); }
+        else { const k=(t-0.52)/0.48; const e=k*k*(3-2*k);
+          swRot = -0.22*(1-e); lunge = 7.0*(1-e); lunY = -0.4*(1-e); }
       } else if (o.motion === 'heavy'){
         // 후려치기: 크게 치켜들고 **한 박자 늦게** 내려찍는다 (예비가 가장 길다)
         if (t < 0.55){ const k=t/0.55; const e=1-(1-k)*(1-k); swRot = 1.15*e; lunge = -2.6*e; lunY = 2.2*e; }
