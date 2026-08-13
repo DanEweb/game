@@ -6752,6 +6752,8 @@ import { FX } from "./fx.js";
         // v6.122 근접 축 계측 — 감사·벤치에서 '실제로 도는지'를 눈이 아니라 값으로 확인한다
         cls: player&&player.classKey, weapons: (player&&player.weapons||[]).map(w=>w.key),
         heat: +((player&&player.heat)||0).toFixed(3),
+        aim: +((player&&player.aim)||0).toFixed(3),                      // v6.128 원거리 지속 축
+        guardCd: +((player&&player.guardCd)||0).toFixed(2), guardKind: player&&player.guardKind,
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
         kills: killCount,
@@ -9573,6 +9575,19 @@ import { FX } from "./fx.js";
     }
     zones.push({ x, y, r:36, dps:power, t:3.2, maxT:3.2, type:'gore' });
   }
+  // v6.128 원거리 지속 축 '조준' — 근접 열기의 대칭. 멈추면 차고 움직이면 풀린다.
+  //  근접은 '붙는 것'이 리스크지만 원거리는 붙을 이유가 없다. 대신 **발이 묶이는 것**을 리스크로 삼는다
+  function updateAim(dt){
+    if (!player || !player.weapons){ return; }
+    if (!isRangedBuild()){ player.aim = 0; return; }
+    const still = Math.hypot(player.vx||0, player.vy||0) < 20 && (player.dashTime||0) <= 0;
+    const a = player.aim || 0;
+    // 차는 건 느리고(1.6초 만충) 풀리는 건 빠르다(0.55초) — 한 발을 위해 멈추는 결단이 되게
+    player.aim = still ? Math.min(1, a + dt*0.62) : Math.max(0, a - dt*1.8);
+  }
+  function aimDmgMult(){ return 1 + (player.aim||0) * 0.42; }     // 만충 시 사격 +42%
+  function aimPierce(){ return Math.floor((player.aim||0) * 2.4); } // 만충 시 관통 +2
+  function aimCrit(){ return (player.aim||0) * 0.22; }             // 만충 시 치명 +22%p
   function heatDmgMult(){ return 1 + (player.heat||0) * 0.38; }   // 만충 시 평타 +38%
   function heatCdMult(){ return 1 - (player.heat||0) * 0.24; }    // 만충 시 평타 주기 -24%
   function crowdMult(n){ return 1 + Math.min(0.60, Math.max(0, n-1) * 0.06); }
@@ -10341,12 +10356,17 @@ import { FX } from "./fx.js";
     player.swingT = 0.26; // v6.73 공격 3박자 모션 (예비→타격→복귀)
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
-    const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3) || (player.dashCritT>0); // 그림자: 무피격 3초+ 확정 치명 / v6.52 거합: 대시 직후 확정 치명
+    const isCrit = Math.random()<(player.critChance + aimCrit()) || (player.shadowStrike && noHitT>3) || (player.dashCritT>0); // 그림자: 무피격 3초+ 확정 치명 / v6.52 거합: 대시 직후 확정 치명 / v6.128 조준 보정
     // v6.77 복구: weaponCap1 — 수도승 '1번 무기 강화 상한 +N%p'가 죽어 있었다.
     // 무기 슬롯 1개로 사는 직업이라 이 배율이 곧 정체성 — 주 무기(0번) 피해에 직접 곱한다
     if (player.weaponCap1 && player.weapons[0]) dmg *= player.weaponCap1 / 1.3;
     // v6.77 복구: multishotCh — '추가 투사체 확률'이 어디서도 읽히지 않아 궁수 계열 특성이 전부 죽어 있었다.
     // 재귀 폭주를 막으려 한 번의 발사에서 딱 1발만 갈라진다
+    // v6.128 조준 — 멈춰서 겨눈 만큼 무겁고, 꿰뚫고, 급소에 박힌다
+    if (player.aim > 0){
+      dmg *= aimDmgMult();
+      pierce = (pierce||0) + aimPierce();
+    }
     // v6.127 요격 보상 — 쏘아 떨어뜨린 탄 수만큼 다음 사격이 무겁다 (탄 하나당 +12%, 최대 +60%)
     if (player.interceptN > 0){
       dmg *= 1 + Math.min(0.60, player.interceptN * 0.12);
@@ -10678,7 +10698,7 @@ import { FX } from "./fx.js";
 
       } else if (w.key==='lightning'){
         const n = def.count(w);
-        const dmg = def.dmg(w) * player.dmgMult * (player.boltBoost||1);
+        const dmg = def.dmg(w) * player.dmgMult * (player.boltBoost||1) * aimDmgMult();   // v6.128 조준
         let any = false;
         for (let i=0;i<n;i++){ if (lightningStrike(dmg, w.evolved || player.boltChain, def.zap(w))) any = true; }
         if (!any) w.cd = 0.2;
@@ -11878,6 +11898,7 @@ import { FX } from "./fx.js";
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       // v6.122 광기 냉각 제거 — v6.115에서 광기 자원이 공통 기력(mCharge)으로 통합되며 frenzyN은 아무도 읽지 않는다
       updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
+      updateAim(dt);                                                                                     // v6.128 원거리 지속 축(조준)
       if (player.guardCd>0) player.guardCd -= dt;                                                         // v6.127 D축 쿨다운
       if (player.guardT>0) player.guardT -= dt;                                                           // v6.127 방어 창
       if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
@@ -12996,6 +13017,9 @@ import { FX } from "./fx.js";
       player.guardT = 0;
       player.invuln = Math.max(player.invuln, 0.5);
       addTextNum(player.x, player.y-16, '패링!');
+      player.swingT = Math.max(player.swingT||0, 0.3);            // v6.128 받아친 뒤 크게 되돌리는 반격 모션
+      player.atkMotion = 'crouch';
+      player.recoilX = (player.recoilX||0) - (player.faceX<0?-1:1)*4;
       hitStop(0.07); shake = Math.min(14, shake+6); buzz(30); SFX.play('boom');
       effects.push({ type:'ring', x:player.x, y:player.y, life:0.32, age:0, r0:player.r, r1:118 });
       friendlyBlast(player.x, player.y, 118, 95*player.dmgMult*(player.meleeBoost||1), false);
@@ -15011,6 +15035,18 @@ import { FX } from "./fx.js";
     // v6.73 공격 3박자: 예비동작(뒤로 젖힘) → 타격(런지 + 스윙 + 참격 잔상) → 복귀 — 계열별 모션 분기
     const atkN = o.atk||0;
     let swRot = 0, lunge = 0, lunY = 0, smear = 0, thrust = 0;   // v6.118 thrust = 창이 앞으로 뻗는 길이
+    // v6.128 패링/요격 자세 — 이펙트만 있고 몸이 안 움직여서 '막았다'는 느낌이 없었다
+    const gT = o.guardT || 0;
+    if (gT > 0){
+      const gk = Math.min(1, gT / 0.22);                          // 1 → 0 으로 줄어든다
+      if (o.guardKind === 'shoot'){
+        // 요격: 총구를 위로 튕겨 올려 빠르게 털어낸다 (짧고 날카롭게)
+        swRot = -1.05*gk; lunge = -1.8*gk; lunY = -1.2*gk; smear = gk*0.7;
+      } else {
+        // 패링: 무기를 몸 앞에 세워 받아친다 (앞으로 나가지 않고 버틴다)
+        swRot = 0.95*gk; lunge = 1.1*gk; lunY = -0.5*gk;
+      }
+    }
     if (atkN > 0){
       const t = 1 - atkN;
       if (grp==='rng'){
@@ -15655,6 +15691,7 @@ import { FX } from "./fx.js";
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
       atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
       satPose: player.satPose, chargePose: player.chargePose,
+      guardT: player.guardT, guardKind: player.guardKind,   // v6.128 패링/요격 자세
       mount: player.mountKind || (player.classKey === 'rusher' ? 'horse' : null),   // v6.119 전직이 곧 타는 것
       motion: player.atkMotion,        // v6.112 엔진별 모션 프로필
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
@@ -18292,6 +18329,16 @@ import { FX } from "./fx.js";
           // v6.111 방치할수록 경고가 진해진다 — '넘치고 있다'가 보여야 쓸 이유가 생긴다
           ctx.fillStyle = _overflowT > 1 ? '#c9403a' : rs.c;
           ctx.fillText(_overflowT > 1 ? 'R  넘침!' : 'R', player.x, by + 12);
+        }
+        if ((player.aim||0) > 0.02){          // v6.128 조준 — 멈추면 차고 움직이면 풀린다
+          const av = player.aim;
+          ctx.globalAlpha = 0.30;
+          ctx.fillStyle = PAL.ink2;
+          ctx.fillRect(player.x-22, by-5.5, 44, 2.2);
+          ctx.globalAlpha = 0.55 + av*0.45;
+          ctx.fillStyle = av >= 0.999 ? '#e0a94f' : '#7ec4e8';
+          ctx.fillRect(player.x-22, by-5.5, 44*av, 2.2);
+          ctx.globalAlpha = 1;
         }
         if ((player.heat||0) > 0.02){         // v6.122 열기 — 붙어 있으면 차고 물러나면 식는다
           const hh = player.heat;
