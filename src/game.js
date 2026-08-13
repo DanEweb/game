@@ -562,6 +562,18 @@ import { FX } from "./fx.js";
 
   const IS_TOUCH = ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   if (IS_TOUCH) dashBtn.style.display = 'flex';
+  // v6.108 자원 버튼: 엔진 자원이 있을 때만 뜨고, 만충이면 색이 살아난다
+  function refreshResBtn(){
+    if (!resBtn) return;
+    const r = (IS_TOUCH && state==='playing') ? engineResource() : null;
+    if (!r){ resBtn.style.display = 'none'; return; }
+    resBtn.style.display = 'flex';
+    const full = r.v >= 1;
+    resBtn.textContent = r.n;
+    resBtn.style.background = full ? r.c : 'rgba(32,33,36,0.55)';
+    resBtn.style.color = full ? '#12141a' : 'rgba(246,246,244,0.55)';
+    resBtn.style.borderColor = full ? r.c : 'rgba(246,246,244,0.25)';
+  }
   function refreshOrbBtn(){
     if (!orbBtn) return;
     const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
@@ -574,6 +586,12 @@ import { FX } from "./fx.js";
   dashBtn.addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
     if (state==='playing') tryDash();
+  });
+  // v6.108 모바일 자원 소비 — R키가 없는 환경에서도 엔진 자원을 터뜨릴 수 있어야 한다
+  const resBtn = $('resBtn');
+  if (resBtn) resBtn.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation(); e.preventDefault(); SFX.unlock();
+    if (state==='playing') spendResource();
   });
   // v6.86 모바일 궤도 전환 — E키가 없는 환경에서도 위성 조작이 가능해야 한다
   const orbBtn = $('orbBtn');
@@ -12609,6 +12627,7 @@ import { FX } from "./fx.js";
 
     updateHud();
     refreshOrbBtn();      // v6.86 위성 보유 시에만 모바일 궤도 버튼 노출
+    refreshResBtn();      // v6.108 엔진 자원 보유 시에만 모바일 소비 버튼 노출
     maybeOpenLevelUp();
   }
 
