@@ -10093,6 +10093,7 @@ import { FX } from "./fx.js";
             effects.push({ type:'slash', x:m.x, y:m.y, a:Math.atan2(m.y-py0, m.x-px0), r:38, arc:2.4, life:0.2, age:0 });
             particles.push({ x:px0, y:py0, vx:0, vy:0, life:0.3, age:0, r:player.r*0.8, ghost:true });  // 잔상
             px0 = m.x; py0 = m.y;
+            cutHostileShots(m.x, m.y, 46, 0, Math.PI*2);   // v6.102 F축: 훑는 지점의 탄도 함께 벤다
             // 표식 지점 주변을 광역으로 벤다 (그 자리 적이 바뀌었어도 성립)
             for (let i2=enemies.length-1;i2>=0;i2--){
               const en = enemies[i2];
@@ -11162,6 +11163,8 @@ import { FX } from "./fx.js";
             if (cb.hp<=0){ if (bosses[bi]===cb) defeatBoss(bi); } else refreshBossBar();
           }
         }
+        // v6.102 F축: 돌진 경로의 적 탄을 몸으로 뚫는다 (근접 공통 축을 전 엔진에 일관 적용)
+        cutHostileShots(player.x, player.y, chargeEng.width + 10, Math.atan2(player.dashDir.y, player.dashDir.x), Math.PI*2);
         // v6.101 파동처럼 보이던 확장 링 제거 → 진행 방향으로 늘어지는 잔상만 남긴다
         // ('지나간 자리가 터진다'가 아니라 '몸이 훑고 지나간다')
         if (Math.random() < 0.85){
