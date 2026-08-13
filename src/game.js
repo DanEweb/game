@@ -4124,24 +4124,24 @@ import { FX } from "./fx.js";
     scythe: {
       // v6.110 사신 전용 '대낫 처형'과 구분: 낫은 **도적군 공용 근접**으로 재정의한다.
       // (사신의 정체성은 처형 문턱에 있고, 이 무기는 넓게 베는 범용 근접이다)
-      name:'낫', desc:'[도적군 공용] 전방을 크게 베어 부채꼴 범위를 타격 — 넓게 훑는 범용 근접',
+      name:'낫', desc:'[도적군 공용] 빠르게 전방을 훑어 벤다 — 예기가 차면 R로 사방을 세 번 베는 원무 (평타는 약하다)',
       evName:'그믐의 원무', evDesc:'낫이 360도로 회전하며 모든 방향을 벱니다',
       lvDesc:['','범위 확장','피해 +35%','범위 확장','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.05 : 1.3,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 34 : [14,14,19,19,25][w.lv-1]),
-      radius:(w)=> (w.evolved ? 120 : [72,82,82,94,94][w.lv-1]),
-      arc:(w)=> (w.evolved ? Math.PI*2 : 1.9)
+      baseCd:(w)=> w.evolved ? 0.42 : 0.50,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 13 : [5,5,6,6,9][w.lv-1]),
+      radius:(w)=> (w.evolved ? 118 : [76,86,86,96,96][w.lv-1]),
+      arc:(w)=> (w.evolved ? Math.PI*2 : 2.1)
     },
     // v6.93 근접 엔진 신설: 발도 — 모았다가 직선으로 길게 벤다 (역장·낫과 판정 형태가 겹치지 않는다)
     iaido: {
-      name:'발도', desc:'느리게 모았다가 전방을 한 번에 베어낸다 — 한 호흡이 길수록 참격이 무거워진다 (근접 단일 최강, 물량엔 불리)',
+      name:'발도', desc:'짧게 뽑아 베고 곧장 납도한다 — 맞지 않은 채 벨수록 잔심이 배로 찬다. 만충 시 R로 화면을 가르는 거합',
       evName:'발도 · 무명일섬', evDesc:'참격이 화면을 가르고, 벤 자리에 검흔이 남습니다',
-      lvDesc:['','참격 연장','피해 +40%','참격 폭 확대','피해 강화'],
-      // v6.94 근접 사거리로 축소(낫 72~120 대비 약간 길고 대신 훨씬 좁다) + 확실히 느리게·무겁게
-      baseCd:(w)=> w.evolved ? 2.2 : 2.8,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 95 : [40,40,56,56,72][w.lv-1]),
-      reach:(w)=> (w.evolved ? 150 : [96,112,112,132,132][w.lv-1]),
-      halfW:(w)=> (w.evolved ? 24 : [14,14,14,19,19][w.lv-1])
+      lvDesc:['','참격 연장','피해 +40%','참격 범위 확대','피해 강화'],
+      // v6.114 평타는 근접 부채꼴로 되돌린다 — 직선 장참(거합)은 R 소비기 전용이 되었다
+      baseCd:(w)=> w.evolved ? 0.52 : 0.62,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 16 : [6,6,8,8,11][w.lv-1]),
+      radius:(w)=> (w.evolved ? 118 : [84,92,92,102,102][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.5 : [1.9,1.9,2.1,2.1,2.3][w.lv-1])
     },
     // v6.96 근접 엔진 2호: 돌진 충격 — 자동 발사가 없다. 대시가 곧 공격이며, 레벨이 오르면 더 자주 돌진한다
     charge: {
@@ -4157,82 +4157,91 @@ import { FX } from "./fx.js";
     },
     // v6.97 근접 엔진 3호: 연참 — 벨 때마다 표식을 남기고, 표식이 차면 그 사이를 순간이동하며 전부 벤다
     kesagiri: {
-      name:'연참', desc:'벨 때마다 표식을 남긴다 — 표식이 차오르면 그 사이를 순간이동하며 한 번에 베어낸다',
+      name:'연참', desc:'가볍고 빠르게 벤다 — 서로 다른 적을 벨수록 표식이 빨리 찬다. 만충 시 R로 적 사이를 순간이동하며 난무',
       evName:'연참 · 무영난무', evDesc:'표식 요구가 줄고 연참 피해가 크게 오릅니다',
       lvDesc:['','표식 요구 -1','피해 +40%','연참 피해 +50%','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.62 : 0.8,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 30 : [12,12,17,17,22][w.lv-1]),
-      need:(w)=> (w.evolved ? 2 : [3,3,3,3,3][w.lv-1]),          // v6.99 요구 축소 — 표식은 좌표에 남는다
-      burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 연참 1타 배율
+      baseCd:(w)=> w.evolved ? 0.38 : 0.44,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 11 : [4,4,6,6,8][w.lv-1]),
+      radius:(w)=> (w.evolved ? 96 : [66,72,72,80,80][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.2 : 1.8),
+      need:(w)=> (w.evolved ? 2 : 3),
+      burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 무영난무 1타 배율
     },
     // v6.103 근접 엔진 4호: 회전 참격 — 자기중심 면을 소유한다. 잃은 체력이 곧 위력(응혈)
     whirl: {
-      name:'회전 참격', desc:'제자리에서 몸을 돌려 사방을 벤다 — 피를 흘릴수록 회전이 빨라진다 (시전 중 이동 감속)',
+      name:'회전 참격', desc:'몸을 돌려 사방을 훑는다 — 피를 흘릴수록 응혈이 빨리 찬다. 만충 시 R로 2초간 멈추지 않는 혈풍륜',
       evName:'회전 참격 · 혈풍륜', evDesc:'회전이 멈추지 않고, 벤 자리에 핏빛 잔풍이 남습니다',
       lvDesc:['','회전 범위 확대','피해 +40%','회전 주기 단축','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.05 : 1.45,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 44 : [18,18,25,25,32][w.lv-1]),
-      radius:(w)=> (w.evolved ? 118 : [78,92,92,104,104][w.lv-1])
+      baseCd:(w)=> w.evolved ? 0.44 : 0.52,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 13 : [5,5,7,7,9][w.lv-1]),
+      radius:(w)=> (w.evolved ? 112 : [72,82,82,92,92][w.lv-1]),
+      arc:(w)=> Math.PI*2
     },
     // v6.104 엔진 5호: 연격 — 소유물은 '연쇄'. 끊기지 않고 이어질수록 강해진다(연 자원 내장)
     combo3: {
-      name:'연격', desc:'전방을 빠르게 3연타 — 끊기지 않고 이어갈수록 다음 타가 무거워진다 (3타째는 밀쳐낸다)',
+      name:'연격', desc:'전방을 아주 빠르게 벤다 — 끊기지 않고 이어갈수록 연이 빨리 찬다. 만충 시 R로 백팔연타',
       evName:'연격 · 백팔연타', evDesc:'연쇄 상한이 늘고 마무리가 폭발합니다',
       lvDesc:['','연쇄 상한 +2','피해 +40%','범위 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.34 : 0.46,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 24 : [9,9,13,13,17][w.lv-1]),
-      radius:(w)=> (w.evolved ? 74 : [52,52,52,64,64][w.lv-1]),
+      baseCd:(w)=> w.evolved ? 0.32 : 0.38,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 10 : [4,4,5,5,7][w.lv-1]),
+      radius:(w)=> (w.evolved ? 80 : [56,60,60,68,68][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.1 : 1.7),
       cap:(w)=> (w.evolved ? 8 : [5,7,7,7,7][w.lv-1])
     },
     // v6.104 엔진 6호: 후려치기 — 소유물은 '한 방'. 최대체력이 곧 위력(벌크업 자원 내장)
     smash: {
-      name:'후려치기', desc:'가장 가까운 하나를 크게 후려친다 — 최대체력이 높을수록 무겁다 (느리지만 확실하다)',
+      name:'후려치기', desc:'묵직하게 후려친다 — 최대체력이 높을수록 벌크가 빨리 찬다. 만충 시 R로 땅을 흔드는 지진',
       evName:'후려치기 · 삼대 오백', evDesc:'충격이 주변으로 퍼지고 넉백이 커집니다',
       lvDesc:['','사거리 확대','피해 +45%','충격 확산','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.25 : 1.6,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 78 : [32,32,46,46,60][w.lv-1]),
-      reach:(w)=> (w.evolved ? 96 : [64,78,78,86,86][w.lv-1]),
+      baseCd:(w)=> w.evolved ? 0.60 : 0.70,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 17 : [7,7,9,9,12][w.lv-1]),
+      radius:(w)=> (w.evolved ? 96 : [64,74,74,82,82][w.lv-1]),
+      arc:(w)=> (w.evolved ? 1.8 : 1.4),
+      reach:(w)=> (w.evolved ? 96 : [64,74,74,82,82][w.lv-1]),
       splash:(w)=> (w.evolved ? 62 : [0,0,0,44,44][w.lv-1])
     },
     // v6.105 엔진 7호: 반격 태세 — 소유물은 '정지'. 멈춰 있는 시간이 곧 위력(태세 자원 내장)
     riposte: {
-      name:'반격 태세', desc:'가만히 서 있을수록 태세가 쌓이고, 적이 다가오면 쌓인 만큼 한 번에 되받아친다',
+      name:'반격 태세', desc:'멈춰 선 채로 벨수록 태세가 배로 찬다 — 만충 시 R로 1.4초 무적, 그 사이 받은 것을 되돌려준다',
       evName:'반격 태세 · 요지부동', evDesc:'태세 상한이 오르고 반격이 주변 전체로 퍼집니다',
       lvDesc:['','태세 상한 +1','피해 +40%','반격 범위 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.75 : 0.95,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 34 : [14,14,20,20,26][w.lv-1]),
-      radius:(w)=> (w.evolved ? 108 : [72,72,72,88,88][w.lv-1]),
+      baseCd:(w)=> w.evolved ? 0.47 : 0.55,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 14 : [5,5,7,7,10][w.lv-1]),
+      radius:(w)=> (w.evolved ? 104 : [70,78,78,86,86][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.4 : 1.9),
       cap:(w)=> (w.evolved ? 5 : [3,4,4,4,4][w.lv-1])
     },
     // v6.105 엔진 8호: 광란 난도질 — 소유물은 '가속'. 때릴수록 빨라지고 제 피도 깎인다(광기 자원 내장)
     frenzy: {
-      name:'광란 난도질', desc:'짧게 마구 베어댄다 — 벨수록 빨라지지만 제 피도 함께 깎인다 (멈추면 식는다)',
+      name:'광란 난도질', desc:'짧게 마구 베어댄다 — 제 피를 깎아가며 광기가 빨리 찬다. 만충 시 R로 4초간 자해 없는 광시곡',
       evName:'광란 난도질 · 피의 광시곡', evDesc:'가속 상한이 크게 오르고 자해가 줄어듭니다',
       lvDesc:['','가속 상한 +','피해 +40%','범위 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.30 : 0.40,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
-      radius:(w)=> (w.evolved ? 82 : [58,58,58,70,70][w.lv-1]),
-      rush:(w)=> (w.evolved ? 2.4 : 1.9)                       // 가속 상한
+      baseCd:(w)=> w.evolved ? 0.29 : 0.34,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 8 : [3,3,4,4,6][w.lv-1]),
+      radius:(w)=> (w.evolved ? 84 : [58,62,62,70,70][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.2 : 1.8),
+      rush:(w)=> (w.evolved ? 2.4 : 1.9)                       // 광시곡 가속 상한
     },
     // v6.106 엔진 9호: 대낫 처형 — 소유물은 '문턱'. 약해진 적일수록 급격히 아프다
     reap: {
-      name:'대낫 처형', desc:'무겁게 베어낸다 — 적의 체력이 낮을수록 피해가 급증하고, 문턱 아래는 그 자리에서 거둔다',
+      name:'대낫 처형', desc:'낫을 끌어 벤다 — 약해진 적을 벨수록 수확이 크게 찬다. 만충 시 R로 문턱 아래를 전부 그 자리에서 거둔다',
       evName:'대낫 처형 · 수확의 밤', evDesc:'문턱이 오르고 거둘 때마다 낫이 잠시 넓어집니다',
       lvDesc:['','문턱 +4%p','피해 +40%','범위 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.0 : 1.25,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 40 : [16,16,23,23,30][w.lv-1]),
-      radius:(w)=> (w.evolved ? 118 : [80,80,80,98,98][w.lv-1]),
+      baseCd:(w)=> w.evolved ? 0.51 : 0.60,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 15 : [6,6,8,8,10][w.lv-1]),
+      radius:(w)=> (w.evolved ? 118 : [78,86,86,96,96][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 2.1),
-      thr:(w)=> (w.evolved ? 0.26 : [0.12,0.16,0.16,0.16,0.16][w.lv-1])   // 처형 문턱
+      thr:(w)=> (w.evolved ? 0.55 : [0.34,0.40,0.40,0.46,0.46][w.lv-1])   // 수확의 밤 처형 문턱
     },
     // v6.106 엔진 10호: 박자 타격 — 소유물은 '박'. 박에 맞춰 치면 강해진다
     cadence: {
-      name:'박자 타격', desc:'박자에 맞춰 벤다 — 박에 정확히 얹으면 크게 울리고, 이어갈수록 박이 빨라진다',
+      name:'박자 타격', desc:'박자에 맞춰 벤다 — 정박에 얹어 벨수록 박이 배로 찬다. 만충 시 R로 3초간 모든 타격이 정박',
       evName:'박자 타격 · 광시곡', evDesc:'박이 더 빨라지고 정박 보너스가 커집니다',
       lvDesc:['','박 가속','피해 +40%','범위 확대','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.44 : 0.58,
-      dmg:(w)=> meleeAutoMult()*(w.evolved ? 26 : [11,11,15,15,20][w.lv-1]),
-      radius:(w)=> (w.evolved ? 88 : [62,62,62,76,76][w.lv-1])
+      baseCd:(w)=> w.evolved ? 0.39 : 0.46,
+      dmg:(w)=> meleeAutoMult()*(w.evolved ? 11 : [4,4,6,6,8][w.lv-1]),
+      radius:(w)=> (w.evolved ? 90 : [62,68,68,76,76][w.lv-1]),
+      arc:(w)=> (w.evolved ? 2.3 : 1.9)
     },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
@@ -9690,14 +9699,7 @@ import { FX } from "./fx.js";
     ctx.globalAlpha = 0.22;
     ctx.lineWidth = 1.4;
     ctx.setLineDash([5,5]);
-    if (w.key === 'iaido' || w.key === 'smash'){
-      // 선형: 뻗는 방향으로 폭을 가진 통로
-      const R = def.reach ? def.reach(w) : 100;
-      const HW = def.halfW ? def.halfW(w) : 16;
-      ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(face);
-      ctx.strokeRect(0, -HW, R, HW*2);
-      ctx.restore();
-    } else if (w.key === 'charge'){
+    if (w.key === 'charge'){
       // 돌진: 대시가 지나갈 폭을 진행 방향으로
       const WD = def.width ? def.width(w) : 24;
       const da = Math.atan2(player.dashDir.y, player.dashDir.x);
@@ -9719,69 +9721,225 @@ import { FX } from "./fx.js";
     ctx.setLineDash([]);
     ctx.restore();
   }
+  // v6.115 근접 엔진 표 — 평타는 전부 같은 '평범한 근접 참격'이고,
+  //  다른 것은 ⑴ 리듬(주기·사거리·모션) ⑵ 기력이 빨리 차는 조건 ⑶ R로 나가는 시그니처, 이 셋뿐이다
+  const MELEE_ENGINE = {
+    scythe:  { res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     hint:'넓게 훑어 벨수록 빨리 찬다' },
+    iaido:   { res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', hint:'맞지 않은 채로 벨수록 배로 찬다' },
+    kesagiri:{ res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  hint:'서로 다른 적을 벨수록 빨리 찬다' },
+    whirl:   { res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   hint:'피를 흘릴수록 빨리 찬다' },
+    combo3:  { res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  hint:'끊기지 않고 이어갈수록 빨리 찬다' },
+    smash:   { res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  hint:'최대체력이 높을수록 빨리 찬다' },
+    riposte: { res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', hint:'멈춰 선 채로 벨수록 배로 찬다' },
+    frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', hint:'제 피를 깎아가며 빨리 찬다' },
+    reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   hint:'약해진 적을 벨수록 크게 찬다' },
+    cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
+  };
+  // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
+  let engineTicks = [];
+  function queueTicks(n, iv, fn){ engineTicks.push({ i:0, n, iv, t:0, fn }); }
+  function runEngineTicks(dt){
+    for (let q=engineTicks.length-1; q>=0; q--){
+      const e = engineTicks[q];
+      e.t -= dt;
+      while (e.t <= 0 && e.i < e.n){ e.fn(e.i); e.i++; e.t += e.iv; }
+      if (e.i >= e.n) engineTicks.splice(q,1);
+    }
+  }
+  function meleeEngineKey(){
+    if (!player || !player.weapons) return null;
+    for (const w of player.weapons){ if (MELEE_ENGINE[w.key]) return w.key; }
+    return null;
+  }
   function engineResource(){
     if (!player || !player.weapons) return null;
-    if (ownedWeapon('iaido'))    return { n:'잔심', v:Math.min(1,(noHitT||0)/4.5),                 c:'#b04a3a' };
-    // 응혈은 '잃은 체력'이라 1.0 = 사망이다. 체력 30% 지점을 만충으로 잡아 도달 가능하게 정규화
-    if (ownedWeapon('whirl'))    return { n:'응혈', v:(1-Math.max(0,Math.min(1,player.hp/Math.max(1,player.maxHp))))/0.7, c:'#c9403a' };
-    if (ownedWeapon('combo3'))   return { n:'연',   v:Math.min(1,(player.comboN||0)/5),            c:'#b8956a' };
-    if (ownedWeapon('riposte'))  return { n:'태세', v:Math.min(1,(player.stanceN||0)/3),           c:'#9aa0a6' };
-    if (ownedWeapon('frenzy'))   return { n:'광기', v:Math.min(1,(player.frenzyN||0)/12),          c:'#c9403a' };
-    if (ownedWeapon('kesagiri')) return { n:'표식', v:Math.min(1,((player.marks||[]).length)/3),   c:'#6d5cc4' };
+    // v6.115 근접은 전부 하나의 기력 게이지를 쓴다 — 채우는 방법만 엔진마다 다르다
+    const mk = meleeEngineKey();
+    if (mk){ const E = MELEE_ENGINE[mk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
     if (ownedWeapon('charge'))   return { n:'돌파', v:1-Math.min(1,(player.dashCd||0)/Math.max(0.01,player.dashCdMax)), c:'#c94f4f' };
-    if (ownedWeapon('cadence'))  return { n:'박',   v:Math.min(1,(combo||0)/15),                   c:'#c9895a' };
-    if (ownedWeapon('smash'))    return { n:'벌크', v:Math.min(1,Math.max(0,(player.maxHp-100)/260)), c:'#c96a3f' };
-    if (ownedWeapon('reap'))     return { n:'수확', v:Math.min(1,(player.execThresh||0)/0.3),      c:'#7a4fa8' };
     if (ownedWeapon('satellite'))return { n:'과부하', v:Math.min(1,(player.satOver||0)),           c:'#7ec4e8' };
     return null;
   }
   // 만충 시 소비 — 엔진마다 '모아둔 것을 터뜨리는' 방식이 다르다
+  // v6.113 소비 사거리 안의 적 수 — 위력 배율·게이지 힌트·모바일 버튼이 같은 값을 쓴다
+  const SPEND_R = 170;
+  function spendTargets(){
+    let n = 0;
+    for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < SPEND_R){ n++; if (n>=5) break; } }
+    return n;
+  }
   function spendResource(){
     const r = engineResource();
     if (!r || r.v < 1) return;
-    const P = player.dmgMult;
-    if (ownedWeapon('iaido')){          // 잔심: 조준 방향으로 화면을 가르는 장참 (확정 치명 부여 + 즉발 대형 참격)
-      player.dashCritT = Math.max(player.dashCritT||0, 1.2);   // v6.110 noHitT 리셋 제거 — 자원을 쓰면 패시브가 날아가 오히려 손해였다
+    if ((player.spendWindT||0) > 0) return;                 // 예비동작 중엔 재입력 무시
+    // v6.113 ③ 예비동작 0.25초 — 즉발이 아니다. 위치를 미리 잡아야 하고, 그 사이 피격 위험을 진다
+    player.spendWindT = 0.25;
+    player.swingT = Math.max(player.swingT||0, 0.3);
+    player.spendPend = r;                                   // 프레임 타이머가 터뜨린다
+  }
+  function spendResourceFire(r){
+    // v6.113 ① 적중 배율 — 몰렸을 때 쓰면 이득, 혼자일 때 쓰면 손해. '언제 쓰나'가 판단이 된다
+    const near = spendTargets();
+    const focus = near === 0 ? 0 : (0.6 + Math.min(1.0, (near-1)*0.25));   // 1마리 0.6 → 5마리 1.6
+    if (near === 0){
+      // ② 헛방: 자원만 날아가고 각성 창도 안 열린다
+      addTextNum(player.x, player.y-46, '헛방…');
+      SFX.play('warn');
+      resetSpentResource();
+      return;
+    }
+    player.spendFocus = focus;
+    const P = player.dmgMult * focus;                          // v6.113 적중 배율 반영
+    const key = meleeEngineKey();
+    const COL = CLASS_COLORS[player.classKey];
+    // 광역 1회 — 시그니처들이 공유하는 도구
+    const boom = (R, D, col) => {
+      effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:R, life:0.26, age:0, friendly:true, col: col||COL });
+      friendlyBlast(player.x, player.y, R, D, true);
+      cutHostileShots(player.x, player.y, R, 0, Math.PI*2);
+    };
+    if (key === 'iaido'){
+      // 거합 — 유일하게 거리를 만드는 순간. 화면을 가르는 직선 장참 + 확정 치명
+      player.dashCritT = Math.max(player.dashCritT||0, 1.2);
       const t0 = nearestTarget();
       const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-      const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 340, HW = 30;
-      effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.34, age:0,
-                     col: CLASS_COLORS[player.classKey], heavy:true });
+      const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 360, HW = 34;
+      effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.36, age:0, col:COL, heavy:true });
       for (let i=enemies.length-1;i>=0;i--){
         const e = enemies[i]; if (!e) continue;
         const dx=e.x-player.x, dy=e.y-player.y, along=dx*ca+dy*sa;
         if (along < -e.r || along > RCH + e.r) continue;
         if (Math.abs(-dx*sa+dy*ca) > HW + e.r) continue;
-        const d = 130*P*corrodeMult(e);
-        e.hp -= d; addDmgNum(e.x, e.y, d, true);
+        const d = 165*P*corrodeMult(e);
+        e.hp -= d; addDmgNum(e.x, e.y, d, true); staggerEnemy(e, 0.9); procOnHit(e, false, null);
         if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
       }
+      player.swingT = Math.max(player.swingT||0, 0.34); player.atkMotion = 'iai';
       addTextNum(player.x, player.y-40, '거합!');
-    } else if (ownedWeapon('whirl')){   // 응혈: 피를 태워 즉시 회복 + 광역 폭발
-      const heal = player.maxHp*0.22;
-      player.hp = Math.min(player.maxHp, player.hp + heal);
-      friendlyBlast(player.x, player.y, 165, 120*P, true);      // v6.109 주력 딜로 승격
-      addTextNum(player.x, player.y-40, '응혈 폭발');
-    } else if (ownedWeapon('combo3')){  // 연: 쌓인 연을 한 번에 터뜨린다
-      friendlyBlast(player.x, player.y, 135, 34*P*(player.comboN||1), true);   // 연을 많이 쌓았을수록 크다
-      player.comboN = 0; addTextNum(player.x, player.y-40, '연 해방');
-    } else if (ownedWeapon('riposte')){ // 태세: 전방위 반격 + 잠깐 무적
-      friendlyBlast(player.x, player.y, 160, 115*P, true);      // v6.109 주력 딜로 승격
-      player.invuln = Math.max(player.invuln, 0.8);
-      player.stanceN = 0; addTextNum(player.x, player.y-40, '요지부동');
-    } else if (ownedWeapon('frenzy')){  // 광기: 3초간 자해 없이 최대 가속
-      player.frenzyFree = 3; addTextNum(player.x, player.y-40, '광란 해방');
+    } else if (key === 'scythe'){
+      // 그믐의 원무 — 사방을 세 번 벤다
+      queueTicks(3, 0.13, (i)=>{ if (state!=='playing') return;
+        boom(152, 66*P, i===2 ? '#e0a94f' : COL); shake = Math.min(12, shake+3); SFX.play('sweep'); });
+      player.swingT = Math.max(player.swingT||0, 0.4); player.atkMotion = 'spin';
+      addTextNum(player.x, player.y-40, '그믐의 원무');
+    } else if (key === 'kesagiri'){
+      // 무영난무 — 주변 적 사이를 순간이동하며 차례로 벤다
+      const list = enemies.filter(e=>e && Math.hypot(e.x-player.x,e.y-player.y) < 300)
+                          .sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y))
+                          .slice(0, 8);
+      if (!list.length){ boom(140, 90*P, COL); }
+      queueTicks(list.length, 0.075, (i)=>{ if (state!=='playing') return;
+        const m = list[i]; if (!m) return;
+        particles.push({ x:player.x, y:player.y, vx:0, vy:0, life:0.3, age:0, r:player.r*0.8, ghost:true });
+        player.x = m.x - Math.cos(i)*18; player.y = m.y - Math.sin(i)*18;
+        effects.push({ type:'slash', x:m.x, y:m.y, a:i*1.7, r:44, arc:2.4, life:0.18, age:0 });
+        cutHostileShots(m.x, m.y, 52, 0, Math.PI*2);
+        for (let j=enemies.length-1;j>=0;j--){
+          const en = enemies[j];
+          if (!en || Math.hypot(en.x-m.x, en.y-m.y) > 50 + en.r) continue;
+          const d = 74*P*corrodeMult(en);
+          en.hp -= d; addDmgNum(en.x, en.y, d, true); staggerEnemy(en, 0.5); procOnHit(en, false, null);
+          hitSpark(en.x, en.y, Math.random()*Math.PI*2, COL);
+          if (en.hp<=0 && enemies[j]===en) defeatEnemy(j);
+        }
+        SFX.play('hit');
+      });
+      player.atkMotion = 'combo';
+      addTextNum(player.x, player.y-40, '무영난무');
+    } else if (key === 'whirl'){
+      // 혈풍륜 — 2초간 멈추지 않고 돈다. 도는 동안 피가 돌아온다
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.20);
+      queueTicks(11, 0.18, (i)=>{ if (state!=='playing') return;
+        player.whirlT = 0.3; player.swingT = Math.max(player.swingT||0, 0.2); player.atkMotion = 'spin';
+        boom(132, 30*P, '#c9403a'); shake = Math.min(9, shake+1.5); });
+      addTextNum(player.x, player.y-40, '혈풍륜');
+    } else if (key === 'combo3'){
+      // 백팔연타 — 전방을 여덟 번 두들기고 마지막에 밀어낸다
+      const t0 = nearestTarget();
+      const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+      queueTicks(8, 0.07, (i)=>{ if (state!=='playing') return;
+        const last = i===7;
+        player.swingT = Math.max(player.swingT||0, 0.14); player.atkMotion = 'combo';
+        effects.push({ type:'arc', x:player.x, y:player.y, a:a0, arc: last?2.6:1.6, r:116, life:0.14, age:0,
+                       friendly:true, col: last ? '#e0a94f' : COL });
+        cutHostileShots(player.x, player.y, 116, a0, last?2.6:1.6);
+        for (let j=enemies.length-1;j>=0;j--){
+          const e = enemies[j];
+          if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 116 + e.r) continue;
+          let da = Math.atan2(e.y-player.y, e.x-player.x) - a0;
+          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+          if (Math.abs(da) > (last?1.3:0.8)) continue;
+          const d = (last?70:24)*P*corrodeMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, last); procOnHit(e, false, null); staggerEnemy(e, last?0.7:0.2);
+          if (last){ const ka=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(ka)*30; e.y+=Math.sin(ka)*30; }
+          if (e.hp<=0 && enemies[j]===e) defeatEnemy(j);
+        }
+        if (last){ shake = Math.min(13, shake+5); hitStop(0.04); SFX.play('boom'); } else SFX.play('hit');
+      });
+      addTextNum(player.x, player.y-40, '백팔연타');
+    } else if (key === 'smash'){
+      // 지진 — 땅이 흔들리고 전부 밀려나 주저앉는다
+      boom(212, 215*P, '#c96a3f');
+      for (const e of enemies){
+        if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 212 + e.r) continue;
+        const ka = Math.atan2(e.y-player.y, e.x-player.x);
+        e.x += Math.cos(ka)*54; e.y += Math.sin(ka)*54;
+        staggerEnemy(e, 1.3);
+      }
+      shake = Math.min(20, shake+12); hitStop(0.08);
+      player.swingT = Math.max(player.swingT||0, 0.42); player.atkMotion = 'heavy';
+      addTextNum(player.x, player.y-40, '삼대 오백!');
+    } else if (key === 'riposte'){
+      // 요지부동 — 1.4초 굳는 대신 무적. 그 사이 다가온 것을 계속 되돌려준다
+      player.riposteT = 1.4;
+      player.invuln = Math.max(player.invuln, 1.4);
+      queueTicks(5, 0.28, (i)=>{ if (state!=='playing') return;
+        player.swingT = Math.max(player.swingT||0, 0.2); player.atkMotion = 'crouch';
+        boom(158, 46*P, '#e0a94f'); shake = Math.min(10, shake+2); });
+      addTextNum(player.x, player.y-40, '요지부동');
+    } else if (key === 'frenzy'){
+      // 피의 광시곡 — 4초간 자해 없이 두 배로 몰아친다. 벨 때마다 피가 돌아온다
+      player.frenzyFree = 4; player.rushT = 4;
+      addTextNum(player.x, player.y-40, '피의 광시곡');
+      boom(120, 60*P, '#c9403a');
+    } else if (key === 'reap'){
+      // 수확의 밤 — 문턱 아래는 그 자리에서 전부 거둔다
+      const wpn = player.weapons.find(x=>x.key==='reap');
+      const thr = wpn && WEAPONS.reap.thr ? WEAPONS.reap.thr(wpn) : 0.4;
+      boom(196, 190*P, '#7a4fa8');
+      let reaped = 0;
+      for (let i=enemies.length-1;i>=0;i--){
+        const e = enemies[i];
+        if (!e || e.elite || Math.hypot(e.x-player.x,e.y-player.y) > 196 + e.r) continue;
+        if (e.hp>0 && e.hp/Math.max(1,e.maxHp||1) < thr){ e.hp = 0; addTextNum(e.x, e.y-12, '수확'); reaped++; }
+        if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+      }
+      shake = Math.min(16, shake+8); hitStop(0.06);
+      player.swingT = Math.max(player.swingT||0, 0.4); player.atkMotion = 'drag';
+      addTextNum(player.x, player.y-40, reaped ? ('수확의 밤 ×'+reaped) : '수확의 밤');
+    } else if (key === 'cadence'){
+      // 광시곡 — 3초간 모든 타격이 정박이 된다
+      player.beatFreeT = 3;
+      boom(150, 130*P, '#c9895a');
+      addTextNum(player.x, player.y-40, '광시곡 3초');
     } else if (ownedWeapon('satellite')){
-      player.satOver = 1; satCharge(0.01);   // 과부하는 기존 궤도 해방으로 연결
+      player.satOver = 1; satCharge(0.01);
       return;
     } else {
-      friendlyBlast(player.x, player.y, 150, 105*P, true);      // v6.109 주력 딜로 승격
+      boom(150, 130*P, COL);
       addTextNum(player.x, player.y-40, r.n+' 해방');
     }
     player.surgeT = 3;            // v6.111 소비 직후 3초간 평타 +60% — 쓰면 그 다음이 강해진다
     _overflowT = 0;
+    resetSpentResource();
     addTextNum(player.x, player.y-54, '각성 3초');
     shake = Math.min(14, shake+6); hitStop(0.05); buzz(24); SFX.play('boom');
+  }
+  // v6.113 자원 소모 — 헛방이든 명중이든 자원은 사라진다 (막 누르면 손해)
+  function resetSpentResource(){
+    player.mCharge = 0;                 // v6.115 근접 공통 기력
+    player.satOver = 0;
+    _overflowT = 0;
   }
   function cycleSatOrbit(){
     if (!player.weapons.some(w=>w.key==='satellite')) return;
@@ -10293,243 +10451,40 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
-      } else if (w.key==='reap'){
-        const radius = def.radius(w), arc = def.arc(w), thr = def.thr(w);
+      } else if (MELEE_ENGINE[w.key]){
+        // v6.115 근접 평타 — 시그니처(거합·연참·회전·처형…)는 전부 R 소비기로 갔다.
+        //  여기 남은 것은 빠르고 약한 '평범한 근접 참격'이고, 본업은 **기력을 쌓는 것**이다.
+        const E = MELEE_ENGINE[w.key];
+        const radius = def.radius(w), arcW = def.arc(w);
+        const t0 = nearestTarget();
+        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
-        const t0 = nearestTarget();
-        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0,
+        const full = arcW >= Math.PI*2;
+        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
                        friendly:true, col: CLASS_COLORS[player.classKey] });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'drag';
-        player.atkMotion = 'crouch';
-        player.atkMotion = 'spin';
-        cutHostileShots(player.x, player.y, radius, baseA, arc);
-        let rn = 0, reaped = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
-          if (arc < Math.PI*2){
-            let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
-            while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
-            if (Math.abs(da) > arc/2) continue;
-          }
-          rn++;
-          const frac = e.maxHp ? Math.max(0, Math.min(1, e.hp/e.maxHp)) : 1;
-          // 문턱: 체력이 낮을수록 급증 (1.0 → 2.2배), 문턱 아래는 즉시 수확
-          const wounded = 1 + (1-frac)*1.2;
-          const isC = Math.random() < player.critChance;
-          const d = dmg*wounded*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(rn);
-          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, 0.45);
-          procOnHit(e, false, w.imbue);
-          if (e.hp>0 && !e.elite && frac < thr){ e.hp = 0; addTextNum(e.x, e.y-12, '수확'); reaped++; }
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
-        }
-        if (reaped){ hitStop(0.04); shake = Math.min(10, shake+3); }
-        SFX.play('sweep');
-      } else if (w.key==='cadence'){
-        // 박 자원: 콤보가 길수록 박이 빨라지고, 정박에 얹으면 크게 울린다 (엔진 내장)
-        // 전역 콤보 카운터(`combo`)를 그대로 쓴다 — 선율가의 콤보 정체성이 곧 박의 속도가 된다
-        const beat = 0.9 / (1 + Math.min(1.2, (combo||0)*0.06));  // 박 간격
-        const now = elapsed;
-        const phase = ((now % beat) / beat);
-        const onBeat = phase < 0.22 || phase > 0.86;             // 정박 창
-        const radius = def.radius(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (onBeat ? 2.0 : 1);
-        const t0 = nearestTarget();
-        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc: onBeat?2.6:1.6, r:radius,
-                       life:0.18, age:0, friendly:true, col: onBeat ? '#e0a94f' : CLASS_COLORS[player.classKey] });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'beat';
-        cutHostileShots(player.x, player.y, radius, baseA, onBeat?2.6:1.6);
-        if (onBeat){ shake = Math.min(9, shake+3); addTextNum(player.x, player.y-38, '정박!'); }
-        let bn = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
-          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
-          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
-          if (Math.abs(da) > (onBeat?1.3:0.8)) continue;
-          bn++;
-          const isC = Math.random() < player.critChance;
-          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(bn)*meleeCloseMult(e);
-          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, onBeat?0.5:0.25);
-          procOnHit(e, false, w.imbue);
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
-        }
-        SFX.play(onBeat ? 'sweep' : 'hit');
-      } else if (w.key==='riposte'){
-        // 태세 자원: 멈춰 있는 동안 차오르고, 움직이면 즉시 흩어진다 (엔진 내장)
-        const still = Math.hypot(player.vx||0, player.vy||0) < 18 && player.dashTime<=0;
-        const cap = def.cap(w);
-        if (still) player.stanceN = Math.min(cap, (player.stanceN||0) + 1);
-        else { player.stanceN = 0; w.cd = 0.3; continue; }      // 움직이는 동안엔 반격하지 않는다
-        const st = player.stanceN;
-        const radius = def.radius(w) * (1 + (st-1)*0.06);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (1 + (st-1)*0.55);
-        let near = false;
-        for (const e of enemies){ if (Math.hypot(e.x-player.x,e.y-player.y) < radius + e.r){ near = true; break; } }
-        if (!near){ w.cd = 0.3; continue; }                     // 다가온 적이 있어야 되받아친다
-        effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:radius, life:0.24, age:0,
-                       friendly:true, col: st>=cap ? '#e0a94f' : CLASS_COLORS[player.classKey] });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        cutHostileShots(player.x, player.y, radius, 0, Math.PI*2);
-        if (st>=cap){ shake = Math.min(11, shake+4); hitStop(0.03); addTextNum(player.x, player.y-38, '태세 만충'); }
-        let rn = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
-          rn++;
-          const isC = Math.random() < player.critChance;
-          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(rn);
-          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, 0.5);
-          procOnHit(e, false, w.imbue);
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
-        }
-        player.stanceN = 0;                                     // 되받아치면 태세를 소모한다
-        SFX.play('sweep');
-      } else if (w.key==='frenzy'){
-        // 광기 자원: 벨수록 가속(최대 rush배), 2초 안 때리면 식는다. 대가로 제 피가 깎인다
-        if ((player.frenzyT||0) <= 0) player.frenzyN = 0;
-        player.frenzyT = 2.0;
-        player.frenzyN = Math.min(20, (player.frenzyN||0) + 1);
-        const rush = 1 + (def.rush(w)-1) * Math.min(1, player.frenzyN/12);
-        w.cd = def.baseCd(w) / rush;                            // 스스로 주기를 당긴다
-        const radius = def.radius(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * rush;
-        const t0 = nearestTarget();
-        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.7, r:radius, life:0.14, age:0,
-                       friendly:true, col:'#c9403a' });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'flurry';
-        cutHostileShots(player.x, player.y, radius, baseA, 1.7);
-        // 자해: 가속할수록 제 피가 더 깎인다 (진화 시 절반)
-        const selfCut = (player.frenzyFree>0 ? 0 : (player.maxHp*0.004) * (rush-1) * (w.evolved?0.5:1));
-        if (selfCut > 0 && player.hp > player.maxHp*0.12) player.hp = Math.max(1, player.hp - selfCut);
-        let fn = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
-          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
-          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
-          if (Math.abs(da) > 0.85) continue;
-          fn++;
-          const isC = Math.random() < player.critChance;
-          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(fn)*meleeCloseMult(e);
-          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, 0.25);
-          procOnHit(e, false, w.imbue);
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
-        }
-        if (player.frenzyN>=12) addTextNum(player.x, player.y-38, '광란');
-        SFX.play('hit');
-      } else if (w.key==='combo3'){
-        // 연 자원: 2.2초 안에 이어 때리면 연쇄가 쌓이고, 끊기면 0으로 (엔진 내장 자원)
-        if ((player.comboT||0) <= 0) player.comboN = 0;
-        player.comboT = 2.2;
-        player.comboN = Math.min(def.cap(w), (player.comboN||0) + 1);
-        const step = player.comboN;
-        const finisher = step % 3 === 0;                      // 3타째가 마무리
-        const radius = def.radius(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1)
-                  * (1 + (step-1)*0.16) * (finisher ? 2.1 : 1);
-        const t0 = nearestTarget();
-        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        const arc = finisher ? 2.6 : 1.5;
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.18, age:0,
-                       friendly:true, col: finisher ? '#e0a94f' : CLASS_COLORS[player.classKey] });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'combo';
-        cutHostileShots(player.x, player.y, radius, baseA, arc);
-        if (finisher){ shake = Math.min(10, shake+4); hitStop(0.03); }
-        let cn = 0;
+        player.swingT = Math.max(player.swingT||0, 0.22);
+        if (E.motion) player.atkMotion = E.motion;
+        cutHostileShots(player.x, player.y, radius, baseA, arcW);
+        // ── 맞은 적을 센다 (기력 배율에 쓰인다)
+        let hn = 0, woundSum = 0; const hitIds = [];
         for (let i=enemies.length-1;i>=0;i--){
           const e = enemies[i];
           if (!e) continue;
           const dd = Math.hypot(e.x-player.x, e.y-player.y);
           if (dd > radius + e.r) continue;
-          let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
-          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
-          if (Math.abs(da) > arc/2) continue;
-          cn++;
-          const isC = Math.random() < player.critChance;
-          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(cn)*meleeCloseMult(e);
-          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, finisher ? 0.6 : 0.3);
-          procOnHit(e, false, w.imbue);
-          if (finisher){ const ka=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(ka)*16; e.y+=Math.sin(ka)*16; }
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
-        }
-        if (step>=3) addTextNum(player.x, player.y-38, '연 '+step);
-        SFX.play(finisher ? 'sweep' : 'hit');
-      } else if (w.key==='smash'){
-        // 벌크업 자원: 최대체력이 곧 위력 (엔진 내장 — 별도 자원 없음)
-        const bulk = 1 + Math.min(1.0, Math.max(0, (player.maxHp-100)/260));
-        const reach = def.reach(w), splash = def.splash(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * bulk;
-        const t0 = nearestTarget();
-        if (!t0 || t0.isBoss && Math.hypot(t0.x-player.x,t0.y-player.y)>reach+t0.r){ /* 계속 */ }
-        if (!t0){ w.cd = 0.25; continue; }
-        const dd0 = Math.hypot(t0.x-player.x, t0.y-player.y);
-        if (dd0 > reach + (t0.r||0)){ w.cd = 0.25; continue; }
-        const baseA = Math.atan2(t0.y-player.y, t0.x-player.x);
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:1.1, r:reach, life:0.24, age:0,
-                       friendly:true, col:'#c96a3f' });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'heavy';
-        cutHostileShots(player.x, player.y, reach, baseA, 1.3);
-        shake = Math.min(12, shake+5); hitStop(0.035);
-        const hitOne = (tg, mult)=>{
-          const isC = Math.random() < player.critChance;
-          const d = dmg*mult*(isC?player.critMult:1)*corrodeMult(tg);
-          tg.hp -= d; addDmgNum(tg.x, tg.y, d, isC);
-          staggerEnemy(tg, 0.7);
-          procOnHit(tg, !!tg.isBoss, w.imbue);
-          const ka=Math.atan2(tg.y-player.y,tg.x-player.x); tg.x+=Math.cos(ka)*22; tg.y+=Math.sin(ka)*22;
-          hitSpark(tg.x, tg.y, ka, '#c96a3f');
-        };
-        const ti = enemies.indexOf(t0);
-        if (ti >= 0){ hitOne(t0, 1); if (t0.hp<=0 && enemies[ti]===t0) defeatEnemy(ti); }
-        else if (t0.isBoss){ hitOne(t0, 1); if (t0.hp<=0){ const bi=bosses.indexOf(t0); if(bi>=0) defeatBoss(bi); } else refreshBossBar(); }
-        if (splash > 0){
-          for (let i=enemies.length-1;i>=0;i--){
-            const e = enemies[i];
-            if (!e || e===t0) continue;
-            if (Math.hypot(e.x-t0.x, e.y-t0.y) > splash + e.r) continue;
-            hitOne(e, 0.45);
-            if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+          if (!full){
+            let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
+            while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+            if (Math.abs(da) > arcW/2) continue;
           }
-        }
-        SFX.play('boom');
-      } else if (w.key==='whirl'){
-        // 응혈: 잃은 체력 비율에 비례해 강해진다 (엔진 내장 자원 — 별도 자원을 얹지 않는다)
-        const lost = 1 - Math.max(0, Math.min(1, player.hp/Math.max(1,player.maxHp)));
-        const blood = 1 + lost * 0.9;                        // 만신창이일수록 최대 1.9배
-        const radius = def.radius(w) * (1 + lost*0.12);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * blood;
-        player.whirlT = 0.45;                                 // 시전 중 이동 감속 (자리를 잡는 대가)
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        // 자기중심 360° — 소유물은 '면'
-        effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:radius,
-                       life:0.3, age:0, friendly:true, col: lost>0.5 ? '#c9403a' : CLASS_COLORS[player.classKey] });
-        cutHostileShots(player.x, player.y, radius, 0, Math.PI*2);   // F축: 회전이 주변 탄을 전부 쳐낸다
-        shake = Math.min(10, shake + 2 + lost*3);
-        let wn = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
-          wn++;
+          hn++;
           const isC = Math.random() < player.critChance;
-          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(wn)*meleeCloseMult(e);
-          e.hp -= d;
-          addDmgNum(e.x, e.y, d, isC);
-          staggerEnemy(e, 0.4);
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(hn)*meleeCloseMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, 0.3);
           procOnHit(e, false, w.imbue);
+          woundSum += 1 - Math.max(0, Math.min(1, e.hp/Math.max(1,e.maxHp||1)));
+          hitIds.push(e);
           if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
         }
         for (let i=bosses.length-1;i>=0;i--){
@@ -10537,165 +10492,40 @@ import { FX } from "./fx.js";
           if (!b || b.ghost || Math.hypot(b.x-player.x, b.y-player.y) > radius + b.r) continue;
           const d = dmg*corrodeMult(b);
           b.hp -= d; addDmgNum(b.x, b.y, d, false); procOnHit(b, true, w.imbue);
+          hn++; woundSum += 0.5;
           if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
         }
-        if (lost > 0.5) addTextNum(player.x, player.y-40, '응혈');
-        SFX.play('sweep');
-      } else if (w.key==='kesagiri'){
-        const need = def.need(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
-        // v6.99 표식은 좌표에 남는다 — 적이 죽어도 유지된다. 수명 6초
-        player.marks = (player.marks||[]).filter(m=> (m.t -= dt) > 0);
-        if (player.marks.length >= need){
-          // ── 연참: 표식 좌표를 순서대로 훑으며 그 지점 주변을 벤다
-          const list = player.marks.slice(0, 8);
-          const bd = dmg * def.burst(w);
-          let px0 = player.x, py0 = player.y;
-          for (const m of list){
-            effects.push({ type:'slash', x:m.x, y:m.y, a:Math.atan2(m.y-py0, m.x-px0), r:38, arc:2.4, life:0.2, age:0 });
-            particles.push({ x:px0, y:py0, vx:0, vy:0, life:0.3, age:0, r:player.r*0.8, ghost:true });  // 잔상
-            px0 = m.x; py0 = m.y;
-            cutHostileShots(m.x, m.y, 46, 0, Math.PI*2);   // v6.102 F축: 훑는 지점의 탄도 함께 벤다
-            // 표식 지점 주변을 광역으로 벤다 (그 자리 적이 바뀌었어도 성립)
-            for (let i2=enemies.length-1;i2>=0;i2--){
-              const en = enemies[i2];
-              if (!en || Math.hypot(en.x-m.x, en.y-m.y) > 44 + en.r) continue;
-              const isC = Math.random() < player.critChance;
-              const d = bd*(isC?player.critMult:1)*corrodeMult(en);
-              en.hp -= d;
-              addDmgNum(en.x, en.y, d, isC);
-              staggerEnemy(en, 0.5);
-              procOnHit(en, false, w.imbue);
-              hitSpark(en.x, en.y, Math.random()*Math.PI*2, CLASS_COLORS[player.classKey]);
-              if (en.hp<=0 && enemies[i2]===en) defeatEnemy(i2);
-            }
-          }
-          // 마지막 표식 자리로 이동 — 실제로 '베고 지나간다'
-          if (list.length){
-            const last = list[list.length-1];
-            player.x = last.x; player.y = last.y;
-            player.invuln = Math.max(player.invuln, 0.25);
-          }
-          player.marks = [];
-          addTextNum(player.x, player.y-34, '연참 x'+list.length);
-          shake = Math.min(14, shake+6);
-          hitStop(0.05);
-          SFX.play('sweep');
-        } else {
-          // ── 평타: 가장 가까운 적을 짧게 베고 표식을 남긴다
-          const t0 = nearestTarget();
-          if (!t0 || t0.isBoss){ w.cd = 0.25; continue; }
-          const a0 = Math.atan2(t0.y-player.y, t0.x-player.x);
-          effects.push({ type:'slash', x:player.x, y:player.y, a:a0, r:30, arc:1.6, life:0.16, age:0 });
-          player.swingT = Math.max(player.swingT||0, 0.26);
-          const i3 = enemies.indexOf(t0);
-          if (i3 >= 0 && Math.hypot(t0.x-player.x, t0.y-player.y) < 90 + t0.r){
-            const isC = Math.random() < player.critChance;
-            const d = dmg*(isC?player.critMult:1)*corrodeMult(t0)*meleeCloseMult(t0);
-            t0.hp -= d;
-            addDmgNum(t0.x, t0.y, d, isC);
-            staggerEnemy(t0, 0.35);
-            procOnHit(t0, false, w.imbue);
-            // v6.99 맞힌 자리에 좌표 표식 — 처치해도 남는다(처치가 손해가 되지 않게)
-            player.marks.push({ x:t0.x, y:t0.y, t:6 });
-            if (player.marks.length > 12) player.marks.shift();
-            if (t0.hp<=0 && enemies[i3]===t0) defeatEnemy(i3);
-          }
-          SFX.play('hit');
+        SFX.play('hit');
+        if ((player.rushT||0) > 0) w.cd *= 0.55;             // v6.115 피의 광시곡 — 소비기가 평타를 바꾼다
+        if (!hn) continue;                                  // 헛스윙은 기력을 주지 않는다
+        // ── 기력 충전: 여기서만 엔진이 갈린다. '어떻게 빨리 채우나'가 곧 조작이다
+        let g = E.gain;
+        if (w.key==='scythe')       g *= 1 + Math.min(1.0, (hn-1)*0.3);            // 많이 훑을수록
+        else if (w.key==='iaido')   g *= (noHitT||0) > 2.5 ? 2.0 : ((noHitT||0) > 1 ? 1.4 : 0.8);  // 안 맞고 벤다
+        else if (w.key==='kesagiri') g *= 1 + Math.min(1.2, hn*0.35);              // 한 번에 여럿을 스칠수록
+        else if (w.key==='whirl')   g *= 1 + (1-Math.max(0,Math.min(1,player.hp/Math.max(1,player.maxHp))))*1.6;  // 피를 흘릴수록
+        else if (w.key==='combo3'){                                                // 끊기지 않고 이어간다
+          if ((player.comboT||0) <= 0) player.comboN = 0;
+          player.comboT = 1.8; player.comboN = Math.min(12, (player.comboN||0)+1);
+          g *= 1 + Math.min(1.4, (player.comboN-1)*0.16);
         }
-      } else if (w.key==='iaido'){
-        // 발도: 가장 가까운 적 방향으로 직선 참격. 무피격 시간(noHitT)이 길수록 무겁다
-        const t0 = nearestTarget();
-        const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        const reach = def.reach(w), halfW = def.halfW(w);
-        const charge = 1 + Math.min(0.8, (noHitT||0)*0.22);      // 정중동 — 참을수록 세다
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * charge;
-        const ca = Math.cos(baseA), sa = Math.sin(baseA);
-        effects.push({ type:'iai', x:player.x, y:player.y, a:baseA, r:reach, hw:halfW, life:0.3, age:0,
-                       col: CLASS_COLORS[player.classKey], heavy: charge>1.5 });
-        player.swingT = Math.max(player.swingT||0, 0.26);
-        player.atkMotion = 'iai';
-        player.recoilX = (player.recoilX||0) + ca*5; player.recoilY = (player.recoilY||0) + sa*5;
-        cutHostileShots(player.x, player.y, reach*0.7, baseA, 0.9);   // 참격선 위의 탄도 벤다
-        shake = Math.min(12, shake + (charge>1.5?5:2.5));
-        const onLine = (tx,ty,tr)=>{
-          const dx = tx-player.x, dy = ty-player.y;
-          const along = dx*ca + dy*sa;                              // 진행 방향 거리
-          if (along < -tr || along > reach + tr) return false;
-          const side = Math.abs(-dx*sa + dy*ca);                    // 선에서 벗어난 거리
-          return side < halfW + tr;
-        };
-        let n2 = 0;
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (!e || !onLine(e.x,e.y,e.r)) continue;
-          n2++;
-          const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3);
-          const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*crowdMult(n2);
-          e.hp -= d;
-          addDmgNum(e.x,e.y,d,isCrit);
-          staggerEnemy(e, 0.5);
-          procOnHit(e, false, w.imbue);
-          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        else if (w.key==='smash')   g *= 1 + Math.min(1.0, Math.max(0,(player.maxHp-100)/260));   // 몸집이 곧 힘
+        else if (w.key==='riposte') g *= (Math.hypot(player.vx||0, player.vy||0) < 18 && player.dashTime<=0) ? 2.1 : 0.4;  // 멈춰 서서
+        else if (w.key==='frenzy'){                                                // 제 피를 깎아가며
+          g *= 1.9;
+          if (player.hp > player.maxHp*0.15 && !(player.frenzyFree>0)) player.hp = Math.max(1, player.hp - player.maxHp*0.006);
         }
-        for (let i=bosses.length-1;i>=0;i--){
-          const b = bosses[i];
-          if (!b || b.ghost || !onLine(b.x,b.y,b.r)) continue;
-          const d = dmg*corrodeMult(b);
-          b.hp -= d; addDmgNum(b.x,b.y,d,false); procOnHit(b, true, w.imbue);
-          if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+        else if (w.key==='reap')    g *= 1 + Math.min(1.6, (woundSum/Math.max(1,hn))*2.2);        // 약해진 적을 벤다
+        else if (w.key==='cadence'){                                               // 정박에 얹는다
+          const beat = 0.9 / (1 + Math.min(1.2, (combo||0)*0.06));
+          const ph = (elapsed % beat) / beat;
+          const onBeat = ph < 0.22 || ph > 0.86 || (player.beatFreeT||0) > 0;   // v6.115 광시곡 중엔 전부 정박
+          if (onBeat){ g *= 2.2; addTextNum(player.x, player.y-38, '정박!'); shake = Math.min(8, shake+2); }
+          else g *= 0.55;
         }
-        SFX.play('sweep');
-      } else if (w.key==='scythe'){
-        // 낫: 부채꼴 스윕 (진화 시 360도)
-        const t = nearestTarget();
-        const baseA = t ? Math.atan2(t.y-player.y, t.x-player.x) : player.facing;
-        const radius = def.radius(w);
-        const arc = def.arc(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.scytheBoost||1);
-        const scytheImbue = w.imbue;
-        // v6.84 궤적에 직업 악센트색 — 무기·직업마다 베는 색이 다르다
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0, friendly:true, col: CLASS_COLORS[player.classKey] });
-        cutHostileShots(player.x, player.y, radius, baseA, arc);   // v6.86 F 탄막 베기
-        const hitInArc = (tx, ty, tr)=>{
-          const d = Math.hypot(tx-player.x, ty-player.y);
-          if (d > radius+tr) return false;
-          if (arc >= Math.PI*2) return true;
-          let da = Math.atan2(ty-player.y, tx-player.x) - baseA;
-          while (da>Math.PI) da-=Math.PI*2;
-          while (da<-Math.PI) da+=Math.PI*2;
-          return Math.abs(da) < arc/2;
-        };
-        let swHit = 0;   // v6.86 군중 스케일링: 이 스윙이 몇 마리를 걸었는가
-        for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
-          if (hitInArc(e.x,e.y,e.r)){
-            const isCrit = Math.random()<player.critChance;
-            swHit++;
-            // v6.77 밀착 보너스 + v6.86 군중 스케일링(2번째부터 1마리당 +6%, 최대 +60%)
-            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*meleeCloseMult(e)*crowdMult(swHit);
-            e.hp -= d;
-            addDmgNum(e.x,e.y,d,isCrit);
-            staggerEnemy(e);            // 넉백 대신 경직 — 적을 밀지 않으니 범위와 곱해져도 락이 안 걸린다
-            procOnHit(e, false, scytheImbue);
-            // 사신 처형
-            if (player.execThresh>0 && !e.elite && e.hp>0 && e.hp < e.maxHp*player.execThresh){
-              e.hp = 0; addTextNum(e.x, e.y-10, '처형!');
-            }
-            if (e.hp<=0) defeatEnemy(i);
-          }
-        }
-        for (let i=bosses.length-1;i>=0;i--){
-          const b = bosses[i];
-          if (!b.ghost && hitInArc(b.x,b.y,b.r)){
-            const d = dmg*corrodeMult(b);
-            b.hp -= d;
-            addDmgNum(b.x,b.y,d,false);
-            procOnHit(b, true, scytheImbue);
-            if (b.hp<=0) defeatBoss(i); else refreshBossBar();
-          }
-        }
-        SFX.play('sweep');
+        const before = player.mCharge||0;
+        player.mCharge = Math.min(1, before + g);
+        if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
       } else if (w.key==='xwave'){
         // v6.54 전향: 검기 방출 — 전사의 참격이 날아간다
         const t = nearestTarget();
@@ -11658,7 +11488,15 @@ import { FX } from "./fx.js";
       if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
       if (player.comboT>0){ player.comboT -= dt; if (player.comboT<=0) player.comboN = 0; }   // v6.104 연 감쇠
       if (player.frenzyT>0){ player.frenzyT -= dt; if (player.frenzyT<=0) player.frenzyN = 0; }      // v6.105 광기 냉각
+      runEngineTicks(dt);                                                                                // v6.115 소비기 다단 히트
+      if (player.rushT>0) player.rushT -= dt;                                                             // v6.115 광시곡 가속
+      if (player.beatFreeT>0) player.beatFreeT -= dt;                                                     // v6.115 전정박
+      if (player.riposteT>0){ player.riposteT -= dt; player.invuln = Math.max(player.invuln, 0.1); }      // v6.115 요지부동
       if (player.surgeT>0) player.surgeT -= dt;                                                          // v6.111 각성 창
+      if (player.spendWindT>0){                                                                          // v6.113 소비 예비동작
+        player.spendWindT -= dt;
+        if (player.spendWindT <= 0 && player.spendPend){ const pr = player.spendPend; player.spendPend = null; spendResourceFire(pr); }
+      }
       { const _r = engineResource();                                                                     // v6.111 넘침 손실
         if (_r && _r.v >= 1) _overflowT = Math.min(5, _overflowT + dt);
         else _overflowT = Math.max(0, _overflowT - dt*2); }
@@ -14616,6 +14454,13 @@ import { FX } from "./fx.js";
         if (t < 0.62){ const k=t/0.62; swRot = 0.75*k*k; lunge = -1.2*k; lunY = 0.8*k; }
         else if (t < 0.74){ const k=(t-0.62)/0.12; swRot = 0.75 - 2.6*k; lunge = -1.2 + 7.5*k; lunY = 0.8-1.8*k; smear = 1; }
         else { const k=(t-0.74)/0.26; const e=k*k*(3-2*k); swRot = -1.85*(1-e); lunge = 6.3*(1-e); lunY = -1*(1-e); }
+      } else if (o.motion === 'sheath'){
+        // 발도 평타: 짧게 낮추었다가(칼집에 손) 뽑아 베고 즉시 납도 — 되돌림이 빠르다
+        if (t < 0.3){ const k=t/0.3; swRot = 0.5*k; lunge = -1.4*k; lunY = 0.9*k; }
+        else if (t < 0.55){ const k=(t-0.3)/0.25; const e=1-Math.pow(1-k,3);
+          swRot = 0.5-2.2*e; lunge = -1.4+5.2*e; lunY = 0.9-1.8*e; smear = Math.sin(k*Math.PI); }
+        else { const k=(t-0.55)/0.45; const e=k*k*(3-2*k);        // 납도: 곧장 자세로 되돌아온다
+          swRot = -1.7*(1-e); lunge = 3.8*(1-e); lunY = -0.9*(1-e); }
       } else if (o.motion === 'heavy'){
         // 후려치기: 크게 치켜들고 **한 박자 늦게** 내려찍는다 (예비가 가장 길다)
         if (t < 0.55){ const k=t/0.55; const e=1-(1-k)*(1-k); swRot = 1.15*e; lunge = -2.6*e; lunY = 2.2*e; }
@@ -17831,6 +17676,14 @@ import { FX } from "./fx.js";
           // v6.111 방치할수록 경고가 진해진다 — '넘치고 있다'가 보여야 쓸 이유가 생긴다
           ctx.fillStyle = _overflowT > 1 ? '#c9403a' : rs.c;
           ctx.fillText(_overflowT > 1 ? 'R  넘침!' : 'R', player.x, by + 12);
+        }
+        if (full){                            // v6.113 지금 쓰면 몇 마리가 걸리는지 — 판단 근거를 보여준다
+          const n2 = spendTargets();
+          window.__spendHint = n2;
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = n2 >= 3 ? '#e0a94f' : n2 === 0 ? '#c9403a' : rs.c;
+          ctx.font = "700 8px 'IBM Plex Mono', monospace";
+          ctx.fillText(n2 === 0 ? '헛방' : ('x'+n2), player.x + 26, by + 4);
         }
         if ((player.surgeT||0) > 0){          // 각성 창: 게이지 테두리가 금빛으로
           ctx.globalAlpha = 0.85;
