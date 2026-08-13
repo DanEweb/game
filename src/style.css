@@ -441,6 +441,9 @@
     #ultBtn{ width:64px; height:64px; right:24px; bottom:calc(112px + env(safe-area-inset-bottom)); }
     /* v6.87 궤도 버튼: Q 버튼 바로 위 — 겹침 해소 */
     #orbBtn{ width:56px; height:56px; right:28px; bottom:calc(186px + env(safe-area-inset-bottom)); }
+    /* v6.147 사출·회수: 궤도 버튼 **왼쪽 옆 열**. 오른쪽 열은 이미 대시·Q·궤도·자원·요격 5개로 꽉 차서
+       6번째를 위로 쌓으면 화면 중앙까지 올라온다 (모바일 비중이 높아 엄지 사거리를 벗어나면 안 된다) */
+    #ejBtn{ width:56px; height:56px; right:92px; bottom:calc(186px + env(safe-area-inset-bottom)); }
     /* v6.108 자원 소비 버튼: 궤도 버튼 위 (둘 다 뜰 수 있으므로 자리를 분리) */
     #resBtn{ width:56px; height:56px; right:28px; bottom:calc(250px + env(safe-area-inset-bottom)); }
     /* v6.127 패링/요격 — 자원 버튼 위로. Q·궤도·자원과 겹치지 않게 64px 간격을 유지한다 */

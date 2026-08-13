@@ -84,8 +84,8 @@ setTimeout(function(){
       font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-700); line-height:1.9;
       background:rgba(246,246,244,0.85); border:1px solid var(--line); border-radius:8px; padding:7px 11px;
       transition:opacity 1.2s ease; opacity:0; display:none;">
-      <b>Q</b> 궁극기 · <b>1~4</b> 스킬 · <b>SPACE</b> 대시<br>
-      <b>K</b> 스킬북 · <b>T</b> 테크 현황 · <b>I</b> 장비 · <b>H</b> 이 안내
+      <b>Q</b> 궁극기 · <b>1~4</b> 스킬 · <b>SPACE</b> 대시 · <b>R</b> 자원 소비 · <b>SHIFT</b> 패링/요격<br>
+      <b>E</b> 위성 궤도 · <b>F</b> 위성 사출/회수 · <b>K</b> 스킬북 · <b>T</b> 테크 · <b>I</b> 장비 · <b>H</b> 이 안내
     </div>
     <div id="toastWrap"></div>
     <div id="bossWarn">등장</div>
@@ -109,6 +109,11 @@ setTimeout(function(){
       background:rgba(126,196,232,0.82); color:#12141a; border:none;
       font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:700;
       display:none; align-items:center; justify-content:center; touch-action:none; user-select:none;">◎</button>
+    <!-- v6.147 위성 사출·회수 (키 F). 궤도 버튼 옆 열에 둔다 — 오른쪽 열은 이미 Q·궤도·자원·요격으로 가득 찼다 -->
+    <button id="ejBtn" style="position:absolute; z-index:6; width:52px; height:52px; border-radius:50%;
+      background:rgba(32,33,36,0.55); color:var(--paper); border:2px solid rgba(126,196,232,0.75);
+      font-family:'IBM Plex Sans KR',sans-serif; font-size:11px; font-weight:700;
+      display:none; align-items:center; justify-content:center; touch-action:none; user-select:none;">사출</button>
     <button id="resBtn" style="position:absolute; z-index:6; width:56px; height:56px; border-radius:50%;
       background:rgba(32,33,36,0.55); color:var(--paper); border:2px solid rgba(246,246,244,0.25);
       font-family:'IBM Plex Sans KR',sans-serif; font-size:11px; font-weight:700;

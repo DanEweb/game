@@ -362,6 +362,7 @@ import { FX } from "./fx.js";
       else if (state==='inv'){ closeInv(); }
     }
     if (e.code==='KeyE' && state==='playing'){ cycleSatOrbit(); }   // v6.85 위성 궤도 전환
+    if (e.code==='KeyF' && state==='playing'){ ejectSat(); }        // v6.147 위성 사출 / 회수
     if (e.code==='KeyR' && state==='playing'){ spendResource(); }   // v6.107 엔진 자원 소비
     if ((e.code==='ShiftLeft'||e.code==='ShiftRight') && state==='playing'){ e.preventDefault(); tryGuard(); }  // v6.127 패링/요격
     if (e.code==='KeyK' && state==='playing'){ openSkillBook(); }
@@ -591,12 +592,24 @@ import { FX } from "./fx.js";
     gb.style.borderColor = ready ? col : 'rgba(246,246,244,0.25)';
   }
   function refreshOrbBtn(){
-    if (!orbBtn) return;
     const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
-    orbBtn.style.display = on ? 'flex' : 'none';
-    if (on){
-      const om = SAT_ORBIT[player.satOrbit||0];
-      orbBtn.textContent = om.r > 1 ? '◎' : '○';
+    if (orbBtn){
+      orbBtn.style.display = on ? 'flex' : 'none';
+      if (on){
+        const om = SAT_ORBIT[player.satOrbit||0];
+        orbBtn.textContent = om.r > 1 ? '◎' : '○';
+      }
+    }
+    // v6.147 사출 버튼 — 나가 있는 위성이 있으면 같은 버튼이 '회수'가 된다 (키 F와 동일한 토글)
+    const eb = ejBtn;      // ⚠ 매 프레임 도는 함수다 — DOM 조회를 넣지 않는다
+    if (eb){
+      eb.style.display = on ? 'flex' : 'none';
+      if (on){
+        const out = satFlight.length > 0;
+        eb.textContent = out ? '회수' : '사출';
+        eb.style.background = out ? 'rgba(126,196,232,0.92)' : 'rgba(32,33,36,0.55)';
+        eb.style.color = out ? '#12141a' : 'var(--paper)';
+      }
     }
   }
   dashBtn.addEventListener('pointerdown', (e)=>{
@@ -620,6 +633,12 @@ import { FX } from "./fx.js";
   if (orbBtn) orbBtn.addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
     if (state==='playing') cycleSatOrbit();
+  });
+  // v6.147 모바일 사출·회수 — ⚠ **키와 버튼은 한 세트**로 넣는다 (v6.85·v6.107에서 키만 붙이고 끝낸 사고가 두 번)
+  const ejBtn = $('ejBtn');
+  if (ejBtn) ejBtn.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation(); e.preventDefault(); SFX.unlock();
+    if (state==='playing') ejectSat();
   });
   $('ultBtn').addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
@@ -5829,6 +5848,9 @@ import { FX } from "./fx.js";
     enemies = []; projectiles = []; orbs = []; particles = [];
     bosses = []; hostileShots = []; items = []; dmgNums = []; effects = [];
     hazards = []; surveys = []; bossMines = []; zones = []; fmines = [];
+    //  v6.147 ⚠ 사출 위성은 런을 넘어 살아남으면 안 된다 — 안 지우면 다음 런이 **궤도 1기가 빈 채로** 시작한다
+    //   (`satFlight.length`가 궤도 수를 깎으므로 조용히 화력이 낮은 판이 된다)
+    satFlight.length = 0; engineTicks.length = 0;
     totalDmg = 0; noHitT = 0; dashCount = 0;
     elapsed = 0; killCount = 0; runGold = 0; spawnTimer = 0; pendingLevelUps = 0;
     shake = 0; freeze = 0;
@@ -6382,6 +6404,12 @@ import { FX } from "./fx.js";
   // ---------- kill handling ----------
   function defeatEnemy(idx){
     const e = enemies[idx];
+    //  v6.147 ⚠ 죽은 인덱스 방어. 타격원이 늘수록 `procOnHit`·연쇄·폭발이 루프 중에 `enemies`를 splice해
+    //   `enemies[idx]`가 **다른 적이거나 undefined**가 될 수 있다. 그때 `e.elite`에서 예외가 나면
+    //   워치독이 **그 프레임 전체를 스킵**하는데, 그게 매 프레임 반복되면 게임이 사실상 정지한다
+    //   (실제로 벤치에서 `킬 0 · 적 92마리 누적`으로 관측됐다 — 원인 지점은 미규명이라 방어만 둔다).
+    //   ⚠ 조용히 삼키지 않는다 — QA가 볼 수 있게 표시한다
+    if (!e){ window.__gameErr = 'defeatEnemy: stale index '+idx+' (enemies='+enemies.length+')'; return; }
     killCount += 1;
     // v6.122 C 영역 지배 — 근접으로 벤 자리에 피바다가 남는다
     if (player && player.weapons && (meleeEngineKey() || ownedWeapon('aura'))){
@@ -6736,29 +6764,47 @@ import { FX } from "./fx.js";
   //  hp를 아주 크게 잡아 20초 안에 죽지 않게 하고, 죽지 않으므로 페이즈 전환도 끼어들지 않는다
   // v6.127 QA: 벤치가 '가만히 서서 평타만 치는' 조건이라 이동·스킬이 정체성인 직업이 계속 과소평가됐다.
   //  실제 플레이에 가깝게 **이동·대시·스킬(1~4)·궁극(Q)·자원(R)·패링(Shift)** 을 자동으로 굴린다
+  //  ⚠⚠⚠ v6.147 **`setInterval`로 조작을 굴리면 배경 탭에서 벤치가 조용히 거짓말을 한다.**
+  //   숨김 탭에서 타이머는 1초로 클램프된다 — 100ms 틱을 전제로 짠 `t%14`(대시 1.4초)가 **14초**,
+  //   `t%5`(스킬 0.5초)가 **5초**가 되어 12초 벤치에서 대시가 **한 번도** 안 나간다.
+  //   게임 심(`make-qa.mjs`)은 MessageChannel로 rAF를 살려 두는데 **조작만 죽어 있었다** —
+  //   그래서 "이 직업은 왜 이렇게 낮지?"가 직업 문제인지 하네스 문제인지 구분되지 않았다.
+  //   ⇒ 조작도 **rAF로** 굴린다. 벽시계(performance.now)로 간격을 재므로 탭이 숨어도 같은 리듬이다.
+  //  (v6.136 교훈의 연장: **측정 도구가 조용히 다른 조건을 만들면 그 수치는 전부 무효다**)
   window.__qaAuto = (on)=>{
     try {
-      if (window.__qaAutoT){ clearInterval(window.__qaAutoT); window.__qaAutoT = null;
+      if (window.__qaAutoRun){ window.__qaAutoRun = false;
         for (const c of ['KeyW','KeyA','KeyS','KeyD']) window.dispatchEvent(new KeyboardEvent('keyup',{code:c,bubbles:true})); }
+      if (window.__qaAutoT){ clearInterval(window.__qaAutoT); window.__qaAutoT = null; }
       if (on === false) return 'auto off';
-      let t = 0, cur = null;
+      let t = 0, cur = null, last = performance.now();
       const DIRS = ['KeyW','KeyD','KeyS','KeyA'];
-      window.__qaAutoT = setInterval(()=>{
-        t++;
-        // 원을 그리며 돈다 — 붙었다 떨어졌다 하는 실제 카이팅에 가깝다
-        if (t % 6 === 0){
-          const nx = DIRS[(t/6|0) % 4];
-          if (cur) window.dispatchEvent(new KeyboardEvent('keyup',{code:cur,bubbles:true}));
-          cur = nx; window.dispatchEvent(new KeyboardEvent('keydown',{code:cur,bubbles:true}));
+      const K = (code)=> window.dispatchEvent(new KeyboardEvent('keydown',{code,bubbles:true}));
+      window.__qaAutoRun = true;
+      const step = ()=>{
+        if (!window.__qaAutoRun) return;
+        const now = performance.now();
+        while (now - last >= 100){          // 100ms 틱 — 숨김 탭에서도 리듬이 유지된다
+          last += 100; t++;
+          // 원을 그리며 돈다 — 붙었다 떨어졌다 하는 실제 카이팅에 가깝다
+          if (t % 6 === 0){
+            const nx = DIRS[(t/6|0) % 4];
+            if (cur) window.dispatchEvent(new KeyboardEvent('keyup',{code:cur,bubbles:true}));
+            cur = nx; K(cur);
+          }
+          if (t % 14 === 0) K('Space');        // 대시
+          if (t % 9  === 0) K('KeyR');         // 자원 소비
+          if (t % 11 === 0) K('KeyQ');         // 궁극
+          if (t % 17 === 0) K('ShiftLeft');    // 패링/요격
+          if (t % 5  === 0) K('Digit' + (1 + (t % 4)));   // 스킬 1~4
+          //  v6.147 위성 사출·회수 — 던지고 1.6초 뒤 회수. ⚠ 하네스는 **몰려 있는 방향을 고르지 못한다**
+          //   (사람은 고른다) → 이 축의 하네스 수치는 항상 **사람보다 낮게** 나온다는 것을 전제로 읽을 것
+          if (t % 16 === 0 && !window.__qaNoEject) K('KeyF');   // __qaNoEject=true 로 이 축만 꺼서 비교한다
         }
-        if (t % 14 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',bubbles:true}));       // 대시
-        if (t % 9  === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyR',bubbles:true}));        // 자원 소비
-        if (t % 11 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyQ',bubbles:true}));        // 궁극
-        if (t % 17 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:'ShiftLeft',bubbles:true}));   // 패링/요격
-        const sn = 'Digit' + (1 + (t % 4));
-        if (t % 5 === 0) window.dispatchEvent(new KeyboardEvent('keydown',{code:sn,bubbles:true}));             // 스킬 1~4
-      }, 100);
-      return 'auto on';
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+      return 'auto on (rAF)';
     } catch(e){ return 'ERR '+String(e); }
   };
   // v6.132 QA: **생존 벤치** — 지금까지 모든 벤치가 god 모드라 '위험'을 0으로 만들어 놓고 보상만 쟀다.
@@ -6971,6 +7017,10 @@ import { FX } from "./fx.js";
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
         kills: killCount,
+        // v6.147 위성 조작 축 — 사출한 수·궤도에 남은 수·꿰뚫은 수를 **값으로** 확인한다
+        //  (v6.138 교훈: 새 축은 '켜졌는지'가 아니라 '반영되는지'를 재야 한다)
+        satFly: satFlight.length, satOrbitN: player&&player.satOrbitN|0,
+        satPierce: satFlight.reduce((a,f)=>a+f.pierced,0), satOver: +((player&&player.satOver)||0).toFixed(3),
         // v6.123 소비기 진단 — R이 왜 안 먹는지는 값을 봐야 알 수 있다
         eng: meleeEngineKey(), surgeT:+((player&&player.surgeT)||0).toFixed(2),
         windT:+((player&&player.spendWindT)||0).toFixed(2), pend: !!(player&&player.spendPend),
@@ -6993,6 +7043,7 @@ import { FX } from "./fx.js";
 
   function defeatBoss(idx){
     const b = bosses[idx];
+    if (!b){ window.__gameErr = 'defeatBoss: stale index '+idx+' (bosses='+bosses.length+')'; return; }   // v6.147 위와 같은 이유
     killCount += 1;
     addCombo();
     questAdd('boss', 1);
@@ -10143,6 +10194,20 @@ import { FX } from "./fx.js";
     { n:'표준 궤도', r:1.00, dmg:1.00, spin:1.00, cd:1.00, guard:0.10, icept:4 },
     { n:'확장 궤도', r:1.80, dmg:1.30, spin:0.72, cd:1.35, guard:0,    icept:0 },  // 멀리서 견제
   ];
+  // v6.147 **사출·회수** — 위성 계열의 조작 축. 지금까지 위성은 '알아서 도는 것'이라
+  //  플레이어가 개입할 여지가 E(궤도 전환) 하나뿐이었다.
+  //  ⚠ **위력으로 주지 않는다** (v6.144 원칙). 사출 위성의 타격은 궤도 위성과 **같은 피해**이고,
+  //   보상은 ⑴ 사거리(궤도 밖의 적을 친다) ⑵ **회수할 때 꿰뚫은 수만큼 차는 과부하** ⑶ 위치 선택이다.
+  //  대가: 던진 위성은 **궤도에서 빠진다** — 접촉 화력·적탄 요격·궤도 방어가 그만큼 준다.
+  const satFlight = [];              // [{x,y,vx,vy,phase,dmg,hit:Set,pierced,budget,travel,t}]
+  //  ⚠ `budget` = 한 기가 꿰뚫을 수 있는 **총 수**. 이게 없으면 밀집에서 한 번 던질 때마다
+  //   수십 대를 긁는 **쓸어담는 기술**이 된다 (v6.144에서 정확히 그 이유로 되돌린 적이 있다).
+  //   상한을 두면 사출은 '물량 처리'가 아니라 **궤도가 닿지 않는 하나를 치는 기술**이 된다 —
+  //   위성 계열의 진짜 약점은 밀집이 아니라 단일 대상이었다 (v6.125 단일 9~55 격차)
+  //  ⚠ 1차 값(out 660 · r 12)은 **밀집 47마리를 지나며 2대밖에 못 맞혔다** — 프레임당 11px씩 건너뛰어
+  //   적을 통과해 버린다. 상한 6이 걸릴 일이 없으니 '조작의 보상'도 같이 사라졌다.
+  //   속도를 낮추고 판정을 키워 **선으로 훑히게** 만든다 (상한은 그대로 — 쓸어담기는 여전히 막힌다)
+  const SAT_FLIGHT = { range:330, out:560, back:520, r:16, max:2, life:7, budget:6 };
   // v6.107 엔진 자원 — 이미 엔진이 쓰고 있는 값을 그대로 읽어 게이지로 만든다 (새 자원을 만들지 않는다)
   // v6.110 장착한 근접 엔진의 판정 범위를 옅게 그린다. 형태가 엔진마다 달라 '무엇을 소유하는지'도 함께 읽힌다
   function drawMeleeRange(){
@@ -10944,6 +11009,65 @@ import { FX } from "./fx.js";
     effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:player.r, r1:48*o.r });
     SFX.play('tele');
   }
+  // v6.147 사출·회수 — 같은 키가 두 가지 조작이다. 궤도에 여유가 있으면 **던지고**, 이미 던져 뒀으면 **불러들인다**.
+  //  ⚠ 궤도가 비지 않게 최소 1기는 남긴다 (전부 던지면 요격·방어가 0이 되어 '조작'이 아니라 '자해'가 된다)
+  function ejectSat(){
+    if (!player.weapons || !player.weapons.some(w=>w.key==='satellite')) return;
+    // 이미 나가 있는 것이 있으면 이 입력은 '회수' — 타이밍을 잡아 되돌리는 것이 조작의 절반이다
+    if (satFlight.length){
+      let n2 = 0;
+      for (const f of satFlight){ if (f.phase==='out'){ f.phase='back'; f.hit = new Set(); n2++; } }
+      if (n2){ addTextNum(player.x, player.y-32, '↩ 회수'); SFX.play('tele'); }
+      return;
+    }
+    const w = player.weapons.find(x=>x.key==='satellite');
+    const def = WEAPONS.satellite;
+    const total = def.count(w);
+    const cap = Math.max(0, Math.min(SAT_FLIGHT.max, total - 1));   // 궤도에 최소 1기
+    if (cap <= 0) return;
+    const om = SAT_ORBIT[player.satOrbit||0];
+    const burstOn = (player.satBurstT||0) > 0;
+    const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1)
+              * om.dmg * (burstOn ? 1.35 : 1);
+    const t = nearestTarget();
+    const base = t ? Math.atan2(t.y-player.y, t.x-player.x) : (player.facing||0);
+    for (let i=0;i<cap;i++){
+      const a = base + (i - (cap-1)/2) * 0.26;
+      satFlight.push({ x:player.x, y:player.y, vx:Math.cos(a)*SAT_FLIGHT.out, vy:Math.sin(a)*SAT_FLIGHT.out,
+                       phase:'out', dmg, imbue:w.imbue, ev:w.evolved||burstOn,
+                       hit:new Set(), pierced:0, budget:SAT_FLIGHT.budget, travel:0, t:0 });
+    }
+    addTextNum(player.x, player.y-32, '↗ 사출 '+cap);
+    effects.push({ type:'ring', x:player.x, y:player.y, life:0.25, age:0, r0:player.r, r1:52 });
+    SFX.play('shoot');
+  }
+  // 사출 위성 갱신 — 나갈 땐 직선, 돌아올 땐 나를 쫓는다. 그래서 **내가 어디 서느냐가 회수 경로**가 된다
+  function updateSatFlight(dt){
+    for (let i=satFlight.length-1; i>=0; i--){
+      const f = satFlight[i];
+      f.t += dt;
+      if (f.phase==='out'){
+        f.x += f.vx*dt; f.y += f.vy*dt;
+        f.travel += Math.hypot(f.vx,f.vy)*dt;
+        //  왕복 시간이 곧 대가 — 사거리 끝·수명·**꿰뚫기 소진** 중 먼저 오는 것에서 돌아선다
+        if (f.travel >= SAT_FLIGHT.range || f.t > SAT_FLIGHT.life*0.5 || f.budget<=0){ f.phase='back'; f.hit = new Set(); }
+      } else {
+        const a = Math.atan2(player.y-f.y, player.x-f.x);
+        const sp = SAT_FLIGHT.back * (f.t > SAT_FLIGHT.life ? 2.2 : 1);   // 오래 걸리면 강제로 붙는다
+        f.x += Math.cos(a)*sp*dt; f.y += Math.sin(a)*sp*dt;
+        if (Math.hypot(player.x-f.x, player.y-f.y) < 24){
+          //  ⚠ 보상은 **자원**이지 위력이 아니다. 꿰뚫은 수만큼(최대 6) 과부하가 찬다 —
+          //   많이 꿰뚫도록 서는 자리를 고르는 것이 이 축의 손맛이다
+          const p6 = Math.min(6, f.pierced);
+          satCharge(0.040 + 0.020*p6);
+          if (p6) addTextNum(player.x, player.y-46, '회수 ×'+p6);
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.22, age:0, r0:30, r1:player.r });
+          pixBurst(player.x, player.y, 5, 90, '#7ec4e8', 1.2);
+          satFlight.splice(i,1);
+        }
+      }
+    }
+  }
   // 과부하: 위성이 칠 때마다 차오르고, 만충 시 '궤도 해방' — 링 전체가 무기가 되고 회전이 가속된다
   function satCharge(v){
     if ((player.satBurstT||0) > 0) return;
@@ -11198,7 +11322,10 @@ import { FX } from "./fx.js";
       const def = WEAPONS[w.key];
 
       if (w.key==='satellite'){
-        const n = def.count(w);
+        //  v6.147 사출 중인 위성은 궤도에 없다 — 이것이 사출의 **대가**다 (접촉 화력·요격·방어가 함께 준다)
+        const nTotal = def.count(w);
+        const n = Math.max(1, nTotal - satFlight.length);
+        player.satOrbitN = n; player.satTotalN = nTotal;   // 방어 계수·HUD가 읽는다
         // v6.85 궤도 3단: 좁히면 타격이 잦아지고(근접 방어), 넓히면 사거리를 얻는다(원거리 견제)
         const om = SAT_ORBIT[player.satOrbit||0];
         const burst = (player.satBurstT||0) > 0;
@@ -12997,6 +13124,7 @@ import { FX } from "./fx.js";
     }
 
     updateWeapons(dt);
+    updateSatFlight(dt);      // v6.147 사출 위성은 궤도와 별개로 움직인다 (충돌 판정은 아래 적 루프에서)
     updateTechAbilities(dt);
 
     // class ultimate auto-cast
@@ -13406,6 +13534,22 @@ import { FX } from "./fx.js";
         if (e.hp<=0){ defeatEnemy(i); continue; }
       }
 
+      // v6.147 vs 사출 위성 — 적마다 1회 꿰뚫는다. 되돌아설 때 명중표를 비우므로 **회수 경로에서 한 번 더** 친다
+      if (satFlight.length){
+        for (const f of satFlight){
+          if (f.budget<=0 || f.hit.has(e)) continue;
+          if (Math.hypot(f.x-e.x, f.y-e.y) < e.r + SAT_FLIGHT.r){
+            const fdmg = f.dmg * corrodeMult(e);
+            e.hp -= fdmg;
+            f.hit.add(e); f.pierced++; f.budget--;
+            addDmgNum(e.x, e.y, fdmg, false);
+            burst(f.x, f.y, 3, 100);
+            procOnHit(e, false, f.imbue);
+          }
+        }
+        if (e.hp<=0){ defeatEnemy(i); continue; }
+      }
+
       // vs player
       const pd = Math.hypot(player.x-e.x, player.y-e.y);
       if (pd < e.r+player.r && e.hitCd<=0 && player.invuln<=0 && e.dmg>0){
@@ -13530,6 +13674,24 @@ import { FX } from "./fx.js";
           }
         }
         if (!bosses[i] || bosses[i]!==b) continue;
+        //  v6.147 ⚠ 새 타격원은 **보스 루프에도 반드시 배선한다** — v6.126에서 소비기 5종이
+        //   `enemies` 루프만 짜여 보스전에서 통째로 무효였던 사고를 반복하지 않는다
+        if (satFlight.length){
+          for (const f of satFlight){
+            if (f.budget<=0 || f.hit.has(b)) continue;
+            if (Math.hypot(f.x-b.x, f.y-b.y) < b.r + SAT_FLIGHT.r){
+              const fdmg2 = f.dmg * corrodeMult(b);
+              b.hp -= fdmg2;
+              f.hit.add(b); f.pierced++; f.budget--;
+              addDmgNum(b.x, b.y, fdmg2, false);
+              burst(f.x, f.y, 3, 100);
+              procOnHit(b, true, f.imbue);
+              if (b.hp<=0){ defeatBoss(i); break; }
+              refreshBossBar();
+            }
+          }
+        }
+        if (!bosses[i] || bosses[i]!==b) continue;
         if (auraState.on && Math.hypot(b.x-player.x, b.y-player.y) < auraState.r + b.r){
           if (player._auraBeat){
             const abd = auraState.dps * player._auraBeat;
@@ -13586,7 +13748,8 @@ import { FX } from "./fx.js";
       if (satPos.length){
         let shot = false;
         for (const sp of satPos){
-          if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11) + (SAT_ORBIT[player.satOrbit||1].icept||0)){
+          //  🐛 v6.147 여기도 `||1`이었다 — 표준 궤도의 요격 반경 +4가 통째로 죽어 있었다 (위 satGuard와 같은 사고)
+          if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11) + (SAT_ORBIT[player.satOrbit||0].icept||0)){
             pixBurst(p.x, p.y, 4, 100, '#7ec4e8', 1.4);
             satCharge(0.02);
             shot = true; break;
@@ -13799,8 +13962,13 @@ import { FX } from "./fx.js";
     }
     // v6.77 포위 저항: 근접 무기를 든 채 무리에 파묻힐수록 덜 아프다 (최대 -30%)
     // v6.88 밀착 궤도: 위성이 몸을 감싸 도는 동안 받는 피해가 준다 (방어 모드의 실체)
-    const satGuard = (player.weapons && player.weapons.some(w=>w.key==='satellite'))
-      ? (1 - (SAT_ORBIT[player.satOrbit||1].guard||0)) : 1;
+    //  🐛 v6.147 `player.satOrbit||1` → `||0`. v6.143에서 타격 주기 한 곳만 고치고 **여기와 요격 반경을 놓쳤다**.
+    //   기본값이 0(표준 궤도)인데 `0||1`은 1이라 **표준 궤도인 동안 확장 궤도의 값(guard 0)을 읽어**
+    //   표준 궤도의 피해 감소 -10%가 한 번도 작동한 적이 없다. ⚠ 인덱스 기본값에 `||`를 쓰지 말 것
+    //  v6.147 사출한 만큼 방어도 준다 — 던지면 몸이 비는 것이 이 축의 대가다
+    const satGuardW = (player.weapons && player.weapons.some(w=>w.key==='satellite'));
+    const satRatio = satGuardW ? Math.max(0, Math.min(1, (player.satOrbitN||1) / Math.max(1, player.satTotalN||1))) : 1;
+    const satGuard = satGuardW ? (1 - (SAT_ORBIT[player.satOrbit||0].guard||0) * satRatio) : 1;
     if (player.qaGod) return false;   // v6.136 QA 무적 — 체력을 키우지 않고 '받는 피해를 0'으로 만든다
     // v6.134 근접을 실제로 어렵게 — **맞으면 열기가 절반 날아간다**.
     //  지금까지 근접은 붙어도 잃는 게 없어서 '위험을 진다'는 말이 수치로 성립하지 않았다
@@ -17986,9 +18154,32 @@ import { FX } from "./fx.js";
     ctx.restore();
   }
   function drawSatellitesFront(){     // 플레이어 앞쪽 반 — 캐릭터 위에 겹쳐 그린다
-    if (!satPos.length) return;
+    if (satPos.length){
+      ctx.save();
+      drawSatOrbs(true);
+      ctx.restore();
+    }
+    drawSatFlight();
+  }
+  // v6.147 사출 위성 — 나갈 땐 꼬리를 끌고, 돌아올 땐 나와 실로 이어진다 (회수 경로가 눈에 보여야 조작이 된다)
+  function drawSatFlight(){
+    if (!satFlight.length) return;
     ctx.save();
-    drawSatOrbs(true);
+    for (const f of satFlight){
+      if (f.phase==='back'){
+        ctx.globalAlpha = 0.32; ctx.strokeStyle = '#7ec4e8'; ctx.lineWidth = 1;
+        ctx.setLineDash([3,4]);
+        ctx.beginPath(); ctx.moveTo(f.x,f.y); ctx.lineTo(player.x,player.y); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = f.ev ? PAL.ink : PAL.ink2;
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.ev?9:7, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#7ec4e8'; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.globalAlpha = 0.5; ctx.fillStyle = '#dff6fb';
+      ctx.beginPath(); ctx.arc(f.x-2, f.y-2.4, 2.4, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
   function drawDrones(){
