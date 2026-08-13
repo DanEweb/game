@@ -2729,9 +2729,16 @@ import { FX } from "./fx.js";
     },
     sniper: {
       name:'저격수', tag:'한 방 묵직',
-      desc:'[추적 탄환]으로 시작. 공속 -45%, 대신 탄환 피해 +150% · 20% 확률 3배 치명타. 한 발 한 발이 무겁다.',
+      desc:'[추적 탄환]으로 시작. 공속 -58%, 대신 탄환 피해 +230% · 25% 확률 3배 치명타 · 관통 +1 · 보스 피해 +90%. 큰 표적일수록 무겁다.',
       weapon:'missile',
-      apply:(p)=>{ p.critChance=0.20; p.critMult=2.9; p.rateMult*=0.38; p.projMult*=2.9; p.recoilScale=3; p.rangeDmg=true; }
+      // v6.125 느림의 대가를 실제로 지급한다 — 기존 0.38×2.9 = 순 1.10배라 62% 느려진 값을 10%로 받고 있었다.
+      //  0.42×4.2 = 순 1.76배 + 관통 2. '묵직하다'가 수치로 성립해야 느림을 감수할 이유가 생긴다
+      //  ⚠ 1차 조정(4.2×관통2)은 단일 115로 궁수의 2배가 됐다 — 관통이 큰 보스에 다단히트로 들어간다.
+      //     관통은 '뒤의 적'을 위한 것이지 같은 대상을 여러 번 때리라고 준 게 아니다
+      //  2차: 관통을 1로 줄이니 35로 떨어져 궁수(58)보다 낮아졌다 — '한 방 묵직'이 단일에서 밀리면 안 된다.
+      //     잡몹 배율을 더 올리면 밀집이 같이 뛰므로, **큰 표적 전용 배율**로 올린다 (저격은 큰 표적을 노린다)
+      apply:(p)=>{ p.critChance=0.25; p.critMult=2.9; p.rateMult*=0.42; p.projMult*=3.3; p.pierce+=1;
+                   p.bossDmg=(p.bossDmg||1)*1.9; p.eliteDmg=(p.eliteDmg||1)*1.5; p.recoilScale=3; p.rangeDmg=true; }
     },
     rusher: {
       name:'창기병', tag:'기마 돌격',
@@ -6631,6 +6638,43 @@ import { FX } from "./fx.js";
       return bosses.map(b=>b.name+' '+Math.round(b.hp)+'/'+Math.round(b.maxHp)+' t'+Math.round(b.aliveT||0)).join('|') || 'no boss';
     } catch(e){ return 'ERR '+String(e); }
   };
+  // v6.125 QA: 단일 대상 DPS 벤치용 — 보스를 세워 두고 맞는 양을 잰다.
+  //  밀집 벤치(__qaFlood)만으로는 저격수·기술자 같은 **단일 대상형**이 부당하게 낮게 나온다.
+  //  hp를 아주 크게 잡아 20초 안에 죽지 않게 하고, 죽지 않으므로 페이즈 전환도 끼어들지 않는다
+  window.__qaDummy = (key)=>{
+    try {
+      enemies.length = 0; bosses.length = 0;
+      spawnBoss(key || 'oseojin');   // ⚠ 'ad'는 보스 키가 아니라 공격 패턴 이름이다 (BOSS_TYPES 키를 쓸 것)
+      const b = bosses[0];
+      if (!b) return 'no boss';
+      b.maxHp = 9e7; b.hp = 9e7;
+      // ⚠ 거리를 잘못 잡으면 계열이 통째로 0이 나온다 — 190px에 뒀더니 근접·위성이 사거리 밖이라
+      //   관리자·사무라이가 0 dps로 찍혔다. 위성 궤도(~54~90)까지 들어오는 62px가 전 계열 공통 사거리
+      b.x = player.x + 62; b.y = player.y;
+      b.speed = 0; b.dmg = 0;
+      refreshBossBar();
+      return 'dummy '+b.name+' hp='+b.hp;
+    } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaDps = (sec)=>{                       // 지정 시간 동안 더미가 잃은 체력 = 단일 대상 피해량
+    return new Promise((res)=>{
+      const b = bosses[0];
+      if (!b) return res({ err:'no dummy' });
+      const h0 = b.hp, t0 = performance.now();
+      const step = ()=>{
+        // ⚠ 측정 중에도 몹은 계속 스폰된다. 그대로 두면 **무작위 대상(낙뢰)·최근접 조준(화살·탄환)이
+        //   보스 대신 잡몹을 때려** 단일 대상 DPS가 아니라 잡탕이 된다 (1차 실행에서 기술자 3dps로 오측정)
+        enemies.length = 0;
+        if (!bosses[0] || (performance.now()-t0) >= (sec||20)*1000){
+          const el = (performance.now()-t0)/1000;
+          const dealt = h0 - (bosses[0] ? bosses[0].hp : h0);
+          return res({ dealt: Math.round(dealt), sec:+el.toFixed(1), dps: Math.round(dealt/el) });
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
   };
@@ -9879,9 +9923,31 @@ import { FX } from "./fx.js";
   // 만충 시 소비 — 엔진마다 '모아둔 것을 터뜨리는' 방식이 다르다
   // v6.113 소비 사거리 안의 적 수 — 위력 배율·게이지 힌트·모바일 버튼이 같은 값을 쓴다
   const SPEND_R = 170;
+  // v6.126 소비기 시그니처용 보스 타격 — 직선·부채꼴 판정은 보스 몸집(r)을 더해 넉넉히 본다.
+  //  ⚠ 새 시그니처를 만들 때 `enemies` 루프만 짜면 보스전에서 통째로 무효가 된다. 반드시 이걸 같이 부를 것
+  function spendHitBosses(test, dmg){
+    for (let i=bosses.length-1;i>=0;i--){
+      const b = bosses[i];
+      if (!b || b.ghost) continue;
+      if (!test(b)) continue;
+      const d = dmg * corrodeMult(b);
+      b.hp -= d; addDmgNum(b.x, b.y, d, true);
+      procOnHit(b, true, null); staggerEnemy(b, 0.6);
+      if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+    }
+  }
   function spendTargets(){
     let n = 0;
     for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < SPEND_R){ n++; if (n>=5) break; } }
+    // v6.125 🐛 보스를 세지 않아 1:1에서 R이 항상 '헛방'이었다 (근접 단일 DPS 9~12의 원인).
+    //  보스는 몸집이 크니 반경에 그 r을 더해 재고, 한 마리지만 '몰린 것'에 준하게 3으로 센다 —
+    //  그러지 않으면 적중 배율(1마리 ×0.6)이 걸려 보스에게 쓰는 게 손해가 된다
+    if (n < 3){
+      for (const b of bosses){
+        if (!b || b.ghost) continue;
+        if (Math.hypot(b.x-player.x, b.y-player.y) < SPEND_R + (b.r||0)){ n = Math.max(n, 3); break; }
+      }
+    }
     return n;
   }
   function spendResource(){
@@ -9935,6 +10001,10 @@ import { FX } from "./fx.js";
         e.hp -= d; addDmgNum(e.x, e.y, d, true); staggerEnemy(e, 0.9); procOnHit(e, false, null);
         if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
       }
+      spendHitBosses((b)=>{                                    // v6.126 보스도 벤다
+        const dx=b.x-player.x, dy=b.y-player.y, along=dx*ca+dy*sa;
+        return along >= -b.r && along <= RCH + b.r && Math.abs(-dx*sa+dy*ca) <= HW + b.r;
+      }, 165*P);
       player.swingT = Math.max(player.swingT||0, 0.34); player.atkMotion = 'iai';
       addTextNum(player.x, player.y-40, '거합!');
     } else if (key === 'scythe'){
@@ -9963,6 +10033,7 @@ import { FX } from "./fx.js";
           hitSpark(en.x, en.y, Math.random()*Math.PI*2, COL);
           if (en.hp<=0 && enemies[j]===en) defeatEnemy(j);
         }
+        spendHitBosses((b)=> Math.hypot(b.x-m.x, b.y-m.y) <= 50 + b.r, 74*P);   // v6.126 보스도 훑는다
         SFX.play('hit');
       });
       player.atkMotion = 'combo';
@@ -9995,6 +10066,12 @@ import { FX } from "./fx.js";
           if (last){ const ka=Math.atan2(e.y-player.y,e.x-player.x); e.x+=Math.cos(ka)*30; e.y+=Math.sin(ka)*30; }
           if (e.hp<=0 && enemies[j]===e) defeatEnemy(j);
         }
+        spendHitBosses((b)=>{                                  // v6.126 보스도 두들긴다
+          if (Math.hypot(b.x-player.x, b.y-player.y) > 116 + b.r) return false;
+          let da = Math.atan2(b.y-player.y, b.x-player.x) - a0;
+          while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
+          return Math.abs(da) <= (last?1.3:0.8) + 0.4;
+        }, (last?70:24)*P);
         if (last){ shake = Math.min(13, shake+5); hitStop(0.04); SFX.play('boom'); } else SFX.play('hit');
       });
       addTextNum(player.x, player.y-40, '백팔연타');
@@ -10060,6 +10137,10 @@ import { FX } from "./fx.js";
           e.hp -= d; addDmgNum(e.x, e.y, d, true); staggerEnemy(e, 1.0); procOnHit(e, false, null);
           if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
         }
+        spendHitBosses((b)=>{                                  // v6.126 십자는 보스도 가른다
+          const dx=b.x-player.x, dy=b.y-player.y, along=dx*ca+dy*sa;
+          return Math.abs(along) <= RCH + b.r && Math.abs(-dx*sa+dy*ca) <= HW + b.r;
+        }, 120*P);
       }
       shake = Math.min(20, shake+11); hitStop(0.07);
       player.swingT = Math.max(player.swingT||0, 0.4);
@@ -10109,6 +10190,10 @@ import { FX } from "./fx.js";
         const ka = Math.atan2(e.y-sy, e.x-sx); e.x += Math.cos(ka)*40; e.y += Math.sin(ka)*40;
         if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
       }
+      spendHitBosses((b)=>{                                    // v6.126 보스도 꿰뚫는다
+        const dx=b.x-sx, dy=b.y-sy, along=dx*ca+dy*sa;
+        return along >= -b.r && along <= LEN + b.r && Math.abs(-dx*sa+dy*ca) <= WD + b.r;
+      }, 205*P);
       // 경로에 잔상을 깔고 끝점으로 몸을 옮긴다
       for (let i=0;i<7;i++){
         particles.push({ x:sx+ca*(LEN/7)*i, y:sy+sa*(LEN/7)*i, vx:0, vy:0, life:0.34, age:0, r:player.r*0.9, ghost:true });
