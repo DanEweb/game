@@ -6753,6 +6753,7 @@ import { FX } from "./fx.js";
         cls: player&&player.classKey, weapons: (player&&player.weapons||[]).map(w=>w.key),
         heat: +((player&&player.heat)||0).toFixed(3),
         aim: +((player&&player.aim)||0).toFixed(3),                      // v6.128 원거리 지속 축
+        aimNear: Math.round((player&&player.aimNear)||0),                // v6.129 가장 가까운 적까지 거리
         guardCd: +((player&&player.guardCd)||0).toFixed(2), guardKind: player&&player.guardKind,
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
@@ -9580,10 +9581,20 @@ import { FX } from "./fx.js";
   function updateAim(dt){
     if (!player || !player.weapons){ return; }
     if (!isRangedBuild()){ player.aim = 0; return; }
-    const still = Math.hypot(player.vx||0, player.vy||0) < 20 && (player.dashTime||0) <= 0;
+    // v6.129 '멈춤'이 아니라 **거리**로 잰다.
+    //  멈춤 조건이면 근접의 열기(붙어 있기)와 결국 같은 동작이 된다 — 둘 다 제자리에 서 있으라는 말이다.
+    //  거리로 바꾸면 **근접은 붙어야 하고 원거리는 떨어져야 한다**. 같은 화면에서 정반대로 움직인다
+    let near = 1e9;
+    for (const e of enemies){ const d = Math.hypot(e.x-player.x, e.y-player.y); if (d < near) near = d; }
+    for (const b of bosses){ if (b && !b.ghost){ const d = Math.hypot(b.x-player.x, b.y-player.y) - (b.r||0); if (d < near) near = d; } }
     const a = player.aim || 0;
-    // 차는 건 느리고(1.6초 만충) 풀리는 건 빠르다(0.55초) — 한 발을 위해 멈추는 결단이 되게
-    player.aim = still ? Math.min(1, a + dt*0.62) : Math.max(0, a - dt*1.8);
+    //  ⚠ 1차는 문턱을 240px로 잡았다가 **축이 통째로 죽었다** — 뱀서라이크는 적이 항상 붙어 있어서
+    //    그 거리가 거의 성립하지 않는다(실측: 적 44마리 상황에서 조준 0 고정).
+    //    근접 열기 반경(118)과 **맞물리게** 낮춘다 — 열기가 차는 안쪽 = 조준이 풀리는 안쪽
+    player.aimNear = near;
+    if (near >= 130)     player.aim = Math.min(1, a + dt*0.55);    // 무리 바깥 가장자리 — 겨눌 여유가 있다
+    else if (near >= 90) player.aim = Math.min(1, a + dt*0.10);    // 아슬아슬하다 — 겨우 유지된다
+    else                 player.aim = Math.max(0, a - dt*1.8);     // 파고들렸다 — 겨눌 수가 없다
   }
   function aimDmgMult(){ return 1 + (player.aim||0) * 0.42; }     // 만충 시 사격 +42%
   function aimPierce(){ return Math.floor((player.aim||0) * 2.4); } // 만충 시 관통 +2
@@ -10020,11 +10031,18 @@ import { FX } from "./fx.js";
         const b = hostileShots[i];
         if (!b) continue;
         if (Math.hypot(b.x-player.x, b.y-player.y) > 165) continue;
-        effects.push({ type:'ring', x:b.x, y:b.y, life:0.16, age:0, r0:2, r1:14 });
-        burst(b.x, b.y, 4, 110);
+        // v6.129 격추 연출: 총구에서 탄까지 예광선 + 터지는 파편 + 이중 파문
+        const ia = Math.atan2(b.y-player.y, b.x-player.x);
+        effects.push({ type:'chain', x1:player.x+Math.cos(ia)*14, y1:player.y+Math.sin(ia)*14, x2:b.x, y2:b.y, life:0.14, age:0 });
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.18, age:0, r0:2, r1:16 });
+        effects.push({ type:'ring', x:b.x, y:b.y, life:0.26, age:0, r0:6, r1:26 });
+        burst(b.x, b.y, 7, 170);
+        if (FX.enabled) FX.burst(b.x, b.y, 0x7ec4e8, 6, 120, 0.4);
         hostileShots.splice(i,1); n++;
       }
       effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0, r0:player.r, r1:165 });
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.34, age:0, r0:player.r+8, r1:120 });
+      effects.push({ type:'muzzle', x:player.x+(player.faceX<0?-16:16), y:player.y-4, life:0.14, age:0 });
       if (n){
         player.interceptN = Math.min(5, (player.interceptN||0) + n);
         player.interceptT = 4;                                   // 4초 안에 쓰지 않으면 식는다
@@ -10032,9 +10050,13 @@ import { FX } from "./fx.js";
         shake = Math.min(9, shake+3); SFX.play('sweep');
       } else addTextNum(player.x, player.y-40, '빗나감');
     } else {
-      // 패링 — 창 안에 맞아야 성립한다. 여기서는 자세만 잡는다
-      effects.push({ type:'arc', x:player.x, y:player.y, a:(player.faceX<0?Math.PI:0), arc:1.9, r:player.r+22,
-                     life:0.2, age:0, friendly:true, col:'#e8e8ea' });
+      // 패링 — 창 안에 맞아야 성립한다. 여기서는 **막는 자세**를 세운다 (성립 연출은 아래 playerHit)
+      const fa = (player.faceX<0?Math.PI:0);
+      effects.push({ type:'arc', x:player.x, y:player.y, a:fa, arc:1.9, r:player.r+22,
+                     life:0.22, age:0, friendly:true, col:'#e8e8ea' });
+      effects.push({ type:'arc', x:player.x, y:player.y, a:fa, arc:1.4, r:player.r+34,
+                     life:0.18, age:0, friendly:true, col:'#9aa0a6' });
+      if (FX.enabled) FX.ring(player.x, player.y, 0xe8e8ea, 9);
     }
   }
   function spendTargets(){
@@ -10311,6 +10333,16 @@ import { FX } from "./fx.js";
     } else {
       boom(150, 130*P, COL);
       addTextNum(player.x, player.y-40, r.n+' 해방');
+    }
+    // v6.129 C축 보강 — 소비기를 쓴 자리에 **넓은 영역**이 남는다.
+    //  처치 시 피바다만으로는 '영역을 구성해 보조한다'는 원래 느낌이 아니었다.
+    //  R를 쓴 자리가 잠시 내 땅이 된다 — 그 위에서 싸우면 이득이고, 밀려나면 잃는다
+    if (meleeEngineKey() || ownedWeapon('aura')){
+      spillGore(player.x, player.y, 16 * player.dmgMult * (player.meleeBoost||1));
+      for (const z of zones){
+        if (z.type==='gore' && Math.hypot(z.x-player.x, z.y-player.y) < 40){ z.r = 92; z.t = z.maxT = 5.0; break; }
+      }
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:20, r1:92 });
     }
     player.surgeT = 3;            // v6.111 소비 직후 3초간 평타 +60% — 쓰면 그 다음이 강해진다
     _overflowT = 0;
@@ -13021,7 +13053,18 @@ import { FX } from "./fx.js";
       player.atkMotion = 'crouch';
       player.recoilX = (player.recoilX||0) - (player.faceX<0?-1:1)*4;
       hitStop(0.07); shake = Math.min(14, shake+6); buzz(30); SFX.play('boom');
+      // v6.129 성립 연출: 튀는 불꽃 + 삼중 파문 + 방패 섬광. 링 하나로는 '쳐냈다'가 안 보였다
+      const pa = (player.faceX<0?Math.PI:0);
+      for (let k=0;k<14;k++){
+        const sa2 = pa + (Math.random()-0.5)*2.0;
+        particles.push({ x:player.x+Math.cos(pa)*12, y:player.y+Math.sin(pa)*12,
+                         vx:Math.cos(sa2)*(140+Math.random()*220), vy:Math.sin(sa2)*(140+Math.random()*220)-60,
+                         life:0.34, age:0, r:1.6 });
+      }
       effects.push({ type:'ring', x:player.x, y:player.y, life:0.32, age:0, r0:player.r, r1:118 });
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.22, age:0, r0:player.r, r1:62 });
+      effects.push({ type:'arc', x:player.x, y:player.y, a:pa, arc:2.2, r:player.r+30, life:0.24, age:0, friendly:true, col:'#e0a94f' });
+      if (FX.enabled){ FX.ring(player.x, player.y, 0xe0a94f, 26); FX.burst(player.x+Math.cos(pa)*14, player.y, 0xf6f6f4, 10, 200, 0.45); }
       friendlyBlast(player.x, player.y, 118, 95*player.dmgMult*(player.meleeBoost||1), false);
       cutHostileShots(player.x, player.y, 130, 0, Math.PI*2);
       player.mCharge = Math.min(1, (player.mCharge||0) + 0.25);   // 되받아친 만큼 기력이 돌아온다
