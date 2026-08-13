@@ -9780,6 +9780,16 @@ import { FX } from "./fx.js";
   }
   // v6.122 C 영역 지배 — 근접이 처치한 자리에 피바다가 남아 지속 피해 + 감속.
   //  원거리는 쏘고 빠지지만 **근접은 벤 자리를 소유한다**. 밀집 구간일수록 바닥이 굳는다
+  //  v6.145 피바다 위에 서 있으면 기력이 빨리 찬다 — **근접이 물러나지 않을 이유**.
+  //   딜을 뺀 자리에 이걸 넣는다: 영역은 대신 죽여 주는 게 아니라 **다음 전용기를 앞당긴다**
+  function goreStandMult(){
+    if (!player || typeof zones === 'undefined') return 1;
+    for (const z of zones){
+      if (z.type !== 'gore') continue;
+      if (Math.hypot(z.x-player.x, z.y-player.y) < z.r) return 1.85;
+    }
+    return 1;
+  }
   function spillGore(x, y, power){
     if (typeof zones === 'undefined' || zones.length >= 40) return;
     // 가까운 기존 피바다가 있으면 넓히고 수명만 갱신 — 같은 자리에 수십 개가 겹치지 않게
@@ -11594,11 +11604,20 @@ import { FX } from "./fx.js";
           if (onBeat){ g *= 2.2; addTextNum(player.x, player.y-38, '정박!'); shake = Math.min(8, shake+2); }
           else g *= 0.55;
         }
-        //  v6.134 근접 기력을 느리게 — '쓰면 이득'은 유지하되 **자주 쓰지는 못하게**
-        //  v6.136 스윙 횟수가 45% 줄었으므로 한 스윙당 충전을 올린다.
-        //   결과 R 주기는 v6.133 대비 ~0.79배 — 여전히 덜 쓰지만 '못 쓰는' 수준은 아니다
+        //  v6.145 **조건의 폭을 벌린다.** 조건은 이미 직업마다 다른데(안 맞고 벤다 / 여럿을 스친다 /
+        //   피를 흘린다 / 멈춰 선다 / 정박에 얹는다 …) **만족하든 못 하든 그럭저럭 찼다** —
+        //   그래서 전용기가 '조건을 노리는 기술'이 아니라 '시간이 지나면 나오는 기술'이었다.
+        //   조건 배수를 **지수 1.7로 벌리고** 기본을 낮춘다: 못 맞추면 거의 안 차고, 맞추면 확 찬다.
+        //   ⚠ 손맛은 위력이 아니라 **여기서** 나온다 — 조건을 노리는 순간이 곧 조작이다
+        const cond = Math.max(0.001, g / Math.max(0.0001, E.gain));   // 이 직업의 조건 달성도
+        //  ⚠ 지수 1.7 · 기본 0.80으로 처음 넣었더니 사무라이 킬 64.5 → **31.5**, 생존율 1.0 → **0.5**.
+        //   과했다. 다만 원인의 절반은 **하네스가 조건을 노리는 플레이를 못 하는 것**이다
+        //   (자동 이동이라 '안 맞고 벤다'·'멈춰 선다' 같은 조건을 일부러 맞추지 못한다).
+        //   사람이 하면 더 잘 맞출 것이므로 **하네스 기준으로만 맞추면 실제로는 너무 쉬워진다** —
+        //   폭은 유지하되(1.0보다 넓게) 바닥을 올려 1.35 · 0.95로 절충한다
+        const g2 = E.gain * Math.pow(cond, 1.35) * 0.95 * goreStandMult();
         const before = player.mCharge||0;
-        player.mCharge = Math.min(1, before + g*1.15);
+        player.mCharge = Math.min(1, before + g2);
         if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
       } else if (w.key==='xwave'){
         // v6.54 전향: 검기 방출 — 전사의 참격이 날아간다
@@ -12269,8 +12288,15 @@ import { FX } from "./fx.js";
       for (let k=enemies.length-1;k>=0;k--){
         const e = enemies[k];
         if (Math.hypot(e.x-z.x,e.y-z.y) < z.r+e.r){
-          e.hp -= z.dps*dt * (z.type==='grav' ? 1+(player.crushAmp||0) : 1);
-          e.byZone = true;   // v6.144-b 영역에 죽은 적은 새 영역을 낳지 않는다 (자기증식 차단)
+          //  v6.145 **피바다는 피해를 주지 않는다.** 영역의 세 문제(초당딜 폭증·자기증식·원격 생성)는
+          //   전부 '영역이 딜을 한다'는 성질에서 나왔다 — 딜을 0으로 두면 원인 채로 사라진다.
+          //   피바다는 이제 **자리**다: 적의 발을 묶고, 내가 그 위에 서 있으면 자원이 빨리 찬다(아래 ②)
+          if (z.type !== 'gore'){
+            e.hp -= z.dps*dt * (z.type==='grav' ? 1+(player.crushAmp||0) : 1);
+            e.byZone = true;   // v6.144-b 영역에 죽은 적은 새 영역을 낳지 않는다 (자기증식 차단)
+          } else {
+            e.mireT = Math.max(e.mireT||0, 0.5);   // 발을 묶는 것이 본체
+          }
           if (z.type==='fire' && Math.random()<dt*2){ e.burnT=2.5; e.burnDps=Math.max(e.burnDps||0, (player.burnDps||5)*D); }
           if (z.type==='acid' && Math.random()<dt*2){ e.corrodeS=Math.min(player.corrodeMaxS,(e.corrodeS||0)+1); e.corrodeT=5; }
           if (z.type==='frost' && Math.random()<dt*2.5){ e.chillS=Math.min(3,(e.chillS||0)+1); e.chillT=2.5; }
