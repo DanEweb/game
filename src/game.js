@@ -4137,7 +4137,7 @@ import { FX } from "./fx.js";
       lvDesc:['','참격 연장','피해 +40%','참격 폭 확대','피해 강화'],
       // v6.94 근접 사거리로 축소(낫 72~120 대비 약간 길고 대신 훨씬 좁다) + 확실히 느리게·무겁게
       baseCd:(w)=> w.evolved ? 2.2 : 2.8,
-      dmg:(w)=> (w.evolved ? 95 : [40,40,56,56,72][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 95 : [40,40,56,56,72][w.lv-1]),
       reach:(w)=> (w.evolved ? 150 : [96,112,112,132,132][w.lv-1]),
       halfW:(w)=> (w.evolved ? 24 : [14,14,14,19,19][w.lv-1])
     },
@@ -4149,7 +4149,7 @@ import { FX } from "./fx.js";
       baseCd:(w)=> 999,                                    // 무기 루프로는 발사되지 않는다
       // v6.100 벤치 결과 반영: 25초 36킬로 타 직업(73~76)의 절반이었다.
       // 대시 쿨이 도는 동안 아무 공격도 못 하는 공백이 원인 — 한 방을 크게 올리고 쿨을 더 줄인다
-      dmg:(w)=> (w.evolved ? 130 : [52,52,72,72,92][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 130 : [52,52,72,72,92][w.lv-1]),
       width:(w)=> (w.evolved ? 38 : [24,24,24,32,32][w.lv-1]),
       cdCut:(w)=> (w.evolved ? 0.45 : [0.78,0.70,0.70,0.62,0.62][w.lv-1])
     },
@@ -4159,7 +4159,7 @@ import { FX } from "./fx.js";
       evName:'연참 · 무영난무', evDesc:'표식 요구가 줄고 연참 피해가 크게 오릅니다',
       lvDesc:['','표식 요구 -1','피해 +40%','연참 피해 +50%','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.62 : 0.8,
-      dmg:(w)=> (w.evolved ? 30 : [12,12,17,17,22][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 30 : [12,12,17,17,22][w.lv-1]),
       need:(w)=> (w.evolved ? 2 : [3,3,3,3,3][w.lv-1]),          // v6.99 요구 축소 — 표식은 좌표에 남는다
       burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 연참 1타 배율
     },
@@ -4169,7 +4169,7 @@ import { FX } from "./fx.js";
       evName:'회전 참격 · 혈풍륜', evDesc:'회전이 멈추지 않고, 벤 자리에 핏빛 잔풍이 남습니다',
       lvDesc:['','회전 범위 확대','피해 +40%','회전 주기 단축','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.05 : 1.45,
-      dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,32][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 44 : [18,18,25,25,32][w.lv-1]),
       radius:(w)=> (w.evolved ? 118 : [78,92,92,104,104][w.lv-1])
     },
     // v6.104 엔진 5호: 연격 — 소유물은 '연쇄'. 끊기지 않고 이어질수록 강해진다(연 자원 내장)
@@ -4178,7 +4178,7 @@ import { FX } from "./fx.js";
       evName:'연격 · 백팔연타', evDesc:'연쇄 상한이 늘고 마무리가 폭발합니다',
       lvDesc:['','연쇄 상한 +2','피해 +40%','범위 확대','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.34 : 0.46,
-      dmg:(w)=> (w.evolved ? 24 : [9,9,13,13,17][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 24 : [9,9,13,13,17][w.lv-1]),
       radius:(w)=> (w.evolved ? 74 : [52,52,52,64,64][w.lv-1]),
       cap:(w)=> (w.evolved ? 8 : [5,7,7,7,7][w.lv-1])
     },
@@ -4188,7 +4188,7 @@ import { FX } from "./fx.js";
       evName:'후려치기 · 삼대 오백', evDesc:'충격이 주변으로 퍼지고 넉백이 커집니다',
       lvDesc:['','사거리 확대','피해 +45%','충격 확산','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.25 : 1.6,
-      dmg:(w)=> (w.evolved ? 78 : [32,32,46,46,60][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 78 : [32,32,46,46,60][w.lv-1]),
       reach:(w)=> (w.evolved ? 96 : [64,78,78,86,86][w.lv-1]),
       splash:(w)=> (w.evolved ? 62 : [0,0,0,44,44][w.lv-1])
     },
@@ -4198,7 +4198,7 @@ import { FX } from "./fx.js";
       evName:'반격 태세 · 요지부동', evDesc:'태세 상한이 오르고 반격이 주변 전체로 퍼집니다',
       lvDesc:['','태세 상한 +1','피해 +40%','반격 범위 확대','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.75 : 0.95,
-      dmg:(w)=> (w.evolved ? 34 : [14,14,20,20,26][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 34 : [14,14,20,20,26][w.lv-1]),
       radius:(w)=> (w.evolved ? 108 : [72,72,72,88,88][w.lv-1]),
       cap:(w)=> (w.evolved ? 5 : [3,4,4,4,4][w.lv-1])
     },
@@ -4208,7 +4208,7 @@ import { FX } from "./fx.js";
       evName:'광란 난도질 · 피의 광시곡', evDesc:'가속 상한이 크게 오르고 자해가 줄어듭니다',
       lvDesc:['','가속 상한 +','피해 +40%','범위 확대','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.30 : 0.40,
-      dmg:(w)=> (w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
       radius:(w)=> (w.evolved ? 82 : [58,58,58,70,70][w.lv-1]),
       rush:(w)=> (w.evolved ? 2.4 : 1.9)                       // 가속 상한
     },
@@ -4218,7 +4218,7 @@ import { FX } from "./fx.js";
       evName:'대낫 처형 · 수확의 밤', evDesc:'문턱이 오르고 거둘 때마다 낫이 잠시 넓어집니다',
       lvDesc:['','문턱 +4%p','피해 +40%','범위 확대','피해 강화'],
       baseCd:(w)=> w.evolved ? 1.0 : 1.25,
-      dmg:(w)=> (w.evolved ? 40 : [16,16,23,23,30][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 40 : [16,16,23,23,30][w.lv-1]),
       radius:(w)=> (w.evolved ? 118 : [80,80,80,98,98][w.lv-1]),
       arc:(w)=> (w.evolved ? Math.PI*2 : 2.1),
       thr:(w)=> (w.evolved ? 0.26 : [0.12,0.16,0.16,0.16,0.16][w.lv-1])   // 처형 문턱
@@ -4229,7 +4229,7 @@ import { FX } from "./fx.js";
       evName:'박자 타격 · 광시곡', evDesc:'박이 더 빨라지고 정박 보너스가 커집니다',
       lvDesc:['','박 가속','피해 +40%','범위 확대','피해 강화'],
       baseCd:(w)=> w.evolved ? 0.44 : 0.58,
-      dmg:(w)=> (w.evolved ? 26 : [11,11,15,15,20][w.lv-1]),
+      dmg:(w)=> MELEE_AUTO*(w.evolved ? 26 : [11,11,15,15,20][w.lv-1]),
       radius:(w)=> (w.evolved ? 88 : [62,62,62,76,76][w.lv-1])
     },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
@@ -4679,6 +4679,9 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
+  // v6.109 자동 평타 계수 — 평타는 '자원을 버는 수단'으로 격하한다.
+  // 총 DPS의 절반 이상이 자원 소비(R)에서 나오도록 비중을 옮긴 것. 강함은 조작의 대가여야 한다
+  const MELEE_AUTO = 0.58;
   const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, combo3:1, smash:1, riposte:1, frenzy:1, reap:1, cadence:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
@@ -9678,19 +9681,34 @@ import { FX } from "./fx.js";
   function spendResource(){
     const r = engineResource();
     if (!r || r.v < 1) return;
-    if (ownedWeapon('iaido')){          // 잔심: 다음 한 발이 확정 치명 + 화면을 가르는 장참
+    const P = player.dmgMult;
+    if (ownedWeapon('iaido')){          // 잔심: 조준 방향으로 화면을 가르는 장참 (확정 치명 부여 + 즉발 대형 참격)
       player.dashCritT = Math.max(player.dashCritT||0, 1.2); noHitT = 0;
+      const t0 = nearestTarget();
+      const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+      const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 340, HW = 30;
+      effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.34, age:0,
+                     col: CLASS_COLORS[player.classKey], heavy:true });
+      for (let i=enemies.length-1;i>=0;i--){
+        const e = enemies[i]; if (!e) continue;
+        const dx=e.x-player.x, dy=e.y-player.y, along=dx*ca+dy*sa;
+        if (along < -e.r || along > RCH + e.r) continue;
+        if (Math.abs(-dx*sa+dy*ca) > HW + e.r) continue;
+        const d = 130*P*corrodeMult(e);
+        e.hp -= d; addDmgNum(e.x, e.y, d, true);
+        if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+      }
       addTextNum(player.x, player.y-40, '거합!');
     } else if (ownedWeapon('whirl')){   // 응혈: 피를 태워 즉시 회복 + 광역 폭발
       const heal = player.maxHp*0.22;
       player.hp = Math.min(player.maxHp, player.hp + heal);
-      friendlyBlast(player.x, player.y, 150, 40*player.dmgMult, true);
+      friendlyBlast(player.x, player.y, 165, 120*P, true);      // v6.109 주력 딜로 승격
       addTextNum(player.x, player.y-40, '응혈 폭발');
     } else if (ownedWeapon('combo3')){  // 연: 쌓인 연을 한 번에 터뜨린다
-      friendlyBlast(player.x, player.y, 120, 26*player.dmgMult*(player.comboN||1), true);
+      friendlyBlast(player.x, player.y, 135, 34*P*(player.comboN||1), true);   // 연을 많이 쌓았을수록 크다
       player.comboN = 0; addTextNum(player.x, player.y-40, '연 해방');
     } else if (ownedWeapon('riposte')){ // 태세: 전방위 반격 + 잠깐 무적
-      friendlyBlast(player.x, player.y, 140, 34*player.dmgMult, true);
+      friendlyBlast(player.x, player.y, 160, 115*P, true);      // v6.109 주력 딜로 승격
       player.invuln = Math.max(player.invuln, 0.8);
       player.stanceN = 0; addTextNum(player.x, player.y-40, '요지부동');
     } else if (ownedWeapon('frenzy')){  // 광기: 3초간 자해 없이 최대 가속
@@ -9699,7 +9717,7 @@ import { FX } from "./fx.js";
       player.satOver = 1; satCharge(0.01);   // 과부하는 기존 궤도 해방으로 연결
       return;
     } else {
-      friendlyBlast(player.x, player.y, 130, 30*player.dmgMult, true);
+      friendlyBlast(player.x, player.y, 150, 105*P, true);      // v6.109 주력 딜로 승격
       addTextNum(player.x, player.y-40, r.n+' 해방');
     }
     shake = Math.min(14, shake+6); hitStop(0.05); buzz(24); SFX.play('boom');
