@@ -9865,6 +9865,7 @@ import { FX } from "./fx.js";
     addDmgNum(target.x, target.y, d, isCrit);
     burst(target.x, target.y, 6, 140);
     SFX.play('hit');
+    rangedCharge('lightning');                       // v6.130 대전 — 번개가 떨어질 때마다 찬다
     // v6.124 낙뢰점 감전 — 떨어진 자리 주변도 함께 지진다 (본체의 50%)
     if (zapR > 0){
       effects.push({ type:'ring', x:target.x, y:target.y, life:0.24, age:0, r0:6, r1:zapR });
@@ -9982,6 +9983,31 @@ import { FX } from "./fx.js";
       if (e.i >= e.n) engineTicks.splice(q,1);
     }
   }
+  // v6.130 원거리 엔진 — 무기 단위. 채우는 조건이 무기의 정체성이 된다
+  const RANGED_ENGINE = {
+    arrow:     { res:'연사', gain:0.055, col:'#4c9a55', hint:'쏘는 족족 맞을수록 빨리 찬다' },
+    missile:   { res:'장전', gain:0.075, col:'#3b82c4', hint:'겨눈 만큼 장전된다 (조준이 높을수록 빠르다)' },
+    //  ⚠ 실측 후 조정: 6초 충전량이 궁수 0.88 / 저격수 0.63 / 기술자 0.53인데
+    //     닌자 0.28(만충 21초) · 관리자 0.056(만충 100초)로 사실상 못 쓰는 값이었다.
+    //     수리검은 왕복이 느리고 위성 타격은 satCharge 단위가 아주 작다 — 계수를 맞춘다
+    shuriken:  { res:'회전', gain:0.170, col:'#6d5cc4', hint:'던진 것이 돌아올 때 찬다' },
+    lightning: { res:'대전', gain:0.105, col:'#c9b04a', hint:'번개가 떨어질 때마다 찬다' },
+    satellite: { res:'과부하', gain:0.040, col:'#7ec4e8', hint:'위성이 부딪힐 때마다 찬다' },
+  };
+  function rangedEngineKey(){
+    if (!player || !player.weapons) return null;
+    for (const w of player.weapons){ if (RANGED_ENGINE[w.key]) return w.key; }
+    return null;
+  }
+  // 원거리 자원 충전 — 무기 발사/명중 지점에서 부른다
+  function rangedCharge(key, mult){
+    const E = RANGED_ENGINE[key];
+    if (!E || !player) return;
+    if (rangedEngineKey() !== key) return;          // 주 무기가 아닐 땐 안 찬다 (하이브리드가 두 배로 차지 않게)
+    const before = player.mCharge || 0;
+    player.mCharge = Math.min(1, before + E.gain * (mult||1));
+    if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
+  }
   function meleeEngineKey(){
     if (!player || !player.weapons) return null;
     for (const w of player.weapons){ if (MELEE_ENGINE[w.key]) return w.key; }
@@ -9992,7 +10018,9 @@ import { FX } from "./fx.js";
     // v6.115 근접은 전부 하나의 기력 게이지를 쓴다 — 채우는 방법만 엔진마다 다르다
     const mk = meleeEngineKey();
     if (mk){ const E = MELEE_ENGINE[mk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
-    if (ownedWeapon('satellite'))return { n:'과부하', v:Math.min(1,(player.satOver||0)),           c:'#7ec4e8' };
+    // v6.130 원거리도 같은 기력 게이지를 쓴다 — HUD·모바일 R 버튼·넘침 손실이 그대로 붙는다
+    const rk = rangedEngineKey();
+    if (rk){ const E = RANGED_ENGINE[rk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
     return null;
   }
   // 만충 시 소비 — 엔진마다 '모아둔 것을 터뜨리는' 방식이 다르다
@@ -10327,6 +10355,68 @@ import { FX } from "./fx.js";
       shake = Math.min(18, shake+10); hitStop(0.06); buzz(30);
       player.atkMotion = 'lunge'; player.swingT = Math.max(player.swingT||0, 0.36);
       addTextNum(player.x, player.y-40, '파쇄 돌격!');
+    } else if (key === null && rangedEngineKey()){
+      const rk2 = rangedEngineKey();
+      if (rk2 === 'arrow'){
+        // 화살비 — 조준 방향 넓은 지역에 쏟아붓는다. 원거리는 '자리를 덮는다'
+        const t0 = nearestTarget();
+        const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        const cx = player.x + Math.cos(a0)*190, cy = player.y + Math.sin(a0)*190;
+        queueTicks(10, 0.07, (i)=>{ if (state!=='playing') return;
+          const rx = cx + (Math.random()-0.5)*180, ry = cy + (Math.random()-0.5)*180;
+          effects.push({ type:'ring', x:rx, y:ry, life:0.2, age:0, r0:3, r1:30 });
+          friendlyBlast(rx, ry, 44, 46*P, false);
+          if (i===9){ shake = Math.min(12, shake+5); SFX.play('boom'); } else SFX.play('shoot');
+        });
+        addTextNum(player.x, player.y-40, '화살비');
+      } else if (rk2 === 'missile'){
+        // 저격 — 화면을 관통하는 단 한 발. 큰 표적일수록 무겁다
+        const t0 = nearestTarget();
+        const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
+        const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 900, HW = 16;
+        effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.4, age:0, col:'#3b82c4', heavy:true });
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i]; if (!e) continue;
+          const dx=e.x-player.x, dy=e.y-player.y, along=dx*ca+dy*sa;
+          if (along < -e.r || along > RCH + e.r) continue;
+          if (Math.abs(-dx*sa+dy*ca) > HW + e.r) continue;
+          const d = 150*P*corrodeMult(e);
+          e.hp -= d; addDmgNum(e.x, e.y, d, true); procOnHit(e, false, null);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        spendHitBosses((b)=>{
+          const dx=b.x-player.x, dy=b.y-player.y, along=dx*ca+dy*sa;
+          return along >= -b.r && along <= RCH + b.r && Math.abs(-dx*sa+dy*ca) <= HW + b.r;
+        }, 420*P);                                    // 보스에겐 특히 무겁다 — 저격의 본령
+        shake = Math.min(18, shake+10); hitStop(0.06); buzz(28);
+        player.recoilX = (player.recoilX||0) - ca*14; player.recoilY = (player.recoilY||0) - sa*14;
+        addTextNum(player.x, player.y-40, '저격!');
+      } else if (rk2 === 'shuriken'){
+        // 만천화우 — 사방으로 흩뿌린다. 던지는 자의 정체성
+        for (let k=0;k<18;k++){
+          const a2 = (Math.PI*2/18)*k;
+          projectiles.push({ x:player.x, y:player.y, vx:Math.cos(a2)*430, vy:Math.sin(a2)*430,
+                             r:6, damage:52*P, crit:false, pierce:3, life:1.1,
+                             kind:'shuriken', phase:'out', noReturn:true, spin:0, hitSet:new Set() });
+        }
+        shake = Math.min(12, shake+5); SFX.play('sweep');
+        addTextNum(player.x, player.y-40, '만천화우');
+      } else if (rk2 === 'lightning'){
+        // 뇌운 — 3초간 머리 위에 구름이 머물며 계속 떨어진다
+        queueTicks(12, 0.25, (i)=>{ if (state!=='playing') return;
+          lightningStrike(58*P, true, 64);
+          if (i%4===0) shake = Math.min(10, shake+3);
+        });
+        addTextNum(player.x, player.y-40, '뇌운 3초');
+      } else {
+        // 위성 — 기존 궤도 해방으로 연결
+        player.satOver = 1; satCharge(0.01);
+      }
+      player.surgeT = 3;
+      _overflowT = 0;
+      resetSpentResource();
+      addTextNum(player.x, player.y-54, '각성 3초');
+      return;
     } else if (ownedWeapon('satellite')){
       player.satOver = 1; satCharge(0.01);
       return;
@@ -10367,6 +10457,7 @@ import { FX } from "./fx.js";
   // 과부하: 위성이 칠 때마다 차오르고, 만충 시 '궤도 해방' — 링 전체가 무기가 되고 회전이 가속된다
   function satCharge(v){
     if ((player.satBurstT||0) > 0) return;
+    rangedCharge('satellite', v*480);                // v6.130 과부하를 공통 기력으로도 적립 (satCharge 단위가 작아 계수가 크다)
     player.satOver = (player.satOver||0) + v*(player.satOverRate||1);
     if (player.satOver >= 1){
       player.satOver = 0;
@@ -10708,6 +10799,7 @@ import { FX } from "./fx.js";
           fireProjectile(a, 430, dmg, player.pierce, 1.3,
             w.evolved ? { homing:true, r:5, imbue:w.imbue, splash:_sp } : { imbue:w.imbue, splash:_sp });
         }
+        rangedCharge('missile', 1 + (player.aim||0)*1.4);   // v6.130 장전 — 겨눈 만큼 빨리 찬다
         effects.push({ type:'muzzle', x:player.x+Math.cos(baseA)*16, y:player.y+Math.sin(baseA)*16, life:0.1, age:0 });
         SFX.play('shoot');
 
@@ -12351,7 +12443,7 @@ import { FX } from "./fx.js";
           if (p.phase==='out'){
             p.vx *= (1 - Math.min(1, dt*2.4));
             p.vy *= (1 - Math.min(1, dt*2.4));
-            if (Math.hypot(p.vx,p.vy) < 110){ p.phase='return'; p.hitSet.clear(); }
+            if (Math.hypot(p.vx,p.vy) < 110){ p.phase='return'; p.hitSet.clear(); rangedCharge('shuriken'); }   // v6.130 회전 — 돌아올 때 찬다
           } else {
             const a = Math.atan2(player.y-p.y, player.x-p.x);
             const sp = Math.min(560, Math.hypot(p.vx,p.vy) + 900*dt);
@@ -12594,6 +12686,7 @@ import { FX } from "./fx.js";
             if (p.hitSet.has(e)) continue;
             p.hitSet.add(e);
           }
+          if (p.arrow) rangedCharge('arrow');            // v6.130 연사 — 맞을수록 찬다
           const dmgAmt = p.damage * corrodeMult(e);
           e.hp -= dmgAmt;
           addDmgNum(p.x, p.y, dmgAmt, p.crit);
