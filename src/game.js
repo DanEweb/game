@@ -6685,10 +6685,13 @@ import { FX } from "./fx.js";
   //  그 상태에서 `KeyR`은 소비기가 아니라 **리롤**이 된다 — 그래서 "궁수 R이 아무 반응 없음"이라는
   //  가짜 결론이 두 번 나왔다(실제로는 각성 창이 정상 작동, 69→105 dps).
   //  ⚠ R·스킬을 검증하기 전에는 반드시 이걸 먼저 부를 것
+  //  ⚠ `#cards`는 **항상 `display:flex`** 이고 내용만 비운다 — display로 판정하면 영원히 '열림'이라
+  //     감사 슬라이스마다 4.8초를 낭비하고 Digit1을 40번 날린다. **내용**으로 판정할 것
   window.__qaCards = async ()=>{
+    const open = ()=>{ const c = document.getElementById('cards');
+                       return !!(c && c.children.length > 0 && (c.innerText||'').trim()); };
     for (let i=0;i<40;i++){
-      const c = document.getElementById('cards');
-      if (!c || getComputedStyle(c).display === 'none') return 'clear';
+      if (!open()) return 'clear';
       window.dispatchEvent(new KeyboardEvent('keydown',{code:'Digit1',bubbles:true}));
       await new Promise(x=>setTimeout(x,120));
     }
@@ -6791,6 +6794,70 @@ import { FX } from "./fx.js";
       };
       requestAnimationFrame(step);
     });
+  };
+  // ══════ v6.138 감사 2회전: **계열별 축 감사** ══════
+  //  `audit.mjs`(쓰기만 있고 읽기 없음)로는 v6.137의 `surgeT`를 못 잡았다 —
+  //  스탯은 '읽히고' 있었고, 다만 **원거리가 안 읽을** 뿐이었다(각성 창이 8직업에서 통째로 무효).
+  //  그래서 정적 검사를 포기하고 **런타임**으로 본다: 축을 하나씩 강제로 켜고 단일 대상 DPS가 변하는지 잰다.
+  //  배율 1.00 = 그 축은 이 직업에게 **아무 일도 하지 않는다**.
+  //  ⚠ 생존·이동 축(kiteT 등)은 DPS로 안 잡힌다 — 1.00이 정상이다. 축의 성격을 알고 읽을 것
+  window.__qaForce = (obj)=>{ try { player.qaForce = obj || null; return 'force '+JSON.stringify(obj||null); } catch(e){ return 'ERR '+String(e); } };
+  window.__qaAxes = async (sec)=>{
+    //  ⚠ 축은 **짝을 이루는 값까지 같이** 켜야 한다 — `odT`만 켜고 `odPower`를 0으로 두면
+    //     `1 + odPower` = 1배라 '과부하가 무효'라는 가짜 결과가 나온다(1차 실행에서 실제로 그랬다)
+    const AXES = [
+      ['heat',        { heat:1 }],            // 근접 지속 축 (붙어 있을수록)
+      ['aim',         { aim:1 }],             // 원거리 지속 축 (떨어져 있을수록)
+      ['surgeT',      { surgeT:3 }],          // 소비 직후 각성 창 — v6.137에서 원거리가 통째로 빠져 있었다
+      ['meleeBoost',  { meleeBoost:1.5 }],    // '낫 피해 +N%' 계열 — v6.120에서 읽기가 통째로 빠져 있었다
+      ['rushT',       { rushT:2 }],           // 피의 광시곡 (평타 주기 단축)
+      ['dashHasteT',  { dashHasteT:1 }],      // 대시 직후 가속
+      ['과부하',       { odT:2, odPower:0.5 }],// 과부하 — odT와 odPower는 한 쌍이다
+      ['kiteT',       { kiteT:1 }],           // 원거리 생존 축(이동속도) — DPS로는 안 잡힌다(1.00 정상)
+    ];
+    //  ⚠ 슬라이스가 짧으면 **타격 횟수의 정수성**이 그대로 노이즈가 된다.
+    //     4초 슬라이스(평타 4~5회)에서 조준(근접과 무관한 축)이 0.60으로 찍혔다 — 표본이 부족했던 것이다.
+    //     8초면 8~9회라 ±12% 수준으로 떨어진다. 그래도 정밀 측정이 아니라 **'아예 안 읽히는가'** 판정용이다
+    const S = sec || 8;
+    //  ⚠ `dps`는 정수 반올림이라 기준이 5쯤이면 ±1 = ±20%다 — 1차 실행에서 열기 0.80·조준 0.60 같은
+    //     말이 안 되는 배율이 나왔다. 비율은 **반올림 전 원피해량**으로 낸다
+    const rate = async ()=>{
+      if (window.__qaCards) await window.__qaCards();   // 슬라이스마다 카드를 치운다 (뜨면 게임이 멈춘다)
+      const r = await window.__qaDps(S);
+      return r.dealt / Math.max(0.1, r.sec);
+    };
+    //  ⚠ 1차 실행에서 **기준선이 두 겹으로 오염**돼 있었다:
+    //   ① 앞 슬라이스에서 강제한 `surgeT=3`이 다음 슬라이스로 3초간 새어 들어간다
+    //   ② 만충 방치 페널티(`_overflowT`)가 5초에 걸쳐 −45%까지 차오르므로 **첫 슬라이스만 유독 세다**
+    //     (그래서 열기·조준이 나란히 0.62로 찍혔다 — 축의 효과가 아니라 기준이 부풀려져 있었던 것)
+    //   → 워밍업 한 슬라이스로 페널티를 포화시키고, 축마다 **일시 축을 전부 0으로 되돌린 뒤** 잰다
+    const ZERO = { surgeT:0, rushT:0, dashHasteT:0, odT:0, odPower:0, kiteT:0, meleeBoost:1 };
+    const settle = async ()=>{ window.__qaForce(ZERO); await new Promise(x=>setTimeout(x,700)); };
+    await rate();                          // 워밍업 — 방치 페널티·열기를 정상 상태로 포화시킨다
+    await settle();
+    const base = await rate();
+    const out = { cls: player && player.classKey, 기준초당피해: +base.toFixed(1), 축: {} };
+    for (const [k,v] of AXES){
+      await settle();                      // 앞 축의 잔여를 지운다
+      window.__qaForce(Object.assign({}, ZERO, v));
+      const r = await rate();
+      const m = +(r / Math.max(0.01, base)).toFixed(2);
+      //  3단계로 낸다 — 노이즈 대역(0.85~1.15)을 '무효 의심'으로 따로 뺀다.
+      //  ⚠ 생존·이동 축(kiteT 등)은 원래 DPS로 안 잡힌다 — '무효'가 정상이다. 축의 성격을 알고 읽을 것
+      out.축[k] = { 초당피해:+r.toFixed(1), 배율:m,
+                    판정: m >= 1.15 ? '반영' : (m <= 0.85 ? '역방향' : '무효의심') };
+    }
+    window.__qaForce(null);
+    return out;
+  };
+  // v6.138 QA: 잠긴 직업 강제 해금 — 회귀자처럼 해금 조건이 걸린 직업은 런타임 검증 자체가 불가능했다
+  window.__qaUnlock = (key)=>{
+    try {
+      if (key === '*'){ for (const k in CLASSES) DB.unlocked[k] = true; }
+      else DB.unlocked[key] = true;
+      saveDB(); renderClassCards();
+      return 'unlocked '+key;
+    } catch(e){ return 'ERR '+String(e); }
   };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
@@ -10841,6 +10908,9 @@ import { FX } from "./fx.js";
   }
 
   function updateWeapons(dt){
+    // v6.138 QA 축 강제 — `__qaAxes()`가 축을 하나씩 켜 보며 **실제로 무기에 반영되는지**를 잰다.
+    //  무기 루프 바로 앞에서 덮어써야 자연 감쇠(열기·조준·각성 창)에 지워지지 않는다
+    if (player.qaForce){ for (const k in player.qaForce) player[k] = player.qaForce[k]; }
     satPos = [];
     auraState.on = false;
     chargeEng.on = false;
