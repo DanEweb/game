@@ -11615,7 +11615,10 @@ import { FX } from "./fx.js";
         //   (자동 이동이라 '안 맞고 벤다'·'멈춰 선다' 같은 조건을 일부러 맞추지 못한다).
         //   사람이 하면 더 잘 맞출 것이므로 **하네스 기준으로만 맞추면 실제로는 너무 쉬워진다** —
         //   폭은 유지하되(1.0보다 넓게) 바닥을 올려 1.35 · 0.95로 절충한다
-        const g2 = E.gain * Math.pow(cond, 1.35) * 0.95 * goreStandMult();
+        //  v6.146 사용자: *"그럼 하네스 기준보다 낮춰"* — 맞다. 하네스는 조건을 못 노리므로
+        //   하네스에서 '적당해' 보이는 값은 **사람 손에서는 너무 헐렁하다.** 1.35·0.95 → **1.55·0.85**.
+        //   ⚠ 이 축은 하네스 수치를 목표로 삼지 말 것 — 조건을 노리는 플레이는 계측되지 않는다
+        const g2 = E.gain * Math.pow(cond, 1.55) * 0.85 * goreStandMult();
         const before = player.mCharge||0;
         player.mCharge = Math.min(1, before + g2);
         if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
