@@ -2836,7 +2836,12 @@ import { FX } from "./fx.js";
       name:'관광객', tag:'재미', cost:500,
       desc:'[드론(셀카봉)]으로 시작. 이동 중 골드가 저절로 모인다 (+행운 +30%). 싸움엔 관심 없음.',
       weapon:'drone',
-      apply:(p)=>{ p.luck*=1.3; p.walkGold=true; p.dmgMult*=0.9; p.speed*=1.08; }
+      //  v6.141 11킬 — 최고(108)의 **1/10**. '싸움엔 관심 없다'는 컨셉이라도 이건 컨셉이 아니라 고장이다.
+      //   원인은 명확했다: **가장 약한 무기(드론)에 피해 ×0.9까지 얹혀 있었다.** 무기 상향과 함께 계수를 뒤집는다
+      //   (여전히 최하위권이되 '게임은 되는' 대역으로)
+      //  v6.141-b 1.2로 올렸더니 11 → **107**로 최상위가 됐다(과교정). 드론 무기 상향분이 이미 크다 —
+      //   직업 계수는 1.0(중립)까지만 올린다. 원래 0.9였으므로 여전히 상향이다
+      apply:(p)=>{ p.luck*=1.3; p.walkGold=true; p.speed*=1.08; }
     },
     stonks: {
       name:'주식쟁이', tag:'재미', cost:600,
@@ -2933,7 +2938,8 @@ import { FX } from "./fx.js";
       cond:()=> achCount()>=20,
       desc:'아홉 개의 목숨. 부활 +2, 회피 +12%, 몸이 작다. 가끔 아무 이유 없이 뛰어다닌다.',
       weapon:'shuriken',
-      apply:(p)=>{ p.reviveLeft+=2; p.dodge=Math.min(0.6,p.dodge+0.12); p.catSmall=true; p.speed*=1.08; p.r=10; }
+      //  v6.141 24킬(최고 108의 1/4.5). 회피·부활은 '생존'인데 생존 축도 평범했다 — 화력을 준다
+      apply:(p)=>{ p.reviveLeft+=2; p.dodge=Math.min(0.6,p.dodge+0.12); p.catSmall=true; p.speed*=1.08; p.r=10; p.dmgMult*=1.28; }
     },
     slime: {
       name:'슬라임', tag:'히든', hidden:true,
@@ -4113,7 +4119,9 @@ import { FX } from "./fx.js";
       name:'위성', desc:'주위를 도는 위성이 부딪히는 적을 타격',
       evName:'궤도 레이저', evDesc:'위성 4기 + 궤도 링 전체가 레이저가 됩니다',
       lvDesc:['','위성 +1','타격 피해 +45%','위성 +1','타격 피해 강화'],
-      dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,33][w.lv-1]),
+      //  v6.141 접촉 지속 판정이라 밀집에서 초당 타수가 발사형의 몇 배다 — 한 대를 낮춰 균형을 맞춘다
+      //   (5직업 벤치 108·97·92·77·73으로 상위 독식. 개별 직업이 아니라 무기가 원인이다)
+      dmg:(w)=> (w.evolved ? 37 : [15,15,21,21,28][w.lv-1]),
       // v6.87 시작 개수 1 → 2: 위성 1기로는 적과 스치는 빈도가 너무 낮아 처치가 안 됐다 (접촉 기회 = 화력)
       // v6.90 기본 3기 — 2기로는 고리 사이 각도가 비어 "맞추기 어렵다"는 체감이 남았다
       count:(w)=> (w.evolved ? 6 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
@@ -4150,9 +4158,10 @@ import { FX } from "./fx.js";
       name:'수리검', desc:'날아갔다 돌아오는 관통 수리검을 던집니다',
       evName:'풍마 수리검', evDesc:'거대 수리검 3개가 적진을 왕복합니다',
       lvDesc:['','피해 증가','수리검 +1','피해 증가','수리검 +1'],
-      baseCd:(w)=> w.evolved ? 1.1 : 1.4,
-      dmg:(w)=> (w.evolved ? 26 : [12,15,15,19,19][w.lv-1]),
-      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=3?1:0) + (w.lv>=5?1:0)),
+      //  v6.141 1.4초에 **1발**은 화살(1.1초 2발)의 절반도 안 된다 — 닌자 46 / 검은 고양이 24의 원인
+      baseCd:(w)=> w.evolved ? 0.95 : 1.05,
+      dmg:(w)=> (w.evolved ? 28 : [14,17,17,21,21][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 2 + (w.lv>=3?1:0) + (w.lv>=5?1:0)),
       size:(w)=> (w.evolved ? 12 : 7)
     },
     scythe: {
@@ -4414,9 +4423,11 @@ import { FX } from "./fx.js";
       name:'드론', desc:'호위 드론이 자동으로 적을 사격합니다',
       evName:'드론 군단', evDesc:'드론 3기가 강화 탄환을 퍼붓습니다',
       lvDesc:['','드론 +1','피해 +40%','연사 강화','드론 +1, 피해 강화'],
-      baseCd:(w)=> (w.evolved ? 0.38 : (w.lv>=4 ? 0.45 : 0.55)),
-      dmg:(w)=> (w.evolved ? 20 : [8,8,11,11,14][w.lv-1]),
-      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=2?1:0) + (w.lv>=5?1:0))
+      //  v6.141 드론은 **사거리 420 안의 단일 대상**만 쏜다 — 물량이 늘어도 타수가 안 늘어난다.
+      //   기수를 늘려 '동시에 여러 대상'이 되게 한다 (파일럿 57·9초 사망 / 관광객 11·16.9초 사망)
+      baseCd:(w)=> (w.evolved ? 0.38 : (w.lv>=4 ? 0.42 : 0.50)),
+      dmg:(w)=> (w.evolved ? 22 : [11,11,15,15,19][w.lv-1]),
+      count:(w)=> (w.evolved ? 4 : 2 + (w.lv>=2?1:0) + (w.lv>=5?1:0))
     }
   };
 
@@ -6858,6 +6869,37 @@ import { FX } from "./fx.js";
       saveDB(); renderClassCards();
       return 'unlocked '+key;
     } catch(e){ return 'ERR '+String(e); }
+  };
+  // v6.141 QA: **직업 연속 2축 벤치**. 직업마다 페이지를 새로 여는 방식은 19직업에 20분이 든다.
+  //  런이 끝나면 `showIdle()`로 타이틀에 돌아갈 수 있으므로 **한 페이지에서 전부** 돌린다.
+  //  ⚠ 킬 축은 무적으로, 생존 축은 무적을 끄고 잰다 — v6.132의 교훈(위험을 0으로 만들어 놓고 보상만 재면 안 된다)
+  window.__qaToTitle = ()=>{ try { showIdle(); return 'idle'; } catch(e){ return 'ERR '+String(e); } };
+  window.__qaBenchAll = async (names, killSec, surviveSec)=>{
+    const out = {};
+    for (const nm of names){
+      try {
+        window.__qaToTitle();
+        await new Promise(r=>setTimeout(r, 260));
+        const st = await window.__qaStart(nm);
+        if (String(st).indexOf('start ') !== 0){ out[nm] = { err: String(st) }; continue; }
+        // ── 킬 축 (무적)
+        window.__qaGod(); window.__qaAuto(true); window.__qaFlood(40);
+        const iv = setInterval(()=>window.__qaFlood(15), 1200);
+        const k0 = killCount;
+        await new Promise(r=>setTimeout(r, (killSec||12)*1000));
+        clearInterval(iv);
+        const kills = killCount - k0;
+        // ── 생존 축 (무적 해제) — `__qaSurvive`가 qaGod를 끈다
+        window.__qaFlood(40);
+        const iv2 = setInterval(()=>window.__qaFlood(15), 1200);
+        const sv = await window.__qaSurvive(surviveSec||18);
+        clearInterval(iv2); window.__qaAuto(false);
+        const s2 = JSON.parse(window.__qaState());
+        out[nm] = { 킬:kills, 생존:sv['생존'], 초당피해:sv['초당피해'], 버틴초:sv.sec, 자원:s2.mCharge, 조준:s2.aim };
+      } catch(e){ out[nm] = { err: String(e) }; }
+    }
+    window.__qaToTitle();
+    return out;
   };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
@@ -12545,7 +12587,7 @@ import { FX } from "./fx.js";
         if (_r && _r.v >= 1) _overflowT = Math.min(5, _overflowT + dt);
         else _overflowT = Math.max(0, _overflowT - dt*2); }
       if (player.frenzyFree>0) player.frenzyFree -= dt;                                                  // v6.107 광란 해방
-      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1) * (player.kiteT ? 1.28 : 1);
+      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1) * (player.kiteT ? 1.20 : 1);   // v6.141 28%→20% (궁수가 18초 무피해로 버텼다 — 과했다)
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
     }
