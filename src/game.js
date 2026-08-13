@@ -4765,7 +4765,9 @@ import { FX } from "./fx.js";
   //  · 자원 만충 방치 → 넘쳐서 평타가 약해진다(최대 -45%)  → 쌓아두기만 하면 손해
   //  · 소비 직후 3초 → 평타 +60% (각성 창)                → 쓰면 그 다음이 강해진다
   // 결과: 모으고 → 쓰고 → 몰아치는 사이클이 생기고, 안 쓰면 명백히 약하다
-  const MELEE_AUTO_BASE = 0.58;
+  //  v6.136 0.46 → 0.62. 주기를 +45% 늘렸으므로 초당 총량은 v6.135와 같고 **한 방만 무거워진다**.
+  //  (v6.135처럼 위력만 깎으면 '빠르게 툭툭 치는' 리듬이 그대로 남는다 — 사용자가 지적한 건 그 리듬이다)
+  const MELEE_AUTO_BASE = 0.62;
   let _overflowT = 0;      // 만충 방치 누적 시간
   function meleeAutoMult(){
     if (!player) return MELEE_AUTO_BASE;
@@ -6367,7 +6369,9 @@ import { FX } from "./fx.js";
     killCount += 1;
     // v6.122 C 영역 지배 — 근접으로 벤 자리에 피바다가 남는다
     if (player && player.weapons && (meleeEngineKey() || ownedWeapon('aura'))){
-      spillGore(e.x, e.y, 9 * player.dmgMult * (player.meleeBoost||1));
+      //  v6.134 초반 잡몹 체력이 20~30인데 dps 9면 3초 만에 저절로 죽는다 — '보조'가 아니라 주력이었다.
+      //  피해를 낮추고 감속을 본체로 (자리를 소유한다는 정체성은 발을 묶는 것이지 대신 죽여주는 게 아니다)
+      spillGore(e.x, e.y, 3.5 * player.dmgMult * (player.meleeBoost||1));
     }
     // v6.121 용사의 검 — 유일하게 '처치'로 차는 엔진
     if (player && player.weapons && ownedWeapon('heroblade')){
@@ -6650,8 +6654,32 @@ import { FX } from "./fx.js";
       return gb ? gb.name : 'spawn failed';
     } catch(e){ return 'ERR '+String(e); }
   };
+  // v6.136 QA: **런 시작 자동화**. 실제로 게임이 돌려면 `직업 카드 → 런 계약 카드` 두 단계를 거쳐야 한다.
+  //  이걸 몰라서 벤치가 '계약 선택에서 멈춰 있는 화면'을 8초 측정하고 **"평타 0회"라는 가짜 결과**를 냈다.
+  //  ⚠ 측정 전에는 반드시 이 훅으로 시작할 것 — 화면이 멈춰 있어도 값은 조용히 0으로 나온다
+  window.__qaStart = (name)=> new Promise((res)=>{
+    try {
+      const hit = (root, txt)=>{
+        const c = [...root.querySelectorAll('*')].filter(e => (e.textContent||'').includes(txt) && e.children.length <= 3);
+        if (!c.length) return false; c[c.length-1].click(); return true;
+      };
+      const cards = document.getElementById('classCards');
+      if (!cards || !hit(cards, name)) return res('no class card: '+name);
+      let tries = 0;
+      const tick = ()=>{
+        const ov = document.getElementById('overlay');
+        if (ov && hit(ov, '계약 없음')) return setTimeout(()=>res('start '+(player&&player.classKey)), 200);
+        if (++tries > 40) return res('contract card not found');
+        setTimeout(tick, 50);
+      };
+      setTimeout(tick, 50);
+    } catch(e){ res('ERR '+String(e)); }
+  });
+  // ⚠ v6.136 **maxHp를 올리는 무적은 측정을 망가뜨린다.** 헬창은 피해가 `1 + maxHp×0.00025`로 곱해져서
+  //   maxHp=999999이면 **피해가 251배**가 된다 — 더미 실측 dps 1686(사무라이 4의 400배)이 그 증거다.
+  //   지금까지의 헬창 벤치 수치는 전부 이 오염을 안고 있었다. 무적은 '받는 피해 0'으로 구현한다
   window.__qaGod = ()=>{
-    try { player.maxHp=999999; player.hp=999999; return 'god'; } catch(e){ return 'ERR '+String(e); }
+    try { player.qaGod = true; player.hp = player.maxHp; return 'god'; } catch(e){ return 'ERR '+String(e); }
   };
   window.__qaBoss = (frac, aliveT)=>{
     try {
@@ -6696,8 +6724,8 @@ import { FX } from "./fx.js";
   window.__qaSurvive = (sec)=>{
     return new Promise((res)=>{
       if (!player) return res({ err:'no player' });
-      //  ⚠ `__qaGod()`는 최대체력을 999999로 올리는 것뿐이다 — 생존 벤치에서는 **부르면 안 된다**
-      player.invuln = 0;
+      //  ⚠ 생존 벤치에서는 `__qaGod()`를 부르면 안 된다 — 무적이 켜지면 받는 피해가 0이라 측정 자체가 무의미하다
+      player.qaGod = false; player.invuln = 0;
       const hp0 = player.hp, t0 = performance.now();
       let lastHp = hp0, hits = 0, taken = 0;
       const step = ()=>{
@@ -6787,7 +6815,10 @@ import { FX } from "./fx.js";
         kills: killCount,
         // v6.123 소비기 진단 — R이 왜 안 먹는지는 값을 봐야 알 수 있다
         eng: meleeEngineKey(), surgeT:+((player&&player.surgeT)||0).toFixed(2),
-        windT:+((player&&player.spendWindT)||0).toFixed(2), pend: !!(player&&player.spendPend)
+        windT:+((player&&player.spendWindT)||0).toFixed(2), pend: !!(player&&player.spendPend),
+        // v6.136 근접 평타 횟수 — '공속이 너무 빠르다'를 눈이 아니라 값으로 재기 위한 계측.
+        //  주기를 만질 때마다 체감으로 판단하다 v6.135처럼 +12%(체감 없음)를 내놓았다
+        autoN: window.__meleeAutoN|0
       });
     } catch(e){ return 'ERR '+String(e); }
   };
@@ -9626,8 +9657,8 @@ import { FX } from "./fx.js";
   function aimDmgMult(){ return 1 + (player.aim||0) * 0.42; }     // 만충 시 사격 +42%
   function aimPierce(){ return Math.floor((player.aim||0) * 2.4); } // 만충 시 관통 +2
   function aimCrit(){ return (player.aim||0) * 0.22; }             // 만충 시 치명 +22%p
-  function heatDmgMult(){ return 1 + (player.heat||0) * 0.38; }   // 만충 시 평타 +38%
-  function heatCdMult(){ return 1 - (player.heat||0) * 0.24; }    // 만충 시 평타 주기 -24%
+  function heatDmgMult(){ return 1 + (player.heat||0) * 0.20; }   // v6.135 +38% → +20%
+  function heatCdMult(){ return 1 - (player.heat||0) * 0.12; }    // v6.135 -24% → -12%
   function crowdMult(n){ return 1 + Math.min(0.60, Math.max(0, n-1) * 0.06); }
   // v6.86 F 탄막 베기 — 스윙 호 안에 들어온 적 투사체를 잘라낸다. "원거리는 피하고, 근접은 벤다"
   function cutHostileShots(cx, cy, radius, baseA, arc){
@@ -10225,7 +10256,7 @@ import { FX } from "./fx.js";
     } else if (key === 'scythe'){
       // 그믐의 원무 — 사방을 세 번 벤다
       queueTicks(3+TN, 0.13, (i)=>{ if (state!=='playing') return;     // v6.133 티어로 베는 횟수가 는다
-        boom(152*TR, 66*P, i>=2 ? '#e0a94f' : COL); shake = Math.min(12, shake+3); SFX.play('sweep'); });
+        boom(152*TR, 48*P, i>=2 ? '#e0a94f' : COL); shake = Math.min(12, shake+3); SFX.play('sweep'); });
       player.swingT = Math.max(player.swingT||0, 0.4); player.atkMotion = 'spin';
       addTextNum(player.x, player.y-40, '그믐의 원무');
     } else if (key === 'kesagiri'){
@@ -10258,7 +10289,7 @@ import { FX } from "./fx.js";
       player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.20);
       queueTicks(11, 0.18, (i)=>{ if (state!=='playing') return;
         player.whirlT = 0.3; player.swingT = Math.max(player.swingT||0, 0.2); player.atkMotion = 'spin';
-        boom(132, 30*P, '#c9403a'); shake = Math.min(9, shake+1.5); });
+        boom(132, 22*P, '#c9403a'); shake = Math.min(9, shake+1.5); });
       addTextNum(player.x, player.y-40, '혈풍륜');
     } else if (key === 'combo3'){
       // 백팔연타 — 전방을 여덟 번 두들기고 마지막에 밀어낸다
@@ -10293,7 +10324,7 @@ import { FX } from "./fx.js";
       addTextNum(player.x, player.y-40, '백팔연타');
     } else if (key === 'smash'){
       // 지진 — 땅이 흔들리고 전부 밀려나 주저앉는다
-      boom(212*TR, 215*P, '#c96a3f');
+      boom(212*TR, 158*P, '#c96a3f');
       for (const e of enemies){
         if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 212 + e.r) continue;
         const ka = Math.atan2(e.y-player.y, e.x-player.x);
@@ -10309,7 +10340,7 @@ import { FX } from "./fx.js";
       player.invuln = Math.max(player.invuln, 1.4);
       queueTicks(5, 0.28, (i)=>{ if (state!=='playing') return;
         player.swingT = Math.max(player.swingT||0, 0.2); player.atkMotion = 'crouch';
-        boom(158, 46*P, '#e0a94f'); shake = Math.min(10, shake+2); });
+        boom(158, 34*P, '#e0a94f'); shake = Math.min(10, shake+2); });
       addTextNum(player.x, player.y-40, '요지부동');
     } else if (key === 'frenzy'){
       // 피의 광시곡 — 4초간 자해 없이 두 배로 몰아친다. 벨 때마다 피가 돌아온다
@@ -10320,7 +10351,7 @@ import { FX } from "./fx.js";
       // 수확의 밤 — 문턱 아래는 그 자리에서 전부 거둔다
       const wpn = player.weapons.find(x=>x.key==='reap');
       const thr = wpn && WEAPONS.reap.thr ? WEAPONS.reap.thr(wpn) : 0.4;
-      boom(196*TR, 190*P, '#7a4fa8');
+      boom(196*TR, 140*P, '#7a4fa8');
       let reaped = 0;
       for (let i=enemies.length-1;i>=0;i--){
         const e = enemies[i];
@@ -10334,7 +10365,7 @@ import { FX } from "./fx.js";
     } else if (key === 'cadence'){
       // 광시곡 — 3초간 모든 타격이 정박이 된다
       player.beatFreeT = 3;
-      boom(150, 130*P, '#c9895a');
+      boom(150, 96*P, '#c9895a');
       addTextNum(player.x, player.y-40, '광시곡 3초');
     } else if (key === 'heroblade'){
       // 마왕 처단 — 가로세로로 화면을 가르는 십자 참격. 은퇴했어도 몸이 기억한다
@@ -10383,7 +10414,7 @@ import { FX } from "./fx.js";
       // 심판의 원 — 신성 구역이 한 번 크게 타오른다. 안의 적을 지지고 자신은 회복한다
       const R2 = (auraState.r||90) * 2.1 * TR;
       effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:R2, life:0.34, age:0, friendly:true, col:'#e8c56a' });
-      friendlyBlast(player.x, player.y, R2, 175*P, true);
+      friendlyBlast(player.x, player.y, R2, 130*P, true);
       cutHostileShots(player.x, player.y, R2, 0, Math.PI*2);
       player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.14);
       player.invuln = Math.max(player.invuln, 0.6);
@@ -10416,7 +10447,7 @@ import { FX } from "./fx.js";
       }
       player.x = sx + ca*LEN; player.y = sy + sa*LEN;
       player.invuln = Math.max(player.invuln, 0.35);              // 뚫고 지나가는 동안은 안 맞는다
-      boom(158, 150*P, '#c94f4f');                                 // 멈춘 자리를 부순다
+      boom(158, 112*P, '#c94f4f');                                 // 멈춘 자리를 부순다
       shake = Math.min(18, shake+10); hitStop(0.06); buzz(30);
       player.atkMotion = 'lunge'; player.swingT = Math.max(player.swingT||0, 0.36);
       addTextNum(player.x, player.y-40, '파쇄 돌격!');
@@ -10549,14 +10580,14 @@ import { FX } from "./fx.js";
       player.satOver = 1; satCharge(0.01);
       return;
     } else {
-      boom(150, 130*P, COL);
+      boom(150, 96*P, COL);
       addTextNum(player.x, player.y-40, r.n+' 해방');
     }
     // v6.129 C축 보강 — 소비기를 쓴 자리에 **넓은 영역**이 남는다.
     //  처치 시 피바다만으로는 '영역을 구성해 보조한다'는 원래 느낌이 아니었다.
     //  R를 쓴 자리가 잠시 내 땅이 된다 — 그 위에서 싸우면 이득이고, 밀려나면 잃는다
     if (meleeEngineKey() || ownedWeapon('aura')){
-      spillGore(player.x, player.y, 16 * player.dmgMult * (player.meleeBoost||1));
+      spillGore(player.x, player.y, 6 * player.dmgMult * (player.meleeBoost||1));
       for (const z of zones){
         if (z.type==='gore' && Math.hypot(z.x-player.x, z.y-player.y) < 40){ z.r = 92; z.t = z.maxT = 5.0; break; }
       }
@@ -11111,7 +11142,8 @@ import { FX } from "./fx.js";
         const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
         // v6.120 meleeBoost 복구 — v6.115 통합 때 읽기가 빠져 '낫 피해 +N%' 계열이 전부 무효였다
         //  point는 한 마리만 때리는 대신 한 대가 훨씬 무겁다 (형태가 위력과 짝을 이룬다)
-        const shapeMul = (E.shape === 'point') ? 2.6 : (E.shape === 'line') ? 1.35 : 1;
+        //  v6.135 형태 차별화는 유지하되 폭을 줄인다 (point 2.6→1.85 / line 1.35→1.18)
+        const shapeMul = (E.shape === 'point') ? 1.85 : (E.shape === 'line') ? 1.18 : 1;
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1) * heatDmgMult() * shapeMul;
         // v6.133 판정 형태 — 엔진마다 '맞는 모양'이 다르다
         const SHP = E.shape || 'arc';
@@ -11147,7 +11179,8 @@ import { FX } from "./fx.js";
           effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
                          friendly:true, col: CLASS_COLORS[player.classKey] });
         }
-        player.swingT = Math.max(player.swingT||0, 0.22);
+        player.swingT = Math.max(player.swingT||0, 0.34);   // v6.136 느린 주기에 맞춰 베는 동작도 길게
+        window.__meleeAutoN = (window.__meleeAutoN|0) + 1;  // v6.136 평타 횟수 계측(하네스 전용)
         if (E.motion) player.atkMotion = E.motion;
         cutHostileShots(player.x, player.y, radius, baseA, arcW);
         // ── 맞은 적을 센다 (기력 배율에 쓰인다)
@@ -11194,6 +11227,11 @@ import { FX } from "./fx.js";
         SFX.play('hit');
         w.cd *= heatCdMult();                                // v6.122 뜨거울수록 빠르다
         if ((player.rushT||0) > 0) w.cd *= 0.55;             // v6.115 피의 광시곡 — 소비기가 평타를 바꾼다
+        //  v6.136 주기 +45%. 12%는 체감이 안 바뀐다 — 근접 평타는 '느리고 무거운 한 방'이어야 한다
+        w.cd *= 1.45;
+        //  후반에 평타가 기관총이 되는 진짜 원인은 rateMult 누적이다(공속 카드·광혈·과부하가 전부 곱해진다).
+        //  근접 평타에 한해 공속 증가분을 **절반만** 먹인다 — 배수는 살리되 리듬은 지킨다
+        if (rate > 1) w.cd *= rate / (1 + (rate - 1) * 0.5);
         if (!hn) continue;                                  // 헛스윙은 기력을 주지 않는다
         // ── 기력 충전: 여기서만 엔진이 갈린다. '어떻게 빨리 채우나'가 곧 조작이다
         let g = E.gain;
@@ -11227,8 +11265,11 @@ import { FX } from "./fx.js";
           if (onBeat){ g *= 2.2; addTextNum(player.x, player.y-38, '정박!'); shake = Math.min(8, shake+2); }
           else g *= 0.55;
         }
+        //  v6.134 근접 기력을 느리게 — '쓰면 이득'은 유지하되 **자주 쓰지는 못하게**
+        //  v6.136 스윙 횟수가 45% 줄었으므로 한 스윙당 충전을 올린다.
+        //   결과 R 주기는 v6.133 대비 ~0.79배 — 여전히 덜 쓰지만 '못 쓰는' 수준은 아니다
         const before = player.mCharge||0;
-        player.mCharge = Math.min(1, before + g);
+        player.mCharge = Math.min(1, before + g*1.15);
         if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
       } else if (w.key==='xwave'){
         // v6.54 전향: 검기 방출 — 전사의 참격이 날아간다
@@ -12198,6 +12239,10 @@ import { FX } from "./fx.js";
       // v6.122 광기 냉각 제거 — v6.115에서 광기 자원이 공통 기력(mCharge)으로 통합되며 frenzyN은 아무도 읽지 않는다
       updateHeat(dt);                                                                                    // v6.122 ③ 리스크 게이지(열기)
       updateAim(dt);                                                                                     // v6.128 원거리 지속 축(조준)
+      // v6.134 원거리 생존 수단 '거리 두기' — 적이 붙으면 발이 빨라진다.
+      //  생존 벤치에서 궁수 14초·저격수 28초 사망(근접은 전원 생존)이라 **벗어날 수단이 아예 없었다**.
+      //  조준 축과 정합적이다: 붙으면 조준이 풀리니, 대신 벗어날 힘을 준다
+      player.kiteT = (isRangedBuild() && (player.aimNear||999) < 90) ? 1 : 0;
       if (player.guardCd>0) player.guardCd -= dt;                                                         // v6.127 D축 쿨다운
       if (player.guardT>0){                                                                              // v6.127 방어 창
         // v6.131 요격: 창이 열려 있는 동안 **새로 들어온** 탄을 잡는다. 이게 타이밍을 만든다
@@ -12255,7 +12300,7 @@ import { FX } from "./fx.js";
         if (_r && _r.v >= 1) _overflowT = Math.min(5, _overflowT + dt);
         else _overflowT = Math.max(0, _overflowT - dt*2); }
       if (player.frenzyFree>0) player.frenzyFree -= dt;                                                  // v6.107 광란 해방
-      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1);
+      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1) * (player.kiteT ? 1.28 : 1);
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
     }
@@ -12734,7 +12779,7 @@ import { FX } from "./fx.js";
       if (e.chillS>0) speedFactor *= Math.max(0.3, 1 - player.chillPower*e.chillS);
       // v6.77 근접 경직: 베인 적은 잠시 휘청인다 (넉백이 아니라 감속 — 위치를 안 밀어서 락이 안 걸린다)
       if (e.stagT>0){ e.stagT -= dt; speedFactor *= 0.55; }
-      if (e.mireT>0){ e.mireT -= dt; speedFactor *= 0.62; }        // v6.122 피바다에 발이 묶인다
+      if (e.mireT>0){ e.mireT -= dt; speedFactor *= 0.45; }        // v6.134 피해 대신 **발묶기**가 본체다
       // v6.47 전직 오라 (3차 전직 선택별 상시 오라)
       if (player.jobAura===2 && ed < 130+e.r) speedFactor *= 0.86; // 🌀 지배 오라
       if (player.jobAura===0 && ed < 110+e.r){ // ⚔ 공세 오라
@@ -13390,6 +13435,10 @@ import { FX } from "./fx.js";
     // v6.88 밀착 궤도: 위성이 몸을 감싸 도는 동안 받는 피해가 준다 (방어 모드의 실체)
     const satGuard = (player.weapons && player.weapons.some(w=>w.key==='satellite'))
       ? (1 - (SAT_ORBIT[player.satOrbit||1].guard||0)) : 1;
+    if (player.qaGod) return false;   // v6.136 QA 무적 — 체력을 키우지 않고 '받는 피해를 0'으로 만든다
+    // v6.134 근접을 실제로 어렵게 — **맞으면 열기가 절반 날아간다**.
+    //  지금까지 근접은 붙어도 잃는 게 없어서 '위험을 진다'는 말이 수치로 성립하지 않았다
+    if ((player.heat||0) > 0) player.heat *= 0.5;
     let d = dmg * player.dmgTaken * buffMult('dr') * encircleCut() * satGuard;
     if (player.baeksu && (player.__baeksuT||0)>0.8) d *= 0.8; // 백수: 집콕 방어
     // 불굴: 낮은 체력 피해 감소
