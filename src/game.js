@@ -9787,7 +9787,7 @@ import { FX } from "./fx.js";
         for (let k=0;k<2;k++){
           // v6.90 고리마다 세차 속도·방향·텀블 주기를 다르게 — 두 고리가 계속 어긋나며 교차해
           // 훑는 방향이 한쪽에 몰리지 않는다(전방위감). 기울기 진폭은 줄여 타원이 항상 열려 있게
-          const tilt = (k===0 ? 1 : -1) * (0.52 + Math.sin(elapsed*(k===0?0.41:0.67) + k*1.7) * 0.30);
+          const tilt = (k===0 ? 1 : -1) * (1.15 + Math.sin(elapsed*(k===0?0.41:0.67) + k*1.7) * 0.25);
           const ph   = elapsed * (k===0 ? 1.18 : -1.63) + k*Math.PI/2;   // v6.91 체감 속도 상향
           satRings.push({ tilt, ph, r:orbitR });
           for (let i=k; i<n; i+=2){
@@ -15939,12 +15939,14 @@ import { FX } from "./fx.js";
   }
   // v6.89 기울어진 고리를 화면에 투영한다. 위에서 내려다보는 시점이라 세로를 눌러(0.62) 타원이 된다.
   // z는 깊이 — 양수면 플레이어 앞, 음수면 뒤. 이걸로 위성이 몸을 돌아 지나가는 게 보인다
-  const SAT_SQUASH = 0.78;   // v6.90 덜 눕힌다 — 납작할수록 '왕복'으로 보인다
+  const SAT_SQUASH = 0.94;   // v6.92 거의 안 눕힌다 — 고리가 서 있어야 위아래로 넘어간다
   function ringPoint(a, tilt, ph, R){
     const lx = Math.cos(a)*R, ly = Math.sin(a)*R;
-    const y2 = ly*Math.cos(tilt), z = ly*Math.sin(tilt);       // 고리를 기울인다
-    const c = Math.cos(ph), sn = Math.sin(ph);                  // 고리 자체를 세차 회전
-    return { x: lx*c - y2*sn, y: (lx*sn + y2*c)*SAT_SQUASH, z };
+    // v6.92 화면 Y축 기준으로 기울인다 → 가로 성분이 깊이가 되고 세로 성분은 살아남는다.
+    // 결과: 구체가 위로 올라가며 안쪽으로 들어갔다가, 아래로 내려오며 앞으로 나온다
+    const x2 = lx*Math.cos(tilt), z = lx*Math.sin(tilt);
+    const c = Math.cos(ph), sn = Math.sin(ph);                  // 세운 고리를 화면상에서 굴린다
+    return { x: x2*c - ly*sn, y: (x2*sn + ly*c)*SAT_SQUASH, z };
   }
   function drawSatRing(rg, alpha){
     ctx.save();
