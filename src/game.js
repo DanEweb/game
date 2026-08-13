@@ -9983,20 +9983,22 @@ import { FX } from "./fx.js";
   // v6.115 근접 엔진 표 — 평타는 전부 같은 '평범한 근접 참격'이고,
   //  다른 것은 ⑴ 리듬(주기·사거리·모션) ⑵ 기력이 빨리 차는 조건 ⑶ R로 나가는 시그니처, 이 셋뿐이다
   const MELEE_ENGINE = {
-    scythe:  { res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     hint:'넓게 훑어 벨수록 빨리 찬다' },
-    iaido:   { res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', hint:'맞지 않은 채로 벨수록 배로 찬다' },
-    kesagiri:{ res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  hint:'서로 다른 적을 벨수록 빨리 찬다' },
-    whirl:   { res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   hint:'피를 흘릴수록 빨리 찬다' },
-    combo3:  { res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  hint:'끊기지 않고 이어갈수록 빨리 찬다' },
-    smash:   { res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  hint:'최대체력이 높을수록 빨리 찬다' },
-    riposte: { res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', hint:'멈춰 선 채로 벨수록 배로 찬다' },
-    frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', hint:'제 피를 깎아가며 빨리 찬다' },
-    reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   hint:'약해진 적을 벨수록 크게 찬다' },
-    cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   hint:'정박에 얹어 벨수록 배로 찬다' },
-    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
-    heroblade:{res:'각성', gain:0.02, col:'#e0a94f', motion:null,     hint:'때려서는 안 찬다 — 처치할 때마다 찬다' },
-    duel:    { res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  hint:'같은 적을 계속 때릴수록 찬다 (바꾸면 흩어진다)' },
-    noname:  { res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     hint:'조건이 없다 — 저절로 차오른다' },
+    //  v6.133 shape — 평타가 '맞는 모양'. 부채꼴 일변도를 벌려 엔진마다 손맛이 다르게 만든다
+    //   arc=부채꼴 / line=직선 관통 / ring=자기중심 원 / point=가장 가까운 하나 / zone=발밑에서 퍼지는 파문
+    scythe:  { res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     shape:'arc',   hint:'넓게 훑어 벨수록 빨리 찬다' },
+    iaido:   { res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', shape:'line', hint:'맞지 않은 채로 벨수록 배로 찬다' },
+    kesagiri:{ res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  shape:'point',  hint:'서로 다른 적을 벨수록 빨리 찬다' },
+    whirl:   { res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   shape:'ring',   hint:'피를 흘릴수록 빨리 찬다' },
+    combo3:  { res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  shape:'point',  hint:'끊기지 않고 이어갈수록 빨리 찬다' },
+    smash:   { res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  shape:'point',  hint:'최대체력이 높을수록 빨리 찬다' },
+    riposte: { res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', shape:'ring', hint:'멈춰 선 채로 벨수록 배로 찬다' },
+    frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', shape:'ring', hint:'제 피를 깎아가며 빨리 찬다' },
+    reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   shape:'arc',   hint:'약해진 적을 벨수록 크게 찬다' },
+    cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   shape:'zone',   hint:'정박에 얹어 벨수록 배로 찬다' },
+    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  shape:'line',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
+    heroblade:{res:'각성', gain:0.02, col:'#e0a94f', motion:null,     shape:'arc',     hint:'때려서는 안 찬다 — 처치할 때마다 찬다' },
+    duel:    { res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  shape:'point',  hint:'같은 적을 계속 때릴수록 찬다 (바꾸면 흩어진다)' },
+    noname:  { res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     shape:'arc',     hint:'조건이 없다 — 저절로 차오른다' },
     aura:    { res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'신성 구역이 적을 지질 때마다 찬다' },
   };
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
@@ -10138,6 +10140,15 @@ import { FX } from "./fx.js";
       if (FX.enabled) FX.ring(player.x, player.y, 0xe8e8ea, 9);
     }
   }
+  // v6.133 전용기 진화 — 전직 3단계 + 각성. 한 곳에서 곱하므로 **모든 소비기에 동시에** 걸린다
+  const SPEND_TIER_NAME = ['', '숙련', '연마', '극의', '각성'];
+  function spendTier(){
+    if (!player) return 0;
+    return Math.min(4, (player.jobs ? player.jobs.length : 0) + (player.awakening ? 1 : 0));
+  }
+  function spendTierMult(){ return [1, 1.15, 1.32, 1.55, 1.85][spendTier()]; }   // 위력
+  function spendTierR(){   return [1, 1.06, 1.12, 1.20, 1.30][spendTier()]; }    // 범위
+  function spendTierN(){   return [0, 0, 1, 1, 2][spendTier()]; }                // 타수/횟수 가산
   function spendTargets(){
     let n = 0;
     for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < SPEND_R){ n++; if (n>=5) break; } }
@@ -10172,7 +10183,9 @@ import { FX } from "./fx.js";
       resetSpentResource();
       return;
     }
-    const P = player.dmgMult * focus * (player.meleeBoost||1);   // v6.113 적중 배율 · v6.120 근접 엔진 강화
+    // v6.133 전직·각성 진화가 여기서 한 번에 곱해진다
+    const P = player.dmgMult * focus * (player.meleeBoost||1) * spendTierMult();
+    const TR = spendTierR(), TN = spendTierN(), TNAME = SPEND_TIER_NAME[spendTier()];
     let key = meleeEngineKey();
     // v6.123 무명자 — 이름이 없으니 소비기도 고정되지 않는다. 누를 때마다 다른 엔진의 시그니처가 나간다
     if (key === 'noname'){
@@ -10192,7 +10205,7 @@ import { FX } from "./fx.js";
       player.dashCritT = Math.max(player.dashCritT||0, 1.2);
       const t0 = nearestTarget();
       const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-      const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 360, HW = 34;
+      const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 360*TR, HW = 34*TR;   // v6.133 티어로 넓어진다
       effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.36, age:0, col:COL, heavy:true });
       for (let i=enemies.length-1;i>=0;i--){
         const e = enemies[i]; if (!e) continue;
@@ -10211,8 +10224,8 @@ import { FX } from "./fx.js";
       addTextNum(player.x, player.y-40, '거합!');
     } else if (key === 'scythe'){
       // 그믐의 원무 — 사방을 세 번 벤다
-      queueTicks(3, 0.13, (i)=>{ if (state!=='playing') return;
-        boom(152, 66*P, i===2 ? '#e0a94f' : COL); shake = Math.min(12, shake+3); SFX.play('sweep'); });
+      queueTicks(3+TN, 0.13, (i)=>{ if (state!=='playing') return;     // v6.133 티어로 베는 횟수가 는다
+        boom(152*TR, 66*P, i>=2 ? '#e0a94f' : COL); shake = Math.min(12, shake+3); SFX.play('sweep'); });
       player.swingT = Math.max(player.swingT||0, 0.4); player.atkMotion = 'spin';
       addTextNum(player.x, player.y-40, '그믐의 원무');
     } else if (key === 'kesagiri'){
@@ -10251,8 +10264,9 @@ import { FX } from "./fx.js";
       // 백팔연타 — 전방을 여덟 번 두들기고 마지막에 밀어낸다
       const t0 = nearestTarget();
       const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-      queueTicks(8, 0.07, (i)=>{ if (state!=='playing') return;
-        const last = i===7;
+      const CN = 8+TN*2;                                                // v6.133 티어로 연타 수가 는다
+      queueTicks(CN, 0.07, (i)=>{ if (state!=='playing') return;
+        const last = i===CN-1;
         player.swingT = Math.max(player.swingT||0, 0.14); player.atkMotion = 'combo';
         effects.push({ type:'arc', x:player.x, y:player.y, a:a0, arc: last?2.6:1.6, r:116, life:0.14, age:0,
                        friendly:true, col: last ? '#e0a94f' : COL });
@@ -10279,7 +10293,7 @@ import { FX } from "./fx.js";
       addTextNum(player.x, player.y-40, '백팔연타');
     } else if (key === 'smash'){
       // 지진 — 땅이 흔들리고 전부 밀려나 주저앉는다
-      boom(212, 215*P, '#c96a3f');
+      boom(212*TR, 215*P, '#c96a3f');
       for (const e of enemies){
         if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 212 + e.r) continue;
         const ka = Math.atan2(e.y-player.y, e.x-player.x);
@@ -10306,7 +10320,7 @@ import { FX } from "./fx.js";
       // 수확의 밤 — 문턱 아래는 그 자리에서 전부 거둔다
       const wpn = player.weapons.find(x=>x.key==='reap');
       const thr = wpn && WEAPONS.reap.thr ? WEAPONS.reap.thr(wpn) : 0.4;
-      boom(196, 190*P, '#7a4fa8');
+      boom(196*TR, 190*P, '#7a4fa8');
       let reaped = 0;
       for (let i=enemies.length-1;i>=0;i--){
         const e = enemies[i];
@@ -10367,7 +10381,7 @@ import { FX } from "./fx.js";
       player.swingT = Math.max(player.swingT||0, 0.36); player.atkMotion = 'lunge';
     } else if (key === 'aura'){
       // 심판의 원 — 신성 구역이 한 번 크게 타오른다. 안의 적을 지지고 자신은 회복한다
-      const R2 = (auraState.r||90) * 2.1;
+      const R2 = (auraState.r||90) * 2.1 * TR;
       effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:R2, life:0.34, age:0, friendly:true, col:'#e8c56a' });
       friendlyBlast(player.x, player.y, R2, 175*P, true);
       cutHostileShots(player.x, player.y, R2, 0, Math.PI*2);
@@ -10380,7 +10394,7 @@ import { FX } from "./fx.js";
       // 파쇄 돌격 — 몸째 던져 일직선을 꿰뚫고, 멈춘 자리를 부순다
       const t0 = nearestTarget();
       const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-      const ca = Math.cos(a0), sa = Math.sin(a0), LEN = 440, WD = 46;
+      const ca = Math.cos(a0), sa = Math.sin(a0), LEN = 440*TR, WD = 46*TR;
       const sx = player.x, sy = player.y;
       for (let i=enemies.length-1;i>=0;i--){
         const e = enemies[i]; if (!e) continue;
@@ -10487,7 +10501,7 @@ import { FX } from "./fx.js";
         // 저격 — 화면을 관통하는 단 한 발. 큰 표적일수록 무겁다
         const t0 = nearestTarget();
         const a0 = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
-        const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 900, HW = 16;
+        const ca = Math.cos(a0), sa = Math.sin(a0), RCH = 900, HW = 16*TR;
         effects.push({ type:'iai', x:player.x, y:player.y, a:a0, r:RCH, hw:HW, life:0.4, age:0, col:'#3b82c4', heavy:true });
         for (let i=enemies.length-1;i>=0;i--){
           const e = enemies[i]; if (!e) continue;
@@ -10551,7 +10565,7 @@ import { FX } from "./fx.js";
     player.surgeT = 3;            // v6.111 소비 직후 3초간 평타 +60% — 쓰면 그 다음이 강해진다
     _overflowT = 0;
     resetSpentResource();
-    addTextNum(player.x, player.y-54, '각성 3초');
+    addTextNum(player.x, player.y-54, TNAME ? ('각성 3초 · '+TNAME) : '각성 3초');
     shake = Math.min(14, shake+6); hitStop(0.05); buzz(24); SFX.play('boom');
   }
   // v6.113 자원 소모 — 헛방이든 명중이든 자원은 사라진다 (막 누르면 손해)
@@ -11096,10 +11110,43 @@ import { FX } from "./fx.js";
         const t0 = nearestTarget();
         const baseA = t0 ? Math.atan2(t0.y-player.y, t0.x-player.x) : (player.faceX<0?Math.PI:0);
         // v6.120 meleeBoost 복구 — v6.115 통합 때 읽기가 빠져 '낫 피해 +N%' 계열이 전부 무효였다
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1) * heatDmgMult();
-        const full = arcW >= Math.PI*2;
-        effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
-                       friendly:true, col: CLASS_COLORS[player.classKey] });
+        //  point는 한 마리만 때리는 대신 한 대가 훨씬 무겁다 (형태가 위력과 짝을 이룬다)
+        const shapeMul = (E.shape === 'point') ? 2.6 : (E.shape === 'line') ? 1.35 : 1;
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.meleeBoost||1) * heatDmgMult() * shapeMul;
+        // v6.133 판정 형태 — 엔진마다 '맞는 모양'이 다르다
+        const SHP = E.shape || 'arc';
+        const full = SHP === 'ring' || arcW >= Math.PI*2;
+        const HW2 = Math.max(14, radius*0.22);                      // line 폭
+        //  ⚠ `ca`/`sa`는 v6.115 통합 때 사라졌는데 line 판정에서 참조해 **사무라이 킬 0**이 나왔다.
+        //     조용히 죽는 종류라(에러 0) 벤치가 없었으면 못 봤다 — 쓰는 자리에서 선언한다
+        const ca = Math.cos(baseA), sa = Math.sin(baseA);
+        const lineR = radius * 1.35;
+        //  point는 '가장 가까운 하나'인데 `nearestTarget()`은 보스를 고를 수 있다 —
+        //  그러면 잡몹 루프에서 아무도 안 맞아 조용히 0이 된다. 잡몹 중 최근접을 따로 잡는다
+        let ptT = null;
+        if (SHP === 'point'){
+          let bd = 1e9;
+          for (const e2 of enemies){
+            if (!e2) continue;
+            const d2 = Math.hypot(e2.x-player.x, e2.y-player.y);
+            if (d2 < bd && d2 <= radius + e2.r){ bd = d2; ptT = e2; }
+          }
+        }
+        if (SHP === 'line'){
+          effects.push({ type:'iai', x:player.x, y:player.y, a:baseA, r:radius*1.35, hw:HW2, life:0.2, age:0,
+                         col: CLASS_COLORS[player.classKey] });
+        } else if (SHP === 'ring'){
+          effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:radius, life:0.18, age:0,
+                         friendly:true, col: CLASS_COLORS[player.classKey] });
+        } else if (SHP === 'point'){
+          effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:0.9, r:radius*0.8, life:0.14, age:0,
+                         friendly:true, col: CLASS_COLORS[player.classKey] });
+        } else if (SHP === 'zone'){
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0, r0:10, r1:radius });
+        } else {
+          effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc:arcW, r:radius, life:0.16, age:0,
+                         friendly:true, col: CLASS_COLORS[player.classKey] });
+        }
         player.swingT = Math.max(player.swingT||0, 0.22);
         if (E.motion) player.atkMotion = E.motion;
         cutHostileShots(player.x, player.y, radius, baseA, arcW);
@@ -11109,8 +11156,16 @@ import { FX } from "./fx.js";
           const e = enemies[i];
           if (!e) continue;
           const dd = Math.hypot(e.x-player.x, e.y-player.y);
-          if (dd > radius + e.r) continue;
-          if (!full){
+          //  line은 사거리가 더 길다 — 공통 컷을 반경으로 잡으면 앞쪽 적이 먼저 걸러진다
+          if (dd > (SHP==='line' ? lineR : radius) + e.r) continue;
+          if (SHP === 'line'){                                       // 직선: 앞으로 길게, 옆으로 좁게
+            const dx2=e.x-player.x, dy2=e.y-player.y;
+            const along = dx2*ca + dy2*sa;
+            if (along < -e.r || along > lineR + e.r) continue;
+            if (Math.abs(-dx2*sa + dy2*ca) > HW2 + e.r) continue;
+          } else if (SHP === 'point'){                                // 점: 가장 가까운 하나만
+            if (e !== ptT) continue;
+          } else if (!full){
             let da = Math.atan2(e.y-player.y, e.x-player.x) - baseA;
             while (da>Math.PI) da-=Math.PI*2; while (da<-Math.PI) da+=Math.PI*2;
             if (Math.abs(da) > arcW/2) continue;
@@ -11132,6 +11187,9 @@ import { FX } from "./fx.js";
           b.hp -= d; addDmgNum(b.x, b.y, d, false); procOnHit(b, true, w.imbue);
           hn++; woundSum += 0.5;
           if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+        }
+        if (SHP === 'zone' && Math.random() < 0.5){                 // 장판: 박이 바닥에 남는다
+          spillGore(player.x, player.y, 5 * player.dmgMult * (player.meleeBoost||1));
         }
         SFX.play('hit');
         w.cd *= heatCdMult();                                // v6.122 뜨거울수록 빠르다
