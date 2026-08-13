@@ -561,9 +561,27 @@ import { FX } from "./fx.js";
 
   const IS_TOUCH = ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   if (IS_TOUCH) dashBtn.style.display = 'flex';
+  function refreshOrbBtn(){
+    if (!orbBtn) return;
+    const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
+    orbBtn.style.display = on ? 'flex' : 'none';
+    if (on){
+      const r = dashBtn.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+      orbBtn.style.right = '20px';
+      orbBtn.style.bottom = Math.round(wr.bottom - r.top + 10) + 'px';
+      const om = SAT_ORBIT[player.satOrbit||1];
+      orbBtn.textContent = om.r < 1 ? '◉' : om.r > 1 ? '◎' : '○';   // 밀착·표준·확장을 아이콘으로 구분
+    }
+  }
   dashBtn.addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
     if (state==='playing') tryDash();
+  });
+  // v6.86 모바일 궤도 전환 — E키가 없는 환경에서도 위성 조작이 가능해야 한다
+  const orbBtn = $('orbBtn');
+  if (orbBtn) orbBtn.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation(); e.preventDefault(); SFX.unlock();
+    if (state==='playing') cycleSatOrbit();
   });
   $('ultBtn').addEventListener('pointerdown', (e)=>{
     e.stopPropagation(); e.preventDefault(); SFX.unlock();
@@ -9211,6 +9229,32 @@ import { FX } from "./fx.js";
     const k = Math.min(1, Math.max(0, d / Math.max(1, auraState.r)));   // 0=중심 1=가장자리
     return 1.30 - 0.55*k;                                               // 중심 1.30배 → 가장자리 0.75배
   }
+  // v6.86 ② 군중 다중 타격 — 한 번의 스윙이 걸친 적 수에 비례해 강해진다.
+  // 근접이 가장 위험한 상황(포위)에서 정확히 가장 강해지는 구조. 관통 수가 고정된 원거리엔 줄 수 없는 이득
+  function crowdMult(n){ return 1 + Math.min(0.60, Math.max(0, n-1) * 0.06); }
+  // v6.86 F 탄막 베기 — 스윙 호 안에 들어온 적 투사체를 잘라낸다. "원거리는 피하고, 근접은 벤다"
+  function cutHostileShots(cx, cy, radius, baseA, arc){
+    let cut = 0;
+    for (let i=hostileShots.length-1;i>=0;i--){
+      const b = hostileShots[i];
+      const d = Math.hypot(b.x-cx, b.y-cy);
+      if (d > radius + 8) continue;
+      if (arc < Math.PI*2){
+        let da = Math.atan2(b.y-cy, b.x-cx) - baseA;
+        while (da>Math.PI) da-=Math.PI*2;
+        while (da<-Math.PI) da+=Math.PI*2;
+        if (Math.abs(da) > arc/2) continue;
+      }
+      hostileShots.splice(i,1);
+      cut++;
+      pixBurst(b.x, b.y, 4, 90, '#f6f6f4', 1.4);
+      if (cut >= 6) break;
+    }
+    if (cut){ SFX.play('hit'); addTextNum(cx, cy-34, '베어냄 x'+cut); }
+    return cut;
+  }
+  // 📋 v6.87 예정: C 영역 지배(벤 자리에 균열이 남아 지속 피해·감속)는 zones 시스템이
+  //    적대 지대 전용이라 통합 검토가 필요해 다음 배치로 미룸
   function staggerEnemy(e, sec){
     e.stagT = Math.max(e.stagT||0, sec || 0.4);
   }
@@ -9977,6 +10021,7 @@ import { FX } from "./fx.js";
         const scytheImbue = w.imbue;
         // v6.84 궤적에 직업 악센트색 — 무기·직업마다 베는 색이 다르다
         effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, arc, r:radius, life:0.28, age:0, friendly:true, col: CLASS_COLORS[player.classKey] });
+        cutHostileShots(player.x, player.y, radius, baseA, arc);   // v6.86 F 탄막 베기
         const hitInArc = (tx, ty, tr)=>{
           const d = Math.hypot(tx-player.x, ty-player.y);
           if (d > radius+tr) return false;
@@ -9986,12 +10031,14 @@ import { FX } from "./fx.js";
           while (da<-Math.PI) da+=Math.PI*2;
           return Math.abs(da) < arc/2;
         };
+        let swHit = 0;   // v6.86 군중 스케일링: 이 스윙이 몇 마리를 걸었는가
         for (let i=enemies.length-1;i>=0;i--){
           const e = enemies[i];
           if (hitInArc(e.x,e.y,e.r)){
             const isCrit = Math.random()<player.critChance;
-            // v6.77 밀착 보너스: 코앞일수록 세다 — 사거리를 늘리지 않고 '붙는 위험'만 보상한다
-            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*meleeCloseMult(e);
+            swHit++;
+            // v6.77 밀착 보너스 + v6.86 군중 스케일링(2번째부터 1마리당 +6%, 최대 +60%)
+            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*meleeCloseMult(e)*crowdMult(swHit);
             e.hp -= d;
             addDmgNum(e.x,e.y,d,isCrit);
             staggerEnemy(e);            // 넉백 대신 경직 — 적을 밀지 않으니 범위와 곱해져도 락이 안 걸린다
@@ -11965,6 +12012,7 @@ import { FX } from "./fx.js";
     if (shake>0) shake = Math.max(0, shake - dt*30);
 
     updateHud();
+    refreshOrbBtn();      // v6.86 위성 보유 시에만 모바일 궤도 버튼 노출
     maybeOpenLevelUp();
   }
 
