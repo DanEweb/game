@@ -2762,7 +2762,7 @@ import { FX } from "./fx.js";
     cheol: {
       name:'철혈', tag:'중장 전사', cost:900,
       desc:'[낫]으로 시작. 받는 피해 -12%, 낫·역장 피해 +15%. [중갑 가능]',
-      weapon:'scythe',
+      weapon:'whirl',   // v6.103 낫 → 회전 참격. 중장 전사는 '몸을 돌려 사방을 베는' 쪽이 정체성에 맞다
       apply:(p)=>{ p.dmgTaken*=0.88; p.scytheBoost=(p.scytheBoost||1)*1.15; p.auraBoost=(p.auraBoost||1)*1.15; }
     },
     voidc: {
@@ -4144,6 +4144,15 @@ import { FX } from "./fx.js";
       need:(w)=> (w.evolved ? 2 : [3,3,3,3,3][w.lv-1]),          // v6.99 요구 축소 — 표식은 좌표에 남는다
       burst:(w)=> (w.evolved ? 3.4 : [2.2,2.2,2.2,2.8,2.8][w.lv-1])  // 연참 1타 배율
     },
+    // v6.103 근접 엔진 4호: 회전 참격 — 자기중심 면을 소유한다. 잃은 체력이 곧 위력(응혈)
+    whirl: {
+      name:'회전 참격', desc:'제자리에서 몸을 돌려 사방을 벤다 — 피를 흘릴수록 회전이 빨라진다 (시전 중 이동 감속)',
+      evName:'회전 참격 · 혈풍륜', evDesc:'회전이 멈추지 않고, 벤 자리에 핏빛 잔풍이 남습니다',
+      lvDesc:['','회전 범위 확대','피해 +40%','회전 주기 단축','피해 강화'],
+      baseCd:(w)=> w.evolved ? 1.05 : 1.45,
+      dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,32][w.lv-1]),
+      radius:(w)=> (w.evolved ? 118 : [78,92,92,104,104][w.lv-1])
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4591,7 +4600,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, kesagiri:1, whirl:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9785,7 +9794,7 @@ import { FX } from "./fx.js";
     chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('kesagiri') || ownedWeapon('whirl') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.98 돌진 자세 — 돌진 충격만 든 상태: 어깨를 낮추고 대기한다 (휘두르지 않는다)
@@ -10079,6 +10088,41 @@ import { FX } from "./fx.js";
         }
         SFX.play('shoot');
 
+      } else if (w.key==='whirl'){
+        // 응혈: 잃은 체력 비율에 비례해 강해진다 (엔진 내장 자원 — 별도 자원을 얹지 않는다)
+        const lost = 1 - Math.max(0, Math.min(1, player.hp/Math.max(1,player.maxHp)));
+        const blood = 1 + lost * 0.9;                        // 만신창이일수록 최대 1.9배
+        const radius = def.radius(w) * (1 + lost*0.12);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * blood;
+        player.whirlT = 0.45;                                 // 시전 중 이동 감속 (자리를 잡는 대가)
+        player.swingT = Math.max(player.swingT||0, 0.26);
+        // 자기중심 360° — 소유물은 '면'
+        effects.push({ type:'arc', x:player.x, y:player.y, a:0, arc:Math.PI*2, r:radius,
+                       life:0.3, age:0, friendly:true, col: lost>0.5 ? '#c9403a' : CLASS_COLORS[player.classKey] });
+        cutHostileShots(player.x, player.y, radius, 0, Math.PI*2);   // F축: 회전이 주변 탄을 전부 쳐낸다
+        shake = Math.min(10, shake + 2 + lost*3);
+        let wn = 0;
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          if (!e || Math.hypot(e.x-player.x, e.y-player.y) > radius + e.r) continue;
+          wn++;
+          const isC = Math.random() < player.critChance;
+          const d = dmg*(isC?player.critMult:1)*corrodeMult(e)*crowdMult(wn)*meleeCloseMult(e);
+          e.hp -= d;
+          addDmgNum(e.x, e.y, d, isC);
+          staggerEnemy(e, 0.4);
+          procOnHit(e, false, w.imbue);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        for (let i=bosses.length-1;i>=0;i--){
+          const b = bosses[i];
+          if (!b || b.ghost || Math.hypot(b.x-player.x, b.y-player.y) > radius + b.r) continue;
+          const d = dmg*corrodeMult(b);
+          b.hp -= d; addDmgNum(b.x, b.y, d, false); procOnHit(b, true, w.imbue);
+          if (b.hp<=0){ if (bosses[i]===b) defeatBoss(i); } else refreshBossBar();
+        }
+        if (lost > 0.5) addTextNum(player.x, player.y-40, '응혈');
+        SFX.play('sweep');
       } else if (w.key==='kesagiri'){
         const need = def.need(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
@@ -11192,7 +11236,8 @@ import { FX } from "./fx.js";
       }
       if (player.dashTime<=0 && player.bloodRush) dashExplosion(player.x, player.y, 25); // 피의 질주: 종료 폭발
     } else {
-      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd');
+      if (player.whirlT>0) player.whirlT -= dt;             // v6.103 회전 참격 시전 중
+      const odMult = (player.odT>0 ? 1.2 : 1) * buffMult('spd') * (player.whirlT>0 ? 0.55 : 1);
       player.x += dx*player.speed*slowMult*odMult*dt;
       player.y += dy*player.speed*slowMult*odMult*dt;
     }
