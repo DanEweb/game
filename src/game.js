@@ -10148,6 +10148,19 @@ import { FX } from "./fx.js";
     debug:      { res:'로그', sig:'forcequit', col:'#9aa0a6', mult:()=> 1.3 },
     tourist:    { res:'추억', sig:'flash',   col:'#e0a94f', mult:()=> 1.0 },
     pilot:      { res:'연료', sig:'bombrun', col:'#c96a3f', mult:()=> 1.0 },
+    //  v6.139 남은 11직업. 자원 이름·색·**차는 조건(mult)**·R가 전부 다르다 —
+    //   같은 위성을 돌려도 관리자는 결재를 쌓고 드루이드는 수액을 모은다
+    manager:    { res:'결재', sig:'overtime',   col:'#6d9fd4', mult:()=> 1.15 },                 // 쿨감 직업 — 꾸준히
+    runeknight: { res:'각인', sig:'runeburst',  col:'#8b5cf6', mult:()=> 1.2 },
+    druid:      { res:'수액', sig:'grove',      col:'#5f9e5f', mult:(p)=> 1 + (1-Math.min(1,p.hp/Math.max(1,p.maxHp)))*0.9 }, // 다칠수록 자연이 돕는다
+    necro:      { res:'영혼', sig:'legion',     col:'#7a4fa8', mult:(p)=> 1 + Math.min(0.8, (p.ghosts?p.ghosts.length:0)*0.2) }, // 유령이 많을수록
+    commander:  { res:'지휘', sig:'volleyorder',col:'#c9a227', mult:()=> 1.25 },
+    ninja:      { res:'인법', sig:'kagebunshin',col:'#5c6b7a', mult:(p)=> 1 + ((p.dashHasteT||0)>0 ? 1.1 : 0) },              // 대시 직후에 몰아친다
+    tombraider: { res:'전리품', sig:'looting',  col:'#b8925a', mult:()=> 1.0 },
+    blackcat:   { res:'변덕', sig:'ninelives',  col:'#9aa0a6', mult:()=> 0.6 + Math.random()*1.0 },                            // 고양이답게 들쭉날쭉
+    archer:     { res:'시위', sig:'volleyfire', col:'#4f9e6a', mult:(p)=> 1 + (p.aim||0)*1.1 },                                // 조준할수록 빨리 찬다
+    engineer:   { res:'충전', sig:'teslafield', col:'#d4b03a', mult:()=> 1.05 },
+    voidc:      { res:'심연', sig:'voidcollapse',col:'#6a4fa8', mult:(p)=> 1 + (p.aim||0)*0.7 },
   };
   function rangedClassCfg(){
     return (player && RANGED_CLASS[player.classKey]) || null;
@@ -10591,6 +10604,136 @@ import { FX } from "./fx.js";
             SFX.play('boom');
           });
           addTextNum(player.x, player.y-40, '폭격 항로');
+        }
+        player.surgeT = 3; _overflowT = 0; resetSpentResource();
+        addTextNum(player.x, player.y-54, '각성 3초');
+        return;
+      }
+      //  v6.139 직업 전용 R — 무기 기본 R보다 우선한다.
+      //   ⚠ `enemies` 루프만 짜면 보스전에서 통째로 무효다 → `spendHitBosses`를 반드시 같이 부를 것
+      const NEWSIG = RC2 && ['overtime','runeburst','grove','legion','volleyorder',
+                             'kagebunshin','looting','ninelives','volleyfire','teslafield','voidcollapse'].indexOf(RC2.sig) >= 0;
+      if (NEWSIG){
+        const SG = RC2.sig;
+        if (SG === 'overtime'){
+          // 관리자 '야근 승인' — 3초간 전 무기가 미친 듯이 돈다. 쿨감 직업의 본령
+          tbuff('rate', 1.9, 3); tbuff('spd', 1.12, 3);
+          for (const w2 of player.weapons) w2.cd = 0;              // 즉시 한 발씩 나간다
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:16, r1:170 });
+          player.satOver = 1; satCharge(0.01);                     // 위성도 같이 풀린다
+          addTextNum(player.x, player.y-40, '야근 승인 3초');
+        } else if (SG === 'runeburst'){
+          // 룬 기사 '룬 폭발' — 위성이 전부 룬으로 터져 6방향을 관통한다
+          for (let k=0;k<6;k++){ const a2=(Math.PI*2/6)*k + Math.random()*0.2;
+            fireProjectile(a2, 400, 96*P, 4, 1.5, { r:7, splash:56, imbue:'arcane' }); }
+          boom(150, 88*P, '#8b5cf6');
+          shake = Math.min(14, shake+6);
+          addTextNum(player.x, player.y-40, '룬 폭발');
+        } else if (SG === 'grove'){
+          // 드루이드 '숲의 품' — 발밑에 성역을 편다. 4초간 나는 낫고 적은 묶인다
+          const gx = player.x, gy = player.y, GR = 168*TR;
+          queueTicks(16, 0.25, (i)=>{ if (state!=='playing') return;
+            effects.push({ type:'ring', x:gx, y:gy, life:0.3, age:0, r0:GR*0.72, r1:GR });
+            for (let j=enemies.length-1;j>=0;j--){
+              const e = enemies[j]; if (!e || Math.hypot(e.x-gx,e.y-gy) > GR+e.r) continue;
+              const d = 15*P*corrodeMult(e);
+              e.hp -= d; e.mireT = Math.max(e.mireT||0, 0.6);      // 덩굴에 발이 묶인다
+              if (e.hp<=0 && enemies[j]===e) defeatEnemy(j);
+            }
+            spendHitBosses((b)=> Math.hypot(b.x-gx,b.y-gy) <= GR+b.r, 15*P);
+            if (Math.hypot(player.x-gx, player.y-gy) < GR){        // 안에 있어야 낫는다 — 자리를 지키는 값
+              player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.012*player.healMult);
+            }
+          });
+          addTextNum(player.x, player.y-40, '숲의 품 4초');
+        } else if (SG === 'legion'){
+          // 망자의 목자 '망령 군단' — 유령 4기를 한 번에 일으키고 그 자리를 터뜨린다
+          for (let k=0;k<4;k++){ const a2=(Math.PI*2/4)*k;
+            const gx2 = player.x+Math.cos(a2)*54, gy2 = player.y+Math.sin(a2)*54;
+            player.ghosts.push({ x:gx2, y:gy2, t:10+(player.ghostDur||0), cd:0 });
+            friendlyBlast(gx2, gy2, 74, 62*P, false);
+          }
+          addTextNum(player.x, player.y-40, '일어나라 — 망령 군단');
+          SFX.play('warn');
+        } else if (SG === 'volleyorder'){
+          // 지휘관 '일제 사격 명령' — 소환물 수만큼 유도탄이 나가고, 4초간 소환물이 강해진다
+          const n2 = 4 + (player.ghosts ? player.ghosts.length : 0) + (player.turretLv||0)*2;
+          for (let k=0;k<n2;k++){ const a2=(Math.PI*2/n2)*k;
+            fireProjectile(a2, 360, 54*P, 2, 1.6, { homing:true, r:5, splash:42 }); }
+          tbuff('rate', 1.5, 4);
+          addTextNum(player.x, player.y-40, '일제 사격 — 전군 ×'+n2);
+        } else if (SG === 'kagebunshin'){
+          // 닌자 '그림자 분신' — 잔상 셋이 각기 다른 방향으로 흩뿌린다. 그 사이 본체는 없다
+          player.invuln = Math.max(player.invuln, 0.55);
+          for (let c=0;c<3;c++){
+            const off = (c-1) * 2.1;
+            const bx = player.x + Math.cos(off)*46, by2 = player.y + Math.sin(off)*46;
+            particles.push({ x:bx, y:by2, vx:0, vy:0, life:0.5, age:0, r:player.r*0.95, ghost:true });
+            for (let k=0;k<7;k++){
+              const a2 = off + (k-3)*0.22;
+              projectiles.push({ x:bx, y:by2, vx:Math.cos(a2)*440, vy:Math.sin(a2)*440,
+                                 r:6, damage:46*P, crit:false, pierce:3, life:1.0,
+                                 kind:'shuriken', phase:'out', noReturn:true, spin:0, hitSet:new Set() });
+            }
+          }
+          shake = Math.min(12, shake+5); SFX.play('sweep');
+          addTextNum(player.x, player.y-40, '그림자 분신');
+        } else if (SG === 'looting'){
+          // 도굴꾼 '도굴' — 몹이 골드를 안 떨구는 직업이다. R가 유일한 현장 수입이 된다
+          let got = 0;
+          for (let j=enemies.length-1;j>=0;j--){
+            const e = enemies[j]; if (!e || Math.hypot(e.x-player.x,e.y-player.y) > 190+e.r) continue;
+            const d = 108*P*corrodeMult(e);
+            e.hp -= d; addDmgNum(e.x, e.y, d, true); got++;
+            if (e.hp<=0 && enemies[j]===e) defeatEnemy(j);
+          }
+          spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 190+b.r, 108*P);
+          const g2 = gainGold(14 + got*7);
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.36, age:0, r0:18, r1:190 });
+          addTextNum(player.x, player.y-40, '도굴 +'+g2+'G');
+        } else if (SG === 'ninelives'){
+          // 검은 고양이 '아홉 발톱' — 아홉 번, 어디를 할퀼지는 고양이 마음
+          queueTicks(9, 0.08, (i)=>{ if (state!=='playing') return;
+            const pool = enemies.filter(e=> e && Math.hypot(e.x-player.x,e.y-player.y) < 210+e.r);
+            if (pool.length){
+              const e = pool[(Math.random()*pool.length)|0];
+              const d = 62*P*corrodeMult(e);
+              e.hp -= d; addDmgNum(e.x, e.y, d, true);
+              effects.push({ type:'arc', x:e.x, y:e.y, a:Math.random()*Math.PI*2, arc:1.1, r:36, life:0.14, age:0, friendly:true, col:'#9aa0a6' });
+              const idx = enemies.indexOf(e); if (e.hp<=0 && idx>=0) defeatEnemy(idx);
+            } else spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 210+b.r, 62*P);
+            if (i===8) SFX.play('sweep');
+          });
+          addTextNum(player.x, player.y-40, '아홉 발톱');
+        } else if (SG === 'volleyfire'){
+          // 궁수 '연사 개방' — 속사 직업의 R는 더 세게가 아니라 **더 빨리**다
+          tbuff('rate', 2.4, 3);
+          for (const w2 of player.weapons) w2.cd = 0;
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.32, age:0, r0:12, r1:120 });
+          addTextNum(player.x, player.y-40, '연사 개방 3초');
+        } else if (SG === 'teslafield'){
+          // 기술자 '테슬라 필드' — 4초간 저 혼자 친다. 설치형 직업의 정체성
+          queueTicks(16, 0.25, (i)=>{ if (state!=='playing') return;
+            lightningStrike(52*P, true, 58);
+            if (i%4===0){ shake = Math.min(10, shake+3); gainGold(4); }
+          });
+          addTextNum(player.x, player.y-40, '테슬라 필드 4초');
+        } else if (SG === 'voidcollapse'){
+          // 공허술사 '공허 붕괴' — 한 점으로 빨아들인 다음 터뜨린다. 모으는 것 자체가 기술이다
+          const vx2 = player.x, vy2 = player.y;
+          queueTicks(6, 0.09, (i)=>{ if (state!=='playing') return;
+            effects.push({ type:'ring', x:vx2, y:vy2, life:0.16, age:0, r0:230-i*32, r1:250-i*32 });
+            for (const e of enemies){
+              const dd = Math.hypot(e.x-vx2, e.y-vy2); if (dd > 260 || dd < 8) continue;
+              const a2 = Math.atan2(vy2-e.y, vx2-e.x);
+              e.x += Math.cos(a2)*Math.min(34, dd*0.3); e.y += Math.sin(a2)*Math.min(34, dd*0.3);
+            }
+            if (i===5){                                            // 다 모인 뒤에 터진다
+              boom(150, 245*P, '#6a4fa8');
+              shake = Math.min(20, shake+11); hitStop(0.07);
+            }
+          });
+          addTextNum(player.x, player.y-40, '공허 붕괴');
         }
         player.surgeT = 3; _overflowT = 0; resetSpentResource();
         addTextNum(player.x, player.y-54, '각성 3초');
