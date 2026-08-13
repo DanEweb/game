@@ -3,7 +3,13 @@
 import { Application, Container, Sprite, Texture, BLEND_MODES } from 'pixi.js';
 
 let app = null, layer = null, ready = false, failed = false;
-let camX = 0, camY = 0, viewW = 940, viewH = 588;
+let camX = 0, camY = 0, viewW = 940, viewH = 588, camS = 1;
+function applyCam(){
+  if (!layer) return;
+  layer.scale.set(camS);
+  layer.x = viewW/2;
+  layer.y = viewH/2;
+}
 const pool = [];
 const active = [];
 const bullets = [];
@@ -42,6 +48,7 @@ export const FX = {
       hostEl.appendChild(app.canvas);
       layer = new Container();
       app.stage.addChild(layer);
+      applyCam();
       dotTex = makeDotTexture();
       ready = true;
       // 디버그: 콘솔에서 파티클/탄환 카운트 확인용
@@ -53,8 +60,10 @@ export const FX = {
   },
   resize(w, h){
     viewW = w; viewH = h;
-    if (ready) app.renderer.resize(w, h);
+    if (ready){ app.renderer.resize(w, h); applyCam(); }
   },
+  // v6.78 카메라 축소(모바일 시야 보정) — 레이어에 스케일을 걸어 위치·크기를 한 번에 맞춘다
+  setScale(sc){ camS = sc || 1; applyCam(); },
   sync(cx, cy){ camX = cx; camY = cy; },
   // 가산 글로우 버스트 — 처치/폭발/보상 연출
   burst(wx, wy, color, n, speed, life){
@@ -142,8 +151,8 @@ export const FX = {
         s.tint = z.tint;
         s.alpha = z.alpha;
         s.scale.set((z.r*2.6*pulse)/32);
-        s.x = z.x - camX + viewW/2;
-        s.y = z.y - camY + viewH/2;
+        s.x = z.x - camX;
+        s.y = z.y - camY;
       } else s.visible = false;
     }
     // 투사체 스프라이트 동기화 (글로우 코어)
@@ -160,8 +169,8 @@ export const FX = {
         s.tint = b.tint;
         s.alpha = 0.95;
         s.scale.set((b.r*3.2)/32);
-        s.x = b.x - camX + viewW/2;
-        s.y = b.y - camY + viewH/2;
+        s.x = b.x - camX;
+        s.y = b.y - camY;
       } else s.visible = false;
     }
     for (let i=active.length-1;i>=0;i--){
@@ -178,8 +187,8 @@ export const FX = {
       const t = s.__life / s.__maxLife;
       s.alpha = t*0.9;
       s.scale.set(s.__baseScale * (s.__grow ? (2.2 - t*1.4) : (0.5+t*0.8)));
-      s.x = s.__wx - camX + viewW/2;
-      s.y = s.__wy - camY + viewH/2;
+      s.x = s.__wx - camX;
+      s.y = s.__wy - camY;
     }
     app.render();
   },

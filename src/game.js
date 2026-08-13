@@ -31,17 +31,24 @@ import { FX } from "./fx.js";
   const treeRow = (function(){ const d=document.createElement('div'); d.id='treeRow'; wrap.appendChild(d); return d; })();
 
   // ---------- canvas ----------
-  let W=0, H=0, DPR=1;
+  let W=0, H=0, DPR=1, VS=1, cssW=0, cssH=0;
   function resize(){
     const rect = wrap.getBoundingClientRect();
     DPR = Math.min(window.devicePixelRatio||1, 2);
     // 탭이 숨겨져 크기가 0으로 잡히면 이전 값(또는 기본값)을 유지한다
-    W = rect.width || W || 940;
-    H = rect.height || H || 588;
-    canvas.width = Math.floor(W*DPR);
-    canvas.height = Math.floor(H*DPR);
-    ctx.setTransform(DPR,0,0,DPR,0,0);
-    FX.resize(W, H);
+    const cw = rect.width || cssW || 940;
+    const chh = rect.height || cssH || 588;
+    cssW = cw; cssH = chh;
+    canvas.width = Math.floor(cw*DPR);
+    canvas.height = Math.floor(chh*DPR);
+    // v6.78 모바일 시야 보정: 좁은 화면일수록 카메라를 축소해 보이는 월드 폭을 확보한다.
+    // (지금까지 월드 1유닛 = CSS 1px 고정이라 375px 폰은 데스크탑 대비 가시 면적이 1/4 — 탄막 회피가 불가능했다)
+    VS = Math.max(0.62, Math.min(1, cw / 640));
+    W = cw / VS;                      // 이후 W·H 는 '월드 기준 가시 범위' — 스폰 거리·컬링·그리드가 이 값을 쓴다
+    H = chh / VS;
+    ctx.setTransform(DPR*VS,0,0,DPR*VS,0,0);
+    FX.resize(cw, chh);
+    if (FX.setScale) FX.setScale(VS);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -2400,13 +2407,13 @@ import { FX } from "./fx.js";
       const canBuy = starCanBuy(id);
       const mine = (typeof starFocusMode==='undefined' || !starFocusMode) || starNodeMine(id);
       const R2 = (n.tier==='key'?13 : n.tier==='notable'?9.5 : n.tier==='start'?11 : 6) * starView.scale;
-      if (!mine) starCtx.globalAlpha = 0.15; // 내 별만 모드: 무관한 별은 흐리게
+      if (!mine) starCtx.globalAlpha = 0.34; // 내 별만 모드: 무관한 별은 흐리게
       // 글로우
       if (alloc){
         starCtx.fillStyle = n.color;
-        starCtx.globalAlpha = mine ? 0.22 : 0.06;
+        starCtx.globalAlpha = mine ? 0.22 : 0.10;
         starCtx.beginPath(); starCtx.arc(p.x,p.y,R2*1.9,0,Math.PI*2); starCtx.fill();
-        starCtx.globalAlpha = mine ? 1 : 0.15;
+        starCtx.globalAlpha = mine ? 1 : 0.34;
       }
       // 구매 가능: 숨쉬는 펄스 링 — 한눈에 "여기 찍을 수 있다"
       if (canBuy && mine){
@@ -2415,13 +2422,13 @@ import { FX } from "./fx.js";
         starCtx.globalAlpha = 0.55;
         starCtx.lineWidth = 1.6;
         starCtx.beginPath(); starCtx.arc(p.x,p.y,(R2+5)*pu,0,Math.PI*2); starCtx.stroke();
-        starCtx.globalAlpha = mine ? 1 : 0.15;
+        starCtx.globalAlpha = mine ? 1 : 0.34;
       }
       starCtx.beginPath(); starCtx.arc(p.x,p.y,R2,0,Math.PI*2);
-      starCtx.fillStyle = alloc ? n.color : (canBuy ? '#3a3d45' : '#24262c');
+      starCtx.fillStyle = alloc ? n.color : (canBuy ? '#454954' : '#31343c');
       starCtx.fill();
       starCtx.lineWidth = n.tier==='key' ? 2.4 : 1.4;
-      starCtx.strokeStyle = alloc ? '#f2f2f0' : (canBuy ? n.color : 'rgba(232,232,230,0.3)');
+      starCtx.strokeStyle = alloc ? '#f2f2f0' : (canBuy ? n.color : 'rgba(232,232,230,0.58)');
       starCtx.stroke();
       if (n.tier==='key'){
         starCtx.strokeStyle = alloc ? '#f2f2f0' : 'rgba(232,232,230,0.4)';
@@ -2433,7 +2440,7 @@ import { FX } from "./fx.js";
         starCtx.font = Math.round(7*starView.scale+3)+'px sans-serif';
         starCtx.textAlign='center'; starCtx.textBaseline='middle';
         starCtx.fillText('🔒', p.x, p.y);
-        starCtx.globalAlpha = mine ? 1 : 0.15;
+        starCtx.globalAlpha = mine ? 1 : 0.34;
       }
       if (starHover===id){
         starCtx.strokeStyle = '#fff';
@@ -2659,7 +2666,7 @@ import { FX } from "./fx.js";
       name:'스페셜리스트', tag:'전술 만능', cost:600,
       desc:'[추적 탄환]으로 시작. 쿨다운 -15%, 공속 +5% — 모든 장비를 다루는 전술 요원.',
       weapon:'missile',
-      apply:(p)=>{ p.cdr*=0.85; p.rateMult*=1.05; }
+      apply:(p)=>{ p.cdr*=0.82; p.rateMult*=1.12; p.projMult*=1.08; }
     },
     runeknight: {
       name:'룬 기사', tag:'마검 융합', cost:700,
@@ -2677,7 +2684,7 @@ import { FX } from "./fx.js";
       name:'결투가', tag:'일대일 오의', cost:700,
       desc:'[추적 탄환]으로 시작. 보스·엘리트 피해 +25% / 잡몹 피해 -10%. 강자만 상대한다.',
       weapon:'missile',
-      apply:(p)=>{ p.bossDmg=(p.bossDmg||1)*1.25; p.eliteDmg=(p.eliteDmg||1)*1.25; p.dmgMult*=0.9; }
+      apply:(p)=>{ p.bossDmg=(p.bossDmg||1)*1.25; p.eliteDmg=(p.eliteDmg||1)*1.25; p.dmgMult*=0.95; }
     },
     manager: {
       name:'관리자', tag:'위성 & 쿨감',
@@ -2689,7 +2696,7 @@ import { FX } from "./fx.js";
       name:'저격수', tag:'한 방 묵직',
       desc:'[추적 탄환]으로 시작. 공속 -45%, 대신 탄환 피해 +150% · 20% 확률 3배 치명타. 한 발 한 발이 무겁다.',
       weapon:'missile',
-      apply:(p)=>{ p.critChance=0.20; p.critMult=3.0; p.rateMult*=0.55; p.projMult*=2.5; p.recoilScale=3; }
+      apply:(p)=>{ p.critChance=0.18; p.critMult=2.6; p.rateMult*=0.52; p.projMult*=2.0; p.recoilScale=3; p.rangeDmg=true; }
     },
     rusher: {
       name:'돌격병', tag:'돌진 베기',
@@ -2701,7 +2708,7 @@ import { FX } from "./fx.js";
       name:'궁수', tag:'속사',
       desc:'[화살]로 시작. 공격속도 +30%로 쉴 새 없이 쏘지만 한 발은 가볍다 (-15%). 관통 +1.',
       weapon:'arrow',
-      apply:(p)=>{ p.pierce+=1; p.rateMult*=1.30; p.projMult*=0.85; }
+      apply:(p)=>{ p.pierce+=1; p.rateMult*=1.34; p.projMult*=0.95; }
     },
     ninja: {
       name:'닌자', tag:'대시 특화', cost:250,
@@ -2731,7 +2738,7 @@ import { FX } from "./fx.js";
       name:'파일럿', tag:'드론', cost:700,
       desc:'[드론]으로 시작. 드론 피해 +30%, 아이템 드랍 +50%.',
       weapon:'drone',
-      apply:(p)=>{ p.droneBoost=1.3; p.luck*=1.5; }
+      apply:(p)=>{ p.droneBoost=1.45; p.luck*=1.5; p.rateMult*=1.05; }
     },
     // ---- RPG 확장 직업 (고전 아키타입, 새로운 이름) ----
     cheol: {
@@ -4037,7 +4044,7 @@ import { FX } from "./fx.js";
       name:'위성', desc:'주위를 도는 위성이 부딪히는 적을 타격',
       evName:'궤도 레이저', evDesc:'위성 4기 + 궤도 링 전체가 레이저가 됩니다',
       lvDesc:['','위성 +1','타격 피해 +45%','위성 +1','타격 피해 강화'],
-      dmg:(w)=> (w.evolved ? 34 : [14,14,19,19,25][w.lv-1]),
+      dmg:(w)=> (w.evolved ? 44 : [18,18,25,25,33][w.lv-1]),
       count:(w)=> (w.evolved ? 4 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
       orbitR:(w)=> (w.evolved ? 62 : 48),
       spin:(w)=> (w.evolved ? 4.2 : 3.2)
@@ -5691,7 +5698,8 @@ import { FX } from "./fx.js";
 
   function gainGold(v){
     // 경제 조정 2차: 전역 수급 -75% + 무한 모드(클리어 후)는 추가 -70% — 붕괴 상태 파밍 방지
-    const g = Math.max(1, Math.round(v * 0.25 * (endless?0.3:1) * (trialT>0&&trialKind==='gold'?2:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
+    // v6.77 골드 버프: 전역 계수 0.25 → 0.38 (+52%). 붕괴 상태 파밍 방지용 무한 모드 감산은 유지
+    const g = Math.max(1, Math.round(v * 0.38 * (endless?0.3:1) * (trialT>0&&trialKind==='gold'?2:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
     return g;
   }
@@ -5751,7 +5759,9 @@ import { FX } from "./fx.js";
     } else if (type==='clone'){
       e = { type, x,y, r:16, hp:55*s, maxHp:55*s, speed:70+Math.random()*10, dmg:10*ds, xpValue:3, hitCd:0 };
     } else if (type==='treasure'){
-      e = { type, x,y, r:17, hp:70*s, maxHp:70*s, speed:105, dmg:0, xpValue:6, hitCd:0, fleeT:15 };
+      // v6.77 근접 구제: 3.4초마다 1.1초씩 숨을 고르며 멈춘다(전조: 헐떡임) — 근접·돌격도 따라잡을 창이 생긴다
+      e = { type, x,y, r:17, hp:70*s, maxHp:70*s, speed:96, dmg:0, xpValue:6, hitCd:0, fleeT:15,
+            tgRest:0, tgCyc:3.4 };
     } else {
       e = { type:'normal', x,y, r:13, hp:16*s, maxHp:16*s, speed:54+Math.random()*20, dmg:9*ds, xpValue:2, hitCd:0 };
     }
@@ -6106,6 +6116,8 @@ import { FX } from "./fx.js";
     pixBurst(e.x, e.y, e.elite?14:(e.r>18?10:7), 120+e.r*3.5,
       '#'+deathTint.toString(16).padStart(6,'0'), e.r>18 ? 2.2 : 1.6);
     hitStop(e.elite ? 0.07 : 0.02);                     // 처치 히트스톱 — 손맛의 핵심
+    // v6.77 근접 기동 보상: 썰수록 대시가 빨리 돌아온다 → 도망가는 보물 골렘도 따라잡을 수 있다
+    if (player.meleeStance && player.dashCd > 0) player.dashCd = Math.max(0, player.dashCd - 0.35);
     // 혈마 혈폭: 처치 시 핏빛 연쇄 폭발
     if (player.bloodBurstCh>0 && Math.random()<player.bloodBurstCh){
       friendlyBlast(e.x, e.y, 60, player.bloodBurstDmg*player.dmgMult, true);
@@ -7058,6 +7070,25 @@ import { FX } from "./fx.js";
     }
   }
   function drawGateObjs(){
+    // v6.77 기믹 유도선: 보스가 무적 상태(절대 방어·잔향 등)일 때, 보스와 파훼 오브젝트를 잇는
+    // 맥동하는 줄기를 그린다. 텍스트 지시문 없이 "저기를 쳐라"가 전달되게 — 전조 원칙 유지
+    for (const o of gateObjs){
+      const src = bosses.find(b=>b.gsShield>0 || b.hzLock>0);
+      if (!src) break;
+      const pl = (performance.now()%700)/700;
+      ctx.save();
+      ctx.strokeStyle = '#9adbe8';
+      ctx.lineWidth = 2.2;
+      ctx.globalAlpha = 0.30;
+      ctx.beginPath(); ctx.moveTo(src.x, src.y); ctx.lineTo(o.x, o.y); ctx.stroke();
+      ctx.globalAlpha = 0.85;                       // 보스 → 오브젝트로 흐르는 빛 알갱이
+      ctx.fillStyle = '#dff6fb';
+      for (let k=0;k<3;k++){
+        const f = (pl + k/3) % 1;
+        ctx.beginPath(); ctx.arc(src.x+(o.x-src.x)*f, src.y+(o.y-src.y)*f, 3.2, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
     for (const o of gateObjs){
       const urgent = o.t < o.maxT*0.35;
       ctx.save();
@@ -9121,6 +9152,34 @@ import { FX } from "./fx.js";
   }
 
   // ---------- particles / misc ----------
+  // ── v6.77 근접 리스크 보상 패키지 ────────────────────────────────────────────
+  // 설계 원칙: 사거리(반경)를 늘리면 근접이 '짧은 원거리'가 되어 정체성이 사라지고,
+  // 넉백은 범위와 곱해지면 영구 락이 된다. 그래서 ①밀착 보너스 ②경직(감속) ③포위 저항
+  // ④처치 시 대시 쿨감 — 넷 다 '붙어 있어야만' 얻는 이득이라 원거리로 새지 않는다.
+  const MELEE_NEAR = 46;          // 이 거리 안이면 최대 보너스
+  const MELEE_FAR  = 108;         // 이 거리 밖이면 보너스 없음
+  function meleeCloseMult(t){
+    const d = Math.hypot(t.x-player.x, t.y-player.y) - (t.r||0);
+    const k = 1 - Math.min(1, Math.max(0, (d - MELEE_NEAR) / (MELEE_FAR - MELEE_NEAR)));
+    return 1 + 0.38 * k * (player.meleeCloseAmp||1);
+  }
+  // 역장 전용 감쇠: 역장은 부채꼴이 아니라 '반경'형이라 넓히면 그대로 사거리가 된다.
+  // 그래서 반경 확장은 허용하되 가장자리로 갈수록 위력을 깎아 — 넓혀도 바깥은 약해 원거리 대용이 못 된다.
+  function auraFalloff(t){
+    const d = Math.hypot(t.x-player.x, t.y-player.y) - (t.r||0);
+    const k = Math.min(1, Math.max(0, d / Math.max(1, auraState.r)));   // 0=중심 1=가장자리
+    return 1.30 - 0.55*k;                                               // 중심 1.30배 → 가장자리 0.75배
+  }
+  function staggerEnemy(e, sec){
+    e.stagT = Math.max(e.stagT||0, sec || 0.4);
+  }
+  // 포위 저항: 근처 적이 많을수록 받는 피해가 준다 (근접 무기 보유 시에만, 최대 -30%)
+  function encircleCut(){
+    if (!player.meleeStance) return 1;
+    let n = 0;
+    for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < 120){ n++; if (n>=6) break; } }
+    return 1 - Math.min(0.30, n*0.05);
+  }
   function burst(x,y,n,spread,fxColor,col){
     // WebGL 글로우 파티클 (Pixi 레이어) — 일반 처치도 은은하게, 큰 폭발은 화려하게
     if (n>=8) FX.burst(x, y, fxColor||0xffffff, Math.floor(n*0.6), spread||120, n>=14?0.5:0.35);
@@ -9383,7 +9442,18 @@ import { FX } from "./fx.js";
     if (player.recoilScale>=3){ shake = Math.min(10, shake+1.4); } // 저격: 화면도 살짝 울림
     if (Math.random()<0.5) effects.push({ type:'muzzle', x:player.x+Math.cos(a)*14, y:player.y+Math.sin(a)*14, life:0.12, age:0 });
     const isCrit = Math.random()<player.critChance || (player.shadowStrike && noHitT>3) || (player.dashCritT>0); // 그림자: 무피격 3초+ 확정 치명 / v6.52 거합: 대시 직후 확정 치명
-    let d = dmg * player.projMult * (isCrit?player.critMult:1);
+    // v6.77 복구: weaponCap1 — 수도승 '1번 무기 강화 상한 +N%p'가 죽어 있었다.
+    // 무기 슬롯 1개로 사는 직업이라 이 배율이 곧 정체성 — 주 무기(0번) 피해에 직접 곱한다
+    if (player.weaponCap1 && player.weapons[0]) dmg *= player.weaponCap1 / 1.3;
+    // v6.77 복구: multishotCh — '추가 투사체 확률'이 어디서도 읽히지 않아 궁수 계열 특성이 전부 죽어 있었다.
+    // 재귀 폭주를 막으려 한 번의 발사에서 딱 1발만 갈라진다
+    if (player.multishotCh>0 && !fireProjectile._split && Math.random()<player.multishotCh){
+      fireProjectile._split = true;
+      try { fireProjectile(a + (Math.random()<0.5?-1:1)*0.14, speed, dmg, pierce, life, extra); }
+      finally { fireProjectile._split = false; }
+    }
+    // v6.77 저격 사거리 보정: 표적이 멀수록 강해진다 — 평평한 배율 대신 '거리를 유지하는 플레이'를 보상
+    let d = dmg * player.projMult * (isCrit?player.critMult:1) * (player.rangeMult||1);
     if (player.goldPower) d *= 1 + Math.min(0.3, runGold*0.0003); // 변혁: 황금 혈맥
     if (player.feverDmg && feverTimer>0) d *= 1.15; // 선율가: 피버 강화
     d *= buffMult('dmg'); // 스킬 버프
@@ -9508,6 +9578,13 @@ import { FX } from "./fx.js";
     if (player.projLeech && Math.random()<0.05){
       healCapped(1*(player.projLeechMult||1)*player.healMult);
     }
+    // v6.77 복구: explodeChance/explodeDmg — 설정만 되고 아무도 읽지 않아 '폭발' 계열 테크가 통째로 죽어 있었다
+    if (player.explodeChance>0 && Math.random()<player.explodeChance+pb){
+      const ed2 = (player.explodeDmg||12) * player.dmgMult * (isBoss?0.5:1);
+      friendlyBlast(t.x, t.y, 74, ed2, false);
+      burst(t.x, t.y, 8, 150, 0xd4772e);
+      FX.ring(t.x, t.y, 0xd4772e, 8);
+    }
   }
   // 흡혈류 회복 감쇠: 초당 최대체력 4%까지만 — 물량전에서 무한 회복으로 불사가 되는 것 방지
   function healCapped(amount){
@@ -9546,6 +9623,14 @@ import { FX } from "./fx.js";
     satPos = [];
     auraState.on = false;
     dronePos = [];
+    // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
+    if (player.rangeDmg){
+      const t0 = nearestTarget();
+      const dd = t0 ? Math.hypot(t0.x-player.x, t0.y-player.y) : 520;
+      player.rangeMult = 1 + 0.40*Math.min(1, Math.max(0, (dd-200)/320));
+    } else player.rangeMult = 1;
     // 혈마 광혈: 잃은 체력 10%당 공격속도 가산
     const frenzyMult = player.bloodFrenzy>0 ? 1 + player.bloodFrenzy * Math.floor((1 - player.hp/player.maxHp)*10) : 1;
     const rate = player.rateMult * feverRate() * (player.dashHasteT>0 ? 1.35 : 1) * (player.odT>0 ? 1+player.odPower : 1) * (player.rageT>0 ? 1.3 : 1) * buffMult('rate') * frenzyMult;
@@ -9567,7 +9652,7 @@ import { FX } from "./fx.js";
       if (w.key==='satellite'){
         const n = def.count(w);
         const orbitR = def.orbitR(w);
-        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1) * (player.satBoost||1) * (player.satDmg||1);
         w.angle += dt * def.spin(w);
         for (let s=0;s<n;s++){
           const a = w.angle + (Math.PI*2/n)*s;
@@ -9581,6 +9666,7 @@ import { FX } from "./fx.js";
         auraState.dps = def.dps(w) * player.dmgMult * (player.auraBoost||1);
         auraState.slow = def.slow(w);
         auraState.ev = w.evolved;
+        auraState.imbue = w.imbue;      // v6.77 역장 각인 속성 — 원소 발동 연결에 필요
         continue;
       }
       if (w.key==='drone'){
@@ -9825,9 +9911,11 @@ import { FX } from "./fx.js";
           const e = enemies[i];
           if (hitInArc(e.x,e.y,e.r)){
             const isCrit = Math.random()<player.critChance;
-            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e);
+            // v6.77 밀착 보너스: 코앞일수록 세다 — 사거리를 늘리지 않고 '붙는 위험'만 보상한다
+            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*meleeCloseMult(e);
             e.hp -= d;
             addDmgNum(e.x,e.y,d,isCrit);
+            staggerEnemy(e);            // 넉백 대신 경직 — 적을 밀지 않으니 범위와 곱해져도 락이 안 걸린다
             procOnHit(e, false, scytheImbue);
             // 사신 처형
             if (player.execThresh>0 && !e.elite && e.hp>0 && e.hp < e.maxHp*player.execThresh){
@@ -9885,9 +9973,10 @@ import { FX } from "./fx.js";
           if (!e) continue;
           if (hitInArc2(e.x,e.y,e.r)){
             const isCrit = Math.random()<player.critChance;
-            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e);
+            const d = dmg*(isCrit?player.critMult:1)*corrodeMult(e)*meleeCloseMult(e);
             e.hp -= d;
             addDmgNum(e.x,e.y,d,isCrit);
+            staggerEnemy(e);
             procOnHit(e, false, imb);
             if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
           }
@@ -11232,6 +11321,8 @@ import { FX } from "./fx.js";
       // aura: slow + tick damage (+냉기 중첩 감속)
       let speedFactor = e.frozenT>0 ? 0 : player.slowAll;
       if (e.chillS>0) speedFactor *= Math.max(0.3, 1 - player.chillPower*e.chillS);
+      // v6.77 근접 경직: 베인 적은 잠시 휘청인다 (넉백이 아니라 감속 — 위치를 안 밀어서 락이 안 걸린다)
+      if (e.stagT>0){ e.stagT -= dt; speedFactor *= 0.55; }
       // v6.47 전직 오라 (3차 전직 선택별 상시 오라)
       if (player.jobAura===2 && ed < 130+e.r) speedFactor *= 0.86; // 🌀 지배 오라
       if (player.jobAura===0 && ed < 110+e.r){ // ⚔ 공세 오라
@@ -11241,7 +11332,11 @@ import { FX } from "./fx.js";
       }
       if (auraState.on && ed < auraState.r + e.r){
         speedFactor *= auraState.slow;
-        e.hp -= auraState.dps*dt;
+        e.hp -= auraState.dps*dt*auraFalloff(e);      // v6.77 역장 감쇠 — 중심 1.30배, 가장자리 0.75배
+        // v6.77 버그: 역장 틱이 procOnHit 을 안 불러 원소·시간 절단이 전혀 발동하지 않았다.
+        // 매 프레임 발동하면 과하므로 대상별 0.4초 쿨다운으로 '타격 1회'처럼 취급한다
+        e.auraProcCd = (e.auraProcCd||0) - dt;
+        if (e.auraProcCd <= 0){ e.auraProcCd = 0.4; procOnHit(e, false, auraState.imbue); }
         if (Math.random() < dt*1.5) addDmgNum(e.x, e.y, auraState.dps*0.66, false);
         if (e.hp<=0){ defeatEnemy(i); continue; }
         if (auraState.ev){ player.hp = Math.min(player.maxHp, player.hp + 1.0*player.healMult*dt); }
@@ -11256,7 +11351,11 @@ import { FX } from "./fx.js";
           enemies.splice(i,1);
           continue;
         }
-        if (speedFactor>0 && ed < 380){
+        // v6.77 숨 고르기: 3.4초마다 1.1초 멈춰 헐떡인다 — 근접·돌격도 따라잡을 창
+        e.tgCyc -= dt;
+        if (e.tgCyc <= 0){ e.tgRest = 1.1; e.tgCyc = 3.4; }
+        if (e.tgRest > 0) e.tgRest -= dt;
+        if (speedFactor>0 && ed < 380 && !(e.tgRest>0)){
           e.x -= (ex/ed)*e.speed*speedFactor*dt;
           e.y -= (ey/ed)*e.speed*speedFactor*dt;
         }
@@ -11430,11 +11529,11 @@ import { FX } from "./fx.js";
         let hit = false;
         for (const sp of satPos){
           const sd = Math.hypot(sp.x-e.x, sp.y-e.y);
-          if (sd < e.r+(sp.ev?10:8)){
+          if (sd < e.r+(sp.ev?13:10)){
             if (!(e.satCd>0)){
               const sdmg = sp.dmg * corrodeMult(e);
               e.hp -= sdmg;
-              e.satCd = 0.35;
+              e.satCd = 0.28;
               addDmgNum(e.x, e.y, sdmg, false);
               burst(sp.x,sp.y,3,90);
               procOnHit(e, false, sp.imbue);
@@ -11792,7 +11891,8 @@ import { FX } from "./fx.js";
       SFX.play('tele');
       return false;
     }
-    let d = dmg * player.dmgTaken * buffMult('dr');
+    // v6.77 포위 저항: 근접 무기를 든 채 무리에 파묻힐수록 덜 아프다 (최대 -30%)
+    let d = dmg * player.dmgTaken * buffMult('dr') * encircleCut();
     if (player.baeksu && (player.__baeksuT||0)>0.8) d *= 0.8; // 백수: 집콕 방어
     // 불굴: 낮은 체력 피해 감소
     if (player.undyingDR>0 && player.hp < player.maxHp*0.3) d *= (1-player.undyingDR);
@@ -11804,7 +11904,7 @@ import { FX } from "./fx.js";
       toast('의뢰 실패... (피격)');
       runQuest = null;
     }
-    player.invuln = invulnTime;
+    player.invuln = invulnTime + (player.hitInvuln||0);   // v6.77 hitInvuln 연결 (죽어 있던 키스톤 2종)
     player.hitFlash = 0.25;
     shake = Math.min(22, shake+shakeAmt);
     burst(player.x,player.y,12,160,0xd9534f);
@@ -11841,7 +11941,7 @@ import { FX } from "./fx.js";
         if (player.undyingRevive) player.undyingRevive = false;
         else player.reviveLeft -= 1;
         player.hp = Math.ceil(player.maxHp*0.5);
-        player.invuln = 2.5;
+        player.invuln = Math.max(2.5, player.reviveInvuln||0);   // v6.77 reviveInvuln 연결
         addTextNum(player.x, player.y-20, '재기동!');
         for (let i=enemies.length-1;i>=0;i--){
           const e = enemies[i];
@@ -14794,6 +14894,16 @@ import { FX } from "./fx.js";
         ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(e.r*0.6,-e.r*0.9); ctx.lineTo(e.r*0.9,-e.r*1.2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(e.r*0.9,-e.r*0.9); ctx.lineTo(e.r*0.6,-e.r*1.2); ctx.stroke();
+      }
+      // v6.77 숨 고르기 전조: 멈춘 동안 땀방울이 튀고 몸이 들썩인다 — "지금 따라잡아라"
+      if (e.tgRest>0){
+        ctx.fillStyle = '#7ec4e8';
+        for (let k=0;k<3;k++){
+          const ph2 = (t*2.2 + k*0.33) % 1;
+          ctx.globalAlpha = 1-ph2;
+          ctx.fillRect(e.r*0.5+k*3, -e.r*0.9 - ph2*9, 2, 3);
+        }
+        ctx.globalAlpha = 1;
       }
       ctx.fillStyle = ink;
       ctx.font = "600 9px 'IBM Plex Sans KR', sans-serif";
