@@ -2717,8 +2717,8 @@ import { FX } from "./fx.js";
     rusher: {
       name:'돌격병', tag:'돌진 베기',
       desc:'[역장]으로 시작. 이동 +20%, 처치 시 회복, 대시가 곧 공격 — 돌파 폭발 기본 장착. [중갑 가능]',
-      weapon:'aura',
-      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; p.dashBlast=(p.dashBlast||0)+18; }
+      weapon:'charge',   // v6.96 역장 → 돌진 충격. '대시가 곧 공격'이 실제 엔진이 된다
+      apply:(p)=>{ p.speed*=1.2; p.lifesteal=2; p.dashBlast=(p.dashBlast||0)+18; p.dashCdMax*=0.62; }
     },
     archer: {
       name:'궁수', tag:'속사',
@@ -4120,6 +4120,16 @@ import { FX } from "./fx.js";
       reach:(w)=> (w.evolved ? 150 : [96,112,112,132,132][w.lv-1]),
       halfW:(w)=> (w.evolved ? 24 : [14,14,14,19,19][w.lv-1])
     },
+    // v6.96 근접 엔진 2호: 돌진 충격 — 자동 발사가 없다. 대시가 곧 공격이며, 레벨이 오르면 더 자주 돌진한다
+    charge: {
+      name:'돌진 충격', desc:'대시가 곧 공격 — 지나간 경로의 적을 꿰뚫고 충격대를 남긴다 (자동 공격 없음)',
+      evName:'돌진 충격 · 파쇄 돌격', evDesc:'경로가 넓어지고 지나간 자리가 폭발합니다',
+      lvDesc:['','대시 쿨 -10%','피해 +38%','경로 확대·쿨 -18%','피해 강화'],
+      baseCd:(w)=> 999,                                    // 무기 루프로는 발사되지 않는다
+      dmg:(w)=> (w.evolved ? 70 : [26,26,36,36,46][w.lv-1]),
+      width:(w)=> (w.evolved ? 32 : [18,18,18,25,25][w.lv-1]),
+      cdCut:(w)=> (w.evolved ? 0.62 : [1,0.90,0.90,0.82,0.82][w.lv-1])
+    },
     // v6.54 전향(轉向) 무기 — 운명 성도에 타 계열 별을 투자한 자만 얻는 교차 병기 (근접↔원거리, 전사↔법사)
     xwave: {
       name:'검기 방출', desc:'[전향 · 전사군] 참격이 검기가 되어 날아간다 — 성도에 원거리 별을 밝힌 전사만 (근접의 원거리화)',
@@ -4567,7 +4577,7 @@ import { FX } from "./fx.js";
 
   // v6.80 무기 계열 구분 — 근접 계열 직업에게는 원거리 무기 카드가 나오지 않게 하는 기준.
   // (성도 원거리 계열에 투자하면 해제되므로 '원거리화 빌드'는 그대로 가능)
-  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, xbayonet:1, xmanablade:1, xrunenova:1 };
+  const MELEE_WEAPONS = { aura:1, scythe:1, iaido:1, charge:1, xbayonet:1, xmanablade:1, xrunenova:1 };
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -9424,7 +9434,7 @@ import { FX } from "./fx.js";
     if (len>0){ dx/=len; dy/=len; }
     else { dx = Math.cos(player.facing); dy = Math.sin(player.facing); }
     player.dashDir = {x:dx, y:dy};
-    player.dashCd = player.dashCdMax;
+    player.dashCd = player.dashCdMax * (player.chargeCdCut||1);   // v6.96 돌진 충격: 무기 레벨이 곧 공격 주기
     player.invuln = Math.max(player.invuln, player.dashInvuln);
     // Pixi 4단계: 대시 잔상 (직업색 글로우)
     if (FX.enabled){
@@ -9535,6 +9545,7 @@ import { FX } from "./fx.js";
   // ---------- weapons update ----------
   let satPos = [];
   let auraState = { on:false, r:0 };
+  const chargeEng = { on:false, dmg:0, width:0, ev:false };   // v6.96 돌진 충격 엔진 상태
   const satRings = [];   // v6.89 기울어진 궤도 고리 (원자 모형)
   // v6.85 위성 궤도 3단 — 반경/피해/회전/타격주기가 함께 움직여 어느 하나가 정답이 되지 않게
   // v6.88 세 모드를 '방어 / 균형 / 견제'로 확실히 갈랐다.
@@ -9757,9 +9768,10 @@ import { FX } from "./fx.js";
   function updateWeapons(dt){
     satPos = [];
     auraState.on = false;
+    chargeEng.on = false;
     dronePos = [];
     // v6.77 근접 자세: 근접 계열 무기를 들고 있을 때만 포위 저항·대시 환급이 붙는다 (원거리로 새지 않게)
-    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
+    player.meleeStance = !!(ownedWeapon('aura') || ownedWeapon('scythe') || ownedWeapon('iaido') || ownedWeapon('charge') || ownedWeapon('xbayonet') || ownedWeapon('xmanablade'));
     // v6.95 위성 조종 자세 — 위성만 들었을 때. 근접을 겸하면 베는 모션이 맞으므로 해제
     player.satPose = !!ownedWeapon('satellite') && !player.meleeStance;
     // v6.77 저격 사거리 보정 계수 (rangeDmg 보유자만) — 200px 밀착 1.0 → 520px 이상 1.40
@@ -9809,6 +9821,16 @@ import { FX } from "./fx.js";
             satPos.push({ x:player.x+q.x, y:player.y+q.y, z:q.z, ev:w.evolved||burst, orbitR, dmg, ringDps:dmg*1.2, imbue:w.imbue });
           }
         }
+        continue;
+      }
+      if (w.key==='charge'){
+        // 발사하지 않는다 — 대시 루프가 이 값을 읽어 판정을 만든다
+        chargeEng.on = true;
+        chargeEng.dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        chargeEng.width = def.width(w);
+        chargeEng.imbue = w.imbue;
+        chargeEng.ev = w.evolved;
+        player.chargeCdCut = def.cdCut(w);
         continue;
       }
       if (w.key==='aura'){
@@ -11028,6 +11050,43 @@ import { FX } from "./fx.js";
       player.x += player.dashDir.x*640*dt;
       player.y += player.dashDir.y*640*dt;
       particles.push({ x:player.x, y:player.y, vx:0, vy:0, life:0.25, age:0, r:player.r*0.8, ghost:true });
+      // v6.96 돌진 충격 엔진: 지나간 경로가 그대로 판정. 대상별 0.4초 쿨로 한 번의 돌진에 1회만 맞는다
+      if (chargeEng.on){
+        for (let ci=enemies.length-1;ci>=0;ci--){
+          const ce = enemies[ci];
+          if (!ce) continue;
+          if (ce.__chgT && ce.__chgT > elapsed) continue;
+          if (Math.hypot(ce.x-player.x, ce.y-player.y) < ce.r + chargeEng.width){
+            ce.__chgT = elapsed + 0.4;
+            const cd2 = chargeEng.dmg * corrodeMult(ce);
+            ce.hp -= cd2;
+            addDmgNum(ce.x, ce.y, cd2, false);
+            staggerEnemy(ce, 0.55);
+            procOnHit(ce, false, chargeEng.imbue);
+            hitSpark(ce.x, ce.y, Math.atan2(ce.y-player.y, ce.x-player.x), '#e0a94f');
+            const ka2 = Math.atan2(ce.y-player.y, ce.x-player.x);
+            ce.x += Math.cos(ka2)*10; ce.y += Math.sin(ka2)*10;   // 밀치고 지나간다
+            if (ce.hp<=0 && enemies[ci]===ce) defeatEnemy(ci);
+          }
+        }
+        for (let bi=bosses.length-1;bi>=0;bi--){
+          const cb = bosses[bi];
+          if (!cb || cb.ghost) continue;
+          if (cb.__chgT && cb.__chgT > elapsed) continue;
+          if (Math.hypot(cb.x-player.x, cb.y-player.y) < cb.r + chargeEng.width){
+            cb.__chgT = elapsed + 0.4;
+            const cd3 = chargeEng.dmg * corrodeMult(cb);
+            cb.hp -= cd3; addDmgNum(cb.x, cb.y, cd3, false);
+            procOnHit(cb, true, chargeEng.imbue);
+            if (cb.hp<=0){ if (bosses[bi]===cb) defeatBoss(bi); } else refreshBossBar();
+          }
+        }
+        // 충격대: 지나간 자리에 잠깐 남는다 (진화 시 더 크게)
+        if (Math.random() < 0.7){
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.26, age:0,
+                         r0:chargeEng.width*0.4, r1:chargeEng.width*(chargeEng.ev?1.5:1.1) });
+        }
+      }
       // v6.51 질풍 창기병: 대시가 창격 돌진 — 경로의 적을 꿰뚫어 피해 + 넉백
       if (player.dashRam){
         for (let ri2=enemies.length-1;ri2>=0;ri2--){
