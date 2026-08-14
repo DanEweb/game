@@ -7948,6 +7948,10 @@ import { FX } from "./fx.js";
       색:(particles[0]||{}).col||null });
   } catch(e){ return 'ERR '+String(e); } };
   //  v6.171 QA: 장비 착용 비주얼 확인용 — 희귀도/무게를 지정해 전 부위를 한 번에 입힌다
+  //  v6.172 QA: 등급 치장 단계가 실제로 갈리는지 값으로 확인
+  window.__qaRank = ()=>{ try { const W=weaponStage();
+    return JSON.stringify({ 장비등급:gearRank(), 성물:!!player.sacredTitle,
+      무기층:W?W.tier:null, 무기단계:W?W.st:null }); } catch(e){ return "ERR "+String(e); } };
   window.__qaGear = (r, wt)=>{ try {
     const lo = loadoutFor(player ? player.classKey : Object.keys(CLASSES)[0]);
     ["head","body","hand","foot","cloak"].forEach((sl)=>{
@@ -18424,8 +18428,115 @@ import { FX } from "./fx.js";
     madman:'#c9403a', monk:'#b8956a', commander:'#4a6a8a', tombraider:'#8a7a4f', mumyeong:'#7a7a82',
     samurai:'#b04a3a', specialist:'#4a5d3a', runeknight:'#4a6ab0', druid:'#5a8a3f', duelist:'#b08a3a'
   };
+  //  🔴 v6.172 배치 9-g **등급이 곧 치장** — 사용자: *"높은등급인 장비들은 제대로 치장으로써 수집욕구가 들게"*
+  //   그동안 희귀도는 **작은 색 틴트**가 전부였다. 태초 장비를 껴도 화면에서 달라지는 게 없으니
+  //   모으고 싶어질 이유가 없었다. 등급을 **몸에 걸치는 연출**로 바꾼다.
+  //   ⚠ 매 프레임 도는 자리다 — 단계마다 도형 몇 개로 끝내고, 파티클 배열은 만들지 않는다.
+  const RANK_TINT = ['#8f9194','#4c9a55','#3b82c4','#8b5cf6','#e08a2e','#b8362e','#d9a53f'];
+  //  치장은 **에픽(3)부터** 붙는다 — 흔한 등급까지 빛나면 위계가 사라진다
+  function gearRank(){
+    let best = -1;
+    const lo = loadoutFor(player.classKey);
+    for (const sl of ['head','body','hand','foot','cloak','acc1','acc2']){
+      const id = lo[sl]; if (!id) continue;
+      const it = DB.inv.find(i=>i.id===id);
+      if (it && it.r > best) best = it.r;
+    }
+    return best;
+  }
+  function drawRankAura(){
+    const r = gearRank();
+    const sacred = !!player.sacredTitle;          // 絶名 계승자는 등급과 별개로 최상위 연출을 받는다
+    if (r < 3 && !sacred) return;
+    const now = performance.now();
+    const col = sacred ? '#e0a94f' : (RANK_TINT[r] || '#8f9194');
+    const x = player.x, y = player.y;
+    ctx.save();
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.shadowColor = col;
+    // ── 3 에픽: 발밑 링 하나 (있다는 것만 알린다)
+    ctx.globalAlpha = 0.30; ctx.lineWidth = 1.4; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.ellipse(x, y+15, 13, 4.2, 0, 0, 6.283); ctx.stroke();
+    // ── 4 전설: 반대로 도는 두 번째 링 + 떠오르는 문양
+    if (r >= 4 || sacred){
+      ctx.globalAlpha = 0.34; ctx.lineWidth = 1.2;
+      const a0 = now/900;
+      ctx.beginPath(); ctx.ellipse(x, y+15, 18, 5.6, 0, a0, a0+2.4); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x, y+15, 18, 5.6, 0, a0+3.14, a0+3.14+2.4); ctx.stroke();
+    }
+    // ── 5 유니크: 발밑에서 솟아 사라지는 입자 3점
+    if (r >= 5 || sacred){
+      ctx.globalAlpha = 0.55;
+      for (let k=0;k<3;k++){
+        const t = ((now/1100) + k/3) % 1;
+        const px = x + Math.sin(now/700 + k*2.1)*9;
+        ctx.globalAlpha = 0.55*(1-t);
+        ctx.beginPath(); ctx.arc(px, y+15 - t*26, 1.6, 0, 6.283); ctx.fill();
+      }
+    }
+    // ── 6 태초 / 絶名: 머리 위 회전 문장 + 몸을 감싸는 잔광
+    if (r >= 6 || sacred){
+      ctx.globalAlpha = 0.42; ctx.lineWidth = 1.5; ctx.shadowBlur = 9;
+      const a1 = now/1400;
+      ctx.save(); ctx.translate(x, y-26); ctx.rotate(a1);
+      ctx.beginPath();
+      for (let k=0;k<3;k++){ const a=k*2.094; ctx.lineTo(Math.cos(a)*6.5, Math.sin(a)*6.5); }
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 0.14;
+      ctx.beginPath(); ctx.arc(x, y-1, 20 + Math.sin(now/520)*1.6, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  }
+  //  🔴 v6.172 **무기 3층 외형 위계** — 사용자: *"유일무기 성장무기 성유물은 그 급에따라서 정말 멋있게"*
+  //   무명검(v6.49)만 레벨별로 자라고 나머지 259종(CGW 111·PGW 111·성물 37)은 **전부 같은 그림**이었다.
+  //   층과 성장도를 0~4단계로 환산해 **날 길이·장식·발광**이 함께 자라게 한다.
+  //   층 자체가 위계다: 성장무기 < 유일무기 < 성물(絶名).
+  function weaponStage(){
+    const w = (player.weapons||[]).find(x=>x.key && (x.key.indexOf('pgw_')===0 || x.key.indexOf('cgw_')===0));
+    if (player.sacredTitle) return { st:4, tier:'sacred', col:'#e0a94f' };
+    if (!w) return null;
+    if (w.key.indexOf('cgw_')===0){
+      const rec = cgwRec(w.key.slice(4));
+      const lv = rec.lv||1;
+      return { st: lv>=40?4 : lv>=25?3 : lv>=12?2 : 1, tier:'cgw', col:'#d8c48a' };
+    }
+    const rec = pgwRec(w.key.slice(4));
+    const awk = rec.awk||0;
+    return { st: Math.min(4, awk), tier:'pgw', col:'#b8bcc4' };
+  }
+  function drawWeaponAura(){
+    const W = weaponStage();
+    if (!W || W.st <= 0) return;
+    const now = performance.now();
+    // 무기는 앞손 쪽에 있다 — 몸 기준 오프셋으로 잡는다
+    const wx = player.x + player.faceX*9, wy = player.y - 5;
+    ctx.save();
+    ctx.strokeStyle = W.col; ctx.fillStyle = W.col;
+    ctx.shadowColor = W.col; ctx.shadowBlur = 4 + W.st*2;
+    ctx.globalAlpha = 0.20 + W.st*0.09;
+    // 날을 따라 흐르는 빛 — 단계가 오를수록 길고 두꺼워진다
+    ctx.lineWidth = 1.0 + W.st*0.5;
+    ctx.beginPath();
+    ctx.moveTo(wx, wy+3);
+    ctx.lineTo(wx - player.faceX*1.5, wy - 8 - W.st*3.5);
+    ctx.stroke();
+    if (W.st >= 3){   // 상위 단계: 칼끝에 맺히는 빛
+      ctx.globalAlpha = 0.45 + 0.15*Math.sin(now/300);
+      ctx.beginPath(); ctx.arc(wx - player.faceX*1.5, wy - 8 - W.st*3.5, 1.8, 0, 6.283); ctx.fill();
+    }
+    if (W.st >= 4){   // 만개: 무기를 감도는 고리
+      ctx.globalAlpha = 0.30; ctx.lineWidth = 1.1;
+      const a = now/600;
+      ctx.beginPath(); ctx.ellipse(wx - player.faceX*1, wy - 8, 5.5, 2.2, a, 0, 6.283); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  }
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
+    drawRankAura();      // v6.172 등급 치장은 **몸 아래**에 깔린다 — 캐릭터를 가리면 안 된다
     const moving = Math.hypot(player.vx,player.vy) > 10 || player.dashTime>0;
     const walk = moving ? performance.now()/70 : 0;
     if (player.invuln>0 && Math.floor(performance.now()/90)%2===0){
@@ -18463,6 +18574,7 @@ import { FX } from "./fx.js";
       //  v6.171 장비를 **몸과 같은 좌표계로** 넘긴다 — 자세·반전·배율을 따라가야 '입은' 것으로 보인다
       eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') }
     });
+    drawWeaponAura();   // v6.172 무기 발광은 **몸 위**에 — 날이 몸에 가리면 안 된다
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
     if (typeof ownedWeapon==='function' && ownedWeapon('nameless') && DB.growth && DB.growth.found){
       const glv = DB.growth.lv||1;
