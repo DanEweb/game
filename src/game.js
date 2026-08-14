@@ -1186,19 +1186,43 @@ import { FX } from "./fx.js";
     if (eq.setExec) p.execThresh = Math.min(0.6, (p.execThresh||0) + eq.setExec);
     if (eq.setReap3){ p.lifesteal += 1; p.critMult += 0.4; }
     // 직업 전용 유물
-    if (eq.relic==='manager'){ p.cdr*=0.92; p.dmgMult*=1.05; }
-    else if (eq.relic==='sniper'){ p.critChance+=0.10; }
-    else if (eq.relic==='rusher'){ p.speed*=1.08; p.lifesteal+=1; }
+    if (eq.relic==='samurai'){ p.critMult+=0.12; p.rateMult*=1.05; }
+    else if (eq.relic==='sniper'){ p.critChance=Math.min(0.9,p.critChance+0.10); }
     else if (eq.relic==='archer'){ p.rateMult*=1.10; p.pierce+=1; }
+    else if (eq.relic==='rusher'){ p.speed*=1.08; p.lifesteal+=1; }
+    else if (eq.relic==='paladin'){ p.dmgTaken*=0.92; p.maxHp+=30; p.hp+=30; }
+    else if (eq.relic==='manager'){ p.cdr*=0.92; p.dmgMult*=1.05; }
     else if (eq.relic==='ninja'){ p.dodge=Math.min(0.5,p.dodge+0.08); }
     else if (eq.relic==='engineer'){ p.goldMult*=1.15; p.cdr*=0.95; }
-    else if (eq.relic==='paladin'){ p.dmgTaken*=0.92; p.maxHp+=30; }
-    else if (eq.relic==='reaper'){ p.execThresh+=0.05; p.lifesteal+=1; }
-    else if (eq.relic==='pilot'){ p.droneBoost+=0.2; p.rateMult*=1.05; }
-    else if (eq.relic==='cheol'){ p.dmgTaken*=0.94; p.maxHp+=20; }
+    else if (eq.relic==='reaper'){ p.execThresh=(p.execThresh||0)+0.05; p.lifesteal+=1; }
+    else if (eq.relic==='pilot'){ p.droneBoost=(p.droneBoost||1)+0.20; p.rateMult*=1.05; }
+    else if (eq.relic==='cheol'){ p.dmgTaken*=0.94; p.maxHp+=20; p.hp+=20; }
     else if (eq.relic==='voidc'){ p.procBonus=(p.procBonus||0)+0.06; }
-    else if (eq.relic==='necro'){ p.ghostDur=4; p.ghostCap=(p.ghostCap||4)+1; }
+    else if (eq.relic==='necro'){ p.ghostDur=(p.ghostDur||0)+4; p.ghostCap=(p.ghostCap||0)+1; }
     else if (eq.relic==='bard'){ p.comboKeep=(p.comboKeep||0)+1; p.goldMult*=1.10; }
+    else if (eq.relic==='duelist'){ p.bossDmg=(p.bossDmg||1)*1.12; p.eliteDmg=(p.eliteDmg||1)*1.12; }
+    else if (eq.relic==='monk'){ p.rateMult*=1.12; }
+    else if (eq.relic==='gymbro'){ p.maxHp=Math.round(p.maxHp*1.12); p.hp=p.maxHp; }
+    else if (eq.relic==='baeksu'){ p.dmgTaken*=0.93; p.regen+=0.6; }
+    else if (eq.relic==='madman'){ p.dmgMult*=1.10; p.dmgTaken*=1.04; }
+    else if (eq.relic==='exhero'){ p.dmgMult*=1.08; p.maxHp+=25; p.hp+=25; }
+    else if (eq.relic==='shadow'){ p.critChance=Math.min(0.9,p.critChance+0.08); p.speed*=1.05; }
+    else if (eq.relic==='blackcat'){ p.dodge=Math.min(0.5,p.dodge+0.07); p.luck*=1.12; }
+    else if (eq.relic==='tombraider'){ p.luck*=1.20; p.magnet+=40; }
+    else if (eq.relic==='mumyeong'){ p.dmgMult*=1.06; p.cdr*=0.94; }
+    else if (eq.relic==='glitch'){ p.luck*=1.25; }
+    else if (eq.relic==='debug'){ rerollsLeft+=1; p.cdr*=0.94; }
+    else if (eq.relic==='returner'){ p.cdr*=0.90; }
+    else if (eq.relic==='druid'){ p.regen+=1.2; p.healMult*=1.20; }
+    else if (eq.relic==='tourist'){ p.speed*=1.10; p.goldMult*=1.12; }
+    else if (eq.relic==='stonks'){ p.goldMult*=1.25; }
+    else if (eq.relic==='gambler'){ p.luck*=1.20; p.critMult+=0.10; }
+    else if (eq.relic==='collector'){ p.luck*=1.25; }
+    else if (eq.relic==='slime'){ p.maxHp=Math.round(p.maxHp*1.10); p.hp=p.maxHp; p.dmgTaken*=0.96; }
+    else if (eq.relic==='contributor'){ p.cardSlots=(p.cardSlots||6)+1; p.dmgMult*=1.06; }
+    else if (eq.relic==='specialist'){ p.cdr*=0.93; p.rateMult*=1.06; }
+    else if (eq.relic==='runeknight'){ p.procBonus=(p.procBonus||0)+0.08; }
+    else if (eq.relic==='commander'){ p.droneBoost=(p.droneBoost||1)+0.25; p.ghostDmg=(p.ghostDmg||1)*1.25; p.turretDmg=(p.turretDmg||8)*1.25; }
     // 저주 적용
     for (const c of eq.curses){
       if (c==='noheal') p.healMult *= 0.5;
@@ -5278,6 +5302,14 @@ import { FX } from "./fx.js";
     spend:   (st,n)=> st.spend >= n,                      // 전용기를 N번 쓴다
     kills:   (st,n)=> st.kills >= n,                      // 쓸어담고 잡는다
     lowHp:   (st)=> st.lowHp,                             // 빈사에서 버티며 잡는다
+    //  🔴 v6.166 **관문전에서 성립하는 증명들** (사용자 지적: *"관문 보스에서 킬을 어떻게 해?"*)
+    //   관문은 잡몹을 치우고 시작한다 — 그런데 내가 킬 350~400을 걸어 놨다. **두 규칙을 겹쳐 놓고 검산을 안 했다.**
+    //   ⇒ 킬 기반 6직업을 *관문 안에서 실제로 일어나는 일*로 바꾼다
+    tank:    (st,n)=> st.taken >= n,                      // 최대체력의 N배를 얻어맞고도 살아서 잡는다
+    minion:  (st,n)=> st.minionAlive >= n,                // 소환물을 N기 살려 둔 채 잡는다
+    travel:  (st,n)=> st.travel >= n,                     // 관문 내내 N px 이상 움직이며 잡는다
+    gold:    (st,n)=> st.gold >= n,                       // 골드를 N 이상 챙긴 채 잡는다
+    loot:    (st,n)=> st.loot >= n,                       // 아이템을 N개 줍고 잡는다
   };
   //  [성물 이름, 증명 유형, 수치, 설명]
   //  ⚠ 이름 충돌 주의: `RELICS`는 **장비 슬롯 유물**(equipment-stats.js, 13직업분)로 이미 쓰이고 있다.
@@ -5295,7 +5327,7 @@ import { FX } from "./fx.js";
     blackcat:  ['아홉 번째 목숨',   'lowHp',   0,  '빈사에서 버텨 보스를 잡는다'],
     madman:    ['웃는 자의 가면',   'lowHp',   0,  '제 피를 태우고도 보스를 잡는다'],
     cheol:     ['식지 않는 심장',   'lowHp',   0,  '피를 흘리며 보스를 잡는다'],
-    gymbro:    ['최후의 1RM',       'kills',   350,'무리를 짓밟고 보스를 잡는다'],
+    gymbro:    ['최후의 1RM',       'tank',    4,  '최대체력의 네 배를 얻어맞고도 관문 보스를 잡는다'],
     monk:      ['일합(一合)의 염주','oneWeap', 0,  '무기 하나로 보스를 잡는다'],
     duelist:   ['맞선 자의 장갑',   'oneWeap', 0,  '오직 하나로 겨루어 보스를 잡는다'],
     exhero:    ['다시 든 성검',     'lowHp',   0,  '무너지기 직전 다시 일어나 보스를 잡는다'],
@@ -5305,17 +5337,17 @@ import { FX } from "./fx.js";
     specialist:['만능의 증표',      'elems',   5,  '세 속성을 갈아 쓰며 보스를 잡는다'],
     runeknight:['새겨진 이름',      'elems',   5,  '세 속성을 검에 새기고 보스를 잡는다'],
     manager:   ['멈추지 않는 궤도', 'spend',   14,  '궤도를 다섯 번 풀고 보스를 잡는다'],
-    commander: ['부러지지 않는 지휘봉','kills',400,'군세로 밀어붙여 보스를 잡는다'],
-    necro:     ['식지 않는 등불',   'kills',   380,'죽은 자를 거느리고 보스를 잡는다'],
+    commander: ['부러지지 않는 지휘봉','minion', 4,  '소환물을 넷 이상 살려 둔 채 관문 보스를 잡는다'],
+    necro:     ['식지 않는 등불',   'minion',  3,  '유령을 셋 이상 거느린 채 관문 보스를 잡는다'],
     druid:     ['마르지 않는 수액', 'lowHp',   0,  '상처를 안고 자연과 함께 보스를 잡는다'],
     bard:      ['끊기지 않는 현',   'spend',   14,  '박을 놓치지 않고 보스를 잡는다'],
     returner:  ['되돌린 하루',      'noHit',   0,  '한 번도 되돌릴 일 없이 보스를 잡는다'],
     engineer:  ['멈추지 않는 태엽', 'spend',   14,  '설치물과 함께 보스를 잡는다'],
-    tourist:   ['마지막 기념품',    'kills',   360,'구경하며 지나가듯 보스를 잡는다'],
-    stonks:    ['상장 폐지 통지서', 'kills',   360,'폭락을 이겨내고 보스를 잡는다'],
+    tourist:   ['마지막 기념품',    'travel',  9000,'한순간도 멈추지 않고(9000px 이동) 관문 보스를 잡는다'],
+    stonks:    ['상장 폐지 통지서', 'gold',    1200,'골드 1200을 쥔 채 관문 보스를 잡는다'],
     gambler:   ['마지막 판돈',      'lowHp',   0,  '모두 걸고 보스를 잡는다'],
     collector: ['비어 있던 진열대', 'elems',   5,  '세 속성을 모아 보스를 잡는다'],
-    tombraider:['봉인된 부장품',    'kills',   360,'무덤을 헤집고 보스를 잡는다'],
+    tombraider:['봉인된 부장품',    'loot',    12, '아이템 열둘을 줍고 관문 보스를 잡는다'],
     slime:     ['최초의 핵',        'lowHp',   0,  '뭉개지고도 보스를 잡는다'],
     glitch:    ['복구 불가 세이브', 'noSkill', 0,  '스킬 없이 보스를 잡는다'],
     debug:     ['마지막 스택 프레임','noSkill',0,  '스킬 없이 보스를 잡는다'],
@@ -6151,7 +6183,7 @@ import { FX } from "./fx.js";
   let state = 'idle'; // idle | playing | paused | levelup | event | dead | win
   let last = 0, raf = null;
   let elapsed = 0;
-  let runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(), maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false };   // v6.163 성물 증명
+  let runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(), maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false, taken:0, minionAlive:0, travel:0, gold:0, loot:0 };   // v6.163 성물 증명
   let killCount = 0;
   let runGold = 0;
   let spawnTimer = 0;
@@ -6299,7 +6331,7 @@ import { FX } from "./fx.js";
     satFlight.length = 0; engineTicks.length = 0;
     //  v6.163 성물 증명용 런 통계 — "그 직업답게 싸웠는가"를 판정할 근거
     runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(),
-                 maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false };
+                 maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false, taken:0, minionAlive:0, travel:0, gold:0, loot:0 };
     totalDmg = 0; noHitT = 0; dashCount = 0;
     elapsed = 0; killCount = 0; runGold = 0; spawnTimer = 0; pendingLevelUps = 0;
     shake = 0; freeze = 0;
@@ -13924,6 +13956,9 @@ import { FX } from "./fx.js";
     if (player.hitFlash>0) player.hitFlash -= dt;
     //  v6.163 성물 증명 — 무기 수·빈사 여부는 프레임에서 갱신한다
     runProof.maxWeapons = Math.max(runProof.maxWeapons, (player.weapons||[]).length);
+    runProof.minionAlive = Math.max(runProof.minionAlive, (player.ghosts?player.ghosts.length:0) + (player.turrets?player.turrets.length:0));
+    runProof.travel += Math.hypot(player.x-(player.__lastX||player.x), player.y-(player.__lastY||player.y));
+    runProof.gold = runGold;
     if (player.hp > 0 && player.hp < player.maxHp*0.2) runProof.lowHp = true;
     //  🔴 v6.148 **교전 중 재생 감쇠 (40%)** — 재생이 초당 피해를 넘으면 그 순간부터 불사가 된다.
     //   실측(10분·풀빌드): 초당 받는 피해 13.8인데 재생만 18이면 **맞으면서 체력이 찬다**.
@@ -14942,6 +14977,7 @@ import { FX } from "./fx.js";
       if (itd < player.r+it.r+4){
         useItem(it);
         rangedActCharge('loot');            // v6.152 도굴꾼 — 줍는 것이 곧 전리품
+        runProof.loot++;                    // v6.166 성물 증명
         items.splice(i,1);
       }
     }
@@ -15158,6 +15194,7 @@ import { FX } from "./fx.js";
     player.qaHitN = (player.qaHitN||0) + 1;
     player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
     runProof.hitTaken++;                  // v6.163 성물 증명 — 무피격 조건
+    runProof.taken += d / Math.max(1, player.maxHp);   // v6.166 최대체력의 몇 배를 맞았는가
     rangedActCharge('wounded');           // v6.152 회귀자 — 되돌리고 싶은 순간이 쌓인다
     player.hp -= d;
     noHitT = 0;
