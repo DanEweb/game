@@ -4480,19 +4480,35 @@ import { FX } from "./fx.js";
   // 속성 테크트리 — 윤회보험 RIP식 원소 속성. 전문 속성은 한 판에 3계열까지만.
   const TREES = {
     common: { name:'공통', common:true, nodes:[
-      { key:'c_hp',    name:'단련',  tier:1, max:9, desc:(m)=>'최대체력 +'+R(12*m)+', 즉시 회복', apply:(p,m)=>{ p.maxHp+=R(12*m); p.hp=Math.min(p.maxHp,p.hp+R(12*m)); } },
-      { key:'c_dmg',   name:'연마',  tier:1, max:9, desc:(m)=>'모든 피해 +'+R(5*m)+'%', apply:(p,m)=>{ p.dmgMult*=1+0.05*m; } },
-      { key:'c_spd',   name:'속보',  tier:1, max:6, desc:(m)=>'이동속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.speed*=1+0.03*m; } },
-      { key:'c_mag',   name:'수집',  tier:1, max:6, desc:(m)=>'수집 범위 +'+R(15*m), apply:(p,m)=>{ p.magnet+=15*m; } },
-      { key:'c_rate',  name:'집중',  tier:1, max:6, desc:(m)=>'공격속도 +'+R(5*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; } },
-      { key:'c_regen', name:'재생',  tier:1, max:5, desc:(m)=>'초당 체력 +'+R1(0.55*m), apply:(p,m)=>{ p.regen+=0.55*m; } },
+      { key:'c_hp',    name:'단련',  tier:1, max:6, desc:(m)=>'최대체력 +'+R(12*m)+', 즉시 회복', apply:(p,m)=>{ p.maxHp+=R(12*m); p.hp=Math.min(p.maxHp,p.hp+R(12*m)); } },
+      { key:'c_dmg',   name:'연마',  tier:1, max:5, desc:(m)=>'모든 피해 +'+R(5*m)+'%', apply:(p,m)=>{ p.dmgMult*=1+0.05*m; } },
+      { key:'c_spd',   name:'속보',  tier:1, max:4, desc:(m)=>'이동속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.speed*=1+0.03*m; } },
+      { key:'c_mag',   name:'수집',  tier:1, max:4, desc:(m)=>'수집 범위 +'+R(15*m), apply:(p,m)=>{ p.magnet+=15*m; } },
+      { key:'c_rate',  name:'집중',  tier:1, max:4, desc:(m)=>'공격속도 +'+R(5*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; } },
+      { key:'c_regen', name:'재생',  tier:1, max:4, desc:(m)=>'초당 체력 +'+R1(0.55*m), apply:(p,m)=>{ p.regen+=0.55*m; } },
       { key:'c_steal', name:'흡혈',  tier:2, max:2, desc:(m)=>'처치 시 회복 +'+Math.max(1,R(0.5*m)), apply:(p,m)=>{ p.lifesteal+=Math.max(1,R(0.5*m)); } },
       { key:'c_luck',  name:'행운',  tier:2, max:3, desc:(m)=>'골드 +'+R(8*m)+'%, 아이템 드랍 +'+R(12*m)+'%', apply:(p,m)=>{ p.goldMult*=1+0.08*m; p.luck*=1+0.12*m; } },
       { key:'c_giant', name:'거인 사냥꾼', tier:2, max:3, desc:(m)=>'엘리트·악몽급 피해 +'+R(9*m)+'%, 보스 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.eliteDmg*=1+0.09*m; p.bossDmg*=1+0.06*m; } },
+      //  🔴 v6.154 **엔진 강화 노드** (배치 6 — 테크트리 리워크의 ①)
+      //   로드맵 진단: *"엔진 체계가 생긴 지금 테크트리는 **엔진을 키우는 곳**이어야 하는데
+      //    여전히 '무기를 하나 더 주는 곳'이다"*. 지금까지 레벨업 카드에는
+      //   **자기 전용기(자원·소비기)를 키우는 선택지가 하나도 없었다** — 축을 만들어 놓고 성장 경로를 안 준 것이다.
+      //   ⚠ 위력만 키우면 v6.144에서 되돌린 그 실수를 반복한다 → **회전율·범위·타수·창**으로 나눠 준다.
+      //     `engineResource()`가 있는 직업(근접·원거리·직업 축 전부)만 등장한다
+      { key:'c_engres', name:'연성',   tier:1, max:4, req:()=>!!engineResource(),
+        desc:(m)=>'전용기 자원이 더 빨리 찬다 +'+R(14*m)+'%', apply:(p,m)=>{ p.engGain=(p.engGain||1)*(1+0.14*m); } },
+      { key:'c_engr',  name:'파장',   tier:2, max:3, req:()=>!!engineResource(),
+        desc:(m)=>'전용기 범위 +'+R(10*m)+'%', apply:(p,m)=>{ p.engR=(p.engR||1)*(1+0.10*m); } },
+      { key:'c_engn',  name:'연격',   tier:2, max:2, req:()=>!!engineResource(),
+        desc:(m)=>'전용기 타수 +'+m, apply:(p,m)=>{ p.engN=(p.engN||0)+m; } },
+      { key:'c_engsurge',name:'여운', tier:2, max:3, req:()=>!!engineResource(),
+        desc:(m)=>'전용기 후 각성 창 +'+R1(0.7*m)+'초', apply:(p,m)=>{ p.engSurge=(p.engSurge||0)+0.7*m; } },
+      { key:'c_engpow', name:'벼림',  tier:3, max:2, req:()=>!!engineResource(),
+        desc:(m)=>'전용기 위력 +'+R(12*m)+'% (마지막에 여는 것)', apply:(p,m)=>{ p.engPow=(p.engPow||1)*(1+0.12*m); } },
       { key:'c_undying',name:'불굴', tier:3, max:1, desc:(m)=>'[궁극] 1회 부활, 체력 30% 이하일 때 피해 -'+Math.min(60,R(15*m))+'%', apply:(p,m)=>{ p.undyingRevive=true; p.undyingDR=Math.min(0.6,0.15*m); } },
     ]},
     fire: { name:'지옥불', nodes:[
-      { key:'f_ignite', name:'발화',       tier:1, max:4, desc:(m)=>'타격 시 화상 확률 +'+R(10*m)+'%, 화상 피해 +'+R(3*m)+'/초 (3초)', apply:(p,m)=>{ if(!p.burnChance) p.burnDps=6; p.burnChance=Math.min(0.8,p.burnChance+0.10*m); p.burnDps+=3*m; } },
+      { key:'f_ignite', name:'발화',       tier:1, max:3, desc:(m)=>'타격 시 화상 확률 +'+R(10*m)+'%, 화상 피해 +'+R(3*m)+'/초 (3초)', apply:(p,m)=>{ if(!p.burnChance) p.burnDps=6; p.burnChance=Math.min(0.8,p.burnChance+0.10*m); p.burnDps+=3*m; } },
       { key:'f_ball',   name:'화염구',     tier:1, max:3, desc:(m)=>'3.5초마다 화염구 발사 — 착탄 시 폭발+화상 (피해 +'+R(12*m)+')', apply:(p,m)=>{ if(!p.fireballLv) p.fireballDmg=22; p.fireballLv+=1; p.fireballDmg+=12*m; } },
       { key:'f_trail',  name:'불의 궤적',  tier:2, max:2, desc:(m)=>'이동 경로에 불길이 남는다 (초당 피해 +'+R(5*m)+')', apply:(p,m)=>{ p.firetrailLv+=1; p.firetrailDps=(p.firetrailDps||7)+5*m; } },
       { key:'f_zone',   name:'폭염 지대',  tier:2, max:2, desc:(m)=>'불길 장판 피해 +'+R(10*m)+', 지속 +0.4초', apply:(p,m)=>{ p.firetrailDps=(p.firetrailDps||10)+10*m; p.firetrailDur+=0.4; } },
@@ -4536,7 +4552,7 @@ import { FX } from "./fx.js";
       { key:'i_myth',   name:'영원한 겨울', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 빙결·냉기 적 피해 +35%, 냉기 최대 효과, 서리 갑옷 강화', apply:(p)=>{ p.frozenAmp+=0.35; p.chillPower=0.32; p.chillOn=true; p.frostArmor=(p.frostArmor||0)+1; } },
     ]},
     volt: { name:'번개', nodes:[
-      { key:'l_shock',  name:'감전',       tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 연쇄 번개 (피해 +'+R(5*m)+')', apply:(p,m)=>{ p.shockChance=Math.min(0.6,p.shockChance+0.08*m); p.shockDmg=(p.shockDmg||10)+5*m; } },
+      { key:'l_shock',  name:'감전',       tier:1, max:3, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 연쇄 번개 (피해 +'+R(5*m)+')', apply:(p,m)=>{ p.shockChance=Math.min(0.6,p.shockChance+0.08*m); p.shockDmg=(p.shockDmg||10)+5*m; } },
       { key:'l_charge', name:'축전',       tier:1, max:3, desc:(m)=>'공격속도 +'+R(6*m)+'%, 대시 후 2초간 감전 확률 100%', apply:(p,m)=>{ p.rateMult*=1+0.06*m; p.chargeBoost=true; if(!p.shockDmg) p.shockDmg=10; } },
       { key:'l_field',  name:'자기장',     tier:2, max:2, desc:(m)=>'4초마다 주변에 감전 펄스 (피해 +'+R(6*m)+')', apply:(p,m)=>{ p.magfieldLv+=1; p.magfieldDmg=(p.magfieldDmg||9)+6*m; } },
       { key:'l_over',   name:'과전압',     tier:2, max:1, desc:(m)=>'감전 연쇄가 한 번 더 튄다', apply:(p,m)=>{ p.chainPlus=1; } },
@@ -4558,7 +4574,7 @@ import { FX } from "./fx.js";
       { key:'l_myth',   name:'천둥의 심장', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 감전 연쇄 +2회, 감전 확률 +15%p, 감전 피해 +15', apply:(p)=>{ p.chainPlus=(p.chainPlus||0)+2; p.shockChance=Math.min(0.8,(p.shockChance||0)+0.15); p.shockDmg=(p.shockDmg||10)+15; } },
     ]},
     acid: { name:'부식', nodes:[
-      { key:'a_shred',  name:'방어 붕괴',  tier:1, max:4, desc:(m)=>'타격 시 '+R(10*m)+'% 확률 부식 — 중첩당 받는 피해 +15% (5초)', apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.10*m); } },
+      { key:'a_shred',  name:'방어 붕괴',  tier:1, max:3, desc:(m)=>'타격 시 '+R(10*m)+'% 확률 부식 — 중첩당 받는 피해 +15% (5초)', apply:(p,m)=>{ p.corrodeChance=Math.min(0.7,p.corrodeChance+0.10*m); } },
       { key:'a_melt',   name:'용해',       tier:1, max:3, desc:(m)=>'부식된 적은 초당 '+R(3*m)+' 추가 피해', apply:(p,m)=>{ p.dissolveDps=(p.dissolveDps||0)+3*m; } },
       { key:'a_cloud',  name:'산성 구름',  tier:2, max:2, desc:(m)=>'7초마다 산성 구름 장판 (초당 피해 +'+R(5*m)+', 부식 부여)', apply:(p,m)=>{ p.acidLv+=1; p.acidDps=(p.acidDps||7)+5*m; } },
       { key:'a_burst',  name:'침식 폭발',  tier:2, max:1, desc:(m)=>'부식 2중첩 이상 적이 죽으면 산성 폭발이 퍼진다', apply:(p,m)=>{ p.acidBurst=true; } },
@@ -4580,7 +4596,7 @@ import { FX } from "./fx.js";
       { key:'a_myth',   name:'만물 분해',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 부식 중첩당 받는 피해 +30%로 강화, 용해 피해 2배', apply:(p)=>{ p.corrodeAmp=0.30; p.dissolveDps=(p.dissolveDps||3)*2; } },
     ]},
     boom: { name:'폭발', nodes:[
-      { key:'e_boom',   name:'유폭',       tier:1, max:4, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 폭발 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.10*m); p.explodeDmg=(p.explodeDmg||18)+10*m; } },
+      { key:'e_boom',   name:'유폭',       tier:1, max:3, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 폭발 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.explodeChance=Math.min(0.6,(p.explodeChance||0)+0.10*m); p.explodeDmg=(p.explodeDmg||18)+10*m; } },
       { key:'e_dash',   name:'돌파 폭발',  tier:1, max:3, desc:(m)=>'대시할 때 주변 폭발 (피해 +'+R(18*m)+')', apply:(p,m)=>{ if(!p.dashBlast) p.dashBlast=20; p.dashBlast+=18*m; } },
       { key:'e_mines',  name:'지뢰 살포',  tier:2, max:2, desc:(m)=>'5초마다 지뢰 2개 설치 (피해 +'+R(10*m)+')', apply:(p,m)=>{ p.mineLv+=1; p.mineDmg=(p.mineDmg||22)+10*m; } },
       { key:'e_chain2', name:'연쇄 기폭',  tier:2, max:2, desc:(m)=>'유폭·지뢰 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.explodeDmg=(p.explodeDmg||18)*(1+0.15*m); p.mineDmg=(p.mineDmg||30)*(1+0.15*m); } },
@@ -4624,7 +4640,7 @@ import { FX } from "./fx.js";
       { key:'m_myth',   name:'기계 반란',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 터렛 +2기, 터렛 공격속도 +30%, 관통 +1', apply:(p)=>{ p.turretLv=(p.turretLv||0)+2; if(!p.turretDmg) p.turretDmg=12; p.turretRate*=1.3; p.pierce+=1; } },
     ]},
     psi: { name:'염동', nodes:[
-      { key:'p_pulse',  name:'염동 파동',   tier:1, max:4, desc:(m)=>'7초마다 주변을 밀쳐내는 파동 (피해 +'+R(8*m)+')', apply:(p,m)=>{ if(!p.pulseLv) p.pulseDmg=14; p.pulseLv+=1; p.pulseDmg+=8*m; } },
+      { key:'p_pulse',  name:'염동 파동',   tier:1, max:3, desc:(m)=>'7초마다 주변을 밀쳐내는 파동 (피해 +'+R(8*m)+')', apply:(p,m)=>{ if(!p.pulseLv) p.pulseDmg=14; p.pulseLv+=1; p.pulseDmg+=8*m; } },
       { key:'p_shield', name:'사이오닉 방벽', tier:1, max:2, desc:(m)=>'주기적으로 피해 1회 무효 (충전 '+R1(Math.max(5,12-1.5*m))+'초)', apply:(p,m)=>{ const cd=Math.max(5,12-1.5*m); p.shieldCdMax = p.shieldCdMax? Math.min(p.shieldCdMax,cd) : cd; p.shieldT=0; } },
       { key:'p_slow',   name:'정신 압박',   tier:2, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
       { key:'p_grav',   name:'중력 붕괴',   tier:2, max:1, desc:(m)=>'염동 파동이 적을 끌어당기며 피해 +30%', apply:(p,m)=>{ p.pulsePull=true; } },
@@ -4646,7 +4662,7 @@ import { FX } from "./fx.js";
       { key:'p_myth',   name:'초월자',      tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 파동 피해 +60%·적을 끌어당김, 모든 적 이속 -8%', apply:(p)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=20; } p.pulseDmg=Math.round(p.pulseDmg*1.6); p.pulsePull=true; p.slowAll*=0.92; } },
     ]},
     holy: { name:'신성', nodes:[
-      { key:'h_smite',  name:'성광 강타',   tier:1, max:4, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 신성 피해 +'+R(8*m), apply:(p,m)=>{ p.smiteChance=Math.min(0.6,(p.smiteChance||0)+0.08*m); p.smiteDmg=(p.smiteDmg||10)+8*m; } },
+      { key:'h_smite',  name:'성광 강타',   tier:1, max:3, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 신성 피해 +'+R(8*m), apply:(p,m)=>{ p.smiteChance=Math.min(0.6,(p.smiteChance||0)+0.08*m); p.smiteDmg=(p.smiteDmg||10)+8*m; } },
       { key:'h_bless',  name:'빛의 축복',   tier:1, max:3, desc:(m)=>'재생 +'+R1(0.5*m)+', 회복 효과 +'+R(10*m)+'%', apply:(p,m)=>{ p.regen+=0.5*m; p.healMult*=1+0.10*m; } },
       { key:'h_halo',   name:'후광',        tier:1, max:3, desc:(m)=>'6초마다 주변 신성 파동 (피해 +'+R(9*m)+', 체력 2 회복)', apply:(p,m)=>{ p.haloLv=(p.haloLv||0)+1; p.haloDmg=(p.haloDmg||12)+9*m; } },
       { key:'h_ward',   name:'성역',        tier:2, max:2, desc:(m)=>'피격을 '+R(6*m)+'% 확률로 무효화', apply:(p,m)=>{ p.holyWard=Math.min(0.35,(p.holyWard||0)+0.06*m); } },
@@ -4685,7 +4701,7 @@ import { FX } from "./fx.js";
       { key:'g_myth',   name:'사건의 지평선', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 중력 우물 상시 유지 + 우물 피해·압착 +50%', apply:(p)=>{ p.gravAlways=true; if(!p.gravLv){ p.gravLv=1; p.gravDps=8; } p.gravDps=Math.round(p.gravDps*1.5); p.crushAmp=(p.crushAmp||0)*1.5+0.1; } },
     ]},
     chrono: { name:'시간', nodes:[
-      { key:'c_cut',    name:'시간 절단',   tier:1, max:4, desc:(m)=>'타격 시 '+R(6*m)+'% 확률로 0.5초 정지', apply:(p,m)=>{ p.stutterChance=Math.min(0.5,(p.stutterChance||0)+0.06*m); p.stutterDur=0.5; } },
+      { key:'c_cut',    name:'시간 절단',   tier:1, max:3, desc:(m)=>'타격 시 '+R(6*m)+'% 확률로 0.5초 정지', apply:(p,m)=>{ p.stutterChance=Math.min(0.5,(p.stutterChance||0)+0.06*m); p.stutterDur=0.5; } },
       { key:'c_haste',  name:'가속',        tier:1, max:3, desc:(m)=>'공격속도 +'+R(5*m)+'%, 쿨다운 -'+R(3*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; p.cdr*=1-0.03*m; } },
       { key:'c_drag',   name:'지연장',      tier:2, max:2, desc:(m)=>'내 주변 적 탄환 속도 -'+R(15*m)+'%', apply:(p,m)=>{ p.dragField=Math.min(0.6,(p.dragField||0)+0.15*m); } },
       { key:'c_moment', name:'찰나 포착',   tier:2, max:2, desc:(m)=>'정지 상태의 적 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.15*m; } },
@@ -4705,7 +4721,7 @@ import { FX } from "./fx.js";
     ]},
     blood: { name:'혈마', nodes:[
       { key:'b_pact',   name:'피의 계약',   tier:1, max:3, desc:(m)=>'피해 +'+R(7*m)+'% / 최대체력 -3%', apply:(p,m)=>{ p.dmgMult*=1+0.07*m; p.maxHp=Math.max(30,Math.round(p.maxHp*0.97)); p.hp=Math.min(p.hp,p.maxHp); } },
-      { key:'b_leech',  name:'흡혈 낙인',   tier:1, max:4, desc:(m)=>'타격 시 '+R(4*m)+'% 확률 체력 +'+Math.max(1,R(m))+' 회복', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.38,(p.bloodLeechChance||0)+0.04*m); p.bloodMult=Math.max(1,R(m)); } },
+      { key:'b_leech',  name:'흡혈 낙인',   tier:1, max:3, desc:(m)=>'타격 시 '+R(4*m)+'% 확률 체력 +'+Math.max(1,R(m))+' 회복', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.38,(p.bloodLeechChance||0)+0.04*m); p.bloodMult=Math.max(1,R(m)); } },
       { key:'b_burst',  name:'혈폭',        tier:1, max:3, desc:(m)=>'처치 시 '+R(10*m)+'% 확률 핏빛 폭발 (피해 +'+R(9*m)+')', apply:(p,m)=>{ p.bloodBurstCh=Math.min(0.6,(p.bloodBurstCh||0)+0.10*m); p.bloodBurstDmg=(p.bloodBurstDmg||14)+9*m; } },
       { key:'b_frenzy', name:'광혈',        tier:2, max:2, desc:(m)=>'잃은 체력 10%당 공격속도 +'+R(3*m)+'%', apply:(p,m)=>{ p.bloodFrenzy=(p.bloodFrenzy||0)+0.03*m; } },
       { key:'b_lord',   name:'피의 군주',   tier:3, max:1, desc:(m)=>'[전용기] 12초마다 체력 8%를 바쳐 핏빛 대폭발 (피해 '+R(45*m)+')', apply:(p,m)=>{ p.bloodLord=45*m; } },
@@ -5178,8 +5194,18 @@ import { FX } from "./fx.js";
     // 공통 트리는 매 레벨업 2종만 무작위 등장 (강림 속성이 풀의 주인공이 되도록)
     const commonAllow = new Set();
     {
-      const cn = TREES.common.nodes.filter(n=>!banned.has(n.key) && (player.techPicks[n.key]||0) < n.max);
-      for (let i2=0;i2<2 && cn.length;i2++){ commonAllow.add(cn.splice((Math.random()*cn.length)|0,1)[0].key); }
+      const cn = TREES.common.nodes.filter(n=>(!n.req || n.req()) && !banned.has(n.key) && (player.techPicks[n.key]||0) < n.max);
+      //  🔴 v6.154 **엔진 강화 노드는 한 자리를 보장한다.** 공통 트리는 레벨업마다 **2개만 무작위 허용**인데,
+      //   엔진 노드 5개를 그 경쟁에 던져 넣었더니 **16번의 레벨업에서 한 번도 안 떴다**(실측).
+      //   테크트리를 '엔진을 키우는 곳'으로 만드는 것이 이 배치의 목적인데, 안 뜨면 목적 자체가 없다.
+      //   ⚠ 보장은 **후보 하나**일 뿐이다 — 등급·게이트·수확 체감은 그대로 적용된다
+      const eng = cn.filter(n=>n.key.indexOf('c_eng')===0);
+      if (eng.length && Math.random() < 0.55){
+        const pick = eng[(Math.random()*eng.length)|0];
+        commonAllow.add(pick.key);
+        const at = cn.indexOf(pick); if (at>=0) cn.splice(at,1);
+      }
+      for (let i2=0; i2<2 && cn.length && commonAllow.size<2; i2++){ commonAllow.add(cn.splice((Math.random()*cn.length)|0,1)[0].key); }
     }
     Object.keys(TREES).forEach((tkey)=>{
       const tree = TREES[tkey];
@@ -5187,6 +5213,9 @@ import { FX } from "./fx.js";
       const pts = player.tech[tkey]||0;
       for (const node of tree.nodes){
         if (banned.has(node.key)) continue;
+        //  v6.154 조건부 노드 — 엔진 강화 카드는 **엔진이 있는 직업에게만** 뜬다
+        //   (엔진이 없으면 키울 대상이 없어 '죽은 카드'가 된다)
+        if (node.req && !node.req()) continue;
         if (tree.common && !commonAllow.has(node.key)) continue;
         const picks = player.techPicks[node.key]||0;
         if (picks >= node.max) continue;
@@ -5292,7 +5321,13 @@ import { FX } from "./fx.js";
     if (focusTree){
       // 타 속성 테크 카드 + 타 속성 '각인' 무기 카드(elc) 모두 제거 — 강림 표기와 어긋난 카드 원천 차단
       for (let i=pool.length-1;i>=0;i--){
-        if ((pool[i].tkey && pool[i].tkey!==focusTree) || (pool[i].elc && pool[i].elc!==focusTree)) pool.splice(i,1);
+        //  🐛 v6.154 **공통 트리가 통째로 지워지고 있었다.** 바로 위 주석은 *"무속성·무기·전용은 유지"* 라고
+        //   적어 놓고, 정작 조건은 `tkey !== focusTree` 하나뿐이라 `tkey==='common'`도 전부 걸러졌다.
+        //   강림은 **항상** 어떤 속성으로 정해지므로(SPEC_TREES에 common이 없다) 결과적으로
+        //   **공통 테크 전체(연마·단련·속보·집중·재생·행운·거인 사냥꾼·불굴)가 한 번도 뜨지 않았다.**
+        //   실측으로 잡았다: 풀을 25번 뽑아 공통 카드 **0장**(엔진 강화 노드를 넣고도 0장이라 이상해서 팠다)
+        //   ⚠ 주석이 의도를 적어 뒀는데 코드가 안 따라간 경우다 — *주석과 조건이 어긋나면 조건을 의심할 것*
+        if ((pool[i].tkey && pool[i].tkey!=='common' && pool[i].tkey!==focusTree) || (pool[i].elc && pool[i].elc!==focusTree)) pool.splice(i,1);
       }
       const focusIdx = [];
       for (let i=pool.length-1;i>=0;i--) if (pool[i].tkey===focusTree) focusIdx.push(i);
@@ -7019,6 +7054,11 @@ import { FX } from "./fx.js";
       return 'powerScale='+powerScale().toFixed(2);
     } catch(e){ return 'ERR '+String(e); }
   };
+  //  v6.154 QA: 레벨업 카드 풀을 들여다본다 — '왜 이 카드가 안 뜨는가'는 추측으로 못 푼다
+  window.__qaPool = (n)=>{ try {
+    const p = rollUpgrades(n||6);
+    return JSON.stringify({ n:p.length, keys:p.map(c=>c.key), names:p.map(c=>c.name) });
+  } catch(e){ return 'ERR '+String(e&&e.stack||e); } };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
   };
@@ -10450,7 +10490,7 @@ import { FX } from "./fx.js";
     const E = MELEE_ENGINE[mk];
     if (!E || E.act !== kind) return;
     const before = player.mCharge || 0;
-    player.mCharge = Math.min(1, before + (MELEE_ACT[kind] || 0.1) * (mult || 1));
+    player.mCharge = Math.min(1, before + (MELEE_ACT[kind] || 0.1) * (mult || 1) * (player.engGain||1));   // v6.154 단련
     if (before < 1 && player.mCharge >= 1){
       addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup');
     }
@@ -10529,7 +10569,7 @@ import { FX } from "./fx.js";
   function freeCharge(v){
     const F = freeClassCfg();
     if (!F) return;
-    player.freeChg = Math.min(1, (player.freeChg||0) + v);
+    player.freeChg = Math.min(1, (player.freeChg||0) + v * (player.engGain||1));   // v6.154 단련
   }
   function rangedClassCfg(){
     return (player && RANGED_CLASS[player.classKey]) || null;
@@ -10564,7 +10604,7 @@ import { FX } from "./fx.js";
     if (!RC || RC.act !== kind) return;
     const before = player.mCharge || 0;
     //  ⚠ 조준 게이트(v6.140)는 그대로 지난다 — 원거리 전용기의 **대가**는 여전히 조준이다
-    player.mCharge = Math.min(1, before + (RANGED_ACT[kind]||0.1) * (mult||1));
+    player.mCharge = Math.min(1, before + (RANGED_ACT[kind]||0.1) * (mult||1) * (player.engGain||1));   // v6.154 단련
     if (before < 1 && player.mCharge >= 1){
       addTextNum(player.x, player.y-46, RC.res+' 만충 — R'); SFX.play('levelup');
     }
@@ -10764,8 +10804,8 @@ import { FX } from "./fx.js";
     // v6.133 전직·각성 진화가 여기서 한 번에 곱해진다
     //  v6.144 전용기 −35%. 여기 한 곳이 **모든 소비기의 위력**을 지난다.
     //   전용기는 '쓸어담는 기술'이 아니라 '판을 뒤집는 기술'이다 — 위력으로 주면 스킬·궁극과 곱해져 반드시 무너진다
-    const P = player.dmgMult * focus * (player.meleeBoost||1) * spendTierMult() * 0.65;
-    const TR = spendTierR(), TN = spendTierN(), TNAME = SPEND_TIER_NAME[spendTier()];
+    const P = player.dmgMult * focus * (player.meleeBoost||1) * spendTierMult() * (player.engPow||1) * 0.65;   // v6.154 벼림
+    const TR = spendTierR() * (player.engR||1), TN = spendTierN() + (player.engN||0), TNAME = SPEND_TIER_NAME[spendTier()];   // v6.154 파장·연격
     let key = meleeEngineKey();
     // v6.123 무명자 — 이름이 없으니 소비기도 고정되지 않는다. 누를 때마다 다른 엔진의 시그니처가 나간다
     if (key === 'noname'){
@@ -11061,7 +11101,7 @@ import { FX } from "./fx.js";
           });
           addTextNum(player.x, player.y-40, '폭격 항로');
         }
-        player.surgeT = 3; _overflowT = 0; resetSpentResource();
+        player.surgeT = 3 + (player.engSurge||0); _overflowT = 0; resetSpentResource();
         addTextNum(player.x, player.y-54, '각성 3초');
         return;
       }
@@ -11191,7 +11231,7 @@ import { FX } from "./fx.js";
           });
           addTextNum(player.x, player.y-40, '공허 붕괴');
         }
-        player.surgeT = 3; _overflowT = 0; resetSpentResource();
+        player.surgeT = 3 + (player.engSurge||0); _overflowT = 0; resetSpentResource();
         addTextNum(player.x, player.y-54, '각성 3초');
         return;
       }
@@ -11314,7 +11354,7 @@ import { FX } from "./fx.js";
       }
       effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:20, r1:92 });
     }
-    player.surgeT = 3;            // v6.111 소비 직후 3초간 평타 +60% — 쓰면 그 다음이 강해진다
+    player.surgeT = 3 + (player.engSurge||0);   // v6.111 소비 직후 각성 창 · v6.154 여운으로 늘어난다
     _overflowT = 0;
     resetSpentResource();
     addTextNum(player.x, player.y-54, TNAME ? ('각성 3초 · '+TNAME) : '각성 3초');
