@@ -689,7 +689,7 @@ import { FX } from "./fx.js";
   const COLORS = {
     fire:'#e2603f', frost:'#3fa8c9', volt:'#e0b73d', acid:'#6faa4e',
     boom:'#e2823f', mech:'#7a8a99', psi:'#9a6fc4',
-    holy:'#e0c04f', grav:'#6a5acd', chrono:'#5ab8c9', blood:'#c9403a', venom:'#7fbf3f',
+    holy:'#e0c04f', grav:'#6a5acd', chrono:'#5ab8c9', blood:'#c9403a', venom:'#7fbf3f', storm:'#9fd8e8', sonic:'#c98ae0', crystal:'#a8d8e8',
     gold:'#d9a53f', xp:'#3aa895', hp:'#d9534f', danger:'#c94f4f',
     heart:'#d97ba8', chest:'#b98a3f', crit:'#d9613f'
   };
@@ -4734,6 +4734,48 @@ import { FX } from "./fx.js";
     //  🔴 v6.156 **새 속성 '맹독'** (사용자 지시: *"속성도 추가하고 … 속성 따라 특성도 없고"*)
     //   ⚠ 노드를 전부 **이 속성만의 언어**로 짰다 — 받는 피해·이속·쿨감 같은 범용 스탯은 **한 개도 넣지 않았다**.
     //    (기존 11트리에는 그런 범용 노드가 50개나 섞여 있어서 속성이 서로 구분되지 않았다)
+    //  🔴 v6.157 신설 3속성 — **전부 그 속성만의 언어로만** 짰다(범용 스탯 0개).
+    //   기존 12속성과 겹치지 않는지 먼저 확인했다: 화상=도트 · 서리=둔화/융해 · 번개=연쇄 · 부식=방어붕괴 ·
+    //   폭발=연쇄폭발 · 기계=설치물 · 염동=끌기 · 신성=보호 · 중력=집합 · 시간=감속 · 혈마=대가 · 맹독=중첩전이
+    storm: { name:'폭풍', nodes:[
+      { key:'s_gust',  name:'돌풍',      tier:1, max:3, desc:(m)=>'타격 시 밀쳐낼 확률 +'+R(9*m)+'%p',
+        apply:(p,m)=>{ p.stormChance=Math.min(0.8,(p.stormChance||0)+0.09*m); } },
+      { key:'s_force', name:'풍압',      tier:1, max:3, desc:(m)=>'밀치는 힘 +'+R(55*m),
+        apply:(p,m)=>{ p.stormPush=(p.stormPush||260)+55*m; } },
+      { key:'s_crash', name:'충돌',      tier:1, max:3, desc:(m)=>'적끼리 부딪힐 때 피해 +'+R(6*m),
+        apply:(p,m)=>{ p.stormCrash=(p.stormCrash||10)+6*m; } },
+      { key:'s_eye',   name:'태풍의 눈', tier:2, max:2, desc:(m)=>'밀쳐낼 확률 +'+R(6*m)+'%p, 충돌 피해 +'+R(5*m),
+        apply:(p,m)=>{ p.stormChance=Math.min(0.8,(p.stormChance||0)+0.06*m); p.stormCrash=(p.stormCrash||10)+5*m; } },
+      { key:'s_myth',  name:'폭풍의 주인', tier:4, max:1, myth:true,
+        desc:()=>'[신화 · 유일] 밀린 적이 부딪히면 **그 적도 밀려난다** — 무리가 통째로 튕겨 나간다',
+        apply:(p)=>{ p.stormChain=true; } },
+    ]},
+    sonic: { name:'공명', nodes:[
+      { key:'n_tune',  name:'조율',      tier:1, max:3, desc:(m)=>'타격 시 공명 확률 +'+R(10*m)+'%p',
+        apply:(p,m)=>{ p.sonicChance=Math.min(0.8,(p.sonicChance||0)+0.10*m); } },
+      { key:'n_amp',   name:'증폭',      tier:1, max:3, desc:(m)=>'공명 폭발 피해 +'+R(9*m),
+        apply:(p,m)=>{ p.sonicDmg=(p.sonicDmg||30)+9*m; } },
+      { key:'n_short', name:'단축',      tier:2, max:2, desc:(m)=>'공명 임계 -'+Math.max(1,R(m))+' (더 빨리 터진다)',
+        apply:(p,m)=>{ p.sonicCap=Math.max(2,(p.sonicCap||5)-Math.max(1,R(m))); } },
+      { key:'n_reso',  name:'되울림',    tier:2, max:2, desc:(m)=>'공명 폭발 피해 +'+R(7*m)+', 확률 +'+R(4*m)+'%p',
+        apply:(p,m)=>{ p.sonicDmg=(p.sonicDmg||30)+7*m; p.sonicChance=Math.min(0.8,(p.sonicChance||0)+0.04*m); } },
+      { key:'n_myth',  name:'절대 음감',  tier:4, max:1, myth:true,
+        desc:()=>'[신화 · 유일] 공명이 터질 때 **주변에 2씩** 옮는다 — 무리 전체가 함께 울린다',
+        apply:(p)=>{ p.sonicDeep=true; } },
+    ]},
+    crystal: { name:'결정', nodes:[
+      { key:'x_seed',  name:'결정핵',    tier:1, max:3, desc:(m)=>'타격 시 결정화 확률 +'+R(8*m)+'%p',
+        apply:(p,m)=>{ p.crysChance=Math.min(0.7,(p.crysChance||0)+0.08*m); } },
+      { key:'x_shard', name:'파편',      tier:1, max:3, desc:(m)=>'깨질 때 파편 +'+Math.max(1,R(m)),
+        apply:(p,m)=>{ p.crysShard=(p.crysShard||0)+Math.max(1,R(m)); } },
+      { key:'x_edge',  name:'예각',      tier:1, max:3, desc:(m)=>'파편 피해 +'+R(6*m),
+        apply:(p,m)=>{ p.crysDmg=(p.crysDmg||14)+6*m; } },
+      { key:'x_grow',  name:'성장',      tier:2, max:2, desc:(m)=>'결정 지속 +'+R1(0.5*m)+'초 (그동안 길을 막는다)',
+        apply:(p,m)=>{ p.crysDur=(p.crysDur||0)+0.5*m; } },
+      { key:'x_myth',  name:'결정 궁전',  tier:4, max:1, myth:true,
+        desc:()=>'[신화 · 유일] 파편이 다른 적을 **다시 결정화**한다 — 굳고 깨지는 것이 스스로 이어진다',
+        apply:(p)=>{ p.crysCascade=true; } },
+    ]},
     venom: { name:'맹독', nodes:[
       { key:'v_fang',   name:'독니',       tier:1, max:3, desc:(m)=>'타격 시 중독 확률 +'+R(9*m)+'%p',
         apply:(p,m)=>{ p.venomChance=Math.min(0.75,(p.venomChance||0)+0.09*m); } },
@@ -4771,7 +4813,7 @@ import { FX } from "./fx.js";
       { key:'b_myth',   name:'진혈각성',    tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 흡혈·회복 낙인 2배, 혈폭 확률 +15%p, 피의 군주 체력 소모 절반', apply:(p)=>{ p.bloodMult=(p.bloodMult||1)*1.5; p.lifesteal=Math.round(p.lifesteal*1.5); p.bloodBurstCh=Math.min(0.7,(p.bloodBurstCh||0)+0.12); p.bloodLordHalf=true; } },
     ]}
   };
-  const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi','holy','grav','chrono','blood','venom'];   // v6.156 맹독 추가
+  const SPEC_TREES = ['fire','frost','volt','acid','boom','mech','psi','holy','grav','chrono','blood','venom','storm','sonic','crystal'];   // v6.156 맹독 · v6.157 폭풍·공명·결정
   const TIER_GATE = { 2:2, 3:4, 4:7 };     // 전문 속성: 트리 투자 포인트 게이트 (4=신화, 깊은 투자 필요)
   const COMMON_GATE = { 2:4, 3:7, 4:99 };  // 공통: 더 깊은 게이트 (공통엔 신화 없음)
   let focusTree = null; // 이번 레벨업에 '강림'한 속성
@@ -11580,6 +11622,20 @@ import { FX } from "./fx.js";
       t.burnT = 3;
       t.burnDps = Math.max(t.burnDps||0, (player.burnDps||6) * D * (isBoss?0.5:1));
       burst(t.x, t.y-4, 3, 90, 0xe2603f, COLORS.fire); // v6.55 발화 피드백
+    } else if (elem==='storm'){
+      //  v6.157 폭풍 — 플레이어 반대 방향으로 **밀친다**. 밀린 적이 다른 적과 부딪히면 둘 다 아프다
+      const pa = Math.atan2(t.y-player.y, t.x-player.x);
+      const pw = (player.stormPush || 260);
+      t.pushX = Math.cos(pa)*pw; t.pushY = Math.sin(pa)*pw; t.pushT = 0.35;
+      burst(t.x, t.y, 3, 110, 0x9fd8e8, '#9fd8e8');
+    } else if (elem==='sonic'){
+      //  v6.157 공명 — 진동을 하나 쌓는다. 임계(기본 5)에 닿으면 스스로 터진다(tickStatus)
+      t.sonicN = (t.sonicN||0) + 1; t.sonicT = 3;
+      addTextNum(t.x, t.y-16, '♪'+t.sonicN);
+    } else if (elem==='crystal'){
+      //  v6.157 결정 — 굳힌다. 깨질 때 파편이 사방으로 (tickStatus)
+      if (!isBoss){ t.crysT = Math.max(t.crysT||0, 1.2 + (player.crysDur||0)); }
+      burst(t.x, t.y, 3, 90, 0xa8d8e8, '#a8d8e8');
     } else if (elem==='venom'){
       //  v6.156 맹독 — 중첩을 쌓는다. 상한은 있지만 **중첩이 클수록 초당 피해가 가속**한다(tickStatus)
       t.venomN = Math.min(player.venomCap || 6, (t.venomN||0) + 1);
@@ -11645,6 +11701,9 @@ import { FX } from "./fx.js";
     if (imbue && Math.random()<0.5+pb) procElement(t, imbue, isBoss);
     if (player.burnChance>0 && Math.random()<player.burnChance+pb) procElement(t, 'fire', isBoss);
     if (player.venomChance>0 && Math.random()<player.venomChance+pb) procElement(t, 'venom', isBoss);   // v6.156 맹독
+    if (player.stormChance>0 && Math.random()<player.stormChance+pb) procElement(t, 'storm', isBoss);     // v6.157 폭풍
+    if (player.sonicChance>0 && Math.random()<player.sonicChance+pb) procElement(t, 'sonic', isBoss);     // v6.157 공명
+    if (player.crysChance>0 && Math.random()<player.crysChance+pb) procElement(t, 'crystal', isBoss);    // v6.157 결정
     if (player.chillOn && !isBoss) procElement(t, 'frost', isBoss);
     const shockCh = player.shockSureT>0 ? 1 : player.shockChance;
     if (player.shockDmg>0 && shockCh>0 && Math.random()<shockCh+pb) procElement(t, 'volt', isBoss);
@@ -11701,6 +11760,55 @@ import { FX } from "./fx.js";
     //    화상=고정 도트 · 부식=방어 붕괴 · 폭발=연쇄 폭발 이므로,
     //   맹독은 **중첩이 쌓일수록 초당 피해가 가속**하고 **죽으면 그 중첩이 주변으로 옮는다**.
     //   → 한 마리에 오래 붙이는 것이 아니라 **무리 전체로 번지게 만드는** 것이 이 속성의 게임이다
+    //  🔴 v6.157 **폭풍** — 밀어내고 **부딪히게** 한다. 위치를 흔드는 것이 이 속성의 게임이다
+    //   (다른 속성은 전부 '적에게 무언가를 건다'인데, 폭풍만 **적을 움직인다**)
+    if (t.pushT > 0){
+      t.pushT -= dt;
+      t.x += (t.pushX||0)*dt; t.y += (t.pushY||0)*dt;
+      t.pushX *= 0.90; t.pushY *= 0.90;
+      // 밀린 적이 다른 적과 부딪히면 **둘 다** 아프다 — 무리가 촘촘할수록 크게 터진다
+      if (!isBoss) for (const o of enemies){
+        if (!o || o===t || (o.crashCd||0) > 0) continue;
+        if (Math.hypot(o.x-t.x, o.y-t.y) > (o.r+t.r)) continue;
+        const cd = (player.stormCrash || 10) * player.dmgMult;
+        o.hp -= cd; t.hp -= cd; o.crashCd = 0.4; t.crashCd = 0.4;
+        if (player.stormChain){ const ca=Math.atan2(o.y-t.y,o.x-t.x); o.pushX=Math.cos(ca)*(player.stormPush||260); o.pushY=Math.sin(ca)*(player.stormPush||260); o.pushT=0.3; }   // v6.157 폭풍의 주인
+        addDmgNum(o.x, o.y, cd, false);
+        burst(o.x, o.y, 4, 120, 0x9fd8e8, '#9fd8e8');
+        break;
+      }
+    }
+    if (t.crashCd > 0) t.crashCd -= dt;
+    //  🔴 v6.157 **공명** — 때릴 때마다 진동이 쌓이고 **임계에 닿으면 스스로 터진다**.
+    //   맹독(지속 도트)과 달리 이건 **카운터 게임**이다 — 몇 대 더 때리면 터지는지가 보인다
+    if (t.sonicN > 0){
+      t.sonicT = (t.sonicT||0) - dt;
+      if (t.sonicN >= (player.sonicCap || 5)){
+        const sd = (player.sonicDmg || 30) * player.dmgMult * (isBoss?0.4:1);
+        t.hp -= sd; addDmgNum(t.x, t.y, sd, true);
+        effects.push({ type:'ring', x:t.x, y:t.y, life:0.3, age:0, r0:6, r1:70 });
+        // 터질 때 주변에 진동이 옮는다 — 무리에서 연쇄가 이어진다
+        for (const o of enemies){ if (!o || o===t) continue;
+          if (Math.hypot(o.x-t.x, o.y-t.y) > 78) continue;
+          o.sonicN = (o.sonicN||0) + (player.sonicDeep?2:1); o.sonicT = 3; }   // v6.157 절대 음감
+        t.sonicN = 0;
+      } else if (t.sonicT <= 0) t.sonicN = 0;
+    }
+    //  🔴 v6.157 **결정** — 굳혀서 **자리를 막고**, 깨지면 **파편이 사방으로 날아간다**.
+    //   서리(둔화·융해)와 달리 결정은 *멈춘 적 자체가 무기가 된다*
+    if (t.crysT > 0){
+      t.crysT -= dt;
+      t.frozenT = Math.max(t.frozenT||0, 0.12);   // 굳어 있는 동안은 못 움직인다
+      if (t.crysT <= 0 || t.hp <= 0){
+        const n = 4 + (player.crysShard || 0);
+        for (let k2=0;k2<n;k2++){
+          const a2 = (Math.PI*2/n)*k2 + Math.random()*0.4;
+          projectiles.push({ x:t.x, y:t.y, vx:Math.cos(a2)*420, vy:Math.sin(a2)*420,
+            r:3, damage:(player.crysDmg||14)*player.dmgMult, crit:false, pierce:1, life:0.7, tracer:true, crysCas:!!player.crysCascade });   // v6.157 결정 궁전
+        }
+        t.crysT = 0;
+      }
+    }
     if (t.venomN > 0){
       t.venomT = (t.venomT||0) - dt;
       const vd = (player.venomDps || 4) * t.venomN * (1 + t.venomN*0.12) * (isBoss?0.5:1) * player.dmgMult;
@@ -13984,6 +14092,7 @@ import { FX } from "./fx.js";
             if (p.hitSet.has(e)) continue;
             p.hitSet.add(e);
           }
+          if (p.crysCas && e.crysT===undefined || (p.crysCas && !(e.crysT>0))) procElement(e, 'crystal', false);   // v6.157 결정 궁전 — 파편이 다시 굳힌다
           if (p.arrow) rangedCharge('arrow');            // v6.130 연사 — 맞을수록 찬다
           //  v6.152 궁수 '시위' — **연속 명중**. 0.9초 안에 이어 맞히면 배수가 커지고, 끊기면 처음부터
           if (p.arrow){
