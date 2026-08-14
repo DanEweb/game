@@ -10936,7 +10936,7 @@ import { FX } from "./fx.js";
             }
             spendHitBosses((b)=> Math.hypot(b.x-gx,b.y-gy) <= GR+b.r, 15*P);
             if (Math.hypot(player.x-gx, player.y-gy) < GR){        // 안에 있어야 낫는다 — 자리를 지키는 값
-              player.hp = Math.min(player.maxHp, player.hp + player.maxHp*0.012*player.healMult);
+              healCapped(player.maxHp*0.012*player.healMult);       // v6.149 반복 회복이므로 상한을 지난다
             }
           });
           addTextNum(player.x, player.y-40, '숲의 품 4초');
@@ -11370,9 +11370,14 @@ import { FX } from "./fx.js";
       FX.ring(t.x, t.y, 0xd4772e, 8);
     }
   }
-  // 흡혈류 회복 감쇠: 초당 최대체력 4%까지만 — 물량전에서 무한 회복으로 불사가 되는 것 방지
+  //  흡혈류 회복 감쇠: 물량전에서 무한 회복으로 불사가 되는 것 방지
+  //  🔴 v6.149 **4% → 2%/초** (사용자: *"처치 피흡 +1 이런 것도 너프시켜"*).
+  //   v6.148에서 감소·회피에 하한/상한을 걸고 재생을 감쇠했는데 **흡혈만 그대로**라 지속력 구멍이 남아 있었다.
+  //   ⚠ 이 상한은 **최대체력에 비례**한다 — 즉 탱킹 빌드일수록 상한도 같이 커진다.
+  //     4%면 체력 800 빌드에서 초당 32 회복인데, 10분 시점 유입 피해가 초당 10.3이다(v6.148 실측) → 혼자서 불사.
+  //   ⚠ 상한이 의미를 가지려면 **모든 반복 회복이 이 함수를 지나야 한다** (아래 우회로 3종을 여기로 모았다)
   function healCapped(amount){
-    const cap = player.maxHp * 0.04;
+    const cap = player.maxHp * 0.02;
     if (player.__lsWin === undefined){ player.__lsWin = 0; player.__lsWinT = 0; }
     const room = Math.max(0, cap - player.__lsWin);
     const h = Math.min(amount, room);
@@ -12667,7 +12672,7 @@ import { FX } from "./fx.js";
       friendlyBlast(player.x, player.y, player.ultRadius, player.ultDamage*D, false);
       const kills = killCount - before;
       if (kills>0){
-        player.hp = Math.min(player.maxHp, player.hp + kills*3);
+        healCapped(kills*3);      // v6.149 처치 수에 비례하는 회복 — 물량에서 한 번에 수백이 들어왔다. 상한을 지난다
         addTextNum(player.x, player.y-28, '수확 +'+(kills*3));
       }
       SFX.play('sweep');
@@ -13429,7 +13434,10 @@ import { FX } from "./fx.js";
         if (e.auraProcCd <= 0){ e.auraProcCd = 0.4; procOnHit(e, false, auraState.imbue); }
 
         if (e.hp<=0){ defeatEnemy(i); continue; }
-        if (auraState.ev){ player.hp = Math.min(player.maxHp, player.hp + 1.0*player.healMult*dt); }
+        //  🔴 v6.149 이 회복은 **적 루프 안**에 있다 — 즉 *성역 안의 적 1마리당* 초당 1씩 찬다.
+        //   30마리가 들어와 있으면 **초당 30 회복**. `healCapped`의 주석이 막으려던 바로 그 상황인데
+        //   정작 이 경로가 상한을 우회하고 있었다. 상한을 지나게 해서 총량을 묶는다
+        if (auraState.ev) healCapped(1.0*player.healMult*dt);
       }
 
       // 보물 골렘: 플레이어에게서 도망치다 15초 뒤 땅속으로 사라진다
