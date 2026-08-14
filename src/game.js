@@ -580,12 +580,15 @@ import { FX } from "./fx.js";
   function refreshGuardBtn(){
     const gb = $('guardBtn');
     if (!gb) return;
-    const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.length;
+    //  v6.152 D축이 없는 직업은 **버튼 자체를 띄우지 않는다** (사용자 지시)
+    const gname = guardName();
+    const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.length && !!gname;
     gb.style.display = on ? 'flex' : 'none';
     if (!on) return;
     const ranged = isRangedBuild();
     const ready = (player.guardCd||0) <= 0;
-    gb.textContent = ranged ? '요격' : '패링';
+    gb.textContent = gname;                                  // v6.152 직업 고유 이름
+    gb.style.fontSize = gname.length > 4 ? '9px' : '11px';   // 이름이 길어졌다 — 버튼 안에 들어가게
     const col = ranged ? '#7ec4e8' : '#e8e8ea';
     gb.style.background  = ready ? col : 'rgba(32,33,36,0.55)';
     gb.style.color       = ready ? '#12141a' : 'rgba(246,246,244,0.45)';
@@ -6001,6 +6004,7 @@ import { FX } from "./fx.js";
     // v6.77 골드 버프: 전역 계수 0.25 → 0.38 (+52%). 붕괴 상태 파밍 방지용 무한 모드 감산은 유지
     const g = Math.max(1, Math.round(v * 0.38 * (endless?0.3:1) * (trialT>0&&trialKind==='gold'?2:1) * player.goldMult * MAP.mult.reward * perilR() * (feverTimer>0?2:1)));
     runGold += g;
+    rangedActCharge('gold', g);            // v6.152 주식쟁이 — 골드가 곧 실탄이다
     return g;
   }
 
@@ -6473,6 +6477,7 @@ import { FX } from "./fx.js";
     // 망자의 목자: 처치한 적이 유령이 된다
     if (player.necroChance>0 && Math.random()<player.necroChance && player.ghosts.length<player.ghostCap){
       player.ghosts.push({ x:e.x, y:e.y, t:8+(player.ghostDur||0), cd:0 });
+      rangedActCharge('soul');                // v6.152 망자의 목자 — 유령이 생길 때
       addTextNum(e.x, e.y-10, '起');
     }
     // 변혁 '파편 폭풍': 투사체 처치 시 파편 발사
@@ -10035,6 +10040,7 @@ import { FX } from "./fx.js";
   // 스킬 시전 — 슬롯 1: 전용기 / 슬롯 2~4: 직업 스킬 (레벨 습득)
   function castSkill(n){
     if (state!=='playing') return;
+    rangedActCharge('skill');      // v6.152 스페셜리스트 — 전술 만능: 스킬을 굴리는 것이 곧 자원
     // v6.48: 1번은 더 이상 궁극(Q) 복제가 아니다 — 1~4번 전부 습득 스킬 슬롯, 궁극은 Q 전용
     if (player.skillsSealed || (player.zoneSilenceT||0)>0){ addTextNum(player.x, player.y-24, '침묵...'); return; } // 침묵의 서약 / 어색한 침묵 존
     const i = n-1;
@@ -10477,27 +10483,27 @@ import { FX } from "./fx.js";
   // v6.131 원거리 직업 전용화 — 같은 무기라도 **직업이 다르면 자원 이름·차는 조건·R가 다르다**.
   //  무기를 쪼개지 않고 직업으로 분기한다 (쪼개면 카드 풀·성장무기·전향 판정이 전부 배로 늘어난다)
   const RANGED_CLASS = {
-    sniper:     { res:'장전', sig:'snipe',   col:'#3b82c4', mult:(p)=> 1 + (p.aim||0)*1.4 },
-    specialist: { res:'전술', sig:'volley',  col:'#8b5cf6', mult:()=> 1.15 },
-    gambler:    { res:'배당', sig:'jackpot', col:'#c9a227', mult:()=> 0.8 + Math.random()*1.2 },
-    stonks:     { res:'변동', sig:'shortsell', col:'#4c9a55', mult:(p)=> 1 + (p.aim||0)*0.9 },
-    returner:   { res:'회귀', sig:'rewind',  col:'#7ec4e8', mult:()=> 1.1 },
-    debug:      { res:'로그', sig:'forcequit', col:'#9aa0a6', mult:()=> 1.3 },
-    tourist:    { res:'추억', sig:'flash',   col:'#e0a94f', mult:()=> 1.0 },
-    pilot:      { res:'연료', sig:'bombrun', col:'#c96a3f', mult:()=> 1.0 },
+    sniper:     { act:'aimshot', res:'장전', sig:'snipe',   col:'#3b82c4', mult:(p)=> 1 + (p.aim||0)*1.4 },
+    specialist: { act:'skill', res:'전술', sig:'volley',  col:'#8b5cf6', mult:()=> 1.15 },
+    gambler:    { act:'gamble', res:'배당', sig:'jackpot', col:'#c9a227', mult:()=> 0.8 + Math.random()*1.2 },
+    stonks:     { act:'gold', res:'변동', sig:'shortsell', col:'#4c9a55', mult:(p)=> 1 + (p.aim||0)*0.9 },
+    returner:   { act:'wounded', res:'회귀', sig:'rewind',  col:'#7ec4e8', mult:()=> 1.1 },
+    debug:      { act:'levelup', res:'로그', sig:'forcequit', col:'#9aa0a6', mult:()=> 1.3 },
+    tourist:    { act:'travel', res:'추억', sig:'flash',   col:'#e0a94f', mult:()=> 1.0 },
+    pilot:      { act:'drone', res:'연료', sig:'bombrun', col:'#c96a3f', mult:()=> 1.0 },
     //  v6.139 남은 11직업. 자원 이름·색·**차는 조건(mult)**·R가 전부 다르다 —
     //   같은 위성을 돌려도 관리자는 결재를 쌓고 드루이드는 수액을 모은다
-    manager:    { res:'결재', sig:'overtime',   col:'#6d9fd4', mult:()=> 1.15 },                 // 쿨감 직업 — 꾸준히
-    runeknight: { res:'각인', sig:'runeburst',  col:'#8b5cf6', mult:()=> 1.2 },
-    druid:      { res:'수액', sig:'grove',      col:'#5f9e5f', mult:(p)=> 1 + (1-Math.min(1,p.hp/Math.max(1,p.maxHp)))*0.9 }, // 다칠수록 자연이 돕는다
-    necro:      { res:'영혼', sig:'legion',     col:'#7a4fa8', mult:(p)=> 1 + Math.min(0.8, (p.ghosts?p.ghosts.length:0)*0.2) }, // 유령이 많을수록
-    commander:  { res:'지휘', sig:'volleyorder',col:'#c9a227', mult:()=> 1.25 },
-    ninja:      { res:'인법', sig:'kagebunshin',col:'#5c6b7a', mult:(p)=> 1 + ((p.dashHasteT||0)>0 ? 1.1 : 0) },              // 대시 직후에 몰아친다
-    tombraider: { res:'전리품', sig:'looting',  col:'#b8925a', mult:()=> 1.0 },
-    blackcat:   { res:'변덕', sig:'ninelives',  col:'#9aa0a6', mult:()=> 0.6 + Math.random()*1.0 },                            // 고양이답게 들쭉날쭉
-    archer:     { res:'시위', sig:'volleyfire', col:'#4f9e6a', mult:(p)=> 1 + (p.aim||0)*1.1 },                                // 조준할수록 빨리 찬다
-    engineer:   { res:'충전', sig:'teslafield', col:'#d4b03a', mult:()=> 1.05 },
-    voidc:      { res:'심연', sig:'voidcollapse',col:'#6a4fa8', mult:(p)=> 1 + (p.aim||0)*0.7 },
+    manager:    { act:'intercept', res:'결재', sig:'overtime',   col:'#6d9fd4', mult:()=> 1.15 },                 // 쿨감 직업 — 꾸준히
+    runeknight: { act:'proc', res:'각인', sig:'runeburst',  col:'#8b5cf6', mult:()=> 1.2 },
+    druid:      { act:'heal', res:'수액', sig:'grove',      col:'#5f9e5f', mult:(p)=> 1 + (1-Math.min(1,p.hp/Math.max(1,p.maxHp)))*0.9 }, // 다칠수록 자연이 돕는다
+    necro:      { act:'soul', res:'영혼', sig:'legion',     col:'#7a4fa8', mult:(p)=> 1 + Math.min(0.8, (p.ghosts?p.ghosts.length:0)*0.2) }, // 유령이 많을수록
+    commander:  { act:'minion', res:'지휘', sig:'volleyorder',col:'#c9a227', mult:()=> 1.25 },
+    ninja:      { act:'afterdash', res:'인법', sig:'kagebunshin',col:'#5c6b7a', mult:(p)=> 1 + ((p.dashHasteT||0)>0 ? 1.1 : 0) },              // 대시 직후에 몰아친다
+    tombraider: { act:'loot', res:'전리품', sig:'looting',  col:'#b8925a', mult:()=> 1.0 },
+    blackcat:   { act:'dodge', res:'변덕', sig:'ninelives',  col:'#9aa0a6', mult:()=> 0.6 + Math.random()*1.0 },                            // 고양이답게 들쭉날쭉
+    archer:     { act:'streak', res:'시위', sig:'volleyfire', col:'#4f9e6a', mult:(p)=> 1 + (p.aim||0)*1.1 },                                // 조준할수록 빨리 찬다
+    engineer:   { act:'turret', res:'충전', sig:'teslafield', col:'#d4b03a', mult:()=> 1.05 },
+    voidc:      { act:'voidstand', res:'심연', sig:'voidcollapse',col:'#6a4fa8', mult:(p)=> 1 + (p.aim||0)*0.7 },
   };
   //  🔴 v6.150 **무기에 묶이지 않는 직업 축** (배치 4)
   //   실측으로 확인한 것: 37직업 중 **34개가 이미 축을 갖고 있고** 없는 건 셋뿐이었다 —
@@ -10528,6 +10534,41 @@ import { FX } from "./fx.js";
   function rangedClassCfg(){
     return (player && RANGED_CLASS[player.classKey]) || null;
   }
+  //  🔴 v6.152 **원거리도 '쏘면 찬다'를 버린다** (사용자 지시: *"원거리 애들도 전용기 직업별로 다 행동 만들어"*).
+  //   근접에서 지적받은 것과 같은 문제였다 — 발사는 *가만히 있어도 일어나는 일*이라 조건이 아니라 시간이었다.
+  //   19직업 전부 **자기만의 행동**을 갖는다. 아무도 같은 조건을 쓰지 않는다.
+  const RANGED_ACT = {
+    aimshot: 0.075,   // 저격수    — **조준을 채운 채로** 쏜 한 발 (움직이면 조준이 풀린다)
+    streak:  0.0035,  // 궁수      — **연속 명중**. 빗나가면 끊긴다
+    skill:   0.012,   // 스페셜리스트 — 스킬(1~4)을 쓸 때 (전술 만능)
+    gamble:  0.1,   // 도박사    — 명중마다 **확률로만** 찬다 (안 차는 판도 있다)
+    gold:    0.007,  // 주식쟁이  — **골드가 들어올 때** (골드가 곧 실탄)
+    loot:    0.115,   // 도굴꾼    — **아이템을 주울 때**
+    wounded: 0.075,   // 회귀자    — **맞을 때** (되돌리고 싶은 순간이 쌓인다)
+    levelup: 0.36,   // 디버거    — **레벨업 카드를 고를 때** (관측자)
+    travel:  0.0002,// 관광객    — **돌아다닌 거리**만큼 (px당)
+    drone:   0.024,  // 파일럿    — 드론이 사격할 때
+    intercept:0.1,  // 관리자    — **위성이 적탄을 요격**할 때 (막는 것이 결재다)
+    proc:    0.036,  // 룬 기사   — **원소가 발동**할 때 (룬을 새긴다)
+    heal:    0.055,  // 드루이드  — **체력이 회복될 때** (자연이 돕는다)
+    soul:    0.1,   // 망자의 목자 — **유령이 생길 때**
+    minion:  0.012,  // 지휘관    — **소환물이 적을 때릴 때**
+    afterdash:0.075,  // 닌자      — **대시 직후** 명중 (파고들었다 빠진다)
+    dodge:   0.1,   // 검은 고양이 — **회피에 성공**할 때 (고양이는 피한다)
+    turret:  0.02,  // 기술자    — **설치물이 작동**할 때
+    voidstand:0.038,  // 공허술사  — **자기 공허 장판 위에 서 있는 동안** (초당)
+  };
+  function rangedActCharge(kind, mult){
+    if (!player) return;
+    const RC = rangedClassCfg();
+    if (!RC || RC.act !== kind) return;
+    const before = player.mCharge || 0;
+    //  ⚠ 조준 게이트(v6.140)는 그대로 지난다 — 원거리 전용기의 **대가**는 여전히 조준이다
+    player.mCharge = Math.min(1, before + (RANGED_ACT[kind]||0.1) * (mult||1));
+    if (before < 1 && player.mCharge >= 1){
+      addTextNum(player.x, player.y-46, RC.res+' 만충 — R'); SFX.play('levelup');
+    }
+  }
   function rangedEngineKey(){
     if (!player || !player.weapons) return null;
     for (const w of player.weapons){ if (RANGED_ENGINE[w.key]) return w.key; }
@@ -10546,6 +10587,9 @@ import { FX } from "./fx.js";
     //  v6.150 직업 축(무작위 무기 3직업)은 **무기로도 차면 안 된다** — 그러면 축이 정체성이 아니라 보너스가 되고,
     //   무엇을 주웠느냐에 따라 회전율이 판마다 달라진다 (실측: 겹쳐서 만충이 5초로 빨라졌다)
     if (freeClassCfg()) return;
+    //  🔴 v6.152 **쏘는 것으로는 안 찬다.** 19직업 전원이 `act`를 가지므로 이 경로는 사실상 닫힌다
+    //   (표에 `act`가 없는 직업이 생기면 그때만 예전처럼 발사로 찬다 — 새 직업의 안전망)
+    { const RCa = rangedClassCfg(); if (RCa && RCa.act) return; }
     //  v6.140-b 직업별 '차는 조건'은 **여기서** 읽는다.
     //   호출부에서 넘기던 시절엔 추적 탄환·드론 두 곳만 넘겨서 나머지 11직업이 조용히 1.0이었다
     const RCg = rangedClassCfg();
@@ -10603,8 +10647,27 @@ import { FX } from "./fx.js";
     if (!player || !player.weapons) return false;
     return !meleeEngineKey() && !ownedWeapon('aura');
   }
+  //  🔴 v6.152 **D축도 직업 이름을 갖는다 — 그리고 필요 없는 직업에겐 아예 없다** (사용자 지시:
+  //   *"이름을 다 요격 패링 이렇게 하지 말고 / 패링이나 요격 이런 거 필요 없는 직업은 버튼 없애"*)
+  //   자원(잔심·응혈·표식…)은 직업마다 다른데 D축만 전부 '패링/요격'이라 이름이 겉돌았다.
+  //   ⚠ **null이면 그 직업은 D축 자체가 없다** — 키도 버튼도 동작하지 않는다.
+  //     방어가 정체성이 아닌 직업(장사꾼·소환사·관측자 계열)에게 버튼은 화면만 가린다
+  const GUARD_NAME = {
+    // 근접 — 막고 받아친다
+    samurai:'받아넘기기', baeksu:'흘리기', cheol:'철벽', paladin:'방패 올리기', duelist:'맞받아치기',
+    monk:'흘려 잡기', reaper:'낫 걸기', shadow:'그림자 베기', madman:'몸으로 받기', gymbro:'가드',
+    exhero:'옛 방패', rusher:'창 세우기', mumyeong:'무명 받아넘기기', bard:'박 끊기',
+    // 원거리 — 쏘아 떨어뜨린다 (요격이 정체성과 맞는 직업만)
+    manager:'요격 결재', sniper:'탄 쳐내기', archer:'화살 쳐내기', ninja:'수리검 튕기기',
+    blackcat:'몸 비틀기', voidc:'공허 삼키기', pilot:'플레어',
+    //  ⚠ 아래 직업들은 **의도적으로 없다** (버튼도 키도 안 뜬다):
+    //   관광객·주식쟁이·도굴꾼·디버거·도박사·드루이드·망자의 목자·지휘관·기술자·스페셜리스트·회귀자
+    //   ·수집가·글리치·최병우·슬라임 — 장사·소환·관측이 정체성이라 '막는 손'이 없다
+  };
+  function guardName(){ return (player && GUARD_NAME[player.classKey]) || null; }
   function tryGuard(){
     if (state!=='playing' || !player) return;
+    if (!guardName()) return;                 // v6.152 D축이 없는 직업 — 입력 자체를 무시한다
     if ((player.guardCd||0) > 0){ addTextNum(player.x, player.y-30, '아직'); return; }
     player.guardCd = GUARD_CD;
     player.guardT = GUARD_WIN;
@@ -11363,6 +11426,10 @@ import { FX } from "./fx.js";
     // v6.77 복구: multishotCh — '추가 투사체 확률'이 어디서도 읽히지 않아 궁수 계열 특성이 전부 죽어 있었다.
     // 재귀 폭주를 막으려 한 번의 발사에서 딱 1발만 갈라진다
     // v6.128 조준 — 멈춰서 겨눈 만큼 무겁고, 꿰뚫고, 급소에 박힌다
+    //  🔴 v6.152 발사 시점의 **행동 조건 3종** — 그냥 쏘는 것으로는 아무도 안 찬다
+    if ((player.aim||0) >= 0.45) rangedActCharge('aimshot', 0.6 + (player.aim||0));                              // 저격수 — 조준을 채운 채 쏜 한 발
+    if ((player.dashHasteT||0) > 0 || player.dashTime > 0) rangedActCharge('afterdash');  // 닌자 — 대시 직후에만
+    if (Math.random() < 0.22) rangedActCharge('gamble');                                  // 도박사 — 확률로만 (안 차는 판도 있다)
     if (player.aim > 0){
       dmg *= aimDmgMult();
       pierce = (pierce||0) + aimPierce();
@@ -11475,6 +11542,7 @@ import { FX } from "./fx.js";
     }
   }
   function procOnHit(t, isBoss, imbue){
+    rangedActCharge('proc', 0.5);   // v6.152 룬 기사 — 원소가 발동할 때마다 각인이 새겨진다
     const pb = player.procBonus||0; // 성좌 '원소 조화' 등
     // 각인된 무기: 해당 속성 50% 확정 발동
     if (imbue && Math.random()<0.5+pb) procElement(t, imbue, isBoss);
@@ -11525,6 +11593,7 @@ import { FX } from "./fx.js";
     const h = Math.min(amount, room);
     if (h > 0){
       player.hp = Math.min(player.maxHp, player.hp + h);
+      rangedActCharge('heal', h*0.2);      // v6.152 드루이드 — 회복이 곧 수액
       player.__lsWin += h;
     }
   }
@@ -11666,6 +11735,7 @@ import { FX } from "./fx.js";
               });
             }
             { const RC = rangedClassCfg();                       // v6.131 가동 — 드론이 쏠 때마다 찬다
+              rangedActCharge('drone');                     // v6.152 파일럿 '연료' — 드론이 사격할 때
               rangedCharge('drone'); }                       // v6.140-b 배율은 rangedCharge 안에서 읽는다
             SFX.play('shoot');
           } else { w.cd = 0.15; }
@@ -12580,6 +12650,8 @@ import { FX } from "./fx.js";
               x:tu.x, y:tu.y, vx:Math.cos(a)*520, vy:Math.sin(a)*520,
               r:3, damage:player.turretDmg*D*player.projMult, crit:false, pierce:0, life:0.9, tracer:true
             });
+            rangedActCharge('turret');      // v6.152 기술자 — 설치물이 일할 때 충전된다
+            rangedActCharge('minion', 0.6); // v6.152 지휘관 — 소환물이 싸울 때 (터렛도 부하다)
             tu.cd = 0.7 * player.cdr / (player.turretRate||1);
           } else tu.cd = 0.2;
         }
@@ -13046,7 +13118,7 @@ import { FX } from "./fx.js";
         if (player.guardT <= 0){
           // 창이 닫혔다 — 하나도 못 떨궜으면 쿨만 날아간다 (패링이 헛치면 손해인 것과 같다)
           if (player.guardKind === 'shoot'){
-            if (player.interceptHit) addTextNum(player.x, player.y-40, '요격 ×'+player.interceptHit);
+            if (player.interceptHit) addTextNum(player.x, player.y-40, (guardName()||'요격')+' ×'+player.interceptHit);   // v6.152 직업 고유 이름
             else addTextNum(player.x, player.y-40, '빗나감');
           }
           player.interceptHit = 0;
@@ -13055,6 +13127,27 @@ import { FX } from "./fx.js";
       if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
       // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
       if (ownedWeapon('noname') && !freeClassCfg()) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);   // v6.150 동일
+      //  🔴 v6.152 원거리 중 **상태/이동으로 차는 둘** — 프레임마다 본다
+      {
+        const RCf = rangedClassCfg();
+        if (RCf && RCf.act === 'travel'){
+          //  관광객 '추억' — **돌아다닌 거리**만큼. 한자리에 서 있으면 안 찬다 (여행이 정체성이다)
+          const mv = Math.hypot(player.x - (player.__lastX||player.x), player.y - (player.__lastY||player.y));
+          if (mv > 0 && mv < 200) rangedActCharge('travel', mv);
+        } else if (RCf && RCf.act === 'voidstand'){
+          //  공허술사 '심연' — **자기 공허 장판 위에 서 있는 동안**. 장판을 깔고 그 위를 지켜야 한다
+          for (const z of zones){
+            if (z.type === 'void' && Math.hypot(z.x-player.x, z.y-player.y) < z.r){ rangedActCharge('voidstand', dt); break; }
+          }
+        }
+        player.__lastX = player.x; player.__lastY = player.y;
+        //  🔴 v6.152-c **봉인 방지 하한** — 조건이 안 맞아도 아주 느리게는 찬다(만충 ~70초).
+        //   실측에서 관리자(적탄 요격)·공허술사(장판 위)·기술자(터렛 작동)가 **0.00**이었다:
+        //   그 상황이 아예 안 오는 판이 있고, 그러면 그 직업은 전용기를 **영영 못 쓴다**.
+        //   ⚠ v6.140의 원칙과 같다 — *"조건은 관리이지 봉인이 아니다"*.
+        //   조건을 맞추면 5~15초, 못 맞추면 70초. **차이가 조작의 값어치**이고 0은 아니다
+        if (RCf && RCf.act) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.014);
+      }
       //  🔴 v6.151 **상태를 유지해야 차는 조건들** — 한 번의 입력이 아니라 *어떤 상태로 서 있는가*가 조작이다.
       //   사용자 지적(*"맞아가며라 했는데 버틸 수 있는 거야?"*)에 대한 답: 맞아서 차는 게 아니라
       //   **위험한 상태를 감수하고 유지**해서 찬다 — 회복하면 멈추고, 물러나면 멈춘다
@@ -13183,6 +13276,7 @@ import { FX } from "./fx.js";
     if (player.regen>0){
       const rg = player.regen * player.healMult * ((player.combatT||0) > 0 ? 0.40 : 1);
       player.hp = Math.min(player.maxHp, player.hp + rg*dt);
+      rangedActCharge('heal', rg*dt*0.2);   // v6.152 드루이드 — 재생도 회복이다(healCapped를 안 지나는 경로)
     }
     // 흡혈 감쇠 윈도 리셋 (1초 단위)
     player.__lsWinT = (player.__lsWinT||0) + dt;
@@ -13775,6 +13869,12 @@ import { FX } from "./fx.js";
             p.hitSet.add(e);
           }
           if (p.arrow) rangedCharge('arrow');            // v6.130 연사 — 맞을수록 찬다
+          //  v6.152 궁수 '시위' — **연속 명중**. 0.9초 안에 이어 맞히면 배수가 커지고, 끊기면 처음부터
+          if (p.arrow){
+            player.__streak = ((player.__streakT||0) > elapsed) ? Math.min(12, (player.__streak||0)+1) : 1;
+            player.__streakT = elapsed + 0.9;
+            rangedActCharge('streak', player.__streak);
+          }
           const dmgAmt = p.damage * corrodeMult(e);
           e.hp -= dmgAmt;
           addDmgNum(p.x, p.y, dmgAmt, p.crit);
@@ -14123,6 +14223,7 @@ import { FX } from "./fx.js";
           //  🐛 v6.147 여기도 `||1`이었다 — 표준 궤도의 요격 반경 +4가 통째로 죽어 있었다 (위 satGuard와 같은 사고)
           if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11) + (SAT_ORBIT[player.satOrbit||0].icept||0)){
             pixBurst(p.x, p.y, 4, 100, '#7ec4e8', 1.4);
+            rangedActCharge('intercept');       // v6.152 관리자 — 막아내는 것이 결재다
             satCharge(0.02);
             shot = true; break;
           }
@@ -14180,6 +14281,7 @@ import { FX } from "./fx.js";
       }
       if (itd < player.r+it.r+4){
         useItem(it);
+        rangedActCharge('loot');            // v6.152 도굴꾼 — 줍는 것이 곧 전리품
         items.splice(i,1);
       }
     }
@@ -14300,7 +14402,7 @@ import { FX } from "./fx.js";
     if ((player.guardT||0) > 0 && player.guardKind === 'parry'){
       player.guardT = 0;
       player.invuln = Math.max(player.invuln, 0.5);
-      addTextNum(player.x, player.y-16, '패링!');
+      addTextNum(player.x, player.y-16, (guardName()||'패링')+'!');   // v6.152 직업 고유 이름
       player.swingT = Math.max(player.swingT||0, 0.3);            // v6.128 받아친 뒤 크게 되돌리는 반격 모션
       player.atkMotion = 'crouch';
       player.recoilX = (player.recoilX||0) - (player.faceX<0?-1:1)*4;
@@ -14343,6 +14445,7 @@ import { FX } from "./fx.js";
     //   ⚠ 상한은 **여기 한 곳**에서 건다 — 출처마다 걸면 새 출처가 생길 때마다 또 뚫린다 (v6.140의 교훈)
     if (player.dodge>0 && Math.random()<Math.min(0.55, player.dodge)){
       addTextNum(player.x, player.y-14, 'MISS');
+      rangedActCharge('dodge');             // v6.152 검은 고양이 — 피하는 것이 곧 자원
       player.invuln = 0.25;
       return false;
     }
@@ -14393,6 +14496,7 @@ import { FX } from "./fx.js";
     player.qaTaken = (player.qaTaken||0) + d;
     player.qaHitN = (player.qaHitN||0) + 1;
     player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
+    rangedActCharge('wounded');           // v6.152 회귀자 — 되돌리고 싶은 순간이 쌓인다
     player.hp -= d;
     noHitT = 0;
     // 생존 의뢰 실패
@@ -14805,6 +14909,7 @@ import { FX } from "./fx.js";
     if (state!=='levelup' || banishMode) return;
     const u = currentChoices[i];
     if (!u) return;
+    rangedActCharge('levelup');            // v6.152 디버거 — 카드를 관측할 때마다 로그가 쌓인다
     u.apply();
     SFX.play(u.jackpot ? 'win' : 'pick');
     if (u.jackpot){ toast('잭팟! '+u.name); unlockAch('jackpot'); }
