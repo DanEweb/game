@@ -890,15 +890,39 @@ import { FX } from "./fx.js";
     {
       const sRow = document.createElement('div');
       sRow.className = 'shopItem';
+      //  v6.165 3단 표시: 미획득(조건) → 증명함(제물 필요) → 각성(계승 완료)
       const lines = Object.keys(SACRED).map((ck)=>{
-        const R = SACRED[ck], got = relicOwned(ck);
+        const R = SACRED[ck], got = relicOwned(ck), awake = sacredAwoken(ck);
         const cn = CLASSES[ck] ? CLASSES[ck].name : ck;
-        return got ? '<b>絶名 '+R[0]+'</b> <span style="opacity:0.7;">('+cn+')</span>'
-                   : '<span style="opacity:0.55;">??? ('+cn+') — '+R[3]+'</span>';
+        if (awake){
+          const a = DB.sacredAwake[ck];
+          return '<b style="color:#e0a94f;">絶名 '+R[0]+'</b> <span style="opacity:0.7;">('+cn+') — 계승 Lv'+(a.lv||30)+' · 위력 ×'+sacredMult(ck).toFixed(2)+'</span>';
+        }
+        if (got){
+          const t = sacredTributeReady(ck);
+          return '<b>'+R[0]+'</b> <span style="opacity:0.7;">('+cn+')</span> — '
+            + (t ? '<button class="miniBtn sacT" data-ck="'+ck+'" style="margin-left:4px;">제물 바치기 (성장무기 Lv'+t.lv+')</button>'
+                 : '<span style="opacity:0.6;">제물 필요 — 성장무기 Lv'+SACRED_TRIBUTE_LV+' 이상</span>');
+        }
+        return '<span style="opacity:0.55;">??? ('+cn+') — '+R[3]+' <b>[관문 보스]</b></span>';
       }).join('<br>');
       sRow.innerHTML = '<div class="info"><div class="nm">🏛 성물 도감 — 絶名 ('+sacredCount()+'/'+Object.keys(SACRED).length+')</div>'
         + '<div class="ds" style="max-height:180px;overflow:auto;">'+lines+'</div></div>';
       list.appendChild(sRow);
+      //  제물 바치기 — 다 키운 성장무기가 소모된다. 되돌릴 수 없으므로 한 번 더 묻는다
+      sRow.querySelectorAll('.sacT').forEach((btn)=>{
+        btn.addEventListener('click', ()=>{
+          const ck = btn.getAttribute('data-ck');
+          const t = sacredTributeReady(ck);
+          if (!t) return;
+          if (!confirm('성장무기 Lv'+t.lv+'을(를) 제물로 바칩니다.\n제물은 Lv1로 돌아가며 되돌릴 수 없습니다.\n\n『'+SACRED[ck][0]+'』을(를) 각성시키겠습니까?')) return;
+          if (offerSacredTribute(ck)){
+            toast('🏛 계승 완료 — 「絶名 · '+SACRED[ck][0]+'」 위력 ×'+sacredMult(ck).toFixed(2));
+            SFX.play('win');
+            renderAch();
+          }
+        });
+      });
     }
     // 테크 도감 — 속성별 발견 현황
     const seen = DB.seenTech||{};
@@ -5073,7 +5097,23 @@ import { FX } from "./fx.js";
     const line = pool[(Math.random()*pool.length)|0];
     egoBubble = { text: line, t: 4.6 };
   }
+  //  🔴 v6.165 **성물도 말한다** (사용자: *"성장무기처럼 에고나 이런 게 있어?"*)
+  //   무명검의 에고는 수다스러운 노병인데, 성물은 **제 이름을 되찾은 것**이라 결이 달라야 한다 —
+  //   짧고, 오만하고, 자기가 무엇이었는지 기억하는 말투
+  const EGO_SACRED = [
+    '이 손... 나쁘지 않군.', '내 이름을 부른 것이 너였나.', '바쳐진 것의 무게를 잊지 마라.',
+    '그 검은 나를 위해 죽었다.', '증명해라. 계속.', '나는 한 번 잊혔다. 두 번은 없다.',
+    '네가 나를 얻은 방식을 기억한다.', '이 정도로 만족하나.', '아직 멀었다.',
+    '내 앞에서 물러서지 마라.', '너는 나를 들 자격을 치렀다.', '이름이란 건 되찾는 것이더군.',
+  ];
   function tickEgo(dt){
+    //  v6.165 각성한 성물을 들었으면 성물이 말한다(무명검이 없어도)
+    const sacW = player && player.weapons && player.weapons.find(w=>w.key && w.key.indexOf('sac_')===0);
+    if (sacW && !ownedWeapon('nameless')){
+      egoT -= dt;
+      if (egoT <= 0){ egoT = 30 + Math.random()*34; egoSay(EGO_SACRED); }
+      return;
+    }
     if (!ownedWeapon('nameless')) return;
     egoT -= dt;
     if (egoT <= 0){
@@ -5224,6 +5264,9 @@ import { FX } from "./fx.js";
   //    확률 뽑기가 아니라 **그 직업답게 싸웠다는 증명**으로만 열린다.
   //   ⚠ 조건을 37개 따로 짜지 않는다 — **증명 유형 10종**을 만들고 직업마다 유형+수치를 배정한다.
   //    (그래야 새 직업이 생겨도 한 줄이면 되고, 판정 코드가 한 곳에 모인다)
+  //  🔴 v6.165 **챌린지급으로 올린다** (사용자: *"조건 아주 어렵게 해, 거의 챌린지급으로"*)
+  //   ⚠ 모든 증명은 **관문 보스**(gate)에서만 인정한다 — 일반 보스로는 열리지 않는다.
+  //    관문은 이 게임에서 가장 어려운 전투이고, 성물은 *거기서* 자기 방식이 통했다는 증거여야 한다
   const RELIC_PROOF = {
     noHit:   (st)=> st.hitTaken === 0,                    // 한 대도 안 맞고 보스를 잡는다
     parry:   (st,n)=> st.parry >= n,                      // 막아내며 잡는다
@@ -5242,37 +5285,37 @@ import { FX } from "./fx.js";
   const SACRED = {
     mumyeong:  ['무명검',           'noHit',   0,  '이름 없이 — 한 대도 맞지 않고 관문 보스를 벤다'],
     sniper:    ['숨을 멈춘 한 발',   'noHit',   0,  '숨조차 멈추고 — 무피격으로 보스를 잡는다'],
-    voidc:     ['굶주린 마도서',    'elems',   4,  '한 판에 네 속성을 두르고 보스를 잡는다'],
+    voidc:     ['굶주린 마도서',    'elems',   6,  '한 판에 네 속성을 두르고 보스를 잡는다'],
     reaper:    ['핏빛 대검',        'exec',    0,  '처형으로만 보스를 마무리한다'],
-    samurai:   ['잔심(殘心)의 도',  'parry',   6,  '여섯 번 받아넘기고 보스를 벤다'],
-    baeksu:    ['눕는 자의 방석',   'parry',   4,  '네 번 흘려내고 보스를 잡는다'],
+    samurai:   ['잔심(殘心)의 도',  'parry',   18,  '여섯 번 받아넘기고 보스를 벤다'],
+    baeksu:    ['눕는 자의 방석',   'parry',   14,  '네 번 흘려내고 보스를 잡는다'],
     rusher:    ['꿰뚫는 자의 창',   'dash',    0,  '대시로 보스를 마무리한다'],
     shadow:    ['그림자 없는 칼',   'dash',    0,  '파고들어 보스를 마무리한다'],
     ninja:     ['인(忍)의 두루마리','noHit',   0,  '그림자처럼 — 무피격으로 보스를 잡는다'],
     blackcat:  ['아홉 번째 목숨',   'lowHp',   0,  '빈사에서 버텨 보스를 잡는다'],
     madman:    ['웃는 자의 가면',   'lowHp',   0,  '제 피를 태우고도 보스를 잡는다'],
     cheol:     ['식지 않는 심장',   'lowHp',   0,  '피를 흘리며 보스를 잡는다'],
-    gymbro:    ['최후의 1RM',       'kills',   120,'무리를 짓밟고 보스를 잡는다'],
+    gymbro:    ['최후의 1RM',       'kills',   350,'무리를 짓밟고 보스를 잡는다'],
     monk:      ['일합(一合)의 염주','oneWeap', 0,  '무기 하나로 보스를 잡는다'],
     duelist:   ['맞선 자의 장갑',   'oneWeap', 0,  '오직 하나로 겨루어 보스를 잡는다'],
     exhero:    ['다시 든 성검',     'lowHp',   0,  '무너지기 직전 다시 일어나 보스를 잡는다'],
     paladin:   ['꺼지지 않는 등불', 'noHit',   0,  '한 번도 뚫리지 않고 보스를 잡는다'],
-    archer:    ['침묵하는 활',      'spend',   5,  '시위를 놓지 않고 — 전용기를 다섯 번 쓰고 보스를 잡는다'],
+    archer:    ['침묵하는 활',      'spend',   14,  '시위를 놓지 않고 — 전용기를 다섯 번 쓰고 보스를 잡는다'],
     pilot:     ['추락하지 않는 날개','noHit',  0,  '한 번도 맞지 않고 보스를 잡는다'],
-    specialist:['만능의 증표',      'elems',   3,  '세 속성을 갈아 쓰며 보스를 잡는다'],
-    runeknight:['새겨진 이름',      'elems',   3,  '세 속성을 검에 새기고 보스를 잡는다'],
-    manager:   ['멈추지 않는 궤도', 'spend',   5,  '궤도를 다섯 번 풀고 보스를 잡는다'],
-    commander: ['부러지지 않는 지휘봉','kills',150,'군세로 밀어붙여 보스를 잡는다'],
-    necro:     ['식지 않는 등불',   'kills',   140,'죽은 자를 거느리고 보스를 잡는다'],
+    specialist:['만능의 증표',      'elems',   5,  '세 속성을 갈아 쓰며 보스를 잡는다'],
+    runeknight:['새겨진 이름',      'elems',   5,  '세 속성을 검에 새기고 보스를 잡는다'],
+    manager:   ['멈추지 않는 궤도', 'spend',   14,  '궤도를 다섯 번 풀고 보스를 잡는다'],
+    commander: ['부러지지 않는 지휘봉','kills',400,'군세로 밀어붙여 보스를 잡는다'],
+    necro:     ['식지 않는 등불',   'kills',   380,'죽은 자를 거느리고 보스를 잡는다'],
     druid:     ['마르지 않는 수액', 'lowHp',   0,  '상처를 안고 자연과 함께 보스를 잡는다'],
-    bard:      ['끊기지 않는 현',   'spend',   5,  '박을 놓치지 않고 보스를 잡는다'],
+    bard:      ['끊기지 않는 현',   'spend',   14,  '박을 놓치지 않고 보스를 잡는다'],
     returner:  ['되돌린 하루',      'noHit',   0,  '한 번도 되돌릴 일 없이 보스를 잡는다'],
-    engineer:  ['멈추지 않는 태엽', 'spend',   5,  '설치물과 함께 보스를 잡는다'],
-    tourist:   ['마지막 기념품',    'kills',   130,'구경하며 지나가듯 보스를 잡는다'],
-    stonks:    ['상장 폐지 통지서', 'kills',   130,'폭락을 이겨내고 보스를 잡는다'],
+    engineer:  ['멈추지 않는 태엽', 'spend',   14,  '설치물과 함께 보스를 잡는다'],
+    tourist:   ['마지막 기념품',    'kills',   360,'구경하며 지나가듯 보스를 잡는다'],
+    stonks:    ['상장 폐지 통지서', 'kills',   360,'폭락을 이겨내고 보스를 잡는다'],
     gambler:   ['마지막 판돈',      'lowHp',   0,  '모두 걸고 보스를 잡는다'],
-    collector: ['비어 있던 진열대', 'elems',   3,  '세 속성을 모아 보스를 잡는다'],
-    tombraider:['봉인된 부장품',    'kills',   130,'무덤을 헤집고 보스를 잡는다'],
+    collector: ['비어 있던 진열대', 'elems',   5,  '세 속성을 모아 보스를 잡는다'],
+    tombraider:['봉인된 부장품',    'kills',   360,'무덤을 헤집고 보스를 잡는다'],
     slime:     ['최초의 핵',        'lowHp',   0,  '뭉개지고도 보스를 잡는다'],
     glitch:    ['복구 불가 세이브', 'noSkill', 0,  '스킬 없이 보스를 잡는다'],
     debug:     ['마지막 스택 프레임','noSkill',0,  '스킬 없이 보스를 잡는다'],
@@ -5284,6 +5327,10 @@ import { FX } from "./fx.js";
     if (!player) return;
     const ck = player.classKey, R = SACRED[ck];
     if (!R || relicOwned(ck)) return;
+    //  🔴 v6.165 **관문 보스에서만 인정한다** (사용자: *"조건 아주 어렵게 해, 거의 챌린지급으로"*)
+    //   일반 보스로 열리면 '어쩌다 얻는 것'이 된다. 관문은 이 게임에서 가장 어려운 전투이고,
+    //   성물은 *거기서* 자기 방식이 통했다는 증거여야 한다
+    if (!runProof.gateBoss) return;
     runProof.kills = killCount;
     const fn = RELIC_PROOF[R[1]];
     if (!fn || !fn(runProof, R[2])) return;
@@ -5297,6 +5344,37 @@ import { FX } from "./fx.js";
     SFX.play('win');
   }
   function sacredCount(){ let n = 0; for (const k in SACRED) if (relicOwned(k)) n++; return n; }
+  //  🔴 v6.165 **제물 계승** (사용자: *"해금된 후 제물을 바치게 해. 성장이 다 된 성장무기로 계승한다던가"*)
+  //   증명으로 여는 것은 **껍데기**다. 거기에 **다 키운 성장무기를 바쳐야** 비로소 이름을 되찾는다.
+  //   ⇒ 성물은 두 단계다: ① 챌린지 증명(해금) ② 제물 계승(각성) — 각성해야 성능·에고·치장이 붙는다
+  //   ⚠ 제물은 **소모된다**(레벨 1로 돌아간다). 그래서 "다 키운 것을 바친다"가 진짜 대가가 된다
+  const SACRED_TRIBUTE_LV = 30;      // 제물로 바치려면 성장무기가 이 레벨 이상이어야 한다
+  function sacredAwoken(ck){ return !!(DB.sacredAwake && DB.sacredAwake[ck]); }
+  function sacredTributeReady(ck){
+    if (!relicOwned(ck) || sacredAwoken(ck)) return null;
+    for (let i=0;i<3;i++){
+      const rec = DB.pgw && DB.pgw[ck+'_'+i];
+      if (rec && rec.found && (rec.lv||1) >= SACRED_TRIBUTE_LV) return { idx:i, lv:rec.lv };
+    }
+    return null;
+  }
+  function offerSacredTribute(ck){
+    const t = sacredTributeReady(ck);
+    if (!t) return false;
+    const rec = DB.pgw[ck+'_'+t.idx];
+    rec.lv = 1; rec.xp = 0;                       // ⚠ 제물은 소모된다 — 이게 진짜 대가다
+    DB.sacredAwake = DB.sacredAwake || {};
+    DB.sacredAwake[ck] = { lv: t.lv };            // 바친 레벨을 기억한다(계승의 흔적)
+    saveDB();
+    return true;
+  }
+  //  각성한 성물의 계승 배율 — 바친 성장무기의 레벨이 높을수록 강하다.
+  //  ⚠ 사용자 지시대로 **PGW 만렙보다 위**다(v6.164에서는 동급이었다). 대신 그 대가로 다 키운 무기 하나를 잃는다
+  function sacredMult(ck){
+    const a = DB.sacredAwake && DB.sacredAwake[ck];
+    if (!a) return 1;
+    return 1.25 + Math.min(0.45, ((a.lv||30) - 30) * 0.0225);   // Lv30 →×1.25 / Lv50 →×1.70
+  }
   function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
   // 원형별 밸런스 계수: 발사 주기·발수·판정을 반영해 3종의 DPS가 동일하도록 — 성능은 같고 손맛만 다르다
   const ARCH_BAL = { pierce:1.2, wave:1.15, snipe:2.0, spread:0.42, homing:0.6, mortar:1.9, nova:0.22,
@@ -5340,7 +5418,8 @@ import { FX } from "./fx.js";
       lvDesc:['','강화','강화','강화','강화'],
       baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
       //  PGW 만렙(gl=50 · w.lv=5 · 미진화)과 같은 값: (1.6+25) × ARCH_BAL × 2.3 × 2.4
-      dmg:(w)=> (1.6 + 50*0.5) * (ARCH_BAL[arch]||1) * 2.3 * 2.4 * (w.evolved?1.5:1),
+      //  v6.165 각성(제물 계승)하면 PGW 만렙 **이상**이 된다 — 바친 무기의 레벨이 곧 계승의 크기다
+      dmg:(w)=> (1.6 + 50*0.5) * (ARCH_BAL[arch]||1) * 2.3 * 2.4 * sacredMult(ck) * (w.evolved?1.5:1),
       count:(w)=> (arch==='nova'?7 : arch==='spread'?3 : arch==='homing'?2 : 1) + 1 + (w.evolved?1:0)
     };
   });
@@ -6072,7 +6151,7 @@ import { FX } from "./fx.js";
   let state = 'idle'; // idle | playing | paused | levelup | event | dead | win
   let last = 0, raf = null;
   let elapsed = 0;
-  let runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(), maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false };   // v6.163 성물 증명
+  let runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(), maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false };   // v6.163 성물 증명
   let killCount = 0;
   let runGold = 0;
   let spawnTimer = 0;
@@ -6220,7 +6299,7 @@ import { FX } from "./fx.js";
     satFlight.length = 0; engineTicks.length = 0;
     //  v6.163 성물 증명용 런 통계 — "그 직업답게 싸웠는가"를 판정할 근거
     runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(),
-                 maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false };
+                 maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false, gateBoss:false };
     totalDmg = 0; noHitT = 0; dashCount = 0;
     elapsed = 0; killCount = 0; runGold = 0; spawnTimer = 0; pendingLevelUps = 0;
     shake = 0; freeze = 0;
@@ -7406,6 +7485,17 @@ import { FX } from "./fx.js";
     return JSON.stringify({ n:p.length, keys:p.map(c=>c.key), names:p.map(c=>c.name) });
   } catch(e){ return 'ERR '+String(e&&e.stack||e); } };
   //  v6.163 QA: 성물 판정을 직접 부른다 — 보스를 실제로 잡기 어려운 벤치 환경에서 조건 로직만 검증한다
+  //  v6.165 QA: 성물 2단계(증명→제물 계승)를 벤치에서 돌려 보기 위한 강제 훅
+  window.__qaSacredForce = (ck, pgwLv)=>{ try {
+    DB.relics = DB.relics||{}; DB.relics[ck] = true;
+    DB.pgw = DB.pgw||{}; DB.pgw[ck+'_0'] = { found:true, lv:(pgwLv||50), xp:0 };
+    saveDB();
+    const t = sacredTributeReady(ck);
+    return JSON.stringify({ 제물가능:!!t, 제물레벨:t&&t.lv });
+  } catch(e){ return 'ERR '+String(e); } };
+  window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
+    return JSON.stringify({ 계승:ok, 각성:sacredAwoken(ck), 배율:+sacredMult(ck).toFixed(2), 제물무기레벨:(DB.pgw[ck+'_0']||{}).lv });
+  } catch(e){ return 'ERR '+String(e); } };
   window.__qaSacred = ()=>{ try { tryUnlockRelic(); return JSON.stringify({ 보유:Object.keys(DB.relics||{}), 수:sacredCount() }); } catch(e){ return 'ERR '+String(e); } };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
@@ -7484,6 +7574,7 @@ import { FX } from "./fx.js";
     killCount += 1;
     //  🔴 v6.163 **성물 판정은 보스를 잡는 순간에 한다** — 성물은 '그 직업답게 싸웠다'는 증명이고,
     //   그 증명이 완성되는 지점이 보스전의 끝이다. (드랍 확률이 아니라 **행위**로 얻는다)
+    if (b.gate || b.gateStage!==undefined || b.finale) runProof.gateBoss = true;   // v6.165 관문 보스에서만 성물이 열린다
     tryUnlockRelic();
     addCombo();
     questAdd('boss', 1);
@@ -16257,7 +16348,8 @@ import { FX } from "./fx.js";
     }
     //  🔴 v6.164 **성물은 증명한 직업이 항상 들고 나간다** — 장비창에서 고를 필요가 없다.
     //   이미 '증명'이라는 대가를 치렀으므로 슬롯 경쟁까지 시키지 않는다(과시가 이 층의 목적이다)
-    if (relicOwned(classKey) && WEAPONS['sac_'+classKey]){
+    //  v6.165 **각성한 성물만** 들고 나간다 — 증명만 한 상태는 '껍데기'이고 제물을 바쳐야 이름을 되찾는다
+    if (relicOwned(classKey) && sacredAwoken(classKey) && WEAPONS['sac_'+classKey]){
       addWeapon('sac_'+classKey);
       const w0 = player.weapons[player.weapons.length-1];
       if (w0) w0.lv = 5;                          // 성물은 처음부터 최상급(PGW 만렙 동급)
@@ -17820,6 +17912,33 @@ import { FX } from "./fx.js";
       const bshake = player.gimBombT<1.5 ? (Math.random()-0.5)*2 : 0;
       ctx.fillText('💣 '+player.gimBombT.toFixed(1), player.x+bshake, player.y-46);
       ctx.restore();
+    }
+    //  🔴 v6.165 **성물 치장** (사용자: *"이걸 끼면 플레이어의 치장이나 이런 게 훨씬 더 좋아져야 해"*)
+    //   각성한 성물을 들면 발밑에 **絶名의 고리**가 돌고 금빛 티끌이 피어오른다.
+    //   ⚠ 도트 파이프라인 **밖**에 그린다(이름·오라와 같은 층) — 스프라이트 캐시 키가 폭발하지 않게
+    if (player.weapons && player.weapons.some(w=>w.key && w.key.indexOf('sac_')===0)){
+      ctx.save();
+      const st2 = performance.now()/1000;
+      ctx.strokeStyle = '#e0a94f';
+      ctx.globalAlpha = 0.35 + 0.2*Math.sin(st2*2.2);
+      ctx.lineWidth = 1.6;
+      for (let k=0;k<2;k++){
+        const rr = player.r + 10 + k*5;
+        ctx.beginPath();
+        for (let a=0;a<=32;a++){
+          const th = (Math.PI*2/32)*a + st2*(k?-0.5:0.7);
+          const px = player.x + Math.cos(th)*rr, py = player.y + 12 + Math.sin(th)*rr*0.34;
+          if (a===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.stroke();
+      }
+      // 피어오르는 금빛 티끌
+      if (Math.random() < 0.35){
+        particles.push({ x:player.x+(Math.random()*16-8), y:player.y+10, vx:(Math.random()-0.5)*12,
+                         vy:-26-Math.random()*18, life:0.7, age:0, r:1.5, col:'#e0a94f' });
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
     }
     // 칭호: 머리 위에 금빛으로 떠오른다
     //  v6.164 성물 칭호 — 조합 칭호가 없으면 **성물 칭호가 그 자리에 뜬다**(과시가 이 층의 보상이다)
