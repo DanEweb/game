@@ -7951,6 +7951,27 @@ import { FX } from "./fx.js";
   } catch(e){ return 'ERR '+String(e); } };
   //  v6.171 QA: 장비 착용 비주얼 확인용 — 희귀도/무게를 지정해 전 부위를 한 번에 입힌다
   //  v6.172 QA: 등급 치장 단계가 실제로 갈리는지 값으로 확인
+  //  v6.175 QA: 무기 3층 최고 상태를 한 번에 세팅 — 스크린샷 비교용
+  window.__qaShowcase = (kind)=>{ try {
+    const ck = player.classKey;
+    //  ⚠ __qaWeapon은 교체가 아니라 **추가**다 — 안 지우면 이전 층이 남아
+    //   weaponStage()의 find()가 옛 무기를 먼저 집는다(cgw 요청인데 pgw로 잡혔다)
+    player.weapons = (player.weapons||[]).filter(w=>!(w.key && (w.key.indexOf("pgw_")===0 || w.key.indexOf("cgw_")===0)));
+    if (kind==="pgw"){
+      DB.pgw = DB.pgw||{}; DB.pgw[ck+"_0"] = { found:true, lv:50, xp:0, awk:4 };
+      saveDB(); __qaWeapon("pgw_"+ck+"_0"); player.sacredTitle = null;
+    } else if (kind==="cgw"){
+      DB.cgw = DB.cgw||{}; DB.cgw[ck+"_0"] = { found:true, lv:40, xp:0 };
+      saveDB(); __qaWeapon("cgw_"+ck+"_0"); player.sacredTitle = null;
+    } else if (kind==="sacred"){
+      DB.pgw = DB.pgw||{}; DB.pgw[ck+"_0"] = { found:true, lv:50, xp:0, awk:4 };
+      DB.relics = DB.relics||{}; DB.relics[ck] = true;
+      DB.sacredAwake = DB.sacredAwake||{}; DB.sacredAwake[ck] = { lv:50 };
+      saveDB(); __qaWeapon("pgw_"+ck+"_0");
+      player.sacredTitle = "絶名 · " + (SACRED[ck] ? SACRED[ck][0] : "이름");
+    }
+    return __qaRank();
+  } catch(e){ return "ERR "+String(e); } };
   window.__qaRank = ()=>{ try { const W=weaponStage();
     return JSON.stringify({ 장비등급:gearRank(), 성물:!!player.sacredTitle,
       무기층:W?W.tier:null, 무기단계:W?W.st:null }); } catch(e){ return "ERR "+String(e); } };
@@ -18220,10 +18241,23 @@ import { FX } from "./fx.js";
     };
     const drawProp = ()=>{
     if (g==='manager'){
-      ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
-      ctx.fillRect(-7,-16.5,14,2.5);
-      ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(7,-20); ctx.stroke();
-      ctx.beginPath(); ctx.arc(7,-21.5,2.6,0,Math.PI*2); ctx.fill();
+      //  🔴 v6.176 **관측자가 마법사 지팡이를 들고 있었다** (사용자 지적) —
+      //   삼각 마법사 모자 + 세로 지팡이 + 끝 구슬. 위성을 부리는 직업인데 완전한 마법사 차림이었다.
+      //   대기 자세는 이미 위성을 떠받치는 satPose인데 **손에 든 물건만 안 맞았다.**
+      //   ⇒ 지팡이를 없애고, 자세와 맞물리게 **양손 위에 뜬 관측 오브 + 궤도 고리**로 바꾼다.
+      ctx.fillStyle = WM.iron;                                       // 관측 바이저(모자 대신)
+      ctx.fillRect(-4.6,-14.6,11.4,2.0);
+      ctx.fillStyle = WM.dark;
+      ctx.fillRect(-3.4,-13.2,9.0,1.5);                              // 눈 위 차광대
+      ctx.fillStyle = WM.steel;                                      // 주 오브 — 앞손 위에 뜬다
+      ctx.beginPath(); ctx.arc(8.6,-7.4,2.9,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.arc(8.6,-7.4,2.9,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.55;               // 오브를 감는 궤도 고리
+      ctx.beginPath(); ctx.ellipse(8.6,-7.4,4.6,1.5,-0.5,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(8.6,-7.4,4.6,1.5,0.85,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle = WM.edge;                                       // 뒷손 위 보조 관측점
+      ctx.beginPath(); ctx.arc(-7.6,-6.2,1.25,0,Math.PI*2); ctx.fill();
     } else if (g==='sniper'){
       //  v6.175 저격총 — 나무 개머리판 / 쇠 기관부 / 가는 총열 / 조준경
       ctx.fillRect(-5,-17,11,3); ctx.fillRect(3,-17,6,2);                          // 모자
@@ -18549,6 +18583,59 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(-4,8); ctx.quadraticCurveTo(-12,6,-11,-2+Math.sin(performance.now()/350)*3); ctx.stroke();
     }
     };
+    //  🔴 v6.176 **3층이 그냥 일반무기로 보였다** (사용자: *"성장무기 유일무기 성유물이 그냥 일반무기잖아 외형이"*)
+    //   v6.172는 발광 세기만 단계로 갈랐는데, 셋 다 만렙이면 **전부 4단계로 수렴**해 구분이 사라졌다.
+    //   층은 성격이 다르다 — 그 성격을 **무기에 덧붙는 물건**으로 표현한다.
+    //     성장무기 = 내가 키운 물건 → 투박한 **무쇠 보강대와 리벳**
+    //     유일무기 = 극악 확률로 만난 물건 → **금 룬과 박힌 보석**
+    //     성물(絶名) = 등급 밖의 물건 → **날에서 뻗는 잔광 + 주위를 도는 문양 조각**
+    //   ⚠ 무기는 직업마다 방향이 달라 좌표를 고정할 수 없다 → **손에서 바깥으로 뻗는 축**을 따라 얹는다.
+    const drawTierMark = ()=>{
+      const T = o.wtier;
+      if (!T || !wst) return;
+      const now = performance.now();
+      const ax0 = 6.5, ay0 = 0.5, ax1 = 17.5, ay1 = -11.5;    // 손 → 무기 바깥 축
+      const at = (t)=> [ax0+(ax1-ax0)*t, ay0+(ay1-ay0)*t];
+      ctx.save();
+      if (T === 'pgw'){
+        ctx.strokeStyle = WM.iron; ctx.lineWidth = 1.5;
+        for (const t of [0.22, 0.40]){                        // 보강대 두 줄
+          const [px,py] = at(t);
+          ctx.beginPath(); ctx.moveTo(px-1.5, py-1.1); ctx.lineTo(px+1.5, py+1.1); ctx.stroke();
+        }
+        ctx.fillStyle = WM.dark;                              // 리벳
+        for (const t of [0.30, 0.50]){ const [px,py]=at(t);
+          ctx.beginPath(); ctx.arc(px,py,0.7,0,6.283); ctx.fill(); }
+      } else if (T === 'cgw'){
+        ctx.fillStyle = WM.gold;                              // 금 룬 세 점
+        for (const t of [0.34, 0.52, 0.70]){ const [px,py]=at(t);
+          ctx.beginPath(); ctx.arc(px,py,0.85,0,6.283); ctx.fill(); }
+        const [gx,gy] = at(0.12);                             // 코등이 보석
+        ctx.beginPath(); ctx.arc(gx,gy,1.5,0,6.283); ctx.fill();
+        ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.4;
+        ctx.beginPath(); ctx.arc(gx,gy,1.5,0,6.283); ctx.stroke();
+      } else if (T === 'sacred'){
+        const gold = '#e0a94f';
+        ctx.strokeStyle = gold; ctx.fillStyle = gold;
+        ctx.shadowColor = gold; ctx.shadowBlur = 5;
+        ctx.globalAlpha = 0.75; ctx.lineWidth = 1.5;          // 날을 따라 흐르는 잔광
+        ctx.beginPath(); ctx.moveTo(...at(0.15)); ctx.lineTo(...at(1.18)); ctx.stroke();
+        ctx.globalAlpha = 0.95;                               // 칼끝에 맺힌 빛
+        const [tx,ty] = at(1.20);
+        ctx.beginPath(); ctx.arc(tx,ty,1.7,0,6.283); ctx.fill();
+        ctx.globalAlpha = 0.7; ctx.lineWidth = 1.0;           // 주위를 도는 문양 조각 3개
+        const [cx,cy] = at(0.66);
+        for (let k=0;k<3;k++){
+          const a = now/620 + k*2.094;
+          const px = cx + Math.cos(a)*5.2, py = cy + Math.sin(a)*3.4;
+          ctx.beginPath();
+          ctx.moveTo(px, py-1.4); ctx.lineTo(px+1.2, py+1.0); ctx.lineTo(px-1.2, py+1.0);
+          ctx.closePath(); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    };
     //  ⚠ `ctx.filter`로 명도를 강제한다 — 분기 일부가 색을 하드코딩해 놔서(넥타이·차트선 등)
     //   그냥 색만 바꿔 그리면 윤곽 패스에 **색 번짐**이 남는다.
     const canF = (typeof ctx.filter === 'string');
@@ -18570,6 +18657,7 @@ import { FX } from "./fx.js";
     ctx.restore();
     //  ③ 전면 하이라이트 패스는 걷어냈다 — 깎은 무기들이 이미 자기 날선(하몬·능선)을 갖고 있어
     //   위에 한 겹 더 덮으면 그 선이 묻힌다.
+    drawTierMark();                        // v6.176 층별 표식은 본체 위에 얹는다
     if (wst > 0) ctx.restore();            // v6.173 무기 성장 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
@@ -18745,7 +18833,8 @@ import { FX } from "./fx.js";
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey],  // 전직 티어 실물 외형
       //  v6.171 장비를 **몸과 같은 좌표계로** 넘긴다 — 자세·반전·배율을 따라가야 '입은' 것으로 보인다
       eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') },
-      wst: (weaponStage()||{}).st || 0   // v6.173 무기 성장 단계 — 프롭이 자란다
+      wst: (weaponStage()||{}).st || 0,  // v6.173 무기 성장 단계 — 프롭이 자란다
+      wtier: (weaponStage()||{}).tier || null   // v6.176 층(성장/유일/성물) — 붙는 물건이 다르다
     });
     drawWeaponAura();   // v6.172 무기 발광은 **몸 위**에 — 날이 몸에 가리면 안 된다
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
