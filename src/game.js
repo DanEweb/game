@@ -4503,6 +4503,18 @@ import { FX } from "./fx.js";
         desc:(m)=>'전용기 타수 +'+m, apply:(p,m)=>{ p.engN=(p.engN||0)+m; } },
       { key:'c_engsurge',name:'여운', tier:2, max:3, req:()=>!!engineResource(),
         desc:(m)=>'전용기 후 각성 창 +'+R1(0.7*m)+'초', apply:(p,m)=>{ p.engSurge=(p.engSurge||0)+0.7*m; } },
+      //  🔴 v6.155 **속성은 엔진에 '얹힌다'** (배치 6의 ②) — 로드맵: *"속성은 엔진에 얹히는 방식으로 재편"*.
+      //   지금까지 속성은 **따로 도는 발사체**(화염구·서리창…)라 내 엔진과 무관하게 굴러갔다.
+      //   이 카드는 **지금 강림한 속성을 내 무기에 새긴다** — 평타도 소비기도 그 속성으로 발동한다.
+      //   ⚠ 새 시스템을 만들지 않는다. `w.imbue`는 각인 무기(v6.54)가 이미 쓰는 값이라 여기에 얹기만 하면 된다
+      //  v6.155 하이브리드 개방 — 이걸 찍어야 '새 무기' 카드가 나온다. 엔진을 흐리는 대신 폭을 얻는 선택
+      { key:'c_hybrid', name:'겸업', tier:2, max:1, req:()=>!!engineResource() && !player.hybridOpen,
+        desc:()=>'새 무기 카드가 등장한다 — 엔진 하나에 집중하는 대신 폭을 얻는다',
+        apply:(p)=>{ p.hybridOpen = true; } },
+      { key:'c_engrave', name:'각인', tier:2, max:3, req:()=>!!engineResource() && !!focusTree,
+        desc:(m)=>'강림한 속성이 내 무기에 깃든다 (속성 발동 피해 +'+R(10*m)+'%)',
+        apply:(p,m)=>{ const el = focusTree; if (!el) return;
+          for (const w of (p.weapons||[])){ w.imbue = el; w.imbueDmg = (w.imbueDmg||1)*(1+0.10*m); } } },
       { key:'c_engpow', name:'벼림',  tier:3, max:2, req:()=>!!engineResource(),
         desc:(m)=>'전용기 위력 +'+R(12*m)+'% (마지막에 여는 것)', apply:(p,m)=>{ p.engPow=(p.engPow||1)*(1+0.12*m); } },
       { key:'c_undying',name:'불굴', tier:3, max:1, desc:(m)=>'[궁극] 1회 부활, 체력 30% 이하일 때 피해 -'+Math.min(60,R(15*m))+'%', apply:(p,m)=>{ p.undyingRevive=true; p.undyingDR=Math.min(0.6,0.15*m); } },
@@ -5115,6 +5127,12 @@ import { FX } from "./fx.js";
           if (!def.cross && !MELEE_WEAPONS[key] && isPureMeleeBuild() && starBranchSpent('rng') < 1) return;
           // v6.121 남의 직업 엔진은 카드로 나오지 않는다 (자기 것은 이미 들고 있어 어차피 안 나온다)
           if (ENGINE_OWNER[key]) return;
+          //  🔴 v6.155 **새 무기 카드는 '겸업'을 연 사람에게만** (배치 6의 ③ — 로드맵: *"무기 카드는 하이브리드용으로 제한"*).
+          //   엔진 체계가 생긴 뒤로 무기를 하나 더 주는 것은 **엔진을 흐리는 선택**이 됐다:
+          //   자원은 주 무기 하나로만 차는데(v6.130 `rangedEngineKey`), 무기가 늘면 화력만 분산된다.
+          //   ⇒ 기본은 안 나오고, 공통 노드 **'겸업'** 을 찍은 사람에게만 열린다 — *하이브리드는 선택이어야 한다*
+          //   ⚠ 엔진이 없는 직업(무작위 무기 3종 등)에겐 그대로 열어 둔다 — 그들에겐 무기가 곧 빌드다
+          if (engineResource() && !player.hybridOpen) return;
           // 무기 희귀도: 카드 등급이 시작 레벨을 결정 (희귀+ → Lv2, 전설 → Lv3)
           const wri = rollCardRarity();
           const startLv = 1 + (wri>=2?1:0) + (wri>=4?1:0);
@@ -14737,7 +14755,18 @@ import { FX } from "./fx.js";
         const tagEl0 = ()=>{ const te=el.querySelector('.tag'); if (te){ te.style.background=COLORS[u.elc]; te.style.color='#fff'; } };
         setTimeout(tagEl0, 0);
       }
-      const num = '<div class="num">0'+(i+1)+'</div>';
+      //  🔴 v6.155 **카드 아이콘 + 엔진 카드 강조** (배치 6의 ④ — 로드맵: *"UI·이펙트 개편"*)
+      //   지금 카드는 전부 같은 모양이라 **무엇을 고르는 것인지 한눈에 안 들어온다**.
+      //   종류를 아이콘으로 갈라 주고, 이번 배치의 핵심인 **엔진 강화 카드는 테두리로 눈에 띄게** 한다
+      const ICON = { weaponlv:'⬆', weaponnew:'✚', fusion:'⚯', ctech:'★', gwtech:'⚔', jackpot:'🎰' };
+      const isEng = typeof u.key === 'string' && u.key.indexOf('c_eng') === 0;
+      const ico = u.myth ? '✦' : (isEng ? '◈' : (ICON[u.kind] || (u.elc ? '◆' : '·')));
+      if (isEng){
+        el.style.boxShadow = 'inset 0 0 0 2px rgba(224,169,79,0.85)';   // 엔진 강화 = 금색 안쪽 테두리
+        el.style.borderTop = '3px solid #e0a94f';
+      }
+      const num = '<div class="num">0'+(i+1)+'</div>'
+        + '<div class="cico" style="position:absolute;top:8px;right:9px;font-size:15px;opacity:0.55;pointer-events:none;">'+ico+'</div>';
       const tag = u.tag ? '<div class="tag"'+(u.ctag?' style="background:var(--ink-900);color:#e8c56a;"':'')+'>'+u.tag+'</div>' : '';
       const rb = (u.rarity!==undefined) ? '<span class="rbadge '+(u.jackpot?'r4':CARD_RARITY[u.rarity].cls)+'">'+(u.jackpot?'잭팟':CARD_RARITY[u.rarity].n+(u.rarity>0?' ×'+CARD_RARITY[u.rarity].m:''))+'</span>' : '';
       el.innerHTML = num+tag+'<div class="name">'+rb+u.name+'</div><div class="desc">'+u.desc+'</div>';
