@@ -7815,6 +7815,18 @@ import { FX } from "./fx.js";
     const t = sacredTributeReady(ck);
     return JSON.stringify({ 제물가능:!!t, 제물레벨:t&&t.lv });
   } catch(e){ return 'ERR '+String(e); } };
+  //  v6.169 QA: 속성 히트가 **모양까지 달라지는지**를 값으로 확인한다 (스크린샷은 타이밍 의존이라 못 믿는다)
+  window.__qaElemFx = (elem)=>{ try {
+    particles.length = 0; effects.length = 0;
+    const t = { x: player ? player.x : 0, y: player ? player.y : 0, hp: 9e9 };
+    elemHit(t.x, t.y, elem, false);
+    const f = (k)=> particles.filter(q=>q[k]).length;
+    const up = particles.filter(q=>q.vy < -20).length, dn = particles.filter(q=>q.vy > 20).length;
+    return JSON.stringify({ 속성:elem, 입자:particles.length, 링:effects.length, 연타:hitStreak,
+      shard:f('shard'), streak:f('streak'), soft:f('soft'), pull:f('pull'),
+      중력:(particles[0]||{}).g||0, 위로:up, 아래로:dn,
+      색:(particles[0]||{}).col||null });
+  } catch(e){ return 'ERR '+String(e); } };
   window.__qaTitle = (k)=>{ DB.titles=DB.titles||{}; if(k==='*'){ Object.keys(TITLES).forEach(t=>DB.titles[t]=true); } else if(k){ DB.titles[k]=true; DB.titleOn=k; } saveDB(); return JSON.stringify({on:DB.titleOn, n:Object.keys(DB.titles).length}); };
   window.__qaMats = (n,g)=>{ if (g!==undefined){ DB.gold=g; saveDB(); } if (n!==null && typeof n==="object"){ Object.assign(DB.mats, n); saveDB(); } else if (n!==undefined){ DB.mats.forge=n; DB.mats.sigil=n; DB.mats.shard=n; DB.mats.essence=n; DB.mats.gear=n; saveDB(); } return JSON.parse(JSON.stringify(Object.assign({gold:DB.gold}, DB.mats))); };
   window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
@@ -12295,8 +12307,84 @@ import { FX } from "./fx.js";
     if (player.gymbro) m *= 1 + player.maxHp*0.00025; // 헬창: 근육이 곧 화력
     return m;
   }
+  //  🔴 v6.169 배치 9-a **속성별 히트 시그니처** (로드맵 순서표 9번 — "속성 파티클")
+  //   그동안 15속성이 전부 `burst()` 하나로 터졌다. 색만 다르고 **모양이 같아서**
+  //   화면에서 무슨 속성이 터졌는지 구분이 안 됐다. 속성마다 '움직이는 방식'을 다르게 준다.
+  //   ⚠ 매 타격마다 도는 자리다 — 파티클 수는 전부 한 자릿수로 묶고, 링은 최대 2겹까지만.
+  const ELEM_SIG = {
+    //  n=입자수 sp=속도 g=중력(음수는 상승) life=수명 r=반경 ring=[r0,r1,수명] 특성
+    fire:    { n:5, sp:70,  g:-260, life:0.42, r:2.2, up:true },                  // 불티가 위로 솟는다
+    frost:   { n:6, sp:150, g:60,   life:0.34, r:1.8, shard:true },               // 각진 파편이 흩어진다
+    volt:    { n:4, sp:340, g:0,    life:0.16, r:1.4, streak:true, ring:[4,26,0.16] }, // 순간적으로 튄다
+    acid:    { n:5, sp:60,  g:340,  life:0.5,  r:2.4 },                           // 방울이 흘러내린다
+    venom:   { n:7, sp:26,  g:-30,  life:0.9,  r:4.5, fade:true },                // 연무가 느리게 퍼진다
+    boom:    { n:9, sp:230, g:180,  life:0.4,  r:2.6, ring:[6,52,0.24] },         // 크게 터진다
+    mech:    { n:5, sp:280, g:420,  life:0.26, r:1.3, streak:true },              // 금속 스파크가 튄다
+    psi:     { n:4, sp:40,  g:-180, life:0.6,  r:2.2, ring:[10,30,0.36] },        // 떠오른다
+    holy:    { n:4, sp:30,  g:150,  life:0.45, r:2.0, pillar:true },              // 위에서 빛이 내리꽂힌다
+    //  ⚠ 신성은 g를 -90으로 뒀다가 **내려오던 빛이 도로 위로 꺾였다**(pillar은 vy +150로 내려보낸다).
+    //   '모양'을 정할 땐 초기 속도와 중력의 부호가 싸우지 않는지 같이 볼 것
+    grav:    { n:7, sp:0,   g:0,    life:0.38, r:2.0, suck:true },                // 바깥에서 중심으로 빨려든다
+    chrono:  { n:3, sp:50,  g:0,    life:0.5,  r:1.8, echo:true },                // 잔상 링이 시차를 두고 겹친다
+    blood:   { n:6, sp:120, g:520,  life:0.45, r:2.3 },                           // 방울이 튀어 떨어진다
+    storm:   { n:6, sp:260, g:0,    life:0.3,  r:1.9, ring:[14,46,0.22] },        // 바깥으로 밀려난다
+    sonic:   { n:2, sp:20,  g:0,    life:0.3,  r:1.6, ripple:true },              // 동심원 파문 2겹
+    crystal: { n:6, sp:90,  g:110,  life:0.55, r:2.1, shard:true, slow:true },    // 결정 조각이 천천히 진다
+  };
+  //  다단 히트 — 연타가 이어지는 동안 이펙트가 커진다 (던파식 1타·2타·마무리)
+  let hitStreak = 0, hitStreakT = 0;
+  function bumpHitStreak(){ hitStreak = Math.min(12, hitStreak+1); hitStreakT = 0.9; }
+  function elemHit(x, y, elem, isBoss){
+    const S = ELEM_SIG[elem];
+    if (!S) return;
+    const colHex = COLORS[elem] || '#ffffff';
+    const colInt = parseInt(colHex.slice(1), 16);
+    //  연타 보정: 3타마다 한 단계씩 커진다 (최대 1.6배)
+    const pw = 1 + Math.min(0.6, Math.floor(hitStreak/3) * 0.2);
+    const n = Math.max(1, Math.round(S.n * pw * (isBoss ? 1.25 : 1)));
+    if (particles.length < 340){
+      for (let i=0;i<n;i++){
+        let px = x, py = y, vx, vy;
+        if (S.suck){                    // 중력: 바깥 원주에서 시작해 안으로
+          const a = Math.random()*6.283, rr = 26 + Math.random()*14;
+          px = x + Math.cos(a)*rr; py = y + Math.sin(a)*rr;
+          vx = 0; vy = 0;
+        } else if (S.up){               // 불: 위쪽 반구로만 튄다
+          const a = -Math.PI*0.5 + (Math.random()-0.5)*2.0;
+          const sp = S.sp*(0.5+Math.random()*0.9);
+          vx = Math.cos(a)*sp; vy = Math.sin(a)*sp;
+        } else if (S.pillar){           // 신성: 위에서 내려온다
+          px = x + (Math.random()*16-8); py = y - 30 - Math.random()*14;
+          vx = 0; vy = 150 + Math.random()*80;
+        } else {
+          const a = Math.random()*6.283;
+          const sp = S.sp*(0.4+Math.random()*0.9);
+          vx = Math.cos(a)*sp; vy = Math.sin(a)*sp;
+        }
+        //  ⚠ 지역변수를 `p`로 두면 audit.mjs가 **플레이어 스탯 쓰기**로 오인한다(p.critMult 관례)
+        const pt = { x:px, y:py, vx, vy, life:S.life*(S.slow?1.4:1), age:0,
+                     r:S.r*(0.7+Math.random()*0.6), col:colHex, g:S.g||0 };
+        if (S.shard){ pt.shard = true; pt.rot = Math.random()*6.283; pt.vr = (Math.random()*8-4); }
+        if (S.streak) pt.streak = true;
+        if (S.fade)   pt.soft = true;
+        if (S.suck)   pt.pull = { x, y, f:520 };
+        particles.push(pt);
+      }
+    }
+    if (S.ring)   effects.push({ type:'ring', x, y, life:S.ring[2], age:0, r0:S.ring[0], r1:S.ring[1]*pw, col:colHex });
+    if (S.ripple){ // 공명: 시차를 둔 동심원 2겹
+      effects.push({ type:'ring', x, y, life:0.30, age:0,  r0:6,  r1:34*pw, col:colHex });
+      effects.push({ type:'ring', x, y, life:0.44, age:-0.12, r0:6, r1:52*pw, col:colHex });
+    }
+    if (S.echo){   // 시간: 잔상 3겹
+      for (let k=0;k<3;k++) effects.push({ type:'ring', x, y, life:0.34, age:-k*0.09, r0:8+k*4, r1:26+k*9, col:colHex });
+    }
+    if (FX.enabled && n >= 5) FX.puff(x, y, colInt, Math.round(S.r*3));
+  }
   function procElement(t, elem, isBoss){
     if (elem) runProof.elems.add(elem);   // v6.163 성물 증명 — 여러 속성을 둘렀는가
+    bumpHitStreak();
+    elemHit(t.x, t.y, elem, isBoss);      // v6.169 속성마다 다른 모양으로 터진다
     const D = player.dmgMult;
     if (elem==='fire'){
       if ((t.chillS>0 || t.frozenT>0)){
@@ -15373,12 +15461,18 @@ import { FX } from "./fx.js";
       p.vx *= (1 - Math.min(1,dt*3));
       p.vy *= (1 - Math.min(1,dt*3));
       if (p.pix) p.vy += 420*dt;      // 픽셀 파편은 중력을 받아 떨어진다
+      if (p.g)   p.vy += p.g*dt;      // v6.169 속성별 중력 — 불티는 뜨고(음수) 산·피는 흘러내린다(양수)
+      if (p.pull){                    // v6.169 중력 속성 — 바깥에서 중심으로 빨려든다
+        const dx = p.pull.x-p.x, dy = p.pull.y-p.y, dd = Math.hypot(dx,dy)||1;
+        p.vx += (dx/dd)*p.pull.f*dt; p.vy += (dy/dd)*p.pull.f*dt;
+      }
     }
 
     player._auraBeat = 0;   // v6.79 역장 타격 비트는 그 프레임에만 유효
 
     if (player.satBurstT>0) player.satBurstT -= dt;   // v6.85 궤도 해방 지속
     if (player.satRush>1) player.satRush = Math.max(1, player.satRush - dt*0.35);   // v6.87 처치 가속 감쇠
+    if (hitStreakT>0){ hitStreakT -= dt; if (hitStreakT<=0) hitStreak = 0; }   // v6.169 연타가 끊기면 초기화
     if (shake>0) shake = Math.max(0, shake - dt*30);
 
     updateHud();
@@ -20235,6 +20329,7 @@ import { FX } from "./fx.js";
   function drawEffects(){
     const dark = MAP.key==='abyss';
     for (const fx of effects){
+      if (fx.age < 0) continue;   // v6.169 시차 이펙트(공명 파문·시간 잔상)는 아직 등장 전이다
       const tt = 1 - fx.age/fx.life;
       ctx.save();
       ctx.globalAlpha = Math.max(0,tt);
@@ -20796,12 +20891,24 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.stroke();
       } else if (p.shard){
         ctx.globalAlpha = a*0.75;
-        ctx.fillStyle = PAL.ink2;
+        ctx.fillStyle = p.col || PAL.ink2;   // v6.169 서리·결정 파편은 제 속성색으로
         ctx.save();
         ctx.translate(p.x,p.y);
         ctx.rotate(p.rot + p.age*p.vr);
         ctx.fillRect(-p.r,-p.r*0.6,p.r*2,p.r*1.2);
         ctx.restore();
+      } else if (p.streak){
+        // v6.169 전격·기계 — 점이 아니라 '긋는 선'으로 보여야 튀는 느낌이 난다
+        ctx.globalAlpha = a*0.9;
+        ctx.strokeStyle = p.col || PAL.ink;
+        ctx.lineWidth = Math.max(1, p.r);
+        const sl = 0.045;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx*sl, p.y - p.vy*sl); ctx.stroke();
+      } else if (p.soft){
+        // v6.169 맹독 — 경계가 흐린 연무
+        ctx.globalAlpha = a*0.30;
+        ctx.fillStyle = p.col || PAL.ink;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(1.4-a*0.4), 0, Math.PI*2); ctx.fill();
       } else if (p.pix){
         // v6.75 픽셀 파편 — 도트 스프라이트가 조각나 흩어진다 (원형 퍼프 대신)
         ctx.globalAlpha = a>0.35 ? 1 : a/0.35;      // 알파 대신 크기로 사라져 도트 느낌 유지
