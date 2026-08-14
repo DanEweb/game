@@ -3375,7 +3375,9 @@ import { FX } from "./fx.js";
   };
   function classPortrait(key){
     if (PORTRAIT_CACHE[key]) return PORTRAIT_CACHE[key];
-    const W = 132, H = 108, DPR = Math.min(2, window.devicePixelRatio||1);
+    //  ⚠ 세 번째 액자 조정 — v6.173에서 직업 체형이 붙으면서 **키 큰 직업(사신 h1.08)의 긴 프롭(낫)**이
+    //   위로 더 뻗어 잘렸다. 캐릭터 범위만이 아니라 **프롭 길이까지** 봐야 한다.
+    const W = 132, H = 120, DPR = Math.min(2, window.devicePixelRatio||1);
     const cv = document.createElement('canvas');
     cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
     cv.style.cssText = 'width:100%;height:'+H+'px;display:block;border-radius:8px;';
@@ -17704,6 +17706,56 @@ import { FX } from "./fx.js";
     ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.ellipse(-1.2, 3.6, 4.6, 1.7, -0.05, 0, Math.PI*2); ctx.fill();   // 안장
   }
+  //  🔴 v6.173 배치 9-h **직업별 체형** — 실루엣이 6계열 공용이라 37직업이 계열 안에서 같은 몸을 썼다.
+  //   사무라이와 검사가 색만 달랐다. 몸 전체를 37벌 새로 그리는 대신
+  //   **키·어깨폭·몸통 두께·자세 기울기** 네 값으로 갈라 실루엣을 구분한다.
+  //   ⚠ 앵커(머리 1,-11 / 어깨 ±3,-3 / 발 y12)는 건드리지 않는다 — 37직업 프롭·스윙·티어 외형이 다 여기 물려 있다.
+  //   h=키 sh=어깨폭 tk=몸통두께 ln=앞으로 기운 정도
+  const CLASS_BUILD = {
+    // 전사군 — 크고 두껍다
+    cheol:     { h:1.06, sh:1.18, tk:1.16, ln:0.0 },   // 철혈: 가장 육중
+    gymbro:    { h:1.04, sh:1.24, tk:1.14, ln:0.0 },   // 헬창: 어깨가 제일 넓다
+    paladin:   { h:1.05, sh:1.14, tk:1.10, ln:0.0 },
+    exhero:    { h:1.02, sh:1.08, tk:1.04, ln:0.02 },
+    rusher:    { h:1.00, sh:1.06, tk:1.02, ln:0.10 },  // 창기병: 앞으로 기운다
+    samurai:   { h:1.01, sh:0.98, tk:0.96, ln:0.04 },  // 사무라이: 곧고 마르다
+    duelist:   { h:1.00, sh:0.94, tk:0.92, ln:0.06 },  // 결투가: 가늘고 앞으로
+    madman:    { h:0.98, sh:1.10, tk:1.06, ln:0.14 },  // 광인: 구부정
+    monk:      { h:0.99, sh:1.04, tk:1.00, ln:0.0  },
+    runeknight:{ h:1.04, sh:1.12, tk:1.08, ln:0.0  },
+    // 도적군 — 작고 낮게 깔린다
+    ninja:     { h:0.94, sh:0.92, tk:0.90, ln:0.12 },
+    shadow:    { h:0.95, sh:0.90, tk:0.88, ln:0.14 },
+    blackcat:  { h:0.90, sh:0.88, tk:0.88, ln:0.10 },  // 검은고양이: 가장 작다
+    tombraider:{ h:0.98, sh:1.00, tk:0.98, ln:0.06 },
+    baeksu:    { h:0.96, sh:0.96, tk:1.04, ln:0.16 },  // 백수: 늘어진 자세
+    mumyeong:  { h:1.00, sh:0.96, tk:0.94, ln:0.02 },
+    // 원거리군 — 곧게 선다
+    sniper:    { h:1.02, sh:0.94, tk:0.92, ln:0.0  },
+    archer:    { h:1.00, sh:0.98, tk:0.94, ln:0.02 },
+    pilot:     { h:0.98, sh:1.02, tk:1.00, ln:0.0  },
+    engineer:  { h:0.97, sh:1.06, tk:1.06, ln:0.04 },
+    specialist:{ h:0.99, sh:1.00, tk:0.98, ln:0.0  },
+    // 마법군 — 키가 크고 마르다
+    manager:   { h:1.03, sh:0.92, tk:0.92, ln:0.0  },
+    voidc:     { h:1.05, sh:0.88, tk:0.88, ln:0.0  },  // 공허술사: 가장 마르다
+    necro:     { h:1.04, sh:0.90, tk:0.90, ln:0.03 },
+    glitch:    { h:1.00, sh:0.94, tk:0.94, ln:0.0  },
+    debug:     { h:1.00, sh:0.96, tk:0.94, ln:0.0  },
+    returner:  { h:1.01, sh:0.98, tk:0.96, ln:0.0  },
+    commander: { h:1.05, sh:1.10, tk:1.02, ln:0.0  },
+    contributor:{h:0.99, sh:0.96, tk:0.96, ln:0.02 },
+    // 사제군
+    reaper:    { h:1.08, sh:0.94, tk:0.98, ln:0.0  },  // 사신: 가장 크다
+    druid:     { h:0.98, sh:1.02, tk:1.04, ln:0.0  },
+    bard:      { h:0.99, sh:0.96, tk:0.94, ln:0.02 },
+    // 상인군
+    stonks:    { h:1.00, sh:1.00, tk:1.00, ln:0.04 },
+    gambler:   { h:0.99, sh:0.98, tk:0.98, ln:0.06 },
+    collector: { h:0.98, sh:1.04, tk:1.06, ln:0.03 },
+    tourist:   { h:0.97, sh:0.98, tk:1.00, ln:0.0  },
+    slime:     { h:0.88, sh:1.10, tk:1.22, ln:0.0  },  // 슬라임: 낮고 넓다
+  };
   function drawHumanoidVec(x, y, o){
     const s = o.scale||1;
     const face = o.face||1;
@@ -17712,7 +17764,12 @@ import { FX } from "./fx.js";
     const swing = Math.sin(walk)*3.5;
     ctx.save();
     ctx.translate(x, y);
+    //  v6.173 직업 체형 — 키/어깨/두께/기울기로 실루엣을 가른다.
+    //   ⚠ 발(y=12)이 뜨거나 묻히지 않게 **발밑을 기준으로** 키를 키운다
+    const B = (o.gear && CLASS_BUILD[o.gear]) || { h:1, sh:1, tk:1, ln:0 };
     ctx.scale(face*s, s);
+    if (B.h !== 1) { ctx.translate(0, 12); ctx.scale(1, B.h); ctx.translate(0, -12); }
+    if (B.ln) ctx.transform(1, 0, -B.ln, 1, 0, 0);   // 위로 갈수록 앞으로 기운다
     ctx.strokeStyle = ink;
     ctx.fillStyle = ink;
     ctx.lineCap = 'round';
@@ -17881,8 +17938,9 @@ import { FX } from "./fx.js";
       if (grp==='war'){
         roundRect(-6,-7,12,11.5,3); ctx.fill(); ctx.stroke();          // 넓은 흉갑
         ctx.fillStyle = ink;
-        ctx.beginPath(); ctx.arc(-5.6,-5.2,2.5,0,Math.PI*2); ctx.fill(); // 양어깨 볼륨(잉크)
-        ctx.beginPath(); ctx.arc(5.6,-5.2,2.5,0,Math.PI*2); ctx.fill();
+        //  v6.173 어깨폭·두께가 직업마다 다르다 — 헬창은 넓고 공허술사는 좁다
+        ctx.beginPath(); ctx.arc(-5.6*B.sh,-5.2,2.5*B.tk,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(5.6*B.sh,-5.2,2.5*B.tk,0,Math.PI*2); ctx.fill();
         ctx.fillStyle = bodyTone;
       } else if (grp==='mag' || grp==='pri'){
         ctx.beginPath();                                               // 아래로 퍼지는 로브 상의
@@ -18045,6 +18103,12 @@ import { FX } from "./fx.js";
     }
 
     const g = o.gear;
+    //  🔴 v6.173 **무기 외형이 성장 단계에 따라 자란다** — 사용자: *"그 급에따라서 정말 멋있게"*
+    //   37직업 무기 프롭은 v6.53부터 각자 달랐지만(카타나·활·드론·차트 태블릿…) **성장해도 그대로**였다.
+    //   1레벨 카타나와 絶名 카타나가 같은 그림이었다. 단계(0~4)로 **날을 길게·두껍게** 키운다.
+    //   ⚠ 프롭 전체를 감싸므로 여는 변환과 닫는 복원이 반드시 짝을 이뤄야 한다(아래 restore).
+    const wst = o.wst || 0;
+    const wsc = 1 + wst*0.085;              // 4단계에서 약 1.34배
     ctx.lineWidth = 2;
     // v6.73 공격 스윙: 3박자 곡선(swRot)으로 어깨축 회전 + 타격 순간 참격 잔상 호
     const atk = o.atk||0;
@@ -18108,6 +18172,9 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(7+(swung?0:swing*0.3), 1.2, 1.7, 0, Math.PI*2); ctx.fill();
       ctx.lineWidth = 2;
     }
+    //  ⚠ 이 save는 **무기 프롭 직전**이어야 한다. 처음엔 `const g` 바로 뒤에 뒀다가
+    //   스윙 호·앞팔·손까지 같이 커져 손이 어깨에서 떨어져 나갔다.
+    if (wst > 0){ ctx.save(); ctx.scale(wsc, wsc); }
     if (g==='manager'){
       ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
       ctx.fillRect(-7,-16.5,14,2.5);
@@ -18399,6 +18466,7 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-4,8); ctx.quadraticCurveTo(-12,6,-11,-2+Math.sin(performance.now()/350)*3); ctx.stroke();
     }
+    if (wst > 0) ctx.restore();            // v6.173 무기 성장 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
     if ((o.tier||0)>=2){
@@ -18572,7 +18640,8 @@ import { FX } from "./fx.js";
       motion: player.atkMotion,        // v6.112 엔진별 모션 프로필
       tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey],  // 전직 티어 실물 외형
       //  v6.171 장비를 **몸과 같은 좌표계로** 넘긴다 — 자세·반전·배율을 따라가야 '입은' 것으로 보인다
-      eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') }
+      eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') },
+      wst: (weaponStage()||{}).st || 0   // v6.173 무기 성장 단계 — 프롭이 자란다
     });
     drawWeaponAura();   // v6.172 무기 발광은 **몸 위**에 — 날이 몸에 가리면 안 된다
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
