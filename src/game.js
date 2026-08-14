@@ -1305,7 +1305,7 @@ import { FX } from "./fx.js";
     // 유일 성장무기 — 일반 장비와 같은 행 양식 (희귀도: 유일)
     const GW_LIST = [
       { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리' },
-      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [저격수 전용]' },
+      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [궁수 전용]' },
       { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용]' },
       { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용]' },
     ];
@@ -1585,7 +1585,7 @@ import { FX } from "./fx.js";
   }
   // 성장 무기 도감 (직업군별 파밍 무기)
   const GWEP_DEFS = {
-    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'[저격수 전용] — 침묵과 한 발의 무게' },
+    bow:   { name:'침묵하는 활',   mat:'essence', matN:'보스의 정수', craftCost:6, group:'[궁수 전용] — 침묵과 한 발의 무게' },
     tome:  { name:'굶주린 마도서', mat:'shard',   matN:'별의 조각',   craftCost:8, group:'[공허술사 전용] — 심연을 읽는 책' },
     blade: { name:'핏빛 대검',     mat:'gear',    matN:'고대 톱니',   craftCost:7, group:'[사신 전용] — 수확자의 대검' },
   };
@@ -5241,7 +5241,7 @@ import { FX } from "./fx.js";
   //   성물은 다른 층이므로 `SACRED`로 둔다
   const SACRED = {
     mumyeong:  ['무명검',           'noHit',   0,  '이름 없이 — 한 대도 맞지 않고 관문 보스를 벤다'],
-    sniper:    ['침묵하는 활',      'noHit',   0,  '한 발도 헛되지 않게 — 무피격으로 보스를 잡는다'],
+    sniper:    ['숨을 멈춘 한 발',   'noHit',   0,  '숨조차 멈추고 — 무피격으로 보스를 잡는다'],
     voidc:     ['굶주린 마도서',    'elems',   4,  '한 판에 네 속성을 두르고 보스를 잡는다'],
     reaper:    ['핏빛 대검',        'exec',    0,  '처형으로만 보스를 마무리한다'],
     samurai:   ['잔심(殘心)의 도',  'parry',   6,  '여섯 번 받아넘기고 보스를 벤다'],
@@ -5257,7 +5257,7 @@ import { FX } from "./fx.js";
     duelist:   ['맞선 자의 장갑',   'oneWeap', 0,  '오직 하나로 겨루어 보스를 잡는다'],
     exhero:    ['다시 든 성검',     'lowHp',   0,  '무너지기 직전 다시 일어나 보스를 잡는다'],
     paladin:   ['꺼지지 않는 등불', 'noHit',   0,  '한 번도 뚫리지 않고 보스를 잡는다'],
-    archer:    ['시위를 놓지 않는 손','spend', 5,  '전용기를 다섯 번 쓰고 보스를 잡는다'],
+    archer:    ['침묵하는 활',      'spend',   5,  '시위를 놓지 않고 — 전용기를 다섯 번 쓰고 보스를 잡는다'],
     pilot:     ['추락하지 않는 날개','noHit',  0,  '한 번도 맞지 않고 보스를 잡는다'],
     specialist:['만능의 증표',      'elems',   3,  '세 속성을 갈아 쓰며 보스를 잡는다'],
     runeknight:['새겨진 이름',      'elems',   3,  '세 속성을 검에 새기고 보스를 잡는다'],
@@ -5323,6 +5323,27 @@ import { FX } from "./fx.js";
     });
   });
 
+  //  🔴 v6.164 **성물의 성능 = PGW 만렙과 동급** (사용자 질문: *"가장 강한 게 아니라고? 그러면 능력치가 어느 급인데?"*)
+  //   답: **성장무기를 끝까지 키운 것과 같은 급**이다. 더 세지 않다 — 대신 **키울 필요가 없다**.
+  //   PGW는 만렙 50까지 깎아 올려야 이 수치에 닿는데, 성물은 **증명하는 순간 그 자리에서 최상급**이다.
+  //   ⇒ 가치가 '강함'이 아니라 **'증명했다는 사실'** 에 있다(로드맵 원칙). 그래서 더 세게 만들지 않았다.
+  //   ⚠ PGW 만렙 수식을 **그대로 고정값으로** 박는다(gl=50 · 카드 만렙 · 미진화) — 나중에 PGW가 바뀌면 같이 맞출 것
+  Object.keys(SACRED).forEach((ck)=>{
+    const g = CGW_CLASS_GROUP(ck);
+    const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[1];
+    const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
+    const nm = SACRED[ck][0];
+    WEAPONS['sac_'+ck] = {
+      name: '絶名 · '+nm, cgw:true, sacred:true, arch,
+      desc:'[성물] '+cname+'이(가) 스스로를 증명해 얻은 단 하나. 성장무기를 끝까지 키운 것과 같은 힘을 처음부터 낸다',
+      evName:'絶名 · '+nm+' — 각인', evDesc:'이름이 지워진 자리에 당신의 것이 새겨집니다',
+      lvDesc:['','강화','강화','강화','강화'],
+      baseCd:(w)=> (arch==='snipe'?2.0 : arch==='mortar'||arch==='rain'?1.9 : arch==='nova'?1.5 : 1.2) * (w.evolved?0.8:1),
+      //  PGW 만렙(gl=50 · w.lv=5 · 미진화)과 같은 값: (1.6+25) × ARCH_BAL × 2.3 × 2.4
+      dmg:(w)=> (1.6 + 50*0.5) * (ARCH_BAL[arch]||1) * 2.3 * 2.4 * (w.evolved?1.5:1),
+      count:(w)=> (arch==='nova'?7 : arch==='spread'?3 : arch==='homing'?2 : 1) + 1 + (w.evolved?1:0)
+    };
+  });
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.bow.lv)||1;
     return l>=100?'침묵하는 활·종언' : l>=60?'침묵하는 활·극의' : l>=30?'침묵하는 활·진각성' : l>=15?'침묵하는 활·각성' : '침묵하는 활';
@@ -5830,7 +5851,7 @@ import { FX } from "./fx.js";
     // 전설 성장무기 (활/마도서/대검): 전용 직업으로 플레이 중일 때만 상인이 꺼내 보인다 — 위험도 12+ & 2%
     // (영구강화 상점 공방 폐지 — 획득은 오직 이 만남뿐)
     {
-      const LGW = { sniper:{ k:'bow', n:'침묵하는 활', d:'"시위를 당겨도 소리가 안 나. 당신 같은 사람이나 쓸 물건이지. 살 거요?"' },
+      const LGW = { archer:{ k:'bow', n:'침묵하는 활', d:'"시위를 당겨도 소리가 안 나. 당신 같은 사람이나 쓸 물건이지. 살 거요?"' },
                     voidc:{ k:'tome', n:'굶주린 마도서', d:'"책장이 자꾸 넘어가서 무서워 죽겠어. 가져가 줘. ...돈은 받고."' },
                     reaper:{ k:'blade', n:'핏빛 대검', d:'"들 수 있는 자가 드물다던데... 당신이라면 혹시. 살 거요?"' } }[player.classKey];
       if (LGW && !DB.gweps[LGW.k].found && (DB.peril||0)>=12 && Math.random()<0.02){
@@ -16234,11 +16255,19 @@ import { FX } from "./fx.js";
         player.customPool.push(Object.assign({}, sk2, { lv:lvs[k] }));
       }
     }
+    //  🔴 v6.164 **성물은 증명한 직업이 항상 들고 나간다** — 장비창에서 고를 필요가 없다.
+    //   이미 '증명'이라는 대가를 치렀으므로 슬롯 경쟁까지 시키지 않는다(과시가 이 층의 목적이다)
+    if (relicOwned(classKey) && WEAPONS['sac_'+classKey]){
+      addWeapon('sac_'+classKey);
+      const w0 = player.weapons[player.weapons.length-1];
+      if (w0) w0.lv = 5;                          // 성물은 처음부터 최상급(PGW 만렙 동급)
+      player.sacredTitle = '絶名 · ' + SACRED[classKey][0];   // v6.164 성물 칭호
+    }
     // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
     const gwSel = loadoutFor(classKey).gw;
     const gwFound = { nameless: DB.growth.found, gbow: DB.gweps.bow.found, gtome: DB.gweps.tome.found, gblade: DB.gweps.blade.found };
     // 성장무기 주인 확정: 무명검=무명자 / 침묵하는 활=저격수 / 굶주린 마도서=공허술사 / 핏빛 대검=사신
-    const GWEP_OWNER = { nameless:'mumyeong', gbow:'sniper', gtome:'voidc', gblade:'reaper' };
+    const GWEP_OWNER = { nameless:'mumyeong', gbow:'archer', gtome:'voidc', gblade:'reaper' };   // v6.164 활은 궁수의 것이다(사용자 지적)
     if (gwSel && gwFound[gwSel] && !ownedWeapon(gwSel)){
       if (GWEP_OWNER[gwSel]===classKey){
         addWeapon(gwSel);
@@ -17793,6 +17822,8 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
     // 칭호: 머리 위에 금빛으로 떠오른다
+    //  v6.164 성물 칭호 — 조합 칭호가 없으면 **성물 칭호가 그 자리에 뜬다**(과시가 이 층의 보상이다)
+    if (!player.comboTitle && player.sacredTitle) player.comboTitle = player.sacredTitle;
     if (player.comboTitle){
       ctx.save();
       const tp = 0.75 + 0.25*Math.sin(performance.now()/400);
