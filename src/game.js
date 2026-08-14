@@ -4843,8 +4843,30 @@ import { FX } from "./fx.js";
     crystal:['결정 참','수정 화살','결정 창','유리 파편','성정(聖晶)','유리병 조각'],
   };
   const EW_IDX = { war:0, rng:1, mag:2, rog:3, pri:4, mer:5 };
+  //  🔴 v6.161 **이름은 직업마다 다르다** (사용자: *"그럼 이름만은 일단 다르게 해봐"*)
+  //   계열(6군) 단위였을 때는 사무라이와 철혈이 둘 다 '화염 참격'을 받았다.
+  //   ⚠ 15×37=555개를 손으로 적지 않는다 — **속성 어휘 15 + 직업 형태 어휘 37**을 조합해 만든다.
+  //    표가 52줄로 끝나고, 직업이나 속성이 늘어도 한 줄만 추가하면 된다
+  const EW_ELEM = { fire:'화염', frost:'서리', volt:'뇌명', acid:'부식', boom:'폭렬', mech:'기갑',
+    psi:'염동', holy:'성광', grav:'중력', chrono:'시간', blood:'혈풍', venom:'맹독',
+    storm:'폭풍', sonic:'공명', crystal:'결정' };
+  const EW_FORM = {   // 그 직업이 무기를 '쓰는 방식' — 이것이 이름의 뒷말이 된다
+    samurai:'참격', cheol:'혈참', rusher:'창격', paladin:'성단(聖斷)', duelist:'일격', monk:'권격',
+    gymbro:'압쇄', baeksu:'받아치기', exhero:'용사검', madman:'난도(亂刀)', reaper:'수확',
+    shadow:'그림자칼', ninja:'표창', mumyeong:'무명검', bard:'선율',
+    archer:'화살', sniper:'저격탄', pilot:'폭격', specialist:'일제사격',
+    runeknight:'룬탄', manager:'궤도탄', voidc:'공허탄', commander:'포격',
+    druid:'덩굴', necro:'원혼', returner:'되돌림',
+    tourist:'기념품', stonks:'차트', gambler:'주사위', collector:'수집품', tombraider:'도굴칼',
+    engineer:'장치', debug:'로그', slime:'점액', glitch:'오류', contributor:'커밋', blackcat:'발톱',
+  };
   //  이름을 **부를 때** 정한다 — 직업이 정해지기 전에 굳히면 안 된다(테크 표·도감도 같은 함수를 쓴다)
   function elemWeaponName(el){
+    //  v6.161 **직업 형태 어휘가 있으면 직업 이름을 쓴다** — 없으면 계열 이름으로 떨어진다(안전망).
+    //   `EW_FORM`에 새 직업을 안 적어도 게임이 깨지지 않는다
+    const form = player && EW_FORM[player.classKey];
+    const ew = EW_ELEM[el];
+    if (form && ew) return ew + ' ' + form;
     const g = (player && classResGroup(player.classKey)) || 'war';
     const row = EW[el];
     return row ? row[EW_IDX[g] !== undefined ? EW_IDX[g] : 0] : null;
