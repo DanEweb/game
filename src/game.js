@@ -10108,7 +10108,16 @@ import { FX } from "./fx.js";
     if (len>0){ dx/=len; dy/=len; }
     else { dx = Math.cos(player.facing); dy = Math.sin(player.facing); }
     player.dashDir = {x:dx, y:dy};
-    meleeActCharge('dash');    // v6.150 낫·케사기리·수확·돌파 계열 — 파고드는 것이 곧 기력이다 (평타로는 안 찬다)
+    //  🔴 v6.151 대시 계열 셋은 **서로 다른 조건**이다 (사용자 지적: *"대시로 파고듦은 저스트 타이밍 같은 거야?"*).
+    //   그냥 대시하면 아무것도 안 찬다 — 무엇을 하려고 대시했는지가 조건이다:
+    //   · 창기병 `pierce`  = 대시 **경로 위에 적이 있어야** 한다 (아래 대시 이동에서 판정)
+    //   · 도적군 `escape`  = **포위(4마리+)에서 빠져나오는** 대시일 때만
+    //   · 백수   `evade`   = 대시 무적으로 **공격을 실제로 흘렸을 때** (playerHit이 막힌 순간)
+    {
+      let near4 = 0;
+      for (const e2 of enemies){ if (!e2) continue; if (Math.hypot(e2.x-player.x, e2.y-player.y) < 120) { if (++near4 >= 4) break; } }
+      if (near4 >= 4) meleeActCharge('escape');
+    }
     player.dashCd = player.dashCdMax * (player.chargeCdCut||1);   // v6.96 돌진 충격: 무기 레벨이 곧 공격 주기
     player.invuln = Math.max(player.invuln, player.dashInvuln);
     // Pixi 4단계: 대시 잔상 (직업색 글로우)
@@ -10275,11 +10284,11 @@ import { FX } from "./fx.js";
       const dx = e.x-player.x, dy = e.y-player.y;
       const dist = Math.hypot(dx,dy) - (e.r + player.r);
       if (dist > THREAT.r) continue;
-      //  ⚠ 적에게는 `vx/vy`가 **없다** — `speed`로 플레이어를 향해 곧장 온다(1차 구현에서 `e.vx`를 읽어
-      //   예고 표시율이 **0%**였다. HANDOFF의 '없는 전역을 참조하지 말 것'을 그대로 반복했다).
-      //   쫓아오는 적이므로 접근 속도 = speed 로 봐도 예고로는 충분하다
+      //  v6.151 **예비동작(windT)이 곧 예고다** — 추정이 아니라 실제 공격 타이밍을 그대로 쓴다.
+      //   (v6.150까지는 접근 속도로 도달 시각을 *추정*했다. 이제 적이 실제로 몸을 빼는 구간이 있으므로
+      //    그 구간을 그대로 보여 주면 된다 — 보이는 것과 판정이 어긋나지 않는다)
       const closing = Math.max(1, e.speed || 40);
-      const eta = dist <= 0 ? 0 : dist / closing;
+      const eta = (e.windT>0) ? e.windT : (dist <= 0 ? 0 : dist / closing);
       if (eta < best && eta <= THREAT.lead){ best = eta; player.threatX = e.x; player.threatY = e.y; player.threatKind = 'touch'; }
     }
     // ② 곧 닿는 적탄 — 요격/패링 둘 다의 표적이 된다
@@ -10380,25 +10389,51 @@ import { FX } from "./fx.js";
   //    parry=패링 성공 · dash=대시로 파고듦 · hurt=맞아가며(피를 흘림) · beat=정박에 얹음
   //    hold=한 자리/한 표적을 유지 · time=저절로(무명) · kill=처치(용사검의 정체성이라 유일하게 남긴다)
   //   ⚠ 각 엔진은 **반드시 하나의 act를 가져야 한다** — 없으면 그 직업은 R를 영영 못 쓴다
-  const MELEE_ACT = { parry:0.50, dash:0.34, hurt:0.18, beat:0.16, hold:0.055, time:0.075, kill:0.085 };
+  //  🔴 v6.151 **15개 엔진에 전부 다른 행동을 준다** (사용자 지시).
+  //   1차(v6.150)는 parry/dash/hurt 셋으로 묶어 버려서 *"대시로 파고듦은 저스트 타이밍 같은 건가? 나머지는?
+  //    맞아가며라 했는데 버틸 수 있는 거야?"* 라는 지적을 받았다 — 맞다. 대시는 그냥 버튼이었고,
+  //   '맞아가며'는 넷이 공유해서 정체성이 안 갈렸다.
+  //   ⇒ 조건은 **그 직업이 원래 하던 것**에서 끌어온다. 아무도 같은 조건을 쓰지 않는다.
+  const MELEE_ACT = {
+    parry:  0.50,   // 사무라이(거합)  — 패링 성공. 막지 못하면 전용기도 없다
+    evade:  1.00,   // 백수(태세)      — 대시 무적으로 공격을 **흘렸을 때** (저스트 회피)
+    pierce: 0.26,   // 창기병(돌파)    — 대시로 적을 **꿰뚫었을 때** (허공 대시는 0)
+    escape: 0.38,   // 도적군 낫       — **포위(4마리+)에서 대시로 빠져나올 때**
+    mark:   0.26,   // 그림자(표식)    — **서로 다른 적**을 이어서 벨 때 (같은 적 반복은 0)
+    execute:0.30,   // 사신(수확)      — **빈사(30%↓) 적**을 벨 때
+    combo:  0.05,   // 수도승(연)      — 끊기지 않고 이어간 타수만큼
+    beat:   0.24,   // 선율가(박)      — 정박에 얹은 순간만
+    bleed:  0.055,   // 철혈(응혈)      — **체력 50% 이하로 버티는 동안** (초당)
+    burn:   0.20,   // 광인(광기)      — **스스로 체력을 태울 때** (맞는 게 아니다)
+    surround:0.11,  // 헬창(벌크)      — **적 5마리 이상에 둘러싸인 채 버티는 동안** (초당)
+    hold:   0.30,  // 결투가(집중)    — 같은 표적을 물고 늘어질 때
+    crisis: 0.36,   // 전직 용사(각성) — **체력 35% 이하에서** 벨 때 (역경에서 각성한다)
+    zone:   0.10,   // 성기사(신념)    — 구역이 적을 붙들고 있을 때 (초당)
+    time:   0.075,  // 무명자(무명)    — 조건이 없다
+  };
+  //  ⚠ 위 값은 **14개 엔진 전수 실측**(체력 3000·40%에서 시작·god 금지·20초)으로 맞췄다:
+  //   1차 결과 창기병 2.5초 / 수도승 3초 / 사신 6초 / 헬창 10초 / 성기사·무명자 11.5초 / 그림자 12.5초 /
+  //   선율가 15.5초 / 용사 17초 / 백수·철혈·광인 20초+ / **결투가 0.00(전혀 안 참)**.
+  //   목표 대역은 **5~12초** — 너무 빠르면 전용기가 상시가 되고(v6.150의 0.5초), 너무 느리면 축이 없는 것과 같다.
+  //   ⚠ `parry`(사무라이)는 하네스로 잴 수 없다 — 하네스는 예고를 못 읽는다. 사람 기준 패링 2회면 만충이다
   const MELEE_ENGINE = {
     //  v6.133 shape — 평타가 '맞는 모양'. 부채꼴 일변도를 벌려 엔진마다 손맛이 다르게 만든다
     //   arc=부채꼴 / line=직선 관통 / ring=자기중심 원 / point=가장 가까운 하나 / zone=발밑에서 퍼지는 파문
-    scythe:  { act:'dash', res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     shape:'arc',   hint:'대시로 파고들 때 찬다 — 평타로는 안 찬다' },
+    scythe:  { act:'escape', res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     shape:'arc',   hint:'포위를 대시로 뚫고 나올 때 찬다 — 치고 빠진다' },
     iaido:   { act:'parry', res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', shape:'line', hint:'패링에 성공할 때만 찬다 — 막지 못하면 전용기도 없다' },
-    kesagiri:{ act:'dash', res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  shape:'point',  hint:'대시로 파고들 때 찬다 — 평타로는 안 찬다' },
-    whirl:   { act:'hurt', res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   shape:'ring',   hint:'맞아가며 찬다 — 피를 흘릴수록' },
-    combo3:  { act:'hurt', res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  shape:'point',  hint:'맞아가며 찬다 — 파고들어 버틸수록' },
-    smash:   { act:'hurt', res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  shape:'point',  hint:'맞아가며 찬다 — 덩치로 받아낼수록' },
-    riposte: { act:'parry', res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', shape:'ring', hint:'패링에 성공할 때만 찬다 — 받아치는 것이 본업이다' },
-    frenzy:  { act:'hurt', res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', shape:'ring', hint:'맞아가며 찬다 — 제 피를 태울수록' },
-    reap:    { act:'dash', res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   shape:'arc',   hint:'대시로 파고들 때 찬다 — 훑고 빠지는 것이 수확이다' },
+    kesagiri:{ act:'mark', res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  shape:'point',  hint:'서로 다른 적을 이어서 벨 때 찬다 — 같은 적을 반복하면 안 찬다' },
+    whirl:   { act:'bleed', res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   shape:'ring',   hint:'체력 50% 이하로 버티는 동안 찬다 — 피를 흘릴수록' },
+    combo3:  { act:'combo', res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  shape:'point',  hint:'끊기지 않고 이어간 타수만큼 찬다 — 끊기면 처음부터' },
+    smash:   { act:'surround', res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  shape:'point',  hint:'적 5마리 이상에 둘러싸인 채 버티는 동안 찬다 — 몸으로 받아낸다' },
+    riposte: { act:'evade', res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', shape:'ring', hint:'대시로 공격을 흘려낼 때 찬다 — 저스트 회피' },
+    frenzy:  { act:'burn', res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', shape:'ring', hint:'제 체력을 스스로 태우며 찬다 — 맞아서가 아니다' },
+    reap:    { act:'execute', res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   shape:'arc',   hint:'빈사(30% 이하)인 적을 벨 때 찬다 — 수확할 때를 고른다' },
     cadence: { act:'beat', res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   shape:'zone',   hint:'정박에 맞춰 칠 때만 찬다 — 박을 놓치면 안 찬다' },
-    charge:  { act:'dash', res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  shape:'line',  hint:'대시로 파고들 때 찬다 — 돌파가 곧 기력이다' },
-    heroblade:{ act:'kill',res:'각성', gain:0.02, col:'#e0a94f', motion:null,     shape:'arc',     hint:'처치할 때마다 찬다 — 때려서는 안 찬다' },
+    charge:  { act:'pierce', res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  shape:'line',  hint:'대시로 적을 꿰뚫을 때 찬다 — 허공을 달리면 안 찬다' },
+    heroblade:{ act:'crisis',res:'각성', gain:0.02, col:'#e0a94f', motion:null,     shape:'arc',     hint:'체력 35% 이하에서 벨 때 찬다 — 역경에서 각성한다' },
     duel:    { act:'hold', res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  shape:'point',  hint:'같은 표적을 물고 늘어질 때 찬다 — 바꾸면 흩어진다' },
     noname:  { act:'time', res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     shape:'arc',     hint:'조건이 없다 — 저절로 차오른다' },
-    aura:    { act:'hold', res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'구역이 적을 붙들고 있을 때 찬다' },
+    aura:    { act:'zone', res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'구역이 적을 붙들고 있는 동안 찬다' },
   };
   //  v6.150 **행동 충전** — 근접 기력의 유일한 출처. 평타 루프가 아니라 *행동이 일어난 자리*에서 부른다.
   //   ⚠ 엔진의 `act`와 일치할 때만 찬다 — 그래서 같은 대시라도 돌격병은 차고 사무라이는 안 찬다
@@ -11883,7 +11918,7 @@ import { FX } from "./fx.js";
         if (E.motion) player.atkMotion = E.motion;
         cutHostileShots(player.x, player.y, radius, baseA, arcW);
         // ── 맞은 적을 센다 (기력 배율에 쓰인다)
-        let hn = 0, woundSum = 0; const hitIds = [];
+        let hn = 0, woundSum = 0, execN = 0; const hitIds = [];
         for (let i=enemies.length-1;i>=0;i--){
           const e = enemies[i];
           if (!e) continue;
@@ -11909,6 +11944,9 @@ import { FX } from "./fx.js";
           staggerEnemy(e, 0.3);
           procOnHit(e, false, w.imbue);
           woundSum += 1 - Math.max(0, Math.min(1, e.hp/Math.max(1,e.maxHp||1)));
+          //  v6.151 사신 '수확' 판정 — **벤 순간 빈사(30% 이하)였던 적의 수**. `woundSum`은 '얼마나 다쳤나'라
+          //   빈사 여부를 못 가른다(반피도 0.5를 준다). 조건은 *언제 베느냐* 이므로 문턱으로 센다
+          if (e.hp > 0 && e.hp <= (e.maxHp||1)*0.30) execN++;
           hitIds.push(e);
           if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
         }
@@ -11956,7 +11994,9 @@ import { FX } from "./fx.js";
           else { player.duelTarget = first; player.duelN = 1; }
           g *= 0.6 + Math.min(2.0, (player.duelN-1)*0.34);
           //  v6.150 결투가 — **같은 표적을 물고 늘어진 만큼**만 찬다. 표적을 바꾸면 흩어진다(누적이 1로 리셋)
-          if (player.duelN >= 3) meleeActCharge('hold', Math.min(3.0, (player.duelN-2)*0.6));
+          //  ⚠ 1차 조건(`duelN>=3`)은 실측에서 **한 번도 성립하지 않았다**(20초에 0.00) — 무리 속에서는
+          //   가장 가까운 적이 계속 바뀌어 3연타가 안 나온다. 2연타부터 인정하고 이어갈수록 커지게 한다
+          if (player.duelN >= 2) meleeActCharge('hold', Math.min(3.0, (player.duelN-1)*0.55));
         }
         else if (w.key==='noname') g *= 1.0;                                       // 조건 없음 (아래에서 시간으로도 찬다)
         else if (w.key==='cadence'){                                               // 정박에 얹는다
@@ -11973,10 +12013,23 @@ import { FX } from "./fx.js";
         //   그래서 전용기가 '조건을 노리는 기술'이 아니라 '시간이 지나면 나오는 기술'이었다.
         //   조건 배수를 **지수 1.7로 벌리고** 기본을 낮춘다: 못 맞추면 거의 안 차고, 맞추면 확 찬다.
         //   ⚠ 손맛은 위력이 아니라 **여기서** 나온다 — 조건을 노리는 순간이 곧 조작이다
-        //  🔴 v6.150 **평타로는 기력이 차지 않는다** (사용자 지시). 아래 조건 계산은 남겨 두되
-        //   충전은 0으로 만든다 — 조건 배수는 여전히 `heat`·연출 등 다른 곳이 읽는다.
-        //   충전은 전부 `meleeActCharge()`(패링·대시·피격·정박·유지)로 옮겼다
+        //  v6.150 **평타로는 기력이 차지 않는다** (사용자 지시). 조건 계산은 남겨 두되 충전은 0.
         if (E.act) g = 0;
+        //  🔴 v6.151 **벨 때 성립하는 조건들** — '평타로 찬다'가 아니라 *무엇을 베었는가*가 조건이다
+        if (E.act === 'mark'){
+          //  그림자 '표식' — 서로 다른 적을 이어서. 같은 적을 반복하면 안 찬다
+          const tgt = hitIds[0];
+          if (tgt && tgt !== player.__markLast){ player.__markLast = tgt; meleeActCharge('mark'); }
+        } else if (E.act === 'execute'){
+          //  사신 '수확' — 빈사(30% 이하)인 적을 벨 때만. 언제 베느냐를 고르는 것이 조작이다
+          if (execN > 0) meleeActCharge('execute', Math.min(2.0, execN));
+        } else if (E.act === 'combo'){
+          //  수도승 '연' — 끊기지 않고 이어간 타수만큼 (끊기면 처음부터)
+          meleeActCharge('combo', 0.5 + Math.min(2.0, (player.comboN||1)*0.25));
+        } else if (E.act === 'crisis'){
+          //  전직 용사 '각성' — 체력 35% 이하에서 벨 때. 역경에서 각성한다
+          if (player.hp < player.maxHp*0.35) meleeActCharge('crisis');
+        }
         const cond = Math.max(0.001, g / Math.max(0.0001, E.gain));   // 이 직업의 조건 달성도
         //  ⚠ 지수 1.7 · 기본 0.80으로 처음 넣었더니 사무라이 킬 64.5 → **31.5**, 생존율 1.0 → **0.5**.
         //   과했다. 다만 원인의 절반은 **하네스가 조건을 노리는 플레이를 못 하는 것**이다
@@ -12905,7 +12958,8 @@ import { FX } from "./fx.js";
           if (ce.__chgT && ce.__chgT > elapsed) continue;
           if (Math.hypot(ce.x-player.x, ce.y-player.y) < ce.r + chargeEng.width){
             ce.__chgT = elapsed + 0.4;
-            player.mCharge = Math.min(1, (player.mCharge||0) + 0.085);   // v6.116 꿰뚫은 만큼 돌파가 찬다
+            //  v6.151 창기병 '돌파' — **꿰뚫은 적이 있어야** 찬다. 허공을 달리면 0이다(그냥 대시는 조건이 아니다)
+            meleeActCharge('pierce', 0.55);
             const cd2 = chargeEng.dmg * corrodeMult(ce);
             ce.hp -= cd2;
             addDmgNum(ce.x, ce.y, cd2, false);
@@ -13001,6 +13055,28 @@ import { FX } from "./fx.js";
       if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
       // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
       if (ownedWeapon('noname') && !freeClassCfg()) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);   // v6.150 동일
+      //  🔴 v6.151 **상태를 유지해야 차는 조건들** — 한 번의 입력이 아니라 *어떤 상태로 서 있는가*가 조작이다.
+      //   사용자 지적(*"맞아가며라 했는데 버틸 수 있는 거야?"*)에 대한 답: 맞아서 차는 게 아니라
+      //   **위험한 상태를 감수하고 유지**해서 찬다 — 회복하면 멈추고, 물러나면 멈춘다
+      {
+        const mk2 = meleeEngineKey();
+        const E2 = mk2 && MELEE_ENGINE[mk2];
+        if (E2 && E2.act === 'bleed'){
+          //  철혈 '응혈' — 체력 50% 이하로 **버티는 동안** 찬다 (회복하면 멈춘다)
+          if (player.hp < player.maxHp*0.5) meleeActCharge('bleed', dt * (1 + (1 - player.hp/Math.max(1,player.maxHp))));
+        } else if (E2 && E2.act === 'surround'){
+          //  헬창 '벌크' — 적 5마리 이상에 **둘러싸인 채** 버티는 동안 (몸으로 받아낸다)
+          let n5 = 0;
+          for (const e3 of enemies){ if (!e3) continue; if (Math.hypot(e3.x-player.x, e3.y-player.y) < 95+e3.r){ if (++n5 >= 5) break; } }
+          if (n5 >= 5) meleeActCharge('surround', dt * (1 + (n5-5)*0.15));
+        } else if (E2 && E2.act === 'burn'){
+          //  광인 '광기' — **스스로 체력을 태워** 찬다 (맞아서가 아니다. 빈사에서는 멈춘다)
+          if (player.hp > player.maxHp*0.2){
+            player.hp = Math.max(1, player.hp - player.maxHp*0.018*dt);
+            meleeActCharge('burn', dt);
+          }
+        }
+      }
       //  v6.150 직업 축의 프레임 충전 — 조건이 직업마다 다르다
       {
         const F0 = freeClassCfg();
@@ -13027,7 +13103,9 @@ import { FX } from "./fx.js";
         for (const e of enemies){ if (Math.hypot(e.x-player.x, e.y-player.y) < _ar + e.r){ an++; if (an>=6) break; } }
         //  3차: 실측 0.034/s라 만충에 28초가 걸렸다(타 엔진 3~5초). 구역이 좁아 동시에 1~2마리만 들어온다 →
         //  기본값을 올리고 마리당 가중도 키운다. 역장 반경은 레벨·진화로 커지므로 후반엔 자연히 더 빨라진다
-        if (an) player.mCharge = Math.min(1, (player.mCharge||0) + dt*(0.10 + an*0.055));
+        //  v6.151 성기사 '신념' — 표의 act('zone')를 통해 찬다 (다른 엔진과 같은 자리를 지나게 해서
+        //   *어디서 차는지*가 한눈에 보이게. 값은 기존과 같은 대역을 유지한다)
+        if (an) meleeActCharge('zone', dt*(1 + an*0.55));
       }
       runEngineTicks(dt);                                                                                // v6.115 소비기 다단 히트
       if (player.rushT>0) player.rushT -= dt;                                                             // v6.115 광시곡 가속
@@ -13830,16 +13908,32 @@ import { FX } from "./fx.js";
 
       // vs player
       const pd = Math.hypot(player.x-e.x, player.y-e.y);
-      if (pd < e.r+player.r && e.hitCd<=0 && player.invuln<=0 && e.dmg>0){
-        e.hitCd = 0.6;
-        const dmgIn = e.dmg;
-        if (playerHit(dmgIn, 0.45, 8)) return;
-        // 가시 반사
-        if (player.thorns>0){
-          const refl = dmgIn*player.thorns;
-          e.hp -= refl;
-          addDmgNum(e.x, e.y, refl, false);
-          if (e.hp<=0){ defeatEnemy(i); continue; }
+      //  🔴 v6.151 **근접 적의 공격에 예비동작(선딜)을 준다** (사용자 지적).
+      //   사용자: *"근접 애들의 공격은 어떻게 패링하고 이런 게 잘 고심하지 않고 만들어져 있어. 탄막은 패링할 수 있겠는데"*
+      //   맞다. 잡몹은 **예비동작 없이 닿으면 그냥 피해**였다 — 그래서 근접 패링은 *'창이 열려 있을 때 마침 닿았다'* 는
+      //   운이지 기술이 아니었다. 탄막은 날아오는 게 보이니까 패링이 성립했던 것이다.
+      //   ⇒ 적이 **몸을 뒤로 뺐다가(0.32초) 달려든다.** 그 사이에 막으면 패링이고, 못 막으면 맞는다.
+      //   이 창은 위협 예고(v6.148)와 정확히 같은 구간이라 **브래킷이 곧 '지금 눌러라'** 가 된다
+      //  ⚠ 여기에 `player.invuln<=0`을 넣었더니 **백수가 기력을 영원히 못 찼다**(실측 0.00):
+      //   대시 무적 중에는 적이 예비동작을 **시작조차 안 해서** '흘려낼 공격'이 생기지 않았다.
+      //   적은 내가 무적이든 아니든 덤빈다 — 흘리는 것은 그 다음 문제다
+      if (pd < e.r+player.r + 6 && e.hitCd<=0 && e.dmg>0 && !(e.windT>0)){
+        e.windT = 0.32;                       // 예비동작 시작 — 이 동안은 피해가 없다
+        e.windX = e.x; e.windY = e.y;         // 뒤로 빼는 기준점 (그리기에서 읽는다)
+      }
+      if (e.windT>0){
+        e.windT -= dt;
+        //  ⚠ 무적 판정을 여기서 하지 않는다 — `playerHit`이 스스로 무적을 보고 되돌린다.
+        //   그래야 **무적으로 흘린 순간**이 `playerHit` 안에서 관측되고 백수의 '저스트 회피'가 성립한다
+        if (e.windT<=0 && pd < e.r+player.r+10 && e.dmg>0){
+          e.hitCd = 0.6;
+          const dmgIn2 = e.dmg;
+          if (playerHit(dmgIn2, 0.45, 8)) return;
+          if (player.thorns>0){
+            const refl2 = dmgIn2*player.thorns;
+            e.hp -= refl2; addDmgNum(e.x, e.y, refl2, false);
+            if (e.hp<=0){ defeatEnemy(i); continue; }
+          }
         }
       }
     }
@@ -14194,7 +14288,14 @@ import { FX } from "./fx.js";
 
   // ---------- player damage ----------
   function playerHit(dmg, invulnTime, shakeAmt){
-    if (player.invuln>0) return false;
+    if (player.invuln>0){
+      //  🔴 v6.151 백수 '태세' — **무적으로 공격을 흘려낸 순간**이 조건이다.
+      //   대시 무적 중에 실제로 공격이 들어왔을 때만 찬다 (그냥 대시는 0 — '저스트 회피'가 성립해야 한다)
+      //  ⚠ `dashInvulnT`라는 값은 **없다**(`dashInvuln`은 지속시간 상수다) — 없는 전역을 쓰지 말 것(HANDOFF).
+      //   대시 중(`dashTime>0`)에 실제로 공격이 들어온 순간만 '흘렸다'로 본다
+      if (player.dashTime > 0) meleeActCharge('evade');
+      return false;
+    }
     // v6.127 패링 — 방어 창 안에 맞으면 무효 + 반격 + 기력 회수. 손맛의 핵심이라 자동이 아니다
     if ((player.guardT||0) > 0 && player.guardKind === 'parry'){
       player.guardT = 0;
@@ -14292,8 +14393,6 @@ import { FX } from "./fx.js";
     player.qaTaken = (player.qaTaken||0) + d;
     player.qaHitN = (player.qaHitN||0) + 1;
     player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
-    //  v6.150 응혈·연·벌크·광기 계열 — **맞아가며** 찬다. 위험을 지는 것이 곧 조작이다
-    meleeActCharge('hurt');
     player.hp -= d;
     noHitT = 0;
     // 생존 의뢰 실패
@@ -17189,6 +17288,17 @@ import { FX } from "./fx.js";
   function drawEnemy(e){
     ctx.save();
     ctx.translate(e.x, e.y);
+    //  🔴 v6.151 **덤벼드는 예비동작을 눈에 보이게** — 이게 없으면 근접 패링은 영원히 운이다.
+    //   뒤로 몸을 뺐다가(0→최대) 놓는 순간 달려든다. 판정(windT)과 그림이 같은 값을 쓰므로 어긋나지 않는다
+    if (e.windT > 0){
+      const k = Math.min(1, e.windT / 0.32);                 // 1(막 시작) → 0(덮치기 직전)
+      const wa = Math.atan2(e.y-player.y, e.x-player.x);     // 플레이어 반대 방향 = 뒤로 빼는 방향
+      ctx.translate(Math.cos(wa)*7*k, Math.sin(wa)*7*k);
+      ctx.scale(1 + 0.12*(1-k), 1 - 0.10*(1-k));             // 덮치기 직전에 앞으로 눌린다
+      ctx.strokeStyle = '#e0a94f'; ctx.globalAlpha = 0.30 + 0.5*(1-k); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, e.r + 5 + 6*k, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     // v6.47 타격 플래시 + 저체력 연출 (비주얼 대개편)
     if (e._phk===undefined) e._phk = e.hp;
     if (e.hp < e._phk - 0.4){
