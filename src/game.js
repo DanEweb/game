@@ -72,6 +72,7 @@ import { FX } from "./fx.js";
     gweps: { bow:{found:false,lv:1,xp:0}, tome:{found:false,lv:1,xp:0}, blade:{found:false,lv:1,xp:0} },
     mats: { shard:0, essence:0, gear:0, forge:0, sigil:0 },
     consum: { reroll:0, revive:0 },
+    titles: {}, titleOn: null,          // v6.168 해금한 칭호 / 장착 중인 칭호
     peril: 0, perilMax: 0,
     metaRefunded: false,
     egg1: false,
@@ -836,7 +837,53 @@ import { FX } from "./fx.js";
     { key:'gate1',         name:'격의 돌파',   desc:'각성 의식으로 성장무기의 격을 돌파한다', gold:300 },
     { key:'mythtech',      name:'신화에 손을 뻗다', desc:'신화 테크를 획득한다', gold:400 },
     { key:'bleed1',        name:'차원 침식 목격자', desc:'다른 세계에서 넘어온 보스를 처치한다', gold:250 },
+    //  🔴 v6.168 배치 8 — 계열별 확장. **전부 이미 있는 계측값에만 연결했다.**
+    //   (v6.165에서 '관문 보스 + 350킬'처럼 영원히 불가능한 조건을 만든 전례가 있다 —
+    //    이번엔 runProof/DB에 실제로 쌓이는 값만 썼고, 트리거 호출부를 같이 넣었다)
+    // ⚔ 전투
+    { key:'nohit1',     name:'그림자도 못 스친다', desc:'보스전에서 한 대도 맞지 않고 보스를 처치한다', gold:600 },
+    { key:'parry30',    name:'받아넘기는 자',  desc:'한 판에서 패링 30회', gold:400 },
+    { key:'dashkill1',  name:'스쳐 지나가며',  desc:'대시로 적을 마무리한다', gold:120 },
+    { key:'lowhp1',     name:'한 줌의 숨',    desc:'체력 10% 이하에서 보스를 처치한다', gold:500 },
+    { key:'elems5',     name:'다섯 갈래',     desc:'한 판에서 5속성을 모두 발동시킨다', gold:350 },
+    { key:'tank10',     name:'무너지지 않는다', desc:'한 판에서 최대체력의 10배를 얻어맞고도 보스를 잡는다', gold:700 },
+    // 📦 수집
+    { key:'forge100',   name:'쇠를 쌓는 자',  desc:'⬡ 벼림쇠를 100개 모은다', gold:300 },
+    { key:'sigil10',    name:'관문의 수집가', desc:'◈ 각인핵을 10개 모은다', gold:600 },
+    { key:'sacred1',    name:'絶名을 잇다',   desc:'성물을 처음으로 계승한다', gold:800 },
+    { key:'sacred5',    name:'이름을 모으는 자', desc:'성물 5개를 계승한다', gold:2500 },
+    { key:'loot30',     name:'빈손으로 안 간다', desc:'한 판에서 아이템 30개를 줍는다', gold:250 },
+    { key:'cgw10',      name:'무기고의 주인', desc:'직업 유일무기 10종을 발견한다', gold:900 },
+    // 🗺 탐험
+    { key:'travel30k',  name:'멈추지 않는 발', desc:'한 판에서 30,000px을 이동한다', gold:300 },
+    { key:'gate3',      name:'세 겹의 문',    desc:'3단 관문 체인을 완주한다', gold:800 },
+    { key:'peril30',    name:'심연을 걷다',   desc:'위험도 30 이상에서 클리어', gold:3000 },
+    { key:'peril60',    name:'한계의 끝',     desc:'위험도 60에서 클리어', gold:12000 },
+    // 🎭 기행
+    { key:'nogold',     name:'돈이 다가 아니다', desc:'골드를 한 푼도 줍지 않고 보스를 처치한다', gold:400 },
+    { key:'noskill',    name:'맨손의 증명',   desc:'스킬을 한 번도 쓰지 않고 보스를 처치한다', gold:450 },
+    { key:'oneweapon',  name:'하나면 충분하다', desc:'무기 1개만 든 채로 보스를 처치한다', gold:500 },
+    // 🔥 도전
+    { key:'pgw50',      name:'끝까지 벼린다', desc:'성장무기를 Lv50 만렙까지 키운다', gold:2000 },
+    { key:'cgw40',      name:'유일한 완성',   desc:'유일무기를 Lv40 만렙까지 키운다', gold:2000 },
+    { key:'wall4',      name:'네 개의 격',    desc:'한 무기의 격의 벽 4개를 모두 돌파한다', gold:1500 },
   ];
+  //  업적 계열 — 목록이 47→70개로 늘어 평면 나열로는 뭘 해야 할지 안 보인다
+  const ACH_CAT = {
+    combat:'⚔ 전투', collect:'📦 수집', explore:'🗺 탐험', odd:'🎭 기행', challenge:'🔥 도전' };
+  const ACH_OF = {
+    nohit1:'combat', parry30:'combat', dashkill1:'combat', lowhp1:'combat', elems5:'combat', tank10:'combat',
+    fever50:'combat', nodmg3:'combat', melt:'combat', legend:'combat', bleed1:'combat', dash50:'combat',
+    forge100:'collect', sigil10:'collect', sacred1:'collect', sacred5:'collect', loot30:'collect', cgw10:'collect',
+    primal:'collect', set3:'collect', relic:'collect', cgw1:'collect', blueprint:'collect', gold5k:'collect',
+    travel30k:'explore', gate3:'explore', peril30:'explore', peril60:'explore',
+    allmaps:'explore', gate1:'explore', gatefinal:'explore', rift1:'explore', wave1:'explore', hidden:'explore',
+    nogold:'odd', noskill:'odd', oneweapon:'odd', gamble1:'odd', jackpot:'odd', jackpot777:'odd',
+    hiddenpact:'odd', wayres:'odd', egg1:'odd',
+    pgw50:'challenge', cgw40:'challenge', wall4:'challenge', peril5:'challenge', peril10:'challenge',
+    peril20:'challenge', survive20:'challenge', earlywin:'challenge', latewin:'challenge', asc1:'challenge',
+    ascseal:'challenge', lv30:'challenge', mythtech:'challenge' };
+  const achCat = (k)=> ACH_OF[k] || 'combat';
   // 업적 → 유니크 장비 직접 해금 (Halls of Torment식)
   const UNIQUE_FROM_ACH = {
     nodmg3:    { slot:'acc1',  r:4, name:'수도자의 띠',     stats:[{k:'hp',v:40},{k:'regen',v:1}], affix:'firstaid' },
@@ -844,6 +891,142 @@ import { FX } from "./fx.js";
     survive20: { slot:'cloak', r:4, name:'불사조의 망토',   stats:[{k:'hp',v:50},{k:'regen',v:1.5}], affix:'overdrive' },
     clear_abyss:{ slot:'head', r:4, name:'심연을 본 자의 왕관', stats:[{k:'atk',v:10},{k:'cdr',v:8},{k:'gold',v:12}], affix:'blast' },
   };
+  //  🔴 v6.168 **칭호 = 업적의 얼굴** (로드맵 순서표 8번)
+  //   그동안 칭호는 런 중에만 붙었다 폐기되는 휘발성이었다(조합 칭호·성물 칭호).
+   //   이제 업적으로 **영구 해금**하고, 하나를 골라 장착하면 그게 곧 치장(고유 이펙트)이 된다.
+  //   ⚠ 능력치는 일부러 하나도 안 붙였다 — 붙이는 순간 '과시'가 아니라 '필수 장착'이 된다
+  const TITLES = {
+    // ⚔ 전투
+    nohit1:    { name:'그림자도 못 스친다', col:'#cfd6e4', fx:'halo'  },
+    parry30:   { name:'받아넘기는 자',   col:'#8fd0ff', fx:'ring'  },
+    lowhp1:    { name:'한 줌의 숨',      col:'#e2564a', fx:'spark' },
+    elems5:    { name:'다섯 갈래',       col:'#b98fe0', fx:'motes' },
+    tank10:    { name:'무너지지 않는다', col:'#9a8f7a', fx:'ring'  },
+    fever50:   { name:'학살자',          col:'#e08a3c', fx:'spark' },
+    // 📦 수집
+    sacred1:   { name:'絶名을 잇는 자',  col:'#e0a94f', fx:'crown' },
+    sacred5:   { name:'이름을 모으는 자', col:'#f0c96a', fx:'crown' },
+    cgw10:     { name:'무기고의 주인',   col:'#c9b28a', fx:'motes' },
+    sigil10:   { name:'관문의 수집가',   col:'#7fd8c0', fx:'ring'  },
+    primal:    { name:'태초에 닿은 자',  col:'#d8f0ff', fx:'halo'  },
+    // 🗺 탐험
+    gate3:     { name:'세 겹의 문을 넘어', col:'#9fb8d8', fx:'ring' },
+    peril30:   { name:'심연을 걷는 자',  col:'#6a5aa0', fx:'motes' },
+    peril60:   { name:'한계의 끝',       col:'#ff5a4a', fx:'spark' },
+    allmaps:   { name:'세계의 끝을 본 자', col:'#cfd6e4', fx:'halo' },
+    gatefinal: { name:'회색을 지운 자',  col:'#ffffff', fx:'crown' },
+    travel30k: { name:'멈추지 않는 발',  col:'#8fd0a0', fx:'motes' },
+    // 🎭 기행
+    nogold:    { name:'돈이 다가 아니다', col:'#8a8f98', fx:'none'  },
+    noskill:   { name:'맨손의 증명',     col:'#b0b6c0', fx:'none'  },
+    oneweapon: { name:'하나면 충분하다', col:'#d8c98a', fx:'ring'   },
+    jackpot777:{ name:'운명을 속인 자',  col:'#f0d040', fx:'spark'  },
+    hiddenpact:{ name:'계약자',          col:'#7a4a8a', fx:'motes'  },
+    // 🔥 도전
+    pgw50:     { name:'끝까지 벼린 자',  col:'#e8c56a', fx:'crown' },
+    cgw40:     { name:'유일을 완성한 자', col:'#ffd98a', fx:'crown' },
+    wall4:     { name:'네 개의 격',      col:'#d0a860', fx:'ring'  },
+    peril20:   { name:'한계를 넘은 자',  col:'#e0704a', fx:'spark' },
+    survive20: { name:'불사(不死)',      col:'#a0e0b0', fx:'halo'  },
+    lv30:      { name:'정점에 선 자',    col:'#e8e0c0', fx:'halo'  },
+  };
+  //  🔴 v6.168 업적 판정 — **조건을 만들면 트리거도 같이 만든다**
+  //   v6.165에서 '관문 보스 + 350킬'처럼 성립 불가능한 조건을 넣은 적이 있어서,
+  //   이번엔 판정부를 조건표 바로 옆에 두고 runProof/DB에 실제로 쌓이는 값만 읽는다
+  //  🔴 v6.168 **치장** — 칭호마다 다른 이펙트. 능력치가 없는 대신 눈에 띄어야 의미가 있다.
+  //   ⚠ 매 프레임 도는 자리라 전부 도형 몇 개로 끝낸다 (파티클 배열을 만들지 않는다)
+  function drawTitleFx(t){
+    if (!t || !t.fx || t.fx === 'none') return;
+    const now = performance.now();
+    const x = player.x, y = player.y, col = t.col || '#d9a53f';
+    ctx.save();
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.shadowColor = col; ctx.shadowBlur = 8;
+    if (t.fx === 'ring'){
+      const a0 = now/700;
+      ctx.globalAlpha = 0.55; ctx.lineWidth = 1.6;
+      for (let k=0;k<2;k++){
+        ctx.beginPath();
+        ctx.arc(x, y, 20 + k*5, a0 + k*2.1, a0 + k*2.1 + 2.2);
+        ctx.stroke();
+      }
+    } else if (t.fx === 'motes'){
+      ctx.globalAlpha = 0.7;
+      for (let k=0;k<3;k++){
+        const a = now/900 + k*2.094;
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a)*22, y + Math.sin(a)*22*0.6, 2.1, 0, 6.283);
+        ctx.fill();
+      }
+    } else if (t.fx === 'crown'){
+      ctx.globalAlpha = 0.85;
+      const by = y - 26 + Math.sin(now/500)*1.2;
+      ctx.beginPath();
+      for (let k=-2;k<=2;k++){
+        ctx.moveTo(x + k*4, by);
+        ctx.lineTo(x + k*4 + 2, by - (k===0?6:4));
+        ctx.lineTo(x + k*4 + 4, by);
+      }
+      ctx.lineWidth = 1.4; ctx.stroke();
+    } else if (t.fx === 'halo'){
+      ctx.globalAlpha = 0.20 + 0.10*Math.sin(now/600);
+      ctx.beginPath(); ctx.arc(x, y, 26, 0, 6.283); ctx.fill();
+    } else if (t.fx === 'spark'){
+      ctx.globalAlpha = 0.75; ctx.lineWidth = 1.4;
+      for (let k=0;k<4;k++){
+        const a = now/300 + k*1.571;
+        const r1 = 16 + ((now/90 + k*30) % 12);
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a)*r1, y + Math.sin(a)*r1*0.7);
+        ctx.lineTo(x + Math.cos(a)*(r1+4), y + Math.sin(a)*(r1+4)*0.7);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+  function checkBossAch(){
+    try {
+      if (runProof.hitTaken === 0)      unlockAch('nohit1');
+      if ((runProof.parry||0) >= 30)    unlockAch('parry30');
+      if (runProof.lowHp)               unlockAch('lowhp1');
+      if (runProof.elems && runProof.elems.size >= 5) unlockAch('elems5');
+      if ((runProof.taken||0) >= 10)    unlockAch('tank10');
+      if ((runProof.loot||0) >= 30)     unlockAch('loot30');
+      if ((runProof.travel||0) >= 30000) unlockAch('travel30k');
+      if ((runProof.gold||0) === 0)     unlockAch('nogold');
+      if ((runProof.skills||0) === 0)   unlockAch('noskill');
+      if ((runProof.maxWeapons||0) <= 1) unlockAch('oneweapon');
+      if (runProof.dashKill)            unlockAch('dashkill1');
+    } catch(e){}
+  }
+  //  보유 상태 기반 — 런 밖에서도 성립하므로 저장 시점·업적창 진입 시 함께 본다
+  function checkMetaAch(){
+    try {
+      const m = DB.mats||{};
+      if ((m.forge||0) >= 100) unlockAch('forge100');
+      if ((m.sigil||0) >= 10)  unlockAch('sigil10');
+      const aw = Object.keys(DB.sacredAwake||{}).length;
+      if (aw >= 1) unlockAch('sacred1');
+      if (aw >= 5) unlockAch('sacred5');
+      const cg = Object.keys(DB.cgw||{}).filter(k=>DB.cgw[k] && DB.cgw[k].found);
+      if (cg.length >= 10) unlockAch('cgw10');
+      if (cg.some(k=>(DB.cgw[k].lv||1) >= 40)) unlockAch('cgw40');
+      const pg = Object.keys(DB.pgw||{}).map(k=>DB.pgw[k]).filter(Boolean);
+      if (pg.some(r=>(r.lv||1) >= 50)) unlockAch('pgw50');
+      if (pg.some(r=>(r.awk||0) >= 4)) unlockAch('wall4');
+    } catch(e){}
+  }
+  function unlockTitle(key){
+    if (!TITLES[key]) return;
+    DB.titles = DB.titles||{};
+    if (DB.titles[key]) return;
+    DB.titles[key] = true;
+    if (!DB.titleOn) DB.titleOn = key;   // 첫 칭호는 자동 장착 — 안 그러면 얻고도 안 보인다
+    saveDB();
+    toast('👑 칭호 해금: 『'+TITLES[key].name+'』');
+    SFX.play('win');
+  }
   function unlockAch(key){
     if (!DB.ach) DB.ach = {};
     if (DB.ach[key]) return;
@@ -851,6 +1034,7 @@ import { FX } from "./fx.js";
     if (!a) return;
     DB.ach[key] = true;
     if (a.gold) DB.gold += a.gold;
+    unlockTitle(key);                    // v6.168 업적이 곧 칭호의 해금 조건이다
     toast('🏆 업적 달성: '+a.name+(a.gold?' (+'+a.gold+'G)':''));
     const uq = UNIQUE_FROM_ACH[key];
     if (uq){
@@ -862,8 +1046,43 @@ import { FX } from "./fx.js";
   }
   function achCount(){ return Object.keys(DB.ach||{}).length; }
   function renderAch(){
+    checkMetaAch();          // v6.168 보유 기반 업적은 창을 열 때 한 번 훑는다
     const list = $('achList');
     list.innerHTML = '';
+    //  🔴 v6.168 **칭호 진열장** — 해금한 칭호 중 하나를 장착한다 (치장 = 칭호의 얼굴)
+    {
+      DB.titles = DB.titles||{};
+      const keys = Object.keys(TITLES);
+      const own = keys.filter(k=>DB.titles[k]);
+      const tRow = document.createElement('div');
+      tRow.className = 'shopItem';
+      tRow.innerHTML = '<div class="info"><div class="nm">👑 칭호 ('+own.length+'/'+keys.length+')</div>'
+        + '<div class="ds">업적을 달성하면 열린다 · 장착한 칭호는 머리 위에 뜨고 <b>고유 치장</b>이 따라온다'
+        + (own.length? '' : '<br><span style="opacity:0.6;">아직 연 칭호가 없다 — 아래 업적을 달성해 보자</span>')+'</div></div>';
+      list.appendChild(tRow);
+      if (own.length){
+        const wrap = document.createElement('div');
+        wrap.className = 'shopItem';
+        const box = document.createElement('div');
+        box.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;';
+        const mk = (k, label, col)=>{
+          const b = document.createElement('button');
+          b.className = 'buy sec';
+          b.style.cssText = 'font-size:10px;padding:4px 8px;'+(col?'color:'+col+';':'');
+          const on = DB.titleOn === k;
+          b.textContent = (on?'● ':'') + label;
+          if (on) b.style.borderColor = col||'#d9a53f';
+          b.addEventListener('click', ()=>{
+            DB.titleOn = on ? null : k;   // 다시 누르면 해제
+            saveDB(); SFX.play('equip'); renderAch();
+          });
+          return b;
+        };
+        own.forEach(k=> box.appendChild(mk(k, TITLES[k].name, TITLES[k].col)));
+        wrap.appendChild(box);
+        list.appendChild(wrap);
+      }
+    }
     // 도감: 유니크·태초·세트 수집 현황
     const uniqNames = new Set(DB.inv.filter(i=>i.r===5).map(i=>i.name));
     const primalN = DB.inv.filter(i=>i.r===6).length;
@@ -935,15 +1154,27 @@ import { FX } from "./fx.js";
     techRow.className = 'shopItem';
     techRow.innerHTML = '<div class="info"><div class="nm">🔮 테크 도감 (11속성)</div><div class="ds">'+techLine+'</div></div>';
     list.appendChild(techRow);
-    ACHIEVEMENTS.forEach((a)=>{
-      const done = DB.ach && DB.ach[a.key];
-      const row = document.createElement('div');
-      row.className = 'shopItem';
-      row.style.opacity = done ? '1' : '0.55';
-      row.innerHTML = '<div class="info"><div class="nm">'+(done?'✓ ':'')+a.name+'</div>'
-        + '<div class="ds">'+a.desc+'</div></div>'
-        + '<div class="lv">'+(done?'달성':(a.gold?'+'+a.gold+'G':''))+'</div>';
-      list.appendChild(row);
+    //  🔴 v6.168 **계열별로 묶는다** — 70개를 평면으로 늘어놓으면 뭘 해야 할지 안 보인다
+    Object.keys(ACH_CAT).forEach((cat)=>{
+      const items = ACHIEVEMENTS.filter(a=>achCat(a.key)===cat);
+      if (!items.length) return;
+      const doneN = items.filter(a=>DB.ach && DB.ach[a.key]).length;
+      const hd = document.createElement('div');
+      hd.className = 'shopItem';
+      hd.innerHTML = '<div class="info"><div class="nm">'+ACH_CAT[cat]+' <span style="font-size:9px;color:var(--ink-500);">'+doneN+'/'+items.length+'</span></div></div>';
+      list.appendChild(hd);
+      items.forEach((a)=>{
+        const done = DB.ach && DB.ach[a.key];
+        const tt = TITLES[a.key];
+        const row = document.createElement('div');
+        row.className = 'shopItem';
+        row.style.opacity = done ? '1' : '0.55';
+        row.innerHTML = '<div class="info"><div class="nm">'+(done?'✓ ':'')+a.name+'</div>'
+          + '<div class="ds">'+a.desc
+          + (tt? '<br><span style="color:'+tt.col+';">👑 칭호 『'+tt.name+'』</span>':'')+'</div></div>'
+          + '<div class="lv">'+(done?'달성':(a.gold?'+'+a.gold+'G':''))+'</div>';
+        list.appendChild(row);
+      });
     });
   }
 
@@ -7584,6 +7815,7 @@ import { FX } from "./fx.js";
     const t = sacredTributeReady(ck);
     return JSON.stringify({ 제물가능:!!t, 제물레벨:t&&t.lv });
   } catch(e){ return 'ERR '+String(e); } };
+  window.__qaTitle = (k)=>{ DB.titles=DB.titles||{}; if(k==='*'){ Object.keys(TITLES).forEach(t=>DB.titles[t]=true); } else if(k){ DB.titles[k]=true; DB.titleOn=k; } saveDB(); return JSON.stringify({on:DB.titleOn, n:Object.keys(DB.titles).length}); };
   window.__qaMats = (n,g)=>{ if (g!==undefined){ DB.gold=g; saveDB(); } if (n!==null && typeof n==="object"){ Object.assign(DB.mats, n); saveDB(); } else if (n!==undefined){ DB.mats.forge=n; DB.mats.sigil=n; DB.mats.shard=n; DB.mats.essence=n; DB.mats.gear=n; saveDB(); } return JSON.parse(JSON.stringify(Object.assign({gold:DB.gold}, DB.mats))); };
   window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
     return JSON.stringify({ 계승:ok, 각성:sacredAwoken(ck), 배율:+sacredMult(ck).toFixed(2), 제물무기레벨:(DB.pgw[ck+'_0']||{}).lv });
@@ -7678,6 +7910,7 @@ import { FX } from "./fx.js";
       SFX.play('evolve');
     }
     tryUnlockRelic();
+    checkBossAch();          // v6.168 성물과 같은 자리에서 본다 — 증명이 완성되는 지점이 여기다
     addCombo();
     questAdd('boss', 1);
     if (b.bleed) unlockAch('bleed1');
@@ -8304,6 +8537,7 @@ import { FX } from "./fx.js";
   }
   function spawnGateStage(peril){
     const chain = GATE_CHAIN[peril];
+    if (chain && chain.length >= 3 && (DB.gateProg||{})[peril] >= chain.length-1) unlockAch('gate3');
     if (!chain) return false;
     DB.gateProg = DB.gateProg||{};
     const prog = Math.min(DB.gateProg[peril]||0, chain.length-1);
@@ -16607,6 +16841,8 @@ import { FX } from "./fx.js";
     if ((DB.peril||0) >= 5) unlockAch('peril5');
     if ((DB.peril||0) >= 10) unlockAch('peril10');
     if ((DB.peril||0) >= 20) unlockAch('peril20');
+    if ((DB.peril||0) >= 30) unlockAch('peril30');
+    if ((DB.peril||0) >= 60) unlockAch('peril60');
     if (MAP_ORDER.every(k=>DB.mapCleared[k])) unlockAch('allmaps');
     saveDB();
     runGold = 0;
@@ -18050,17 +18286,22 @@ import { FX } from "./fx.js";
     // 칭호: 머리 위에 금빛으로 떠오른다
     //  v6.164 성물 칭호 — 조합 칭호가 없으면 **성물 칭호가 그 자리에 뜬다**(과시가 이 층의 보상이다)
     if (!player.comboTitle && player.sacredTitle) player.comboTitle = player.sacredTitle;
-    if (player.comboTitle){
+    //  🔴 v6.168 **장착 칭호가 최우선** — 사용자가 직접 고른 것이니 자동으로 붙은 것보다 앞선다.
+    //   치장(고유 이펙트)도 이 칭호를 따라간다
+    const eqT = (DB.titleOn && TITLES[DB.titleOn]) ? TITLES[DB.titleOn] : null;
+    if (eqT) drawTitleFx(eqT);
+    const shownTitle = eqT ? eqT.name : player.comboTitle;
+    if (shownTitle){
       ctx.save();
       const tp = 0.75 + 0.25*Math.sin(performance.now()/400);
       ctx.globalAlpha = tp;
       ctx.font = "700 9.5px 'IBM Plex Sans KR', sans-serif";
       ctx.textAlign = 'center';
-      const de2 = dominantElemColor();
-      ctx.fillStyle = de2 || '#d9a53f';
-      ctx.shadowColor = de2 || '#d9a53f';
+      const de2 = eqT ? eqT.col : (dominantElemColor() || '#d9a53f');
+      ctx.fillStyle = de2;
+      ctx.shadowColor = de2;
       ctx.shadowBlur = 6;
-      ctx.fillText('『'+player.comboTitle+'』', player.x, player.y - 36);
+      ctx.fillText('『'+shownTitle+'』', player.x, player.y - 36);
       ctx.restore();
     }
     // 전직 표식: 1차 이상 = 머리 위 별, 2차 이상 = 별 2개
