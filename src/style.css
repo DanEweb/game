@@ -289,6 +289,8 @@
   .card .num{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-300); margin-bottom:5px; }
   .card .name{ font-size:13px; font-weight:700; color:var(--ink-900); margin-bottom:4px; }
   .card .desc{ font-size:10.5px; color:var(--ink-500); line-height:1.5; }
+  /* v6.170 초상화가 들어오면서 카드 상단 여백이 필요 없어졌다 */
+  .card canvas{ margin:-6px -5px 9px; width:calc(100% + 10px); }
   .card .tag{ font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-700); background:var(--paper-2); display:inline-block; padding:2px 6px; border-radius:4px; margin-bottom:6px; }
   .card.locked{ opacity:0.75; }
   .card.cap{ border-width:2px; border-color:var(--ink-700); }

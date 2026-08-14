@@ -3358,6 +3358,114 @@ import { FX } from "./fx.js";
     if (c.hidden) return !!DB.unlocked[key];
     return !c.cost || DB.unlocked[key];
   }
+  //  🔴 v6.170 배치 9-e **직업 초상화** — 사용자: *"일러스트급 캐릭터는 어딨어?"*
+  //   직업 선택 화면이 37장 전부 순수 텍스트였다. 게임을 켜서 **가장 먼저 보는 화면**이 그랬다.
+  //   외부 이미지를 못 쓰는 단일 HTML 빌드라, 인게임 벡터 바디를 **큰 배율로 다시 그려** 초상화를 만든다.
+  //   구성: 직업색 배경광 → 계열 문장(紋章) → 캐릭터(계열 실루엣 + 직업색 + 전직 표식) → 바닥 그림자
+  //   ⚠ 37장을 매 렌더마다 그리면 타이틀이 버벅인다 — 직업당 한 번 그려 캐시한다.
+  const PORTRAIT_CACHE = {};
+  //  계열마다 자세를 다르게 준다 — 색만 다르면 37장이 결국 같은 그림으로 보인다
+  const PORTRAIT_POSE = {
+    war: { atk:0.55, tier:2 },                    // 베는 중
+    rog: { atk:0.30, tier:2 },                    // 파고드는 중
+    rng: { chargePose:true, tier:2 },             // 겨누는 중
+    mag: { satPose:true, tier:2 },                // 띄우는 중
+    pri: { guardT:0.18, guardKind:'parry', tier:2 },  // 막는 중
+    mer: { atk:0.12, tier:2 },                    // 막 꺼내는 중
+  };
+  function classPortrait(key){
+    if (PORTRAIT_CACHE[key]) return PORTRAIT_CACHE[key];
+    const W = 132, H = 108, DPR = Math.min(2, window.devicePixelRatio||1);
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+    cv.style.cssText = 'width:100%;height:'+H+'px;display:block;border-radius:8px;';
+    const g = cv.getContext('2d');
+    g.setTransform(DPR,0,0,DPR,0,0);
+    const col = CLASS_COLORS[key] || '#767884';
+    const grp = classResGroup(key);
+    // 배경: 직업색 방사광 + 아래로 가라앉는 바닥
+    const bg = g.createRadialGradient(W/2, H*0.42, 4, W/2, H*0.42, W*0.62);
+    bg.addColorStop(0, mixHex('#f2f2ef', col, 0.30));
+    bg.addColorStop(0.62, mixHex('#ececeb', col, 0.10));
+    bg.addColorStop(1, '#e6e6e4');
+    g.fillStyle = bg; g.fillRect(0,0,W,H);
+    // 계열 문장 — 캐릭터 뒤에 크게 깔리는 기하 문양 (계열마다 다른 도형)
+    g.save();
+    g.globalAlpha = 0.16; g.strokeStyle = col; g.lineWidth = 2.4;
+    g.translate(W/2, H*0.46);
+    const R = 30;
+    if (grp==='war'){ g.beginPath(); for(let i=0;i<4;i++){ const a=i*Math.PI/2; g.lineTo(Math.cos(a)*R, Math.sin(a)*R); } g.closePath(); g.stroke(); }
+    else if (grp==='rng'){ g.beginPath(); g.arc(0,0,R,-0.9,0.9); g.stroke(); g.beginPath(); g.moveTo(-R,0); g.lineTo(R*0.8,0); g.stroke(); }
+    else if (grp==='mag'){ for(let k=0;k<3;k++){ g.beginPath(); g.arc(0,0,R-k*8,0,6.283); g.stroke(); } }
+    else if (grp==='rog'){ g.beginPath(); g.moveTo(-R,-R*0.5); g.lineTo(R,R*0.5); g.moveTo(R,-R*0.5); g.lineTo(-R,R*0.5); g.stroke(); }
+    else if (grp==='pri'){ g.beginPath(); g.moveTo(0,-R); g.lineTo(0,R); g.moveTo(-R*0.6,-R*0.25); g.lineTo(R*0.6,-R*0.25); g.stroke(); }
+    else { g.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3; g.lineTo(Math.cos(a)*R, Math.sin(a)*R); } g.closePath(); g.stroke(); }
+    g.restore();
+    // 바닥 그림자
+    g.save(); g.globalAlpha = 0.14; g.fillStyle = '#202124';
+    g.beginPath(); g.ellipse(W/2, H*0.86, 22, 5, 0, 0, 6.283); g.fill(); g.restore();
+    // 캐릭터 — 인게임과 같은 벡터 바디를 크게 (드로잉 대상만 잠시 바꿔치기)
+    //  ⚠ 배율 3.2로 뒀더니 **발이 액자 밖으로 잘렸다**. 몸통은 국소좌표로 머리끝 −18 ~ 발 +13(31단위)이라
+    //   배율 S일 때 세로로 31·S 픽셀을 먹는다. 96px 액자에 여백까지 넣으려면 2.6이 상한이다
+    //  ⚠ 2.6도 여전히 **머리 위가 잘렸다** — 몸통 −18만 보고 계산했는데 실제로는
+    //   전직 표식(머리 위 별)과 탈것이 그 위/아래로 더 나간다. 실측 범위는 대략 −22 ~ +14(36단위).
+    const S = 2.3;
+    const pose = Object.assign({ face:1, walk:0, gear:key, scale:S, tierC:col },
+                               PORTRAIT_POSE[grp] || PORTRAIT_POSE.war);
+    if (key==='reaper') pose.robe = true;
+    if (key==='rusher') pose.mount = 'horse';
+    //  캐릭터만 따로 그린 뒤 음영을 입혀 합성한다 — 인게임 도트 경로엔 있는 3톤 셰이딩이
+    //  벡터 경로엔 없어서, 그냥 그리면 **납작한 검은 실루엣**으로 보인다
+    const ch = document.createElement('canvas');
+    ch.width = Math.round(W*DPR); ch.height = Math.round(H*DPR);
+    const cg = ch.getContext('2d');
+    cg.setTransform(DPR,0,0,DPR,0,0);
+    const main = ctx;
+    cg.save(); cg.translate(W/2, H*0.62);
+    ctx = cg;
+    try { drawHumanoidVec(0, 0, pose); } catch(e){} finally { ctx = main; }
+    cg.restore();
+    // 실루엣 안쪽에만: 위 하이라이트 · 아래 그림자 · 직업색 반사광
+    cg.save();
+    cg.setTransform(DPR,0,0,DPR,0,0);
+    cg.globalCompositeOperation = 'source-atop';
+    const sh = cg.createLinearGradient(0, H*0.62-19*S, 0, H*0.62+14*S);
+    sh.addColorStop(0,    'rgba(255,252,240,0.30)');
+    sh.addColorStop(0.40, 'rgba(255,252,240,0.08)');
+    sh.addColorStop(0.62, 'rgba(0,0,0,0)');
+    sh.addColorStop(1,    'rgba(10,10,14,0.30)');
+    cg.fillStyle = sh; cg.fillRect(0,0,W,H);
+    // 직업색 림라이트 — 왼쪽 위에서 들어오는 빛이 색을 띤다
+    const rim = cg.createLinearGradient(W*0.30, 0, W*0.70, H);
+    rim.addColorStop(0, mixHex('#000000', col, 1) + '55');
+    rim.addColorStop(0.5, 'rgba(0,0,0,0)');
+    cg.fillStyle = rim; cg.fillRect(0,0,W,H);
+    cg.restore();
+    g.drawImage(ch, 0, 0, W, H);
+    // 상단 광택 — 배경과 카드가 맞붙어 밋밋해지지 않게
+    const gl = g.createLinearGradient(0,0,0,H*0.5);
+    gl.addColorStop(0,'rgba(255,255,255,0.35)'); gl.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle = gl; g.fillRect(0,0,W,H*0.5);
+    PORTRAIT_CACHE[key] = cv;
+    return cv;
+  }
+  //  잠긴 직업 — 실루엣만 보여 준다 (뭘 얻게 되는지는 알되, 정체는 감춘다)
+  function lockedPortrait(key){
+    const k = '__lock_'+key;
+    if (PORTRAIT_CACHE[k]) return PORTRAIT_CACHE[k];
+    const src = classPortrait(key);
+    const cv = document.createElement('canvas');
+    cv.width = src.width; cv.height = src.height;
+    cv.style.cssText = src.style.cssText;
+    const g = cv.getContext('2d');
+    g.drawImage(src, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(58,59,66,0.88)';
+    g.fillRect(0,0,cv.width,cv.height);
+    g.globalCompositeOperation = 'source-over';
+    PORTRAIT_CACHE[k] = cv;
+    return cv;
+  }
   function renderClassCards(){
     classCardsEl.innerHTML = '';
     goldVal.textContent = DB.gold;
@@ -3371,10 +3479,17 @@ import { FX } from "./fx.js";
       const el = document.createElement('div');
       el.className = 'card' + (unlocked?'':' locked');
       if (unlocked){
-        el.innerHTML = '<div class="tag">'+c.tag+'</div><div class="name">'+c.name+'</div><div class="desc">'+c.desc+'</div>';
+        //  v6.170 초상화가 먼저 오고 글이 뒤따른다 — 직업은 '설명'이 아니라 '모습'으로 고르는 것이다
+        el.appendChild(classPortrait(key));
+        const tx = document.createElement('div');
+        tx.innerHTML = '<div class="tag">'+c.tag+'</div><div class="name">'+c.name+'</div><div class="desc">'+c.desc+'</div>';
+        el.appendChild(tx);
         el.addEventListener('click', ()=> startGame(key));
       } else if (c.hidden){
-        el.innerHTML = '<div class="tag">히든</div><div class="name">???</div><div class="desc">'+c.condDesc+'</div>';
+        el.appendChild(lockedPortrait(key));   // v6.170 실루엣만 — 있다는 건 알되 정체는 감춘다
+        const tx = document.createElement('div');
+        tx.innerHTML = '<div class="tag">히든</div><div class="name">???</div><div class="desc">'+c.condDesc+'</div>';
+        el.appendChild(tx);
         // 비밀 입력형 (모바일 대응): 카드를 누르면 입력창
         if (c.secretInput){
           el.style.cursor = 'pointer';
@@ -3391,7 +3506,12 @@ import { FX } from "./fx.js";
           });
         }
       } else {
-        el.innerHTML = '<div class="tag">잠금 · '+c.cost+'G</div><div class="name">'+c.name+'</div><div class="desc">'+c.desc+'<br><b>클릭하여 해금</b></div>';
+        //  v6.170 골드 잠금은 **정체를 감출 이유가 없다** — 뭘 사는지 보여야 사고 싶어진다
+        const pv = classPortrait(key); pv.style.opacity = '0.55';
+        el.appendChild(pv);
+        const tx = document.createElement('div');
+        tx.innerHTML = '<div class="tag">잠금 · '+c.cost+'G</div><div class="name">'+c.name+'</div><div class="desc">'+c.desc+'<br><b>클릭하여 해금</b></div>';
+        el.appendChild(tx);
         el.addEventListener('click', ()=>{
           if (DB.gold >= c.cost){
             DB.gold -= c.cost;
