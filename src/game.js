@@ -82,7 +82,8 @@ import { FX } from "./fx.js";
     gateProg: {},        // 관문 레이드 체크포인트 — peril → 돌파한 관문 수 (다음 도전 시 이어서)
     cgw: {},             // 직업 유일무기 (37직업 × 3종, 극악 발견) — key '<class>_<i>' → {found,lv,xp}
     pgw: {},             // 직업 성장무기 (37직업 × 3종, 공방 제작·처치 성장)
-    armory: []           // 무기고 — 드랍된 일반 무기 인스턴스 (희귀도·접사)
+    armory: [],          // 무기고 — 드랍된 일반 무기 인스턴스 (희귀도·접사)
+    relics: {}           // v6.163 성물(絶名) 37종 — 직업당 하나. key=classKey → true (증명으로만 얻는다)
   };
   function loadDB(){
     try{
@@ -884,6 +885,21 @@ import { FX } from "./fx.js";
     gwRow.innerHTML = '<div class="info"><div class="nm">⚔ 성장무기 도감 ('+gwDex.filter(g=>g.found).length+'/4)</div>'
       + '<div class="ds">'+gwDex.map(g=> g.found ? '<b>'+g.name+'</b> — '+g.hint : '??? — <span style="opacity:0.6;">'+g.hint+'</span>').join('<br>')+'</div></div>';
     list.appendChild(gwRow);
+    //  🔴 v6.163 **성물 도감 0/37** (로드맵: *"현재 0/4 → 0/37 성물로 확장하고 탭 분리"*)
+    //   ⚠ 못 얻은 것도 **조건을 보여 준다** — 성물은 확률이 아니라 증명이라 *무엇을 해야 하는지 알아야* 도전이 된다
+    {
+      const sRow = document.createElement('div');
+      sRow.className = 'shopItem';
+      const lines = Object.keys(SACRED).map((ck)=>{
+        const R = SACRED[ck], got = relicOwned(ck);
+        const cn = CLASSES[ck] ? CLASSES[ck].name : ck;
+        return got ? '<b>絶名 '+R[0]+'</b> <span style="opacity:0.7;">('+cn+')</span>'
+                   : '<span style="opacity:0.55;">??? ('+cn+') — '+R[3]+'</span>';
+      }).join('<br>');
+      sRow.innerHTML = '<div class="info"><div class="nm">🏛 성물 도감 — 絶名 ('+sacredCount()+'/'+Object.keys(SACRED).length+')</div>'
+        + '<div class="ds" style="max-height:180px;overflow:auto;">'+lines+'</div></div>';
+      list.appendChild(sRow);
+    }
     // 테크 도감 — 속성별 발견 현황
     const seen = DB.seenTech||{};
     const techLine = SPEC_TREES.map(tk=>{
@@ -5201,6 +5217,86 @@ import { FX } from "./fx.js";
     stonks:['상한가 봉','공매도 창','차트 지팡이'],
     gymbro:['단백질 셰이커','데드리프트 바벨','프로틴 통'],
   };
+  //  🔴 v6.163 **성물(絶名) 37종** (배치 7 — 로드맵 확정안)
+  //   문제였던 것: 전설 유물이 **4종뿐이라 33직업엔 대응물이 없었다**.
+  //   ⇒ **직업당 정확히 하나**, 기존 4종은 그대로 승계해 편입한다.
+  //   🔴 핵심은 성능이 아니다 — *"제일 센 템이 아니라 **제일 증명하기 어려운 템**"*.
+  //    확률 뽑기가 아니라 **그 직업답게 싸웠다는 증명**으로만 열린다.
+  //   ⚠ 조건을 37개 따로 짜지 않는다 — **증명 유형 10종**을 만들고 직업마다 유형+수치를 배정한다.
+  //    (그래야 새 직업이 생겨도 한 줄이면 되고, 판정 코드가 한 곳에 모인다)
+  const RELIC_PROOF = {
+    noHit:   (st)=> st.hitTaken === 0,                    // 한 대도 안 맞고 보스를 잡는다
+    parry:   (st,n)=> st.parry >= n,                      // 막아내며 잡는다
+    exec:    (st)=> st.execKill,                          // 빈사를 골라 마무리한다
+    dash:    (st)=> st.dashKill,                          // 파고들어 마무리한다
+    elems:   (st,n)=> st.elems.size >= n,                 // 여러 속성을 두른다
+    oneWeap: (st)=> st.maxWeapons <= 1,                   // 무기 하나로 끝낸다
+    noSkill: (st)=> st.skills === 0,                      // 스킬 없이 잡는다
+    spend:   (st,n)=> st.spend >= n,                      // 전용기를 N번 쓴다
+    kills:   (st,n)=> st.kills >= n,                      // 쓸어담고 잡는다
+    lowHp:   (st)=> st.lowHp,                             // 빈사에서 버티며 잡는다
+  };
+  //  [성물 이름, 증명 유형, 수치, 설명]
+  //  ⚠ 이름 충돌 주의: `RELICS`는 **장비 슬롯 유물**(equipment-stats.js, 13직업분)로 이미 쓰이고 있다.
+  //   성물은 다른 층이므로 `SACRED`로 둔다
+  const SACRED = {
+    mumyeong:  ['무명검',           'noHit',   0,  '이름 없이 — 한 대도 맞지 않고 관문 보스를 벤다'],
+    sniper:    ['침묵하는 활',      'noHit',   0,  '한 발도 헛되지 않게 — 무피격으로 보스를 잡는다'],
+    voidc:     ['굶주린 마도서',    'elems',   4,  '한 판에 네 속성을 두르고 보스를 잡는다'],
+    reaper:    ['핏빛 대검',        'exec',    0,  '처형으로만 보스를 마무리한다'],
+    samurai:   ['잔심(殘心)의 도',  'parry',   6,  '여섯 번 받아넘기고 보스를 벤다'],
+    baeksu:    ['눕는 자의 방석',   'parry',   4,  '네 번 흘려내고 보스를 잡는다'],
+    rusher:    ['꿰뚫는 자의 창',   'dash',    0,  '대시로 보스를 마무리한다'],
+    shadow:    ['그림자 없는 칼',   'dash',    0,  '파고들어 보스를 마무리한다'],
+    ninja:     ['인(忍)의 두루마리','noHit',   0,  '그림자처럼 — 무피격으로 보스를 잡는다'],
+    blackcat:  ['아홉 번째 목숨',   'lowHp',   0,  '빈사에서 버텨 보스를 잡는다'],
+    madman:    ['웃는 자의 가면',   'lowHp',   0,  '제 피를 태우고도 보스를 잡는다'],
+    cheol:     ['식지 않는 심장',   'lowHp',   0,  '피를 흘리며 보스를 잡는다'],
+    gymbro:    ['최후의 1RM',       'kills',   120,'무리를 짓밟고 보스를 잡는다'],
+    monk:      ['일합(一合)의 염주','oneWeap', 0,  '무기 하나로 보스를 잡는다'],
+    duelist:   ['맞선 자의 장갑',   'oneWeap', 0,  '오직 하나로 겨루어 보스를 잡는다'],
+    exhero:    ['다시 든 성검',     'lowHp',   0,  '무너지기 직전 다시 일어나 보스를 잡는다'],
+    paladin:   ['꺼지지 않는 등불', 'noHit',   0,  '한 번도 뚫리지 않고 보스를 잡는다'],
+    archer:    ['시위를 놓지 않는 손','spend', 5,  '전용기를 다섯 번 쓰고 보스를 잡는다'],
+    pilot:     ['추락하지 않는 날개','noHit',  0,  '한 번도 맞지 않고 보스를 잡는다'],
+    specialist:['만능의 증표',      'elems',   3,  '세 속성을 갈아 쓰며 보스를 잡는다'],
+    runeknight:['새겨진 이름',      'elems',   3,  '세 속성을 검에 새기고 보스를 잡는다'],
+    manager:   ['멈추지 않는 궤도', 'spend',   5,  '궤도를 다섯 번 풀고 보스를 잡는다'],
+    commander: ['부러지지 않는 지휘봉','kills',150,'군세로 밀어붙여 보스를 잡는다'],
+    necro:     ['식지 않는 등불',   'kills',   140,'죽은 자를 거느리고 보스를 잡는다'],
+    druid:     ['마르지 않는 수액', 'lowHp',   0,  '상처를 안고 자연과 함께 보스를 잡는다'],
+    bard:      ['끊기지 않는 현',   'spend',   5,  '박을 놓치지 않고 보스를 잡는다'],
+    returner:  ['되돌린 하루',      'noHit',   0,  '한 번도 되돌릴 일 없이 보스를 잡는다'],
+    engineer:  ['멈추지 않는 태엽', 'spend',   5,  '설치물과 함께 보스를 잡는다'],
+    tourist:   ['마지막 기념품',    'kills',   130,'구경하며 지나가듯 보스를 잡는다'],
+    stonks:    ['상장 폐지 통지서', 'kills',   130,'폭락을 이겨내고 보스를 잡는다'],
+    gambler:   ['마지막 판돈',      'lowHp',   0,  '모두 걸고 보스를 잡는다'],
+    collector: ['비어 있던 진열대', 'elems',   3,  '세 속성을 모아 보스를 잡는다'],
+    tombraider:['봉인된 부장품',    'kills',   130,'무덤을 헤집고 보스를 잡는다'],
+    slime:     ['최초의 핵',        'lowHp',   0,  '뭉개지고도 보스를 잡는다'],
+    glitch:    ['복구 불가 세이브', 'noSkill', 0,  '스킬 없이 보스를 잡는다'],
+    debug:     ['마지막 스택 프레임','noSkill',0,  '스킬 없이 보스를 잡는다'],
+    contributor:['최초의 커밋',     'noHit',   0,  '만든 자답게 — 한 대도 맞지 않고 보스를 잡는다'],
+  };
+  function relicOwned(ck){ return !!(DB.relics && DB.relics[ck]); }
+  //  성물 해금 판정 — 보스를 잡는 순간 '이번 판을 그 직업답게 싸웠는가'를 본다
+  function tryUnlockRelic(){
+    if (!player) return;
+    const ck = player.classKey, R = SACRED[ck];
+    if (!R || relicOwned(ck)) return;
+    runProof.kills = killCount;
+    const fn = RELIC_PROOF[R[1]];
+    if (!fn || !fn(runProof, R[2])) return;
+    DB.relics = DB.relics || {};
+    DB.relics[ck] = true;
+    saveDB();
+    //  ⚠ 성물은 **파워가 아니라 과시**다(로드맵 확정) — 배너로 크게 알리고 도감에 남긴다
+    showBossBanner('絶名 — '+R[0], R[3], '#e0a94f');
+    toast('🏛 성물 획득 — 「'+R[0]+'」  (' + R[3] + ')');
+    effects.push({ type:'rays', x:player.x, y:player.y, life:1.0, age:0 });
+    SFX.play('win');
+  }
+  function sacredCount(){ let n = 0; for (const k in SACRED) if (relicOwned(k)) n++; return n; }
   function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
   // 원형별 밸런스 계수: 발사 주기·발수·판정을 반영해 3종의 DPS가 동일하도록 — 성능은 같고 손맛만 다르다
   const ARCH_BAL = { pierce:1.2, wave:1.15, snipe:2.0, spread:0.42, homing:0.6, mortar:1.9, nova:0.22,
@@ -5955,6 +6051,7 @@ import { FX } from "./fx.js";
   let state = 'idle'; // idle | playing | paused | levelup | event | dead | win
   let last = 0, raf = null;
   let elapsed = 0;
+  let runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(), maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false };   // v6.163 성물 증명
   let killCount = 0;
   let runGold = 0;
   let spawnTimer = 0;
@@ -6100,6 +6197,9 @@ import { FX } from "./fx.js";
     //  v6.147 ⚠ 사출 위성은 런을 넘어 살아남으면 안 된다 — 안 지우면 다음 런이 **궤도 1기가 빈 채로** 시작한다
     //   (`satFlight.length`가 궤도 수를 깎으므로 조용히 화력이 낮은 판이 된다)
     satFlight.length = 0; engineTicks.length = 0;
+    //  v6.163 성물 증명용 런 통계 — "그 직업답게 싸웠는가"를 판정할 근거
+    runProof = { hitTaken:0, parry:0, exec:false, execKill:false, dashKill:false, elems:new Set(),
+                 maxWeapons:0, skills:0, spend:0, kills:0, lowHp:false };
     totalDmg = 0; noHitT = 0; dashCount = 0;
     elapsed = 0; killCount = 0; runGold = 0; spawnTimer = 0; pendingLevelUps = 0;
     shake = 0; freeze = 0;
@@ -7284,6 +7384,8 @@ import { FX } from "./fx.js";
     const p = rollUpgrades(n||6);
     return JSON.stringify({ n:p.length, keys:p.map(c=>c.key), names:p.map(c=>c.name) });
   } catch(e){ return 'ERR '+String(e&&e.stack||e); } };
+  //  v6.163 QA: 성물 판정을 직접 부른다 — 보스를 실제로 잡기 어려운 벤치 환경에서 조건 로직만 검증한다
+  window.__qaSacred = ()=>{ try { tryUnlockRelic(); return JSON.stringify({ 보유:Object.keys(DB.relics||{}), 수:sacredCount() }); } catch(e){ return 'ERR '+String(e); } };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
   };
@@ -7326,6 +7428,7 @@ import { FX } from "./fx.js";
         t: Math.round(elapsed), lv: player&&player.level, maxHp: Math.round(player&&player.maxHp||0),
         wave: waveCount, peril: DB.peril||0, dr: +((player&&player.dmgTaken)||1).toFixed(3),
         taken: Math.round((player&&player.qaTaken)||0), hitN: (player&&player.qaHitN)||0,   // v6.148 실제 누적 피해
+        sacred: sacredCount(), sacredOwn: Object.keys(DB.relics||{}), proof: { hit:runProof.hitTaken, parry:runProof.parry, spend:runProof.spend, skills:runProof.skills, elems:runProof.elems.size, lowHp:runProof.lowHp },   // v6.163 성물
         //  v6.148 패링 축 — 예고가 실제로 뜨는지, 완벽 패링이 성립하는지를 **값으로** 확인한다
         threatT: +((player&&player.threatT)||0).toFixed(2), threatKind: player&&player.threatKind,
         parryN: (player&&player.qaParryN)||0, parryPerfect: (player&&player.qaParryPerfect)||0,
@@ -7358,6 +7461,9 @@ import { FX } from "./fx.js";
     const b = bosses[idx];
     if (!b){ window.__gameErr = 'defeatBoss: stale index '+idx+' (bosses='+bosses.length+')'; return; }   // v6.147 위와 같은 이유
     killCount += 1;
+    //  🔴 v6.163 **성물 판정은 보스를 잡는 순간에 한다** — 성물은 '그 직업답게 싸웠다'는 증명이고,
+    //   그 증명이 완성되는 지점이 보스전의 끝이다. (드랍 확률이 아니라 **행위**로 얻는다)
+    tryUnlockRelic();
     addCombo();
     questAdd('boss', 1);
     if (b.bleed) unlockAch('bleed1');
@@ -10306,6 +10412,7 @@ import { FX } from "./fx.js";
   function castSkill(n){
     if (state!=='playing') return;
     rangedActCharge('skill');      // v6.152 스페셜리스트 — 전술 만능: 스킬을 굴리는 것이 곧 자원
+    runProof.skills++;             // v6.163 성물 증명 — '스킬 없이' 조건
     // v6.48: 1번은 더 이상 궁극(Q) 복제가 아니다 — 1~4번 전부 습득 스킬 슬롯, 궁극은 Q 전용
     if (player.skillsSealed || (player.zoneSilenceT||0)>0){ addTextNum(player.x, player.y-24, '침묵...'); return; } // 침묵의 서약 / 어색한 침묵 존
     const i = n-1;
@@ -11016,6 +11123,7 @@ import { FX } from "./fx.js";
     player.spendPend = r;                                   // 프레임 타이머가 터뜨린다
   }
   function spendResourceFire(r){
+    runProof.spend++;               // v6.163 성물 증명
     // v6.113 ① 적중 배율 — 몰렸을 때 쓰면 이득, 혼자일 때 쓰면 손해. '언제 쓰나'가 판단이 된다
     const near = spendTargets();
     const focus = near === 0 ? 0 : (0.6 + Math.min(1.0, (near-1)*0.25));   // 1마리 0.6 → 5마리 1.6
@@ -11740,6 +11848,7 @@ import { FX } from "./fx.js";
     return m;
   }
   function procElement(t, elem, isBoss){
+    if (elem) runProof.elems.add(elem);   // v6.163 성물 증명 — 여러 속성을 둘렀는가
     const D = player.dmgMult;
     if (elem==='fire'){
       if ((t.chillS>0 || t.frozenT>0)){
@@ -13466,6 +13575,7 @@ import { FX } from "./fx.js";
             ce.__chgT = elapsed + 0.4;
             //  v6.151 창기병 '돌파' — **꿰뚫은 적이 있어야** 찬다. 허공을 달리면 0이다(그냥 대시는 조건이 아니다)
             meleeActCharge('pierce', 0.55);
+            if (ce.hp<=0) runProof.dashKill = true;   // v6.163 성물 증명 — 파고들어 마무리했는가
             const cd2 = chargeEng.dmg * corrodeMult(ce);
             ce.hp -= cd2;
             addDmgNum(ce.x, ce.y, cd2, false);
@@ -13700,6 +13810,9 @@ import { FX } from "./fx.js";
       }
     }
     if (player.hitFlash>0) player.hitFlash -= dt;
+    //  v6.163 성물 증명 — 무기 수·빈사 여부는 프레임에서 갱신한다
+    runProof.maxWeapons = Math.max(runProof.maxWeapons, (player.weapons||[]).length);
+    if (player.hp > 0 && player.hp < player.maxHp*0.2) runProof.lowHp = true;
     //  🔴 v6.148 **교전 중 재생 감쇠 (40%)** — 재생이 초당 피해를 넘으면 그 순간부터 불사가 된다.
     //   실측(10분·풀빌드): 초당 받는 피해 13.8인데 재생만 18이면 **맞으면서 체력이 찬다**.
     //   피해 감소·회피에 하한/상한을 걸어도 여기가 열려 있으면 결국 같은 결론이 나온다.
@@ -14575,7 +14688,7 @@ import { FX } from "./fx.js";
                 burst(sp.x,sp.y,3,90);
                 procOnHit(b, true, sp.imbue);
               }
-              if (b.hp<=0){ defeatBoss(i); break; }
+              if (b.hp<=0){ runProof.execKill = true; defeatBoss(i); break; }
               refreshBossBar();
             }
           }
@@ -14859,6 +14972,7 @@ import { FX } from "./fx.js";
       //   이게 없으면 패링은 여전히 '아무 때나 누르고 운 좋으면 성립'이라 기술이 되지 않는다
       const perfect = !!player.guardPerfect;      // 누른 시점의 판정 (위 tryGuard에서 굳힌다)
       player.qaParryN = (player.qaParryN||0) + 1;                                    // v6.148 계측
+      runProof.parry++;                                                                // v6.163 성물 증명
       if (perfect) player.qaParryPerfect = (player.qaParryPerfect||0) + 1;
       friendlyBlast(player.x, player.y, perfect?150:110, (perfect?190:95)*player.dmgMult*(player.meleeBoost||1), false);
       cutHostileShots(player.x, player.y, perfect?180:130, 0, Math.PI*2);
@@ -14931,6 +15045,7 @@ import { FX } from "./fx.js";
     player.qaTaken = (player.qaTaken||0) + d;
     player.qaHitN = (player.qaHitN||0) + 1;
     player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
+    runProof.hitTaken++;                  // v6.163 성물 증명 — 무피격 조건
     rangedActCharge('wounded');           // v6.152 회귀자 — 되돌리고 싶은 순간이 쌓인다
     player.hp -= d;
     noHitT = 0;
