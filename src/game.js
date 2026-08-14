@@ -6432,12 +6432,18 @@ import { FX } from "./fx.js";
       //    ② **원격 생성** — 전용기가 화면 끝의 적을 죽여도 거기에 영역이 깔린다.
       //       *"벤 자리를 소유한다"* 는 컨셉인데 **베지 않은 자리까지 소유**하고 있었다
       //   → ① 영역에 죽은 적은 새 영역을 만들지 않는다  ② 내 발밑 **190px 안**에서만 생긴다
-      if (!e.byZone && Math.hypot(e.x-player.x, e.y-player.y) <= 190){
-        spillGore(e.x, e.y, 2.0 * player.dmgMult * (player.meleeBoost||1));
+      //  🔴 v6.150 사용자: *"영역은 적을 잡은 곳에 생기는 게 아니라 **플레이어 아래에만** 깔리게 만들어.
+      //   그래야 영역의 의미가 있지"* → 맞다. v6.145에서 영역을 *'딜이 아니라 자리'* 로 재정의했는데
+      //   정작 **생기는 위치는 적이 정하고** 있었다. 그러면 '내가 지키는 자리'가 아니라 '적이 죽은 흔적'이다.
+      //   ⇒ 발밑에 깔린다. 이제 영역은 **내가 선 자리를 소유하는 것**이고,
+      //     그 위에 서 있으면 기력이 빨리 차므로(v6.145) *버티면 이득 / 밀려나면 잃는다* 가 성립한다.
+      //   ⚠ 190px 제한(v6.144 원격 생성 차단)은 이제 필요 없다 — 발밑이면 거리가 0이다
+      if (!e.byZone){
+        spillGore(player.x, player.y, 2.0 * player.dmgMult * (player.meleeBoost||1));
       }
     }
     // v6.121 용사의 검 — 유일하게 '처치'로 차는 엔진
-    if (player && player.weapons && ownedWeapon('heroblade')){
+    if (player && player.weapons && ownedWeapon('heroblade') && !freeClassCfg()){   // v6.150 직업 축이 있으면 무기로는 안 찬다
       const before = player.mCharge||0;
       player.mCharge = Math.min(1, before + (ownedWeapon('heroblade').evolved ? 0.12 : 0.085));
       if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, '각성 만충 — R'); SFX.play('levelup'); }
@@ -7041,6 +7047,9 @@ import { FX } from "./fx.js";
         guardCd: +((player&&player.guardCd)||0).toFixed(2), guardKind: player&&player.guardKind,
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
+        //  v6.150 영역이 **어디에** 생기는지 값으로 확인한다 (발밑이어야 한다 — 사용자 지시)
+        goreD: zones.filter(z=>z.type==='gore').map(z=>Math.round(Math.hypot(z.x-player.x, z.y-player.y))),
+        freeChg: +((player&&player.freeChg)||0).toFixed(3),
         kills: killCount,
         //  v6.148 난이도 계측 — "몇 분부터 안 죽는가"를 값으로 말하려면 시간·레벨·웨이브가 필요하다
         //   (지금까지 벤치는 12~20초짜리라 **후반 난이도를 한 번도 재본 적이 없다**)
@@ -9874,14 +9883,13 @@ import { FX } from "./fx.js";
   //  원거리는 쏘고 빠지지만 **근접은 벤 자리를 소유한다**. 밀집 구간일수록 바닥이 굳는다
   //  v6.145 피바다 위에 서 있으면 기력이 빨리 찬다 — **근접이 물러나지 않을 이유**.
   //   딜을 뺀 자리에 이걸 넣는다: 영역은 대신 죽여 주는 게 아니라 **다음 전용기를 앞당긴다**
-  function goreStandMult(){
-    if (!player || typeof zones === 'undefined') return 1;
-    for (const z of zones){
-      if (z.type !== 'gore') continue;
-      if (Math.hypot(z.x-player.x, z.y-player.y) < z.r) return 1.85;
-    }
-    return 1;
-  }
+  //  🔴 v6.150 **1.85 → 1.0 (제거).** v6.145에서 이 배수를 준 전제는 *"피바다는 적이 죽은 자리에 생기니
+  //   그 위에 서는 것은 선택이고 위험이다"* 였다. 그런데 이번에 영역이 **항상 발밑**에 깔리도록 바뀌면서
+  //   이 조건은 **상시 참**이 됐다 — 실측: 사무라이 기력 만충 **0.5~1.5초**(전용기가 사실상 상시).
+  //   ⚠ v6.148의 교훈 그대로다: *'항상 참인 조건'은 조건이 아니라 그냥 배수다.*
+  //   영역의 값어치는 이제 **적의 발을 묶는 자리**(감속)에 있다 — 그게 사용자가 말한 '영역의 의미'다.
+  //   ⚠ 기력 배수를 여기서 빼는 대신 다른 곳을 올리지 않는다. 목적이 **전용기 회전율을 낮추는 것**이다
+  function goreStandMult(){ return 1; }
   function spillGore(x, y, power){
     if (typeof zones === 'undefined' || zones.length >= 40) return;
     // 가까운 기존 피바다가 있으면 넓히고 수명만 갱신 — 같은 자리에 수십 개가 겹치지 않게
@@ -10100,6 +10108,7 @@ import { FX } from "./fx.js";
     if (len>0){ dx/=len; dy/=len; }
     else { dx = Math.cos(player.facing); dy = Math.sin(player.facing); }
     player.dashDir = {x:dx, y:dy};
+    meleeActCharge('dash');    // v6.150 낫·케사기리·수확·돌파 계열 — 파고드는 것이 곧 기력이다 (평타로는 안 찬다)
     player.dashCd = player.dashCdMax * (player.chargeCdCut||1);   // v6.96 돌진 충격: 무기 레벨이 곧 공격 주기
     player.invuln = Math.max(player.invuln, player.dashInvuln);
     // Pixi 4단계: 대시 잔상 (직업색 글로우)
@@ -10363,25 +10372,48 @@ import { FX } from "./fx.js";
   }
   // v6.115 근접 엔진 표 — 평타는 전부 같은 '평범한 근접 참격'이고,
   //  다른 것은 ⑴ 리듬(주기·사거리·모션) ⑵ 기력이 빨리 차는 조건 ⑶ R로 나가는 시그니처, 이 셋뿐이다
+  //  🔴 v6.150 **기력은 평타·처치로 차지 않는다 — 직업마다 다른 '행동'으로 찬다** (사용자 지시)
+  //   사용자: *"기력 차는 조건을 직업마다 다르게 해야 할 것 같은데 기본공격이나 몬스터가 잡히는 걸로 하면 안 돼.
+  //    예를 들어 사무라이는 패링을 성공 시라던가. 그러면 발밑에 영역이 있어도 상시 조건이 아니잖아"*
+  //   맞다. 평타/처치는 **가만히 있어도 일어나는 일**이라 조건이 아니라 시간이었다.
+  //   `act`가 그 직업이 해야 하는 행동이고, `actGain`이 한 번에 차는 양이다.
+  //    parry=패링 성공 · dash=대시로 파고듦 · hurt=맞아가며(피를 흘림) · beat=정박에 얹음
+  //    hold=한 자리/한 표적을 유지 · time=저절로(무명) · kill=처치(용사검의 정체성이라 유일하게 남긴다)
+  //   ⚠ 각 엔진은 **반드시 하나의 act를 가져야 한다** — 없으면 그 직업은 R를 영영 못 쓴다
+  const MELEE_ACT = { parry:0.50, dash:0.34, hurt:0.18, beat:0.16, hold:0.055, time:0.075, kill:0.085 };
   const MELEE_ENGINE = {
     //  v6.133 shape — 평타가 '맞는 모양'. 부채꼴 일변도를 벌려 엔진마다 손맛이 다르게 만든다
     //   arc=부채꼴 / line=직선 관통 / ring=자기중심 원 / point=가장 가까운 하나 / zone=발밑에서 퍼지는 파문
-    scythe:  { res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     shape:'arc',   hint:'넓게 훑어 벨수록 빨리 찬다' },
-    iaido:   { res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', shape:'line', hint:'맞지 않은 채로 벨수록 배로 찬다' },
-    kesagiri:{ res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  shape:'point',  hint:'서로 다른 적을 벨수록 빨리 찬다' },
-    whirl:   { res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   shape:'ring',   hint:'피를 흘릴수록 빨리 찬다' },
-    combo3:  { res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  shape:'point',  hint:'끊기지 않고 이어갈수록 빨리 찬다' },
-    smash:   { res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  shape:'point',  hint:'최대체력이 높을수록 빨리 찬다' },
-    riposte: { res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', shape:'ring', hint:'멈춰 선 채로 벨수록 배로 찬다' },
-    frenzy:  { res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', shape:'ring', hint:'제 피를 깎아가며 빨리 찬다' },
-    reap:    { res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   shape:'arc',   hint:'약해진 적을 벨수록 크게 찬다' },
-    cadence: { res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   shape:'zone',   hint:'정박에 얹어 벨수록 배로 찬다' },
-    charge:  { res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  shape:'line',  hint:'말로 짓밟고 꿰뚫을수록 크게 찬다' },
-    heroblade:{res:'각성', gain:0.02, col:'#e0a94f', motion:null,     shape:'arc',     hint:'때려서는 안 찬다 — 처치할 때마다 찬다' },
-    duel:    { res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  shape:'point',  hint:'같은 적을 계속 때릴수록 찬다 (바꾸면 흩어진다)' },
-    noname:  { res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     shape:'arc',     hint:'조건이 없다 — 저절로 차오른다' },
-    aura:    { res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'신성 구역이 적을 지질 때마다 찬다' },
+    scythe:  { act:'dash', res:'예기', gain:0.16, col:'#9aa0a6', motion:null,     shape:'arc',   hint:'대시로 파고들 때 찬다 — 평타로는 안 찬다' },
+    iaido:   { act:'parry', res:'잔심', gain:0.13, col:'#b04a3a', motion:'sheath', shape:'line', hint:'패링에 성공할 때만 찬다 — 막지 못하면 전용기도 없다' },
+    kesagiri:{ act:'dash', res:'표식', gain:0.13, col:'#6d5cc4', motion:'combo',  shape:'point',  hint:'대시로 파고들 때 찬다 — 평타로는 안 찬다' },
+    whirl:   { act:'hurt', res:'응혈', gain:0.14, col:'#c9403a', motion:'spin',   shape:'ring',   hint:'맞아가며 찬다 — 피를 흘릴수록' },
+    combo3:  { act:'hurt', res:'연',   gain:0.11, col:'#b8956a', motion:'combo',  shape:'point',  hint:'맞아가며 찬다 — 파고들어 버틸수록' },
+    smash:   { act:'hurt', res:'벌크', gain:0.21, col:'#c96a3f', motion:'heavy',  shape:'point',  hint:'맞아가며 찬다 — 덩치로 받아낼수록' },
+    riposte: { act:'parry', res:'태세', gain:0.12, col:'#9aa0a6', motion:'crouch', shape:'ring', hint:'패링에 성공할 때만 찬다 — 받아치는 것이 본업이다' },
+    frenzy:  { act:'hurt', res:'광기', gain:0.10, col:'#c9403a', motion:'flurry', shape:'ring', hint:'맞아가며 찬다 — 제 피를 태울수록' },
+    reap:    { act:'dash', res:'수확', gain:0.14, col:'#7a4fa8', motion:'drag',   shape:'arc',   hint:'대시로 파고들 때 찬다 — 훑고 빠지는 것이 수확이다' },
+    cadence: { act:'beat', res:'박',   gain:0.12, col:'#c9895a', motion:'beat',   shape:'zone',   hint:'정박에 맞춰 칠 때만 찬다 — 박을 놓치면 안 찬다' },
+    charge:  { act:'dash', res:'돌파', gain:0.11, col:'#c94f4f', motion:'lunge',  shape:'line',  hint:'대시로 파고들 때 찬다 — 돌파가 곧 기력이다' },
+    heroblade:{ act:'kill',res:'각성', gain:0.02, col:'#e0a94f', motion:null,     shape:'arc',     hint:'처치할 때마다 찬다 — 때려서는 안 찬다' },
+    duel:    { act:'hold', res:'집중', gain:0.10, col:'#8b5cf6', motion:'lunge',  shape:'point',  hint:'같은 표적을 물고 늘어질 때 찬다 — 바꾸면 흩어진다' },
+    noname:  { act:'time', res:'무명', gain:0.09, col:'#9aa0a6', motion:null,     shape:'arc',     hint:'조건이 없다 — 저절로 차오른다' },
+    aura:    { act:'hold', res:'신념', gain:0,    col:'#e8c56a', motion:null,     hint:'구역이 적을 붙들고 있을 때 찬다' },
   };
+  //  v6.150 **행동 충전** — 근접 기력의 유일한 출처. 평타 루프가 아니라 *행동이 일어난 자리*에서 부른다.
+  //   ⚠ 엔진의 `act`와 일치할 때만 찬다 — 그래서 같은 대시라도 돌격병은 차고 사무라이는 안 찬다
+  function meleeActCharge(kind, mult){
+    if (!player) return;
+    const mk = meleeEngineKey();
+    if (!mk) return;
+    const E = MELEE_ENGINE[mk];
+    if (!E || E.act !== kind) return;
+    const before = player.mCharge || 0;
+    player.mCharge = Math.min(1, before + (MELEE_ACT[kind] || 0.1) * (mult || 1));
+    if (before < 1 && player.mCharge >= 1){
+      addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup');
+    }
+  }
   // v6.115 소비기의 다단 히트는 프레임 큐로 푼다 (setTimeout은 배경 탭에서 클램프된다)
   let engineTicks = [];
   function queueTicks(n, iv, fn){ engineTicks.push({ i:0, n, iv, t:0, fn }); }
@@ -10432,6 +10464,32 @@ import { FX } from "./fx.js";
     engineer:   { res:'충전', sig:'teslafield', col:'#d4b03a', mult:()=> 1.05 },
     voidc:      { res:'심연', sig:'voidcollapse',col:'#6a4fa8', mult:(p)=> 1 + (p.aim||0)*0.7 },
   };
+  //  🔴 v6.150 **무기에 묶이지 않는 직업 축** (배치 4)
+  //   실측으로 확인한 것: 37직업 중 **34개가 이미 축을 갖고 있고** 없는 건 셋뿐이었다 —
+  //   수집가·글리치·최병우. 그리고 셋 다 시작 무기가 `random2/3`(무작위)이다.
+  //   ⚠ 이들에게 무기 기반 축을 주면 **판마다 축이 달라진다**(운에 정체성을 맡기는 꼴).
+  //     그래서 `MELEE_ENGINE`(무기)·`RANGED_CLASS`(무기+직업)가 아니라 **직업만 보는 표**를 만든다.
+  //   ⚠ v6.123 닌자의 교훈: 정체성에 안 맞는 축을 억지로 끼우지 않는다 — 셋 다 *줍기·불규칙·다무기*라는
+  //     이미 있는 정체성에서 조건을 끌어왔다
+  const FREE_CLASS = {
+    // 줍는 것이 정체성 → **주울 때 찬다** (움직여서 모아야 차므로 가만히 있으면 안 찬다)
+    collector:   { res:'수집품', sig:'trove',   col:'#b8925a', hint:'경험치·아이템을 주울 때 찬다' },
+    // 불규칙이 정체성 → **아무 때나 조금씩, 가끔 왕창** (차는 속도 자체가 도박)
+    glitch:      { res:'오류율', sig:'render',  col:'#7a4fa8', hint:'불규칙하게 찬다 — 가끔 왕창' },
+    // 무작위 3종이 정체성 → **든 무기 수만큼 빨리 찬다** (자유가 특권)
+    contributor: { res:'커밋',   sig:'hotfix',  col:'#4c9a55', hint:'무기를 많이 들수록 빨리 찬다' },
+  };
+  function freeClassCfg(){ return (player && FREE_CLASS[player.classKey]) || null; }
+  //  자원 충전 — 조건이 직업마다 다르므로 부르는 자리도 다르다 (줍기 / 프레임 / 프레임)
+  //  ⚠ 직업 축은 **자체 값(`freeChg`)** 에 쌓고, 매 프레임 `mCharge`를 그 값으로 **덮어쓴다**.
+  //   처음엔 무기 충전 경로를 하나씩 막았는데(원거리·근접·용사검·무명검) 만충이 여전히 2~4초였다 —
+  //   성기사 신념·결투가 집중처럼 **직업/무기별 충전 코드가 곳곳에 흩어져 있어** 막는 방식으로는 계속 뚫린다.
+  //   덮어쓰기는 출처가 몇 개든 결과가 하나다 (v6.140의 교훈: 새 출처가 생겨도 안 뚫리는 자리를 골라라)
+  function freeCharge(v){
+    const F = freeClassCfg();
+    if (!F) return;
+    player.freeChg = Math.min(1, (player.freeChg||0) + v);
+  }
   function rangedClassCfg(){
     return (player && RANGED_CLASS[player.classKey]) || null;
   }
@@ -10450,6 +10508,9 @@ import { FX } from "./fx.js";
     const E = RANGED_ENGINE[key];
     if (!E || !player) return;
     if (rangedEngineKey() !== key) return;          // 주 무기가 아닐 땐 안 찬다 (하이브리드가 두 배로 차지 않게)
+    //  v6.150 직업 축(무작위 무기 3직업)은 **무기로도 차면 안 된다** — 그러면 축이 정체성이 아니라 보너스가 되고,
+    //   무엇을 주웠느냐에 따라 회전율이 판마다 달라진다 (실측: 겹쳐서 만충이 5초로 빨라졌다)
+    if (freeClassCfg()) return;
     //  v6.140-b 직업별 '차는 조건'은 **여기서** 읽는다.
     //   호출부에서 넘기던 시절엔 추적 탄환·드론 두 곳만 넘겨서 나머지 11직업이 조용히 1.0이었다
     const RCg = rangedClassCfg();
@@ -10470,6 +10531,9 @@ import { FX } from "./fx.js";
   }
   function engineResource(){
     if (!player || !player.weapons) return null;
+    //  v6.150 직업 축이 **무기 축보다 우선**한다 — 무작위 무기를 들어도 자원 이름·색이 판마다 바뀌면 안 된다
+    const F = freeClassCfg();
+    if (F) return { n:F.res, v:Math.min(1,(player.mCharge||0)), c:F.col };
     // v6.115 근접은 전부 하나의 기력 게이지를 쓴다 — 채우는 방법만 엔진마다 다르다
     const mk = meleeEngineKey();
     if (mk){ const E = MELEE_ENGINE[mk]; return { n:E.res, v:Math.min(1,(player.mCharge||0)), c:E.col }; }
@@ -11093,6 +11157,48 @@ import { FX } from "./fx.js";
       resetSpentResource();
       addTextNum(player.x, player.y-54, '각성 3초');
       return;
+    } else if (freeClassCfg()){
+      //  🔴 v6.150 직업 축 시그니처 (무기 무관) — 셋 다 **위력이 아니라 판을 바꾸는 조작**이다 (v6.144 원칙)
+      const FC = freeClassCfg();
+      if (FC.sig === 'trove'){
+        //  수집가 '전리품 폭발' — 모아 온 것을 되던진다. 주운 만큼이 아니라 **깔린 것을 끌어와** 터뜨린다:
+        //   주변 오브·아이템을 전부 끌어당기고(줍기 = 다음 자원) 그 자리에 광역 피해
+        //  🔴 **자기증식 차단** — 1차 구현에서 *R가 끌어온 오브를 주워 자원이 다시 찼다*(실측: 1.1초 만에 0.695).
+        //   v6.144 피바다와 **똑같은 폭주 경로**다(그때는 `e.byZone`으로 끊었다). 여기선 `o.byTrove`로 표시한다.
+        //   ⚠ 새 '끌어오기/생성' 효과를 만들 때마다 이 질문을 할 것: **그 결과물이 다시 자원이 되는가?**
+        for (const o of orbs){ const d=Math.hypot(o.x-player.x,o.y-player.y); if (d<520){ o.byTrove = true; o.x += (player.x-o.x)*0.85; o.y += (player.y-o.y)*0.85; } }
+        for (const it of items){ const d=Math.hypot(it.x-player.x,it.y-player.y); if (d<520){ it.x += (player.x-it.x)*0.85; it.y += (player.y-it.y)*0.85; } }
+        boom(190, 150*P, '#b8925a');
+        spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 190+b.r, 150*P);
+        //  ⚠ 여기에 '드랍 상향 6초' 같은 새 스탯을 만들지 않는다 — 수집가는 이미 `chestPlus`를 상시로 갖고 있고,
+        //   끌어온 오브를 줍는 것이 곧 **다음 자원**이라 루프가 이미 닫혀 있다 (터뜨림 → 끌어옴 → 주움 → 다시 참)
+        addTextNum(player.x, player.y-40, '전리품 폭발!');
+      } else if (FC.sig === 'render'){
+        //  글리치 '렌더 오류' — 반경 안의 적을 **무작위 위치로 재배치**한다. 밀집을 흩어 판을 뒤집는다.
+        //   ⚠ 쓸어담는 기술이 아니다 — 피해는 작고, 값어치는 **포위를 푸는 것**에 있다
+        for (let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i]; if (!e) continue;
+          if (Math.hypot(e.x-player.x, e.y-player.y) > 230+e.r) continue;
+          const a2 = Math.random()*Math.PI*2, rr = 240+Math.random()*180;
+          effects.push({ type:'chain', x1:e.x, y1:e.y, x2:player.x+Math.cos(a2)*rr, y2:player.y+Math.sin(a2)*rr, life:0.18, age:0 });
+          e.x = player.x + Math.cos(a2)*rr; e.y = player.y + Math.sin(a2)*rr;
+          const d2 = 70*P*corrodeMult(e); e.hp -= d2; addDmgNum(e.x, e.y, d2, false);
+          if (e.hp<=0 && enemies[i]===e) defeatEnemy(i);
+        }
+        spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 230+b.r, 70*P);   // 보스는 안 밀리고 피해만
+        boom(150, 40*P, '#7a4fa8');
+        addTextNum(player.x, player.y-40, '렌더 오류!');
+      } else {
+        //  최병우 '핫픽스' — 든 무기 전부가 **한 번씩 동시에** 나간다. 무기가 많을수록 강하다(자유가 특권)
+        const n4 = Math.max(1, (player.weapons||[]).length);
+        for (let k=0;k<n4;k++){
+          const a2 = (Math.PI*2/n4)*k + elapsed;
+          fireProjectile(a2, 430, 92*P, 2, 1.4, { homing:true, r:5, splash:52 });
+        }
+        boom(170, 88*P*n4*0.35, '#4c9a55');
+        spendHitBosses((b)=> Math.hypot(b.x-player.x,b.y-player.y) <= 170+b.r, 88*P*n4*0.35);
+        addTextNum(player.x, player.y-40, '핫픽스 ×'+n4);
+      }
     } else if (ownedWeapon('satellite')){
       player.satOver = 1; satCharge(0.01);
       return;
@@ -11119,6 +11225,7 @@ import { FX } from "./fx.js";
   // v6.113 자원 소모 — 헛방이든 명중이든 자원은 사라진다 (막 누르면 손해)
   function resetSpentResource(){
     player.mCharge = 0;                 // v6.115 근접 공통 기력
+    player.freeChg = 0;                 // v6.150 직업 축 자체 값도 같이 비운다 (안 그러면 다음 프레임에 되살아난다)
     player.satOver = 0;
     _overflowT = 0;
   }
@@ -11848,13 +11955,17 @@ import { FX } from "./fx.js";
           if (first && player.duelTarget === first) player.duelN = Math.min(8, (player.duelN||0)+1);
           else { player.duelTarget = first; player.duelN = 1; }
           g *= 0.6 + Math.min(2.0, (player.duelN-1)*0.34);
+          //  v6.150 결투가 — **같은 표적을 물고 늘어진 만큼**만 찬다. 표적을 바꾸면 흩어진다(누적이 1로 리셋)
+          if (player.duelN >= 3) meleeActCharge('hold', Math.min(3.0, (player.duelN-2)*0.6));
         }
         else if (w.key==='noname') g *= 1.0;                                       // 조건 없음 (아래에서 시간으로도 찬다)
         else if (w.key==='cadence'){                                               // 정박에 얹는다
           const beat = 0.9 / (1 + Math.min(1.2, (combo||0)*0.06));
           const ph = (elapsed % beat) / beat;
           const onBeat = ph < 0.22 || ph > 0.86 || (player.beatFreeT||0) > 0;   // v6.115 광시곡 중엔 전부 정박
-          if (onBeat){ g *= 2.2; addTextNum(player.x, player.y-38, '정박!'); shake = Math.min(8, shake+2); }
+          if (onBeat){ g *= 2.2; addTextNum(player.x, player.y-38, '정박!'); shake = Math.min(8, shake+2);
+            meleeActCharge('beat');   // v6.150 선율가 — **정박에 맞춰 친 순간에만** 찬다 (박자를 놓치면 안 찬다)
+          }
           else g *= 0.55;
         }
         //  v6.145 **조건의 폭을 벌린다.** 조건은 이미 직업마다 다른데(안 맞고 벤다 / 여럿을 스친다 /
@@ -11862,6 +11973,10 @@ import { FX } from "./fx.js";
         //   그래서 전용기가 '조건을 노리는 기술'이 아니라 '시간이 지나면 나오는 기술'이었다.
         //   조건 배수를 **지수 1.7로 벌리고** 기본을 낮춘다: 못 맞추면 거의 안 차고, 맞추면 확 찬다.
         //   ⚠ 손맛은 위력이 아니라 **여기서** 나온다 — 조건을 노리는 순간이 곧 조작이다
+        //  🔴 v6.150 **평타로는 기력이 차지 않는다** (사용자 지시). 아래 조건 계산은 남겨 두되
+        //   충전은 0으로 만든다 — 조건 배수는 여전히 `heat`·연출 등 다른 곳이 읽는다.
+        //   충전은 전부 `meleeActCharge()`(패링·대시·피격·정박·유지)로 옮겼다
+        if (E.act) g = 0;
         const cond = Math.max(0.001, g / Math.max(0.0001, E.gain));   // 이 직업의 조건 달성도
         //  ⚠ 지수 1.7 · 기본 0.80으로 처음 넣었더니 사무라이 킬 64.5 → **31.5**, 생존율 1.0 → **0.5**.
         //   과했다. 다만 원인의 절반은 **하네스가 조건을 노리는 플레이를 못 하는 것**이다
@@ -11873,7 +11988,7 @@ import { FX } from "./fx.js";
         //   ⚠ 이 축은 하네스 수치를 목표로 삼지 말 것 — 조건을 노리는 플레이는 계측되지 않는다
         const g2 = E.gain * Math.pow(cond, 1.55) * 0.85 * goreStandMult();
         const before = player.mCharge||0;
-        player.mCharge = Math.min(1, before + g2);
+        if (!freeClassCfg()) player.mCharge = Math.min(1, before + g2);   // v6.150 직업 축이 있으면 무기로는 안 찬다
         if (before < 1 && player.mCharge >= 1){ addTextNum(player.x, player.y-46, E.res+' 만충 — R'); SFX.play('levelup'); }
       } else if (w.key==='xwave'){
         // v6.54 전향: 검기 방출 — 전사의 참격이 날아간다
@@ -12885,7 +13000,21 @@ import { FX } from "./fx.js";
       }
       if (player.interceptT>0){ player.interceptT -= dt; if (player.interceptT<=0) player.interceptN = 0; }
       // v6.123 무명검술 — 유일하게 '조건 없이' 차는 엔진. 이름이 없으니 조건도 없다
-      if (ownedWeapon('noname')) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);
+      if (ownedWeapon('noname') && !freeClassCfg()) player.mCharge = Math.min(1, (player.mCharge||0) + dt*0.075);   // v6.150 동일
+      //  v6.150 직업 축의 프레임 충전 — 조건이 직업마다 다르다
+      {
+        const F0 = freeClassCfg();
+        if (F0){
+          if (F0.sig === 'render'){
+            //  글리치 '오류율' — 기본은 아주 느리고, 가끔 **왕창** 튄다. 차는 속도 자체가 도박이다
+            freeCharge(dt*0.028);
+            if (Math.random() < dt*0.55) freeCharge(0.10 + Math.random()*0.16);
+          } else if (F0.sig === 'hotfix'){
+            //  최병우 '커밋' — 든 무기 수만큼 빨리 찬다 (무작위 3종이 정체성이므로 '많이 듦'이 곧 강함)
+            freeCharge(dt * 0.020 * Math.max(1, (player.weapons||[]).length));
+          }
+        }
+      }
       // v6.123 성기사 '신념' — 구역 안에 적을 오래 붙들고 있을수록 찬다.
       //  ⚠ 첫 시도는 역장 피해 루프 안에 넣었다가 실패했다 — `_auraBeat`는 비트 프레임에만 켜져
       //    4초에 0.008밖에 안 찼다. 매 프레임 도는 여기로 옮긴다
@@ -13261,6 +13390,8 @@ import { FX } from "./fx.js";
     }
 
     updateWeapons(dt);
+    //  v6.150 직업 축은 무기가 무엇이든 **자기 값만** 쓴다 — 무기 루프가 올려놓은 것을 여기서 덮어쓴다
+    if (freeClassCfg()) player.mCharge = player.freeChg || 0;
     updateSatFlight(dt);      // v6.147 사출 위성은 궤도와 별개로 움직인다 (충돌 판정은 아래 적 루프에서)
     updateTechAbilities(dt);
 
@@ -13931,6 +14062,12 @@ import { FX } from "./fx.js";
       }
       if (d < player.r+o.r+2){
         grantXp(o.value);
+        //  v6.150 수집가 '수집품' — 줍는 것이 곧 자원이다.
+        //   ⚠ **수집가만**이다. 1차 구현에서 조건을 `freeClassCfg()`(직업 축 보유)로만 걸었더니
+        //    글리치·최병우도 줍기로 차서 만충이 **3~4초**로 무너졌다(설계는 8초·17초).
+        //    *"이 조건이 이 직업만의 것인가"* 를 축마다 확인할 것 — 표에 있는 sig로 좁힌다
+        //   ⚠ R가 끌어온 것(`byTrove`)은 자원이 되지 않는다 — 안 그러면 R→끌어옴→충전→R의 자기증식이 된다
+        { const F1 = freeClassCfg(); if (F1 && F1.sig === 'trove' && !o.byTrove) freeCharge(0.014); }
         if (FX.enabled && Math.random()<0.5) FX.burst(o.x, o.y, 0x3aa895, 2, 60, 0.3);
         SFX.play('pick');
         orbs.splice(i,1);
@@ -14087,7 +14224,10 @@ import { FX } from "./fx.js";
       if (perfect) player.qaParryPerfect = (player.qaParryPerfect||0) + 1;
       friendlyBlast(player.x, player.y, perfect?150:110, (perfect?190:95)*player.dmgMult*(player.meleeBoost||1), false);
       cutHostileShots(player.x, player.y, perfect?180:130, 0, Math.PI*2);
-      player.mCharge = Math.min(1, (player.mCharge||0) + (perfect?0.45:0.25));   // 되받아친 만큼 기력이 돌아온다
+      //  🔴 v6.150 사무라이(거합)·태세 계열은 **패링 성공이 곧 기력**이다 (사용자 지시).
+      //   평타로는 한 방울도 안 차므로, 막아내지 못하면 전용기도 없다 — 그게 이 직업의 조작이다
+      meleeActCharge('parry', perfect ? 1.4 : 1.0);
+      player.mCharge = Math.min(1, (player.mCharge||0) + (perfect?0.20:0.10));   // 되받아친 만큼 (계열 공통 소량)
       player.guardCd = perfect ? 0 : Math.min(player.guardCd, 0.5);              // 완벽하면 **즉시** 다시 막을 수 있다
       if (perfect){
         addTextNum(player.x, player.y-32, '완벽!');
@@ -14152,6 +14292,8 @@ import { FX } from "./fx.js";
     player.qaTaken = (player.qaTaken||0) + d;
     player.qaHitN = (player.qaHitN||0) + 1;
     player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
+    //  v6.150 응혈·연·벌크·광기 계열 — **맞아가며** 찬다. 위험을 지는 것이 곧 조작이다
+    meleeActCharge('hurt');
     player.hp -= d;
     noHitT = 0;
     // 생존 의뢰 실패
