@@ -7947,6 +7947,15 @@ import { FX } from "./fx.js";
       중력:(particles[0]||{}).g||0, 위로:up, 아래로:dn,
       색:(particles[0]||{}).col||null });
   } catch(e){ return 'ERR '+String(e); } };
+  //  v6.171 QA: 장비 착용 비주얼 확인용 — 희귀도/무게를 지정해 전 부위를 한 번에 입힌다
+  window.__qaGear = (r, wt)=>{ try {
+    const lo = loadoutFor(player ? player.classKey : Object.keys(CLASSES)[0]);
+    ["head","body","hand","foot","cloak"].forEach((sl)=>{
+      const it = { id: DB.nextId++, slot:sl, r:(r===undefined?4:r), name:"QA "+sl, stats:[], wt:wt||"heavy" };
+      DB.inv.push(it); lo[sl] = it.id;
+    });
+    saveDB(); return JSON.stringify(lo);
+  } catch(e){ return "ERR "+String(e); } };
   window.__qaTitle = (k)=>{ DB.titles=DB.titles||{}; if(k==='*'){ Object.keys(TITLES).forEach(t=>DB.titles[t]=true); } else if(k){ DB.titles[k]=true; DB.titleOn=k; } saveDB(); return JSON.stringify({on:DB.titleOn, n:Object.keys(DB.titles).length}); };
   window.__qaMats = (n,g)=>{ if (g!==undefined){ DB.gold=g; saveDB(); } if (n!==null && typeof n==="object"){ Object.assign(DB.mats, n); saveDB(); } else if (n!==undefined){ DB.mats.forge=n; DB.mats.sigil=n; DB.mats.shard=n; DB.mats.essence=n; DB.mats.gear=n; saveDB(); } return JSON.parse(JSON.stringify(Object.assign({gold:DB.gold}, DB.mats))); };
   window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
@@ -17711,6 +17720,20 @@ import { FX } from "./fx.js";
     // 옷감 톤 = 직업 악센트색을 어두운 회색에 섞은 것 — 직업마다 실루엣 색이 달라진다
     const bodyTone = o.ink ? o.ink
       : mixHex(MAP.key==='abyss' ? '#44454f' : '#5b5d69', o.tierC || '#767884', 0.42);
+    //  🔴 v6.171 **명도 팔레트** — 사용자: *"도트라해도 가디언테일즈 이런급으로"*
+    //   가디언테일즈가 작은 스프라이트로도 읽히는 이유는 해상도가 아니라 **파트마다 명도가 다르기 때문**이다.
+    //   지금은 머리·팔·다리·머리칼이 전부 같은 잉크라 **한 덩어리**로 보였다.
+    //   ⚠ 색조(hue)를 넣으면 이 게임의 흑백 아트 방향이 깨진다 — **명도만** 5단으로 가른다.
+    const PC = {
+      hair:    mixHex(ink, '#000000', 0.34),   // 가장 어둡게 — 머리 실루엣의 윗변을 만든다
+      skin:    mixHex(ink, '#c8c9d2', 0.34),   // 얼굴만 한 단 밝게 — 시선이 얼굴로 간다
+      cloth:   bodyTone,
+      leather: mixHex(ink, '#8a7a68', 0.30),   // 부츠·장갑
+      metal:   mixHex(ink, '#d8dae2', 0.52),   // 투구·갑옷 — 가장 밝다(금속이 빛을 받는다)
+      dark:    ink,
+    };
+    const EQ = o.eq || null;
+    const RT = ['#8f9194','#4c9a55','#3b82c4','#8b5cf6','#e08a2e','#b8362e','#d9a53f'];  // 희귀도색
     // v6.73 공격 3박자: 예비동작(뒤로 젖힘) → 타격(런지 + 스윙 + 참격 잔상) → 복귀 — 계열별 모션 분기
     const atkN = o.atk||0;
     let swRot = 0, lunge = 0, lunY = 0, smear = 0, thrust = 0;   // v6.118 thrust = 창이 앞으로 뻗는 길이
@@ -17926,8 +17949,11 @@ import { FX } from "./fx.js";
     ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.moveTo(1,-6.5); ctx.lineTo(1,-8.5); ctx.stroke();
     // head
+    ctx.fillStyle = PC.skin;                       // v6.171 얼굴만 한 단 밝게
     ctx.beginPath(); ctx.arc(1,-11,5.6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = PC.dark;
     // 머리칼 실루엣 — 계열별 (모자 프롭이 위에 얹혀도 읽히는 최소 형태)
+    ctx.fillStyle = PC.hair;   // v6.171 머리칼은 가장 어둡게 — 얼굴과 갈라져야 이목구비가 산다
     if (!o.robe){
       if (grp==='war'){        // 짧은 스파이크
         ctx.beginPath(); ctx.moveTo(-3.5,-15); ctx.lineTo(-2.2,-18.2); ctx.lineTo(-0.8,-15.6); ctx.lineTo(0.8,-18.6); ctx.lineTo(2.2,-15.6); ctx.closePath(); ctx.fill();
@@ -17951,6 +17977,66 @@ import { FX } from "./fx.js";
       ctx.shadowBlur = 7;
       ctx.beginPath(); ctx.arc(3.4,-11.6,1.5,0,Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
+      ctx.fillStyle = ink;
+    }
+    //  🔴 v6.171 **장비 착용 비주얼** — 사용자: *"장비들 착용 비주얼 무기비주얼 등등 다 어떻게 못구현하는거야?"*
+    //   그동안 장비는 `drawPlayerChar`에서 **월드 좌표에 고정 사각형**으로 그려졌다.
+    //   그래서 몸이 휘두르거나 방향을 틀어도 **장비만 제자리에 붙어 있었다** — '입은' 게 아니라 '얹은' 것.
+    //   이제 몸과 같은 로컬 좌표에서 그린다: 자세·반전·배율·전직 티어를 전부 따라간다.
+    //   무게(wt)로 형태가 갈리고 희귀도로 색이 갈린다 — 장비를 바꾸면 **실루엣이 바뀐다**.
+    if (EQ){
+      const rc = (it)=> RT[it.r] || '#8f9194';
+      // ── 투구: 가벼우면 머리띠, 보통이면 서클릿+측면 가드, 중갑이면 면갑 달린 풀헬름
+      if (EQ.head){
+        const c = rc(EQ.head), hv = EQ.head.wt;
+        ctx.fillStyle = c;
+        if (hv === 'heavy'){
+          ctx.beginPath(); ctx.arc(1,-11.4,5.9,Math.PI*1.02,Math.PI*2.02); ctx.fill();  // 두개골 덮개
+          ctx.fillRect(-4.6,-11.6,11.2,2.0);                                            // 면갑(눈 위 가로대)
+          ctx.fillStyle = mixHex(c,'#000000',0.35);
+          ctx.fillRect(0.2,-11.2,1.6,4.2);                                              // 콧대 가드
+        } else if (hv === 'light'){
+          ctx.fillRect(-4.4,-13.4,10.8,1.8);                                            // 머리띠
+        } else {
+          ctx.fillRect(-4.6,-13.8,11.2,1.8);
+          ctx.fillRect(-5.0,-13.0,1.7,3.4); ctx.fillRect(5.0,-13.0,1.7,3.4);            // 측면 가드
+        }
+        if (EQ.head.r >= 4){                                                            // 상급: 뿔 장식
+          ctx.fillStyle = mixHex(c,'#ffffff',0.30);
+          ctx.beginPath(); ctx.moveTo(-4.6,-14.2); ctx.lineTo(-6.6,-18.6); ctx.lineTo(-3.0,-15.2); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(6.6,-14.2); ctx.lineTo(8.4,-18.6); ctx.lineTo(4.9,-15.2); ctx.closePath(); ctx.fill();
+        }
+      }
+      // ── 갑옷: 흉갑 + 벨트, 중갑이면 어깨 패드가 실루엣을 넓힌다
+      if (EQ.body){
+        const c = rc(EQ.body);
+        ctx.fillStyle = c;
+        ctx.beginPath();                                                                 // 흉갑(사다리꼴)
+        ctx.moveTo(-4.6,-5.0); ctx.lineTo(4.6,-5.0); ctx.lineTo(3.4,1.6); ctx.lineTo(-3.4,1.6);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = mixHex(c,'#000000',0.40);
+        ctx.fillRect(-4.0,1.4,8.0,1.5);                                                  // 벨트
+        if (EQ.body.wt === 'heavy'){
+          ctx.fillStyle = mixHex(c,'#ffffff',0.18);
+          ctx.beginPath(); ctx.ellipse(-6.2,-5.0,3.1,2.4,-0.3,0,6.283); ctx.fill();       // 어깨 패드
+          ctx.beginPath(); ctx.ellipse(6.2,-5.0,3.1,2.4,0.3,0,6.283); ctx.fill();
+        } else if (EQ.body.wt === 'light'){
+          ctx.fillStyle = mixHex(c,'#ffffff',0.22);
+          ctx.fillRect(-3.8,-4.4,7.6,1.2);                                               // 경갑: 가슴끈
+        }
+      }
+      // ── 장갑: 손목 브레이서 (팔 끝에 붙는다)
+      if (EQ.hand){
+        ctx.fillStyle = rc(EQ.hand);
+        ctx.fillRect(4.4,-3.4,3.0,2.6);
+        ctx.fillRect(-7.2,-3.4,3.0,2.6);
+      }
+      // ── 부츠: 정강이 커프 (걸음 스윙을 따라간다)
+      if (EQ.foot){
+        ctx.fillStyle = rc(EQ.foot);
+        ctx.fillRect(-4.6+swing,8.6,4.6,2.2);
+        ctx.fillRect(0.2-swing,8.6,4.6,2.2);
+      }
       ctx.fillStyle = ink;
     }
 
@@ -18373,7 +18459,9 @@ import { FX } from "./fx.js";
       guardT: player.guardT, guardKind: player.guardKind,   // v6.128 패링/요격 자세
       mount: player.mountKind || (player.classKey === 'rusher' ? 'horse' : null),   // v6.119 전직이 곧 타는 것
       motion: player.atkMotion,        // v6.112 엔진별 모션 프로필
-      tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey]  // 전직 티어 실물 외형
+      tier: (player.jobs||[]).length, tierC: CLASS_COLORS[player.classKey],  // 전직 티어 실물 외형
+      //  v6.171 장비를 **몸과 같은 좌표계로** 넘긴다 — 자세·반전·배율을 따라가야 '입은' 것으로 보인다
+      eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') }
     });
     // v6.49 성장무기 외형 진화: 무명검 — 격이 오를수록 초라한 막대가 전설의 검이 된다
     if (typeof ownedWeapon==='function' && ownedWeapon('nameless') && DB.growth && DB.growth.found){
@@ -18412,34 +18500,9 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
     // 장비 외형: 투구 밴드 / 흉갑 라인 (희귀도 색)
-    const headIt = eqItem('head');
-    if (headIt){
-      ctx.fillStyle = RARITY_TINT[headIt.r]||'#8f9194';
-      ctx.fillRect(player.x-6, player.y-19, 12, 2.6);
-      if (headIt.r>=4){ ctx.fillRect(player.x-1.2, player.y-23, 2.4, 4); } // 상급: 깃 장식
-    }
-    // v6.48 장갑·신발 외형 (희귀도 색) — 장비 수집이 눈에 보인다
-    const handIt = eqItem('hand');
-    if (handIt){
-      ctx.fillStyle = RARITY_TINT[handIt.r]||'#8f9194';
-      ctx.fillRect(player.x+player.faceX*6-1.6, player.y-3, 3.2, 3.2);
-    }
-    const footIt = eqItem('foot');
-    if (footIt){
-      ctx.fillStyle = RARITY_TINT[footIt.r]||'#8f9194';
-      ctx.fillRect(player.x-4.5, player.y+12, 3.6, 2.4);
-      ctx.fillRect(player.x+1, player.y+12, 3.6, 2.4);
-    }
-    const bodyIt = eqItem('body');
-    if (bodyIt){
-      ctx.strokeStyle = RARITY_TINT[bodyIt.r]||'#8f9194';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(player.x-5, player.y-1); ctx.lineTo(player.x+5, player.y-1); ctx.stroke();
-      if (bodyIt.wt==='heavy'){ // 중갑: 어깨 패드
-        ctx.fillStyle = RARITY_TINT[bodyIt.r];
-        ctx.fillRect(player.x-8.5, player.y-8, 3.4, 3); ctx.fillRect(player.x+5.1, player.y-8, 3.4, 3);
-      }
-    }
+    //  v6.171 투구·갑옷·장갑·부츠의 **월드 좌표 사각형 렌더는 걷어냈다.**
+    //   몸이 휘두르거나 방향을 틀어도 장비만 제자리에 붙어 있어 '얹은 것'으로 보였다.
+    //   이제 `drawHumanoidVec` 안에서 몸과 같은 좌표계로 그린다 (위 eq 인자).
     // 직업 목도리
     const cc = CLASS_COLORS[player.classKey];
     if (cc){
