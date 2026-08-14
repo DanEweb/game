@@ -1952,7 +1952,7 @@ import { FX } from "./fx.js";
       archer:{n:'폭풍 시위',d:'[궁수 전용] 공속 +8%, 투사체 +1 (10% 확률)',f:(p)=>{p.rateMult*=1.08;p.multishotCh=(p.multishotCh||0)+0.10;}},
       sniper:{n:'단 한 발',d:'[저격수 전용] 치명 배율 +0.5',f:(p)=>{p.critMult+=0.5;}},
       pilot:{n:'에이스 기동',d:'[파일럿 전용] 이속 +8%, 회피 +4%',f:(p)=>{p.speed*=1.08;p.dodge=Math.min(0.7,p.dodge+0.04);}},
-      manager:{n:'결재 전결권',d:'[관리자 전용] 쿨다운 -10%',f:(p)=>{p.cdr*=0.9;}},
+      manager:{n:'관측 우선권',d:'[관측자 전용] 쿨다운 -10%',f:(p)=>{p.cdr*=0.9;}},
       voidc:{n:'심연 응시',d:'[공허술사 전용] 원소 발동 +7%p',f:(p)=>{p.procBonus=(p.procBonus||0)+0.07;}},
       ninja:{n:'그림자 여덟',d:'[닌자 전용] 회피 +6%, 대시 쿨 -12%',f:(p)=>{p.dodge=Math.min(0.7,p.dodge+0.06);p.dashCdMax*=0.88;}},
       reaper:{n:'수확의 계절',d:'[사신 전용] 처형 임계 +6%p',f:(p)=>{p.execThresh=Math.min(0.45,(p.execThresh||0)+0.06);}},
@@ -2065,7 +2065,7 @@ import { FX } from "./fx.js";
           necro:[{sn:'원혼의 불씨',kn:'망령의 보복'},{sn:'사령 순환',kn:'불사의 성소'},{sn:'명계 서약',kn:'명계의 길'}],
           bard:[{sn:'불협화음',kn:'절규의 반격'},{sn:'치유의 선율',kn:'생명의 합창'},{sn:'수호 화음',kn:'앙코르의 기적'}],
           returner:[{sn:'인과 기록',kn:'인과응보'},{sn:'회귀 보정',kn:'생환의 법칙'},{sn:'예지 방어',kn:'두 번째 기회'}],
-          manager:[{sn:'결재 이중화',kn:'전결 남발'},{sn:'업무 과부하',kn:'권한 폭주'},{sn:'칼퇴 본능',kn:'시간 외 수당'}],
+          manager:[{sn:'복수 궤도',kn:'궤도 남용'},{sn:'관측 과부하',kn:'초점 폭주'},{sn:'정시 관측',kn:'야간 관측'}],
           voidc:[{sn:'공허 영창',kn:'이중 균열'},{sn:'심연 친화',kn:'공허 폭주'},{sn:'차원 감각',kn:'시공 왜곡'}],
           commander:[{sn:'예비 편대',kn:'전 부대 일제사격'},{sn:'화망 구성',kn:'집중 포화'},{sn:'긴급 재배치',kn:'전술 시간표'}],
           rusher:[{sn:'돌파 기세',kn:'전선 붕괴'},{sn:'마갑(馬甲)',kn:'철기의 왕'},{sn:'기수의 눈',kn:'돌격 명령'}],
@@ -2109,7 +2109,7 @@ import { FX } from "./fx.js";
           archer:{n:'화살비의 주인',d:'추가 투사체 +35%',f:(p)=>{p.multishotCh=(p.multishotCh||0)+0.35;}},
           sniper:{n:'제로인 완성',d:'치명 배율 +1.0, 관통 +1 (한 발의 무게)',f:(p)=>{p.critMult+=1.0;p.pierce+=1;}},
           pilot:{n:'풀 스로틀',d:'이속 +12%, 공속 +10%, 대시 무적 +0.15초',f:(p)=>{p.speed*=1.12;p.rateMult*=1.1;p.dashInvuln=(p.dashInvuln||0)+0.15;}},
-          manager:{n:'무한 결재',d:'전용기 이중 시전 + 쿨다운 -8%',f:(p)=>{p.ultEcho=true;p.cdr*=0.92;}},
+          manager:{n:'이중 관측',d:'전용기 이중 시전 + 쿨다운 -8%',f:(p)=>{p.ultEcho=true;p.cdr*=0.92;}},
           voidc:{n:'심연 융합',d:'원소 발동 +15%p',f:(p)=>{p.procBonus=(p.procBonus||0)+0.15;}},
           ninja:{n:'그림자 군단',d:'대시 분신 + 대시 쿨 -20%',f:(p)=>{p.shadowClone=true;p.dashCdMax*=0.8;}},
           reaper:{n:'대수확',d:'처형 임계 +12%p, 처치 회복 +1',f:(p)=>{p.execThresh=Math.min(0.55,(p.execThresh||0)+0.12);p.lifesteal+=1;}},
@@ -2149,7 +2149,7 @@ import { FX } from "./fx.js";
           archer:{d:'이중 관통 (관통 +2)',f:(p)=>{p.pierce+=2;}},
           sniper:{d:'철갑 관통탄 (관통 +1, 피해 +10%)',f:(p)=>{p.pierce+=1;p.dmgMult*=1.1;}},
           pilot:{d:'레일건 코일 (관통 +1, 공속 +8%)',f:(p)=>{p.pierce+=1;p.rateMult*=1.08;}},
-          manager:{d:'권한 남용 (원소 발동 +10%p)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.10;}},
+          manager:{d:'관측 보정 (원소 발동 +10%p)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.10;}},
           voidc:{d:'공허 침식 (원소 발동 +8%p, 피해 +8%)',f:(p)=>{p.procBonus=(p.procBonus||0)+0.08;p.dmgMult*=1.08;}},
           commander:{d:'집중 포화 명령 (위성·소환 피해 +25%)',f:(p)=>{p.satDmg=(p.satDmg||1)*1.25;}},
           ninja:{d:'급소 표창 (치명 +10%, 처형 +4%p)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.10);p.execThresh=Math.min(0.55,(p.execThresh||0)+0.04);}},
@@ -2189,7 +2189,7 @@ import { FX } from "./fx.js";
           archer:{d:'심장 사격 (치명 +10%, 배율 +0.4)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.10);p.critMult+=0.4;}},
           sniper:{d:'헤드샷 프로토콜 (치명 +12%, 처형 +6%p)',f:(p)=>{p.critChance=Math.min(0.9,p.critChance+0.12);p.execThresh=Math.min(0.6,(p.execThresh||0)+0.06);}},
           pilot:{d:'정밀 폭격 (피해 +12%, 발동 +5%p)',f:(p)=>{p.dmgMult*=1.12;p.procBonus=(p.procBonus||0)+0.05;}},
-          manager:{d:'시간 외 수당 (쿨 -10%, 골드 +12%)',f:(p)=>{p.cdr*=0.9;p.goldMult*=1.12;}},
+          manager:{d:'야간 관측 수당 (쿨 -10%, 골드 +12%)',f:(p)=>{p.cdr*=0.9;p.goldMult*=1.12;}},
           voidc:{d:'시공 왜곡 (쿨 -12%, 이속 +6%)',f:(p)=>{p.cdr*=0.88;p.speed*=1.06;}},
           commander:{d:'전술 시간표 (쿨 -10%, 위성 피해 +15%)',f:(p)=>{p.cdr*=0.9;p.satDmg=(p.satDmg||1)*1.15;}},
           ninja:{d:'무음 암살 (무피격 3초 후 확정 치명)',f:(p)=>{p.shadowStrike=true;}},
@@ -2766,8 +2766,8 @@ import { FX } from "./fx.js";
       apply:(p)=>{ p.bossDmg=(p.bossDmg||1)*1.25; p.eliteDmg=(p.eliteDmg||1)*1.25; p.dmgMult*=0.95; }
     },
     manager: {
-      name:'관리자', tag:'위성 & 쿨감',
-      desc:'[위성]으로 시작. 모든 쿨다운 -10%.',
+      name:'관측자', tag:'궤도 관제',
+      desc:'[위성]으로 시작. 모든 쿨다운 -10% — 직접 싸우지 않고 하늘을 대신 본다.',
       weapon:'satellite',
       apply:(p)=>{ p.cdr*=0.90; }
     },
@@ -3002,7 +3002,7 @@ import { FX } from "./fx.js";
       name:'디버거', tag:'비밀', hidden:true,
       condDesc:'??? (비밀 커맨드로만 해금)',
       cond:()=> false,
-      desc:'존재해선 안 되는 관측자. 레벨업 카드가 5장 보이지만, 능력치는 평범하다.',
+      desc:'존재해선 안 되는 열람자. 레벨업 카드가 5장 보이지만, 능력치는 평범하다.',
       weapon:'missile',
       apply:(p)=>{ p.cardSlots=8; }
     }
@@ -3183,7 +3183,7 @@ import { FX } from "./fx.js";
   const CLASS_TECH = {
     manager: [
       { key:'ct_ma1', name:'위성 네트워크', desc:(m)=>'위성 타격 피해 +'+R(12*m)+'%', apply:(p,m)=>{ p.satBoost=(p.satBoost||1)*(1+0.12*m); } },
-      { key:'ct_ma2', name:'관리자 권한', desc:(m)=>'모든 쿨다운 -'+R(3*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.03*m; } },
+      { key:'ct_ma2', name:'관측 권한', desc:(m)=>'모든 쿨다운 -'+R(3*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.03*m; } },
     ],
     sniper: [
       { key:'ct_sn1', name:'정밀 조준', desc:(m)=>'치명타 확률 +'+R(4*m)+'%, 배율 +'+R1(0.15*m), apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.04*m); p.critMult+=0.15*m; } },
@@ -3265,10 +3265,10 @@ import { FX } from "./fx.js";
   function skNova(r, dmg){ friendlyBlast(player.x, player.y, r, dmg*player.dmgMult, true); SFX.play('boom'); }
   const SKILL_POOLS = {
     manager: [
-      { n:'정지 명령', lv:3, cd:16, d:'모든 적을 1.5초 정지', fx:()=>skFreezeAll(1.5) },
-      { n:'강제 종료', lv:8, cd:14, d:'주변 적 현재 체력 20% 피해', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (!e) continue; if (Math.hypot(e.x-player.x,e.y-player.y)<200){ const d2=e.hp*0.2+8; e.hp-=d2; addDmgNum(e.x,e.y,d2,false); if(e.hp<=0) defeatEnemy(i); } } SFX.play('boom'); } },
-      { n:'재배치', lv:15, cd:10, d:'무작위 순간이동 + 1초 무적', fx:()=>{ const a=Math.random()*Math.PI*2; burst(player.x,player.y,12,160); player.x+=Math.cos(a)*220; player.y+=Math.sin(a)*220; player.invuln=Math.max(player.invuln,1); SFX.play('tele'); } },
-      { n:'루트 권한', lv:25, cd:30, d:'5초간 공격속도 +50%', fx:()=>{ tbuff('rate',1.5,5); addTextNum(player.x,player.y-26,'ROOT'); SFX.play('fever'); } },
+      { n:'정지 궤도', lv:3, cd:16, d:'모든 적을 1.5초 정지', fx:()=>skFreezeAll(1.5) },
+      { n:'궤도 붕괴', lv:8, cd:14, d:'주변 적 현재 체력 20% 피해', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (!e) continue; if (Math.hypot(e.x-player.x,e.y-player.y)<200){ const d2=e.hp*0.2+8; e.hp-=d2; addDmgNum(e.x,e.y,d2,false); if(e.hp<=0) defeatEnemy(i); } } SFX.play('boom'); } },
+      { n:'좌표 재설정', lv:15, cd:10, d:'무작위 순간이동 + 1초 무적', fx:()=>{ const a=Math.random()*Math.PI*2; burst(player.x,player.y,12,160); player.x+=Math.cos(a)*220; player.y+=Math.sin(a)*220; player.invuln=Math.max(player.invuln,1); SFX.play('tele'); } },
+      { n:'전천 스캔', lv:25, cd:30, d:'5초간 공격속도 +50%', fx:()=>{ tbuff('rate',1.5,5); addTextNum(player.x,player.y-26,'SCAN'); SFX.play('fever'); } },
     ],
     sniper: [
       { n:'조준 사격', lv:3, cd:8, d:'모든 것을 관통하는 저격탄', fx:()=>{ const t=nearestTarget(); if(t){ const a=Math.atan2(t.y-player.y,t.x-player.x); projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*700,vy:Math.sin(a)*700,r:5,damage:30*player.dmgMult,crit:true,pierce:9999,life:1.2,mega:true}); SFX.play('shoot'); } } },
@@ -3433,7 +3433,7 @@ import { FX } from "./fx.js";
 
   // ---------- 전직 (레벨 10: 1차 4택 → 레벨 25: 2차 → 레벨 40: 3차) ----------
   const JOB_TREES = {
-    manager:  [ { n:'시스템 설계자', d:'위성 피해 +20%, 쿨다운 -6%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.2; p.cdr*=0.94; } },
+    manager:  [ { n:'궤도 설계자', d:'위성 피해 +20%, 쿨다운 -6%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.2; p.cdr*=0.94; } },
                 { n:'감사관', d:'골드 +20%, 행운 +20%', fx:(p)=>{ p.goldMult*=1.2; p.luck*=1.2; } },
                 { n:'보안 책임자', d:'받는 피해 -10%, 방벽 충전 시간 -20%', fx:(p)=>{ p.dmgTaken*=0.9; if(p.shieldCdMax) p.shieldCdMax*=0.8; } },
                 { n:'아키텍트', d:'모든 피해 +12%', fx:(p)=>{ p.dmgMult*=1.12; } } ],
@@ -3548,8 +3548,8 @@ import { FX } from "./fx.js";
   ];
   // v6-1차: 2차 전직 — 직업별 고유 4택 (공용 4택은 폴백)
   const JOB2_BY_CLASS = {
-    manager:  [ { n:'총괄 이사', d:'위성 +25%, 쿨다운 -8%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.25; p.cdr*=0.92; } },
-                { n:'감찰관', d:'엘리트·보스 피해 +12%', fx:(p)=>{ p.eliteDmg*=1.12; p.bossDmg*=1.12; } },
+    manager:  [ { n:'관제탑', d:'위성 +25%, 쿨다운 -8%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.25; p.cdr*=0.92; } },
+                { n:'표적 식별', d:'엘리트·보스 피해 +12%', fx:(p)=>{ p.eliteDmg*=1.12; p.bossDmg*=1.12; } },
                 { n:'전산 총괄', d:'스킬 쿨다운 -15%', fx:(p)=>{ p.cdr*=0.85; } },
                 { n:'경영의 신', d:'골드 +30%, 행운 +25%', fx:(p)=>{ p.goldMult*=1.3; p.luck*=1.25; } } ],
     sniper:   [ { n:'데드아이', d:'치명 배율 +0.5', fx:(p)=>{ p.critMult+=0.5; } },
@@ -3624,8 +3624,8 @@ import { FX } from "./fx.js";
   JOB2_BY_CLASS.cheolhyeol = JOB2_BY_CLASS.cheol;
   // v6-1차 잔여: 3차 전직 직업별 고유 3택 — fx(p, rc) 공명 스케일 (공용 JOB3는 폴백)
   const JOB3_BY_CLASS = {
-    manager:  [ { n:'시스템 그 자체', d:'위성·쿨감 극대 + 공명 스케일', fx:(p,rc)=>{ p.satBoost=(p.satBoost||1)*1.4; p.cdr*=0.88-0.002*Math.min(20,rc); } },
-                { n:'최종 결재권자', d:'모든 피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } },
+    manager:  [ { n:'궤도 그 자체', d:'위성·쿨감 극대 + 공명 스케일', fx:(p,rc)=>{ p.satBoost=(p.satBoost||1)*1.4; p.cdr*=0.88-0.002*Math.min(20,rc); } },
+                { n:'절대 관측자', d:'모든 피해 +18% + 공명', fx:(p,rc)=>{ p.dmgMult*=1.18+0.004*rc; } },
                 { n:'무정전 시스템', d:'체력 +25%, 방벽 강화', fx:(p,rc)=>{ p.maxHp=Math.round(p.maxHp*1.25); if(p.shieldCdMax) p.shieldCdMax*=0.7; } } ],
     sniper:   [ { n:'신살자(神殺)', d:'보스 피해 +25% + 공명', fx:(p,rc)=>{ p.bossDmg*=1.25+0.004*rc; } },
                 { n:'제로 디스턴스', d:'치명 배율 +1.0', fx:(p,rc)=>{ p.critMult+=1.0+0.01*Math.min(20,rc); } },
@@ -3652,7 +3652,7 @@ import { FX } from "./fx.js";
                 { n:'스웜 마스터', d:'드론 +50% + 공명', fx:(p,rc)=>{ p.droneBoost+=0.5+0.004*rc; } },
                 { n:'마하 브레이커', d:'공속 +20%, 이속 +15%', fx:(p,rc)=>{ p.rateMult*=1.2; p.speed*=1.15; } } ],
     glitch:   [ { n:'시스템 붕괴', d:'대혼돈 강화 ×4', fx:(p,rc)=>{ for(let k=0;k<4;k++){ const r=Math.random(); if(r<0.33) p.dmgMult*=1.12; else if(r<0.66) p.rateMult*=1.12; else p.luck*=1.25; } } },
-                { n:'관리자 탈취', d:'카드 +2장', fx:(p,rc)=>{ p.cardSlots=(p.cardSlots||6)+2; } },
+                { n:'루트 탈취', d:'카드 +2장', fx:(p,rc)=>{ p.cardSlots=(p.cardSlots||6)+2; } },
                 { n:'바이러스 창궐', d:'부식 극대화', fx:(p,rc)=>{ p.corrodeChance=Math.min(0.8,p.corrodeChance+0.15); p.corrodeAmp=Math.max(p.corrodeAmp,0.28); } } ],
     returner: [ { n:'운명의 편집자', d:'리롤 +3, 제외 +2, 행운 +30%', fx:(p,rc)=>{ rerollsLeft+=3; banishLeft+=2; p.luck*=1.3; } },
                 { n:'무한 회귀', d:'부활 +1, 부활 시 강화', fx:(p,rc)=>{ p.reviveLeft+=1; } },
@@ -3989,7 +3989,7 @@ import { FX } from "./fx.js";
 
   // ---------- 각성 (3차 전직 완료 후) — 전 직업 고유 경로, 걸어온 길의 완성 ----------
   const AWAKEN_BY_CLASS = {
-    manager:  [ { n:'중앙 통제', d:'위성 피해 +30%, 쿨다운 -10%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.3; p.cdr*=0.9; } },
+    manager:  [ { n:'중앙 관제', d:'위성 피해 +30%, 쿨다운 -10%', fx:(p)=>{ p.satBoost=(p.satBoost||1)*1.3; p.cdr*=0.9; } },
                 { n:'무결성', d:'받는 피해 -15%, 방벽 즉시 충전', fx:(p)=>{ p.dmgTaken*=0.85; p.shieldReady=true; if(!p.shieldCdMax) p.shieldCdMax=12; } } ],
     sniper:   [ { n:'일격의 화신', d:'치명 배율 +0.8', fx:(p)=>{ p.critMult+=0.8; } },
                 { n:'유령 사수', d:'회피 +12%, 공속 +10%', fx:(p)=>{ p.dodge=Math.min(0.6,p.dodge+0.12); p.rateMult*=1.1; } } ],
@@ -4940,7 +4940,7 @@ import { FX } from "./fx.js";
     rusher:['파성추','창격 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
     exhero:['녹슨 영광','전성기의 잔향','노장의 일섬'], madman:['광소곡','피보라','붉은 송곳'], monk:['백보권압','기의 파문','일념 관수'],
     archer:['바람 가르기','화살비','추적 살촉'], sniper:['제로인 탄도','산탄 제압','철갑 저격탄'], pilot:['공대지 레이저','플레어 살포','레일 피어서'],
-    manager:['결재 도장 미사일','기각 폭풍','서류 폭격'], voidc:['심연 추적자','공허 방출','균열 낙하'], commander:['지원 포격 요청','탄막 지시','유도 신호탄'],
+    manager:['궤도 강하탄','정지 궤도포','전천 폭격'], voidc:['심연 추적자','공허 방출','균열 낙하'], commander:['지원 포격 요청','탄막 지시','유도 신호탄'],
     ninja:['수리검 직격','풍마 수리검','그림자 표창'], reaper:['영혼 갈퀴','낫날 산개','유령 낫'], glitch:['널 포인터 탄','스택 스프레이','세그폴트 유도탄'],
     blackcat:['할퀴기 탄','아홉 갈래 발톱','검은 추적자'], shadow:['정적의 침','무영 산탄','그림자 바늘'], tombraider:['도굴 곡괭이','유물 파편','저주 추적구'],
     mumyeong:['무명 찌르기','무형 산개','이름 없는 궤적'], necro:['원혼 방출','사령 유도탄','명계 참격'], bard:['불협화음 폭발','선율 유도탄','절규의 파장'],
@@ -10492,8 +10492,8 @@ import { FX } from "./fx.js";
     tourist:    { act:'travel', res:'추억', sig:'flash',   col:'#e0a94f', mult:()=> 1.0 },
     pilot:      { act:'drone', res:'연료', sig:'bombrun', col:'#c96a3f', mult:()=> 1.0 },
     //  v6.139 남은 11직업. 자원 이름·색·**차는 조건(mult)**·R가 전부 다르다 —
-    //   같은 위성을 돌려도 관리자는 결재를 쌓고 드루이드는 수액을 모은다
-    manager:    { act:'intercept', res:'결재', sig:'overtime',   col:'#6d9fd4', mult:()=> 1.15 },                 // 쿨감 직업 — 꾸준히
+    //   같은 위성을 돌려도 관측자는 관측을 쌓고 드루이드는 수액을 모은다
+    manager:    { act:'intercept', res:'관측', sig:'overtime',   col:'#6d9fd4', mult:()=> 1.15 },                 // 쿨감 직업 — 꾸준히
     runeknight: { act:'proc', res:'각인', sig:'runeburst',  col:'#8b5cf6', mult:()=> 1.2 },
     druid:      { act:'heal', res:'수액', sig:'grove',      col:'#5f9e5f', mult:(p)=> 1 + (1-Math.min(1,p.hp/Math.max(1,p.maxHp)))*0.9 }, // 다칠수록 자연이 돕는다
     necro:      { act:'soul', res:'영혼', sig:'legion',     col:'#7a4fa8', mult:(p)=> 1 + Math.min(0.8, (p.ghosts?p.ghosts.length:0)*0.2) }, // 유령이 많을수록
@@ -10545,10 +10545,10 @@ import { FX } from "./fx.js";
     gold:    0.007,  // 주식쟁이  — **골드가 들어올 때** (골드가 곧 실탄)
     loot:    0.115,   // 도굴꾼    — **아이템을 주울 때**
     wounded: 0.075,   // 회귀자    — **맞을 때** (되돌리고 싶은 순간이 쌓인다)
-    levelup: 0.36,   // 디버거    — **레벨업 카드를 고를 때** (관측자)
+    levelup: 0.36,   // 디버거    — **레벨업 카드를 고를 때** (열람자)
     travel:  0.0002,// 관광객    — **돌아다닌 거리**만큼 (px당)
     drone:   0.024,  // 파일럿    — 드론이 사격할 때
-    intercept:0.1,  // 관리자    — **위성이 적탄을 요격**할 때 (막는 것이 결재다)
+    intercept:0.1,  // 관측자    — **위성이 적탄을 요격**할 때 (보고 막아내는 것이 관측이다)
     proc:    0.036,  // 룬 기사   — **원소가 발동**할 때 (룬을 새긴다)
     heal:    0.055,  // 드루이드  — **체력이 회복될 때** (자연이 돕는다)
     soul:    0.1,   // 망자의 목자 — **유령이 생길 때**
@@ -10651,14 +10651,14 @@ import { FX } from "./fx.js";
   //   *"이름을 다 요격 패링 이렇게 하지 말고 / 패링이나 요격 이런 거 필요 없는 직업은 버튼 없애"*)
   //   자원(잔심·응혈·표식…)은 직업마다 다른데 D축만 전부 '패링/요격'이라 이름이 겉돌았다.
   //   ⚠ **null이면 그 직업은 D축 자체가 없다** — 키도 버튼도 동작하지 않는다.
-  //     방어가 정체성이 아닌 직업(장사꾼·소환사·관측자 계열)에게 버튼은 화면만 가린다
+  //     방어가 정체성이 아닌 직업(장사꾼·소환사·열람 계열)에게 버튼은 화면만 가린다
   const GUARD_NAME = {
     // 근접 — 막고 받아친다
     samurai:'받아넘기기', baeksu:'흘리기', cheol:'철벽', paladin:'방패 올리기', duelist:'맞받아치기',
     monk:'흘려 잡기', reaper:'낫 걸기', shadow:'그림자 베기', madman:'몸으로 받기', gymbro:'가드',
     exhero:'옛 방패', rusher:'창 세우기', mumyeong:'무명 받아넘기기', bard:'박 끊기',
     // 원거리 — 쏘아 떨어뜨린다 (요격이 정체성과 맞는 직업만)
-    manager:'요격 결재', sniper:'탄 쳐내기', archer:'화살 쳐내기', ninja:'수리검 튕기기',
+    manager:'궤도 요격', sniper:'탄 쳐내기', archer:'화살 쳐내기', ninja:'수리검 튕기기',
     blackcat:'몸 비틀기', voidc:'공허 삼키기', pilot:'플레어',
     //  ⚠ 아래 직업들은 **의도적으로 없다** (버튼도 키도 안 뜬다):
     //   관광객·주식쟁이·도굴꾼·디버거·도박사·드루이드·망자의 목자·지휘관·기술자·스페셜리스트·회귀자
@@ -11072,12 +11072,12 @@ import { FX } from "./fx.js";
       if (NEWSIG){
         const SG = RC2.sig;
         if (SG === 'overtime'){
-          // 관리자 '야근 승인' — 3초간 전 무기가 미친 듯이 돈다. 쿨감 직업의 본령
+          // 관측자 '전천 관측' — 3초간 전 무기가 미친 듯이 돈다. 하늘을 전부 보는 순간
           tbuff('rate', 1.9, 3); tbuff('spd', 1.12, 3);
           for (const w2 of player.weapons) w2.cd = 0;              // 즉시 한 발씩 나간다
           effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:16, r1:170 });
           player.satOver = 1; satCharge(0.01);                     // 위성도 같이 풀린다
-          addTextNum(player.x, player.y-40, '야근 승인 3초');
+          addTextNum(player.x, player.y-40, '전천 관측 3초');
         } else if (SG === 'runeburst'){
           // 룬 기사 '룬 폭발' — 위성이 전부 룬으로 터져 6방향을 관통한다
           for (let k=0;k<6;k++){ const a2=(Math.PI*2/6)*k + Math.random()*0.2;
@@ -14223,7 +14223,7 @@ import { FX } from "./fx.js";
           //  🐛 v6.147 여기도 `||1`이었다 — 표준 궤도의 요격 반경 +4가 통째로 죽어 있었다 (위 satGuard와 같은 사고)
           if (Math.hypot(sp.x-p.x, sp.y-p.y) < (sp.ev?14:11) + (SAT_ORBIT[player.satOrbit||0].icept||0)){
             pixBurst(p.x, p.y, 4, 100, '#7ec4e8', 1.4);
-            rangedActCharge('intercept');       // v6.152 관리자 — 막아내는 것이 결재다
+            rangedActCharge('intercept');       // v6.152 관측자 — 보고 막아내는 것이 관측이다
             satCharge(0.02);
             shot = true; break;
           }
