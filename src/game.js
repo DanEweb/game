@@ -4525,14 +4525,14 @@ import { FX } from "./fx.js";
       { key:'f_trail',  name:'불의 궤적',  tier:2, max:2, desc:(m)=>'이동 경로에 불길이 남는다 (초당 피해 +'+R(5*m)+')', apply:(p,m)=>{ p.firetrailLv+=1; p.firetrailDps=(p.firetrailDps||7)+5*m; } },
       { key:'f_zone',   name:'폭염 지대',  tier:2, max:2, desc:(m)=>'불길 장판 피해 +'+R(10*m)+', 지속 +0.4초', apply:(p,m)=>{ p.firetrailDps=(p.firetrailDps||10)+10*m; p.firetrailDur+=0.4; } },
       { key:'f_heart',  name:'타오르는 심장', tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 화상 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.burnDps) p.burnDps+=2*m; else { p.burnChance=Math.max(p.burnChance||0,0.1); p.burnDps=6+2*m; } } },
-      { key:'f_ash',    name:'재의 질주',   tier:2, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%, 불의 궤적 피해 +'+R(5*m), apply:(p,m)=>{ p.speed*=1+0.04*m; p.firetrailDps=(p.firetrailDps||10)+5*m; } },
+      { key:'f_ash',    name:'불티',   tier:2, max:2, desc:(m)=>'화상 전이 반경 +'+R(26*m), apply:(p,m)=>{ p.fireSpread=(p.fireSpread||0)+26*m; } },
       { key:'f_meteor', name:'유성우',     tier:2, max:2, desc:(m)=>'9초마다 유성 3개가 무작위 적에게 낙하 (피해 +'+R(14*m)+', 화상)', apply:(p,m)=>{ p.meteorLv=(p.meteorLv||0)+1; p.meteorDmg=(p.meteorDmg||20)+14*m; } },
       { key:'f_inferno',name:'대화재',     tier:3, max:1, desc:(m)=>'[궁극] 12초마다 대폭염 (피해 '+R(60*m)+') + 모든 화상 즉시 폭발', apply:(p,m)=>{ p.inferno=60*m; } },
       { key:'f_spark',  name:'불꽃 심지',   tier:1, max:3, desc:(m)=>'화염구 피해 +'+R(8*m), apply:(p,m)=>{ if(!p.fireballLv){ p.fireballLv=1; p.fireballDmg=22; } p.fireballDmg+=8*m; } },
       { key:'f_pyro',   name:'방화광',     tier:1, max:3, desc:(m)=>'피해 +'+R(4*m)+'%, 화상 확률 +'+R(4*m)+'%p', apply:(p,m)=>{ p.dmgMult*=1+0.04*m; p.burnChance=Math.min(0.9,(p.burnChance||0)+0.04*m); } },
       { key:'f_soot',   name:'그을음 구름', tier:2, max:2, desc:(m)=>'모든 적 이속 -'+R(2*m)+'%, 화상 피해 +'+R(2*m)+'/초 (매캐한 연기가 시야를 태운다)', apply:(p,m)=>{ p.slowAll*=1-0.02*m; p.burnDps=(p.burnDps||6)+2*m; if(!p.burnChance) p.burnChance=0.1; } },
       { key:'f_kindle', name:'별의 불씨',   tier:2, max:2, desc:(m)=>'유성우 피해 +'+R(10*m), apply:(p,m)=>{ p.meteorDmg=(p.meteorDmg||20)+10*m; if(!p.meteorLv) p.meteorLv=1; } },
-      { key:'f_warm',   name:'온기',       tier:1, max:2, desc:(m)=>'재생 +'+R1(0.3*m)+', 회복 +'+R(6*m)+'%', apply:(p,m)=>{ p.regen+=0.3*m; p.healMult*=1+0.06*m; } },
+      { key:'f_warm',   name:'잔불',       tier:1, max:2, desc:(m)=>'화상 전이 반경 +'+R(18*m)+', 화상 피해 +'+R1(1.2*m), apply:(p,m)=>{ p.fireSpread=(p.fireSpread||0)+18*m; p.burnDps=(p.burnDps||6)+1.2*m; } },
       // v6.46 하위 테크 5종
       { key:'f_oil',    name:'기름 부음',   tier:1, max:2, desc:(m)=>'화상 확률 +'+R(5*m)+'%p (불붙기 좋은 몸)', apply:(p,m)=>{ p.burnChance=Math.min(0.9,(p.burnChance||0)+0.05*m); if(!p.burnDps) p.burnDps=6; } },
       { key:'f_core',   name:'화염 폭심',   tier:1, max:3, desc:(m)=>'화염구 피해 +'+R(6*m)+', 폭발이 더 뜨겁다', apply:(p,m)=>{ if(!p.fireballLv){ p.fireballLv=1; p.fireballDmg=22; } p.fireballDmg+=6*m; } },
@@ -4544,38 +4544,38 @@ import { FX } from "./fx.js";
     frost: { name:'서리', nodes:[
       { key:'i_chill',  name:'냉기 부여',  tier:1, max:3, desc:(m)=>'타격 시 냉기 중첩 — 중첩당 이속 -'+R((0.15+0.03*m)*100)+'% (최대 3중첩)', apply:(p,m)=>{ p.chillOn=true; p.chillPower=Math.min(0.28,(p.chillPower||0.12)+0.03*m); } },
       { key:'i_lance',  name:'얼음창',     tier:1, max:3, desc:(m)=>'4초마다 관통 얼음창 — 25% 확률 1초 빙결 (피해 +'+R(10*m)+')', apply:(p,m)=>{ if(!p.lanceLv) p.lanceDmg=16; p.lanceLv+=1; p.lanceDmg+=10*m; } },
-      { key:'i_armor',  name:'서리 갑옷',  tier:2, max:2, desc:(m)=>'피격 시 주변 적 빙결 1.2초, 받는 피해 -'+R(7*m)+'%', apply:(p,m)=>{ p.frostArmor=(p.frostArmor||0)+1; p.dmgTaken*=1-0.07*m; } },
+      { key:'i_armor',  name:'서리 갑옷',  tier:2, max:2, desc:(m)=>'피격 시 주변 적 빙결 1.2초, 파쇄 피해 +'+R(6*m), apply:(p,m)=>{ p.frostArmor=true; p.frostShatter=(p.frostShatter||26)+6*m; } },
       { key:'i_deep',   name:'혹한',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적에게 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.10*m; } },
-      { key:'i_calm',   name:'냉정',       tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 냉기 효과 +'+R(2*m)+'%p', apply:(p,m)=>{ p.cdr*=1-0.03*m; p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.02*m); p.chillOn=true; } },
+      { key:'i_calm',   name:'냉정',       tier:1, max:3, desc:(m)=>'냉기 부여 확률 +'+R(6*m)+'%p', apply:(p,m)=>{ p.chillChance=Math.min(0.8,(p.chillChance||0)+0.06*m); } },
       { key:'i_shatter',name:'분쇄',       tier:2, max:2, desc:(m)=>'빙결·냉기 상태의 적 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.08*m; } },
       { key:'i_blizz',  name:'눈보라',     tier:2, max:2, desc:(m)=>'9초마다 주변에 눈보라 (초당 피해 +'+R(4*m)+', 냉기 중첩)', apply:(p,m)=>{ p.blizzLv=(p.blizzLv||0)+1; p.blizzDps=(p.blizzDps||6)+4*m; } },
       { key:'i_abszero',name:'절대영도',   tier:3, max:1, desc:(m)=>'[궁극] 14초마다 화면 전체 2초 빙결 + 피해 '+R(40*m), apply:(p,m)=>{ p.absZero=40*m; } },
       { key:'i_shard',  name:'얼음 파편',   tier:1, max:3, desc:(m)=>'얼음창 피해 +'+R(7*m), apply:(p,m)=>{ if(!p.lanceLv){ p.lanceLv=1; p.lanceDmg=16; } p.lanceDmg+=7*m; } },
       { key:'i_mist',   name:'냉기 안개',   tier:1, max:2, desc:(m)=>'모든 적 이속 -'+R(3*m)+'%, 냉기 중첩 효과 +'+R(1*m)+'%p (안개가 뼛속까지 스민다)', apply:(p,m)=>{ p.slowAll*=1-0.03*m; p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.01*m); p.chillOn=true; } },
-      { key:'i_core',   name:'빙핵',       tier:2, max:2, desc:(m)=>'쿨다운 -'+R(4*m)+'%, 빙결 적 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.04*m; p.frozenAmp+=0.06*m; } },
+      { key:'i_core',   name:'빙핵',       tier:2, max:2, desc:(m)=>'파쇄 피해 +'+R(8*m)+', 냉기 확률 +'+R(4*m)+'%p', apply:(p,m)=>{ p.frostShatter=(p.frostShatter||26)+8*m; p.chillChance=Math.min(0.8,(p.chillChance||0)+0.04*m); } },
       { key:'i_snow',   name:'적설',       tier:2, max:2, desc:(m)=>'눈보라 피해 +'+R(5*m)+'/초', apply:(p,m)=>{ p.blizzDps=(p.blizzDps||6)+5*m; if(!p.blizzLv) p.blizzLv=1; } },
-      { key:'i_veil',   name:'서리 장막',   tier:1, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 빙결·냉기 적 피해 +'+R(3*m)+'% (얼어붙은 장막 너머로)', apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.frozenAmp+=0.03*m; } },
+      { key:'i_veil',   name:'서릿날',   tier:1, max:2, desc:(m)=>'파쇄 피해 +'+R(9*m), apply:(p,m)=>{ p.frostShatter=(p.frostShatter||26)+9*m; } },
       // v6.46 하위 테크 5종
       { key:'i_needle', name:'서리 바늘',   tier:1, max:3, desc:(m)=>'얼음창 피해 +'+R(5*m)+' (더 가늘고, 더 깊게)', apply:(p,m)=>{ if(!p.lanceLv){ p.lanceLv=1; p.lanceDmg=16; } p.lanceDmg+=5*m; } },
       { key:'i_frostbite',name:'동상',      tier:1, max:2, desc:(m)=>'냉기 중첩 효과 +'+R(2*m)+'%p (손끝부터 얼어붙는다)', apply:(p,m)=>{ p.chillPower=Math.min(0.32,(p.chillPower||0.12)+0.02*m); p.chillOn=true; } },
-      { key:'i_glacier',name:'빙하 갑주',   tier:2, max:2, desc:(m)=>'받는 피해 -'+R(2*m)+'%, 서리 갑옷 반응 강화', apply:(p,m)=>{ p.dmgTaken*=1-0.02*m; p.frostArmor=(p.frostArmor||0)+1; } },
+      { key:'i_glacier',name:'빙하 파쇄',   tier:2, max:2, desc:(m)=>'파쇄 피해 +'+R(12*m), apply:(p,m)=>{ p.frostShatter=(p.frostShatter||26)+12*m; } },
       { key:'i_aurora', name:'오로라',      tier:2, max:2, desc:(m)=>'눈보라 피해 +'+R(3*m)+'/초, 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.blizzDps=(p.blizzDps||6)+3*m; if(!p.blizzLv) p.blizzLv=1; p.cdr*=1-0.02*m; } },
       { key:'i_tomb',   name:'얼음 무덤',   tier:2, max:2, desc:(m)=>'빙결·냉기 적 피해 +'+R(7*m)+'% (무덤은 조용하다)', apply:(p,m)=>{ p.frozenAmp+=0.07*m; } },
       { key:'i_myth',   name:'영원한 겨울', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 빙결·냉기 적 피해 +35%, 냉기 최대 효과, 서리 갑옷 강화', apply:(p)=>{ p.frozenAmp+=0.35; p.chillPower=0.32; p.chillOn=true; p.frostArmor=(p.frostArmor||0)+1; } },
     ]},
     volt: { name:'번개', nodes:[
       { key:'l_shock',  name:'감전',       tier:1, max:3, desc:(m)=>'타격 시 '+R(8*m)+'% 확률 연쇄 번개 (피해 +'+R(5*m)+')', apply:(p,m)=>{ p.shockChance=Math.min(0.6,p.shockChance+0.08*m); p.shockDmg=(p.shockDmg||10)+5*m; } },
-      { key:'l_charge', name:'축전',       tier:1, max:3, desc:(m)=>'공격속도 +'+R(6*m)+'%, 대시 후 2초간 감전 확률 100%', apply:(p,m)=>{ p.rateMult*=1+0.06*m; p.chargeBoost=true; if(!p.shockDmg) p.shockDmg=10; } },
+      { key:'l_charge', name:'충전',       tier:1, max:3, desc:(m)=>'감전 피해 +'+R(6*m), apply:(p,m)=>{ p.shockDmg=(p.shockDmg||10)+6*m; } },
       { key:'l_field',  name:'자기장',     tier:2, max:2, desc:(m)=>'4초마다 주변에 감전 펄스 (피해 +'+R(6*m)+')', apply:(p,m)=>{ p.magfieldLv+=1; p.magfieldDmg=(p.magfieldDmg||9)+6*m; } },
       { key:'l_over',   name:'과전압',     tier:2, max:1, desc:(m)=>'감전 연쇄가 한 번 더 튄다', apply:(p,m)=>{ p.chainPlus=1; } },
-      { key:'l_cap',    name:'축전기',     tier:1, max:3, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 감전 피해 +'+R(4*m), apply:(p,m)=>{ p.cdr*=1-0.03*m; p.shockDmg=(p.shockDmg||10)+4*m; } },
+      { key:'l_cap',    name:'축전기',     tier:1, max:3, desc:(m)=>'감전 확률 +'+R(6*m)+'%p', apply:(p,m)=>{ p.shockChance=Math.min(0.8,(p.shockChance||0)+0.06*m); } },
       { key:'l_flash',  name:'방전 잔상',   tier:2, max:2, desc:(m)=>'감전 확률 +'+R(5*m)+'%p, 치명 +'+R(3*m)+'%', apply:(p,m)=>{ p.shockChance=Math.min(0.8,(p.shockChance||0)+0.05*m); p.critChance=Math.min(0.9,p.critChance+0.03*m); } },
       { key:'l_spear',  name:'천둥 창',    tier:2, max:2, desc:(m)=>'6초마다 관통 뇌창 발사 (피해 +'+R(12*m)+', 관통 6)', apply:(p,m)=>{ p.spearLv=(p.spearLv||0)+1; p.spearDmg=(p.spearDmg||18)+12*m; } },
       { key:'l_thor',   name:'뇌신 강림',  tier:3, max:1, desc:(m)=>'[궁극] 11초마다 거대 낙뢰 8연타 (피해 '+R(30*m)+')', apply:(p,m)=>{ p.thor=30*m; } },
       { key:'l_coil',   name:'테슬라 코일', tier:1, max:3, desc:(m)=>'감전 피해 +'+R(5*m), apply:(p,m)=>{ p.shockDmg=(p.shockDmg||10)+5*m; } },
       { key:'l_storm',  name:'폭풍 인도',   tier:2, max:2, desc:(m)=>'천둥 창 피해 +'+R(9*m), apply:(p,m)=>{ p.spearDmg=(p.spearDmg||18)+9*m; if(!p.spearLv) p.spearLv=1; } },
       { key:'l_static', name:'정전기장',   tier:1, max:2, desc:(m)=>'원소 발동 +'+R(3*m)+'%p', apply:(p,m)=>{ p.procBonus=(p.procBonus||0)+0.03*m; } },
-      { key:'l_surge',  name:'서지 전류',   tier:1, max:3, desc:(m)=>'공격속도 +'+R(3*m)+'%, 감전 피해 +'+R(2*m)+' (전류가 몸을 타고 돈다)', apply:(p,m)=>{ p.rateMult*=1+0.03*m; p.shockDmg=(p.shockDmg||10)+2*m; } },
+      { key:'l_surge',  name:'서지 전류',   tier:1, max:3, desc:(m)=>'감전 피해 +'+R(8*m), apply:(p,m)=>{ p.shockDmg=(p.shockDmg||10)+8*m; } },
       { key:'l_ground', name:'피뢰침',       tier:2, max:2, desc:(m)=>'감전 확률 +'+R(7*m)+'%p', apply:(p,m)=>{ p.shockChance=Math.min(0.8,(p.shockChance||0)+0.07*m); } },
       // v6.46 하위 테크 5종
       { key:'l_conduct',name:'도체화',      tier:1, max:2, desc:(m)=>'감전 확률 +'+R(5*m)+'%p (몸이 전기를 부른다)', apply:(p,m)=>{ p.shockChance=Math.min(0.8,(p.shockChance||0)+0.05*m); if(!p.shockDmg) p.shockDmg=10; } },
@@ -4631,24 +4631,24 @@ import { FX } from "./fx.js";
     ]},
     mech: { name:'기계', nodes:[
       { key:'m_turret', name:'자동 터렛',  tier:1, max:2, desc:(m)=>'자동 사격 터렛 +1기 (피해 +'+R(4*m)+')', apply:(p,m)=>{ p.turretLv+=1; p.turretDmg=(p.turretDmg||7)+4*m; } },
-      { key:'m_tune',   name:'정비',       tier:1, max:4, desc:(m)=>'모든 쿨다운 -'+R(4*m)+'%, 재생 +'+R1(0.25*m), apply:(p,m)=>{ p.cdr*=1-0.04*m; p.regen+=0.25*m; } },
+      { key:'m_tune',   name:'정비',       tier:1, max:4, desc:(m)=>'터렛 공격속도 +'+R(9*m)+'%', apply:(p,m)=>{ p.turretRate=(p.turretRate||1)*(1+0.09*m); } },
       { key:'m_ammo',   name:'강화 탄자',  tier:2, max:3, desc:(m)=>'관통 +'+(m<2?1:2)+', 투사체 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.pierce+=(m<2?1:2); p.projMult*=1+0.08*m; } },
       { key:'m_heat',   name:'포탑 과열',  tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(15*m)+'%', apply:(p,m)=>{ p.turretRate*=1+0.15*m; } },
-      { key:'m_repair', name:'자가 수리',  tier:1, max:3, desc:(m)=>'재생 +'+R1(0.4*m)+', 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.regen+=0.4*m; p.cdr*=1-0.02*m; } },
+      { key:'m_repair', name:'자가 수리',  tier:1, max:3, desc:(m)=>'소환물 피해 +'+R(7*m)+'%', apply:(p,m)=>{ p.droneBoost=(p.droneBoost||1)+0.07*m; } },
       { key:'m_scrap',  name:'부품 회수',     tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(8*m)+'%', apply:(p,m)=>{ p.turretRate=(p.turretRate||1)*(1+0.08*m); } },
       { key:'m_emp',    name:'EMP 방출',   tier:2, max:2, desc:(m)=>'9초마다 전자기 충격파 (피해 +'+R(8*m)+', 0.4초 정지)', apply:(p,m)=>{ p.empLv=(p.empLv||0)+1; p.empDmg=(p.empDmg||12)+8*m; } },
       { key:'m_od',     name:'오버드라이브',tier:3, max:1, desc:(m)=>'[궁극] 15초마다 5초간 공격속도 +'+R((0.3+0.1*m)*100)+'%·이동속도 +20%', apply:(p,m)=>{ p.odCd=15; p.odPower=0.3+0.1*m; } },
       { key:'m_servo',  name:'고속 서보',   tier:1, max:3, desc:(m)=>'터렛 공속 +'+R(10*m)+'%', apply:(p,m)=>{ p.turretRate*=1+0.10*m; } },
       { key:'m_amp',    name:'EMP 증폭기',  tier:2, max:2, desc:(m)=>'EMP 피해 +'+R(6*m), apply:(p,m)=>{ p.empDmg=(p.empDmg||12)+6*m; if(!p.empLv) p.empLv=1; } },
       { key:'m_forge',  name:'정밀 단조',   tier:1, max:3, desc:(m)=>'투사체 피해 +'+R(6*m)+'%', apply:(p,m)=>{ p.projMult*=1+0.06*m; } },
-      { key:'m_battery',name:'보조 배터리', tier:1, max:2, desc:(m)=>'쿨다운 -'+R(3*m)+'%, 터렛 피해 +'+R(2*m)+' (여분의 전력을 터렛에)', apply:(p,m)=>{ p.cdr*=1-0.03*m; p.turretDmg=(p.turretDmg||10)+2*m; } },
-      { key:'m_plate',  name:'복합 장갑',   tier:2, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 체력 +'+R(8*m), apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.maxHp+=8*m; } },
+      { key:'m_battery',name:'보조 배터리', tier:1, max:2, desc:(m)=>'터렛 공격속도 +'+R(7*m)+'%', apply:(p,m)=>{ p.turretRate=(p.turretRate||1)*(1+0.07*m); } },
+      { key:'m_plate',  name:'반응 장갑',   tier:2, max:2, desc:(m)=>'소환물 피해 +'+R(9*m)+'%', apply:(p,m)=>{ p.droneBoost=(p.droneBoost||1)+0.09*m; } },
       // v6.46 하위 테크 5종
       { key:'m_target', name:'조준 보정',   tier:1, max:2, desc:(m)=>'치명 확률 +'+R(3*m)+'%, 투사체 피해 +'+R(3*m)+'%', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.03*m); p.projMult*=1+0.03*m; } },
       { key:'m_gyro',   name:'자이로 조준',tier:1, max:2, desc:(m)=>'소환물 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.droneBoost=(p.droneBoost||1)+0.08*m; } },
-      { key:'m_coolant',name:'냉각수 순환', tier:2, max:2, desc:(m)=>'쿨다운 -'+R(2*m)+'%, 터렛 공격속도 +'+R(6*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.02*m; p.turretRate*=1+0.06*m; } },
+      { key:'m_coolant',name:'냉각수 순환', tier:2, max:2, desc:(m)=>'터렛 공격속도 +'+R(8*m)+'%', apply:(p,m)=>{ p.turretRate=(p.turretRate||1)*(1+0.08*m); } },
       { key:'m_drone',  name:'정찰 드론',   tier:2, max:2, desc:(m)=>'소환물 피해 +'+R(6*m)+'%, 터렛 공속 +'+R(5*m)+'%', apply:(p,m)=>{ p.droneBoost=(p.droneBoost||1)+0.06*m; p.turretRate=(p.turretRate||1)*(1+0.05*m); } },
-      { key:'m_alloy',  name:'초합금 골격', tier:2, max:2, desc:(m)=>'최대체력 +'+R(10*m)+', 받는 피해 -'+R(2*m)+'%', apply:(p,m)=>{ p.maxHp+=10*m; p.dmgTaken*=1-0.02*m; } },
+      { key:'m_alloy',  name:'초합금 골격', tier:2, max:2, desc:(m)=>'터렛 피해 +'+R(8*m), apply:(p,m)=>{ p.turretDmg=(p.turretDmg||8)+8*m; } },
       { key:'m_myth',   name:'기계 반란',  tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 터렛 +2기, 터렛 공격속도 +30%, 관통 +1', apply:(p)=>{ p.turretLv=(p.turretLv||0)+2; if(!p.turretDmg) p.turretDmg=12; p.turretRate*=1.3; p.pierce+=1; } },
     ]},
     psi: { name:'염동', nodes:[
@@ -4656,21 +4656,21 @@ import { FX } from "./fx.js";
       { key:'p_shield', name:'사이오닉 방벽', tier:1, max:2, desc:(m)=>'주기적으로 피해 1회 무효 (충전 '+R1(Math.max(5,12-1.5*m))+'초)', apply:(p,m)=>{ const cd=Math.max(5,12-1.5*m); p.shieldCdMax = p.shieldCdMax? Math.min(p.shieldCdMax,cd) : cd; p.shieldT=0; } },
       { key:'p_slow',   name:'정신 압박',   tier:2, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
       { key:'p_grav',   name:'중력 붕괴',   tier:2, max:1, desc:(m)=>'염동 파동이 적을 끌어당기며 피해 +30%', apply:(p,m)=>{ p.pulsePull=true; } },
-      { key:'p_focus',  name:'정신 집중',   tier:1, max:3, desc:(m)=>'모든 피해 +'+R(4*m)+'%, 파동 피해 +'+R(5*m), apply:(p,m)=>{ p.dmgMult*=1+0.04*m; if(p.pulseLv) p.pulseDmg+=5*m; else { p.pulseLv=1; p.pulseDmg=20+5*m; } } },
-      { key:'p_ward',   name:'결계',        tier:2, max:2, desc:(m)=>'받는 피해 -'+R(4*m)+'%, 방벽 충전 -1초', apply:(p,m)=>{ p.dmgTaken*=1-0.04*m; if(p.shieldCdMax) p.shieldCdMax=Math.max(4,p.shieldCdMax-1); } },
+      { key:'p_focus',  name:'정신 집중',   tier:1, max:3, desc:(m)=>'낙하 피해 +'+R(6*m)+', 부양 지속 +'+R1(0.15*m)+'초', apply:(p,m)=>{ p.psiSlam=(p.psiSlam||12)+6*m; p.psiLift=(p.psiLift||0)+0.15*m; } },
+      { key:'p_ward',   name:'염동 결계',        tier:2, max:2, desc:(m)=>'부양 지속 +'+R1(0.25*m)+'초', apply:(p,m)=>{ p.psiLift=(p.psiLift||0)+0.25*m; } },
       { key:'p_barrier',name:'염동 결계',   tier:2, max:1, desc:(m)=>'7초마다 주변의 적 탄환을 전부 소거', apply:(p,m)=>{ p.wardLv=(p.wardLv||0)+1; } },
       { key:'p_blink',  name:'점멸',        tier:3, max:1, desc:(m)=>'[궁극] 대시가 순간이동이 되고 도착 지점에 대폭발 (피해 '+R(55*m)+')', apply:(p,m)=>{ p.blink=55*m; } },
       { key:'p_lens',   name:'정신 렌즈',   tier:1, max:3, desc:(m)=>'파동 피해 +'+R(6*m), apply:(p,m)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=14; } p.pulseDmg+=6*m; } },
-      { key:'p_calm2',  name:'깊은 명상',   tier:1, max:2, desc:(m)=>'재생 +'+R1(0.3*m)+', 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.regen+=0.3*m; p.cdr*=1-0.02*m; } },
+      { key:'p_calm2',  name:'깊은 명상',   tier:1, max:2, desc:(m)=>'부양 확률 +'+R(7*m)+'%p', apply:(p,m)=>{ p.psiChance=Math.min(0.8,(p.psiChance||0)+0.07*m); } },
       { key:'p_press',  name:'압장 강화',   tier:2, max:2, desc:(m)=>'모든 적 이속 -'+R(3*m)+'%, 염동 파동 피해 +'+R(3*m)+' (짓누르는 사념)', apply:(p,m)=>{ p.slowAll*=1-0.03*m; if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=14; } p.pulseDmg+=3*m; } },
       { key:'p_third',  name:'제3의 눈',    tier:2, max:2, desc:(m)=>'치명 확률 +'+R(5*m)+'%', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.05*m); } },
-      { key:'p_float',  name:'염동 부양',   tier:1, max:2, desc:(m)=>'이동속도 +'+R(4*m)+'%', apply:(p,m)=>{ p.speed*=1+0.04*m; } },
+      { key:'p_float',  name:'염동 부양',   tier:1, max:2, desc:(m)=>'부양 확률 +'+R(8*m)+'%p', apply:(p,m)=>{ p.psiChance=Math.min(0.8,(p.psiChance||0)+0.08*m); } },
       // v6.46 하위 테크 5종
       { key:'p_echo',   name:'사념 메아리', tier:1, max:3, desc:(m)=>'염동 파동 피해 +'+R(4*m)+' (한 번의 생각이 두 번 울린다)', apply:(p,m)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=14; } p.pulseDmg+=4*m; } },
       { key:'p_aegis',  name:'신념의 방패', tier:2, max:2, desc:(m)=>'사이오닉 방벽 충전 -1초', apply:(p,m)=>{ const cd=(p.shieldCdMax||12)-1; p.shieldCdMax=Math.max(4,cd); } },
-      { key:'p_insight',name:'통찰',       tier:1, max:2, desc:(m)=>'치명 확률 +'+R(3*m)+'%, 쿨다운 -'+R(2*m)+'%', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.03*m); p.cdr*=1-0.02*m; } },
+      { key:'p_insight',name:'통찰',       tier:1, max:2, desc:(m)=>'낙하 피해 +'+R(8*m), apply:(p,m)=>{ p.psiSlam=(p.psiSlam||12)+8*m; } },
       { key:'p_distort',name:'공간 왜곡',   tier:2, max:2, desc:(m)=>'회피 +'+R(3*m)+'% (반 발짝 어긋난 곳에 서 있다)', apply:(p,m)=>{ p.dodge=Math.min(0.6,p.dodge+0.03*m); } },
-      { key:'p_levit',  name:'부유 명상',   tier:1, max:2, desc:(m)=>'이동속도 +'+R(3*m)+'%, 재생 +'+R1(0.2*m), apply:(p,m)=>{ p.speed*=1+0.03*m; p.regen+=0.2*m; } },
+      { key:'p_levit',  name:'부유 명상',   tier:1, max:2, desc:(m)=>'낙하 피해 +'+R(7*m), apply:(p,m)=>{ p.psiSlam=(p.psiSlam||12)+7*m; } },
       { key:'p_myth',   name:'초월자',      tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 파동 피해 +60%·적을 끌어당김, 모든 적 이속 -8%', apply:(p)=>{ if(!p.pulseLv){ p.pulseLv=1; p.pulseDmg=20; } p.pulseDmg=Math.round(p.pulseDmg*1.6); p.pulsePull=true; p.slowAll*=0.92; } },
     ]},
     holy: { name:'신성', nodes:[
@@ -4683,50 +4683,50 @@ import { FX } from "./fx.js";
       { key:'h_relic',  name:'성물함',     tier:1, max:3, desc:(m)=>'성광 강타 피해 +'+R(6*m), apply:(p,m)=>{ p.smiteDmg=(p.smiteDmg||10)+6*m; if(!p.smiteChance) p.smiteChance=0.08; } },
       { key:'h_choir',  name:'성가대',     tier:2, max:2, desc:(m)=>'후광 피해 +'+R(7*m)+', 회복 +1', apply:(p,m)=>{ p.haloDmg=(p.haloDmg||12)+7*m; if(!p.haloLv) p.haloLv=1; } },
       { key:'h_grace',  name:'은총',       tier:1, max:2, desc:(m)=>'회복 효과 +'+R(10*m)+'%', apply:(p,m)=>{ p.healMult*=1+0.10*m; } },
-      { key:'h_armor',  name:'빛의 갑주',   tier:2, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 회복 효과 +'+R(4*m)+'% (빛이 상처를 어루만진다)', apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.healMult*=1+0.04*m; } },
+      { key:'h_armor',  name:'빛의 갑주',   tier:2, max:2, desc:(m)=>'성역 무효화 확률 +'+R(2*m)+'%p, 후광 피해 +'+R(5*m), apply:(p,m)=>{ p.holyWard=Math.min(0.4,(p.holyWard||0)+0.02*m); p.haloDmg=(p.haloDmg||0)+5*m; } },
       { key:'h_wrath',  name:'진노',       tier:2, max:2, desc:(m)=>'엘리트·보스 피해 +'+R(8*m)+'%', apply:(p,m)=>{ p.eliteDmg*=1+0.08*m; p.bossDmg*=1+0.08*m; } },
       // v6.46 하위 테크 5종
       { key:'h_candle', name:'봉헌 촛불',   tier:1, max:2, desc:(m)=>'후광 피해 +'+R(7*m), apply:(p,m)=>{ p.haloDmg=(p.haloDmg||0)+7*m; } },
       { key:'h_hymn',   name:'찬가',       tier:1, max:3, desc:(m)=>'후광 피해 +'+R(5*m)+' (노래가 빛이 된다)', apply:(p,m)=>{ p.haloDmg=(p.haloDmg||12)+5*m; if(!p.haloLv) p.haloLv=1; } },
       { key:'h_censer', name:'향로',       tier:2, max:2, desc:(m)=>'성광 강타 확률 +'+R(4*m)+'%p', apply:(p,m)=>{ p.smiteChance=Math.min(0.7,(p.smiteChance||0)+0.04*m); if(!p.smiteDmg) p.smiteDmg=10; } },
-      { key:'h_pilgrim',name:'순례길',     tier:1, max:2, desc:(m)=>'이동속도 +'+R(3*m)+'%, 회복 효과 +'+R(4*m)+'%', apply:(p,m)=>{ p.speed*=1+0.03*m; p.healMult*=1+0.04*m; } },
+      { key:'h_pilgrim',name:'순례길',     tier:1, max:2, desc:(m)=>'후광 피해 +'+R(8*m), apply:(p,m)=>{ p.haloDmg=(p.haloDmg||0)+8*m; } },
       { key:'h_martyr', name:'순교자의 각오',tier:2, max:1, desc:(m)=>'피격 무효 확률 +'+R(4*m)+'%p (몸으로 빛을 증명한다)', apply:(p,m)=>{ p.holyWard=Math.min(0.4,(p.holyWard||0)+0.04*m); } },
       { key:'h_myth',   name:'신격',        tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 신성 피해 2배, 성역 +10%p, 심판이 회복 2배', apply:(p)=>{ p.holyAmp=(p.holyAmp||1)*2; p.holyWard=Math.min(0.45,(p.holyWard||0)+0.10); p.judgeHeal2=true; } },
     ]},
     grav: { name:'중력', nodes:[
       { key:'g_well',   name:'중력 우물',   tier:1, max:3, desc:(m)=>'8초마다 적을 빨아들이는 우물 생성 (초당 피해 +'+R(5*m)+')', apply:(p,m)=>{ p.gravLv=(p.gravLv||0)+1; p.gravDps=(p.gravDps||8)+5*m; } },
       { key:'g_weight', name:'중량 가중',   tier:1, max:3, desc:(m)=>'모든 적 이동속도 -'+R(4*m)+'%', apply:(p,m)=>{ p.slowAll*=1-0.04*m; } },
-      { key:'g_orbit',  name:'궤도 안정',   tier:1, max:2, desc:(m)=>'수집 범위 +'+R(25*m)+', 경험치 구슬이 스스로 끌려온다', apply:(p,m)=>{ p.magnet+=25*m; } },
+      { key:'g_orbit',  name:'궤도 안정',   tier:1, max:2, desc:(m)=>'끌어당기는 힘 +'+R(26*m), apply:(p,m)=>{ p.gravPull=(p.gravPull||150)+26*m; } },
       { key:'g_crush',  name:'압착',        tier:2, max:3, desc:(m)=>'중력 우물 안의 적 피해 +'+R(14*m)+'%', apply:(p,m)=>{ p.crushAmp=(p.crushAmp||0)+0.14*m; } },
       { key:'g_singul', name:'특이점',      tier:3, max:1, desc:(m)=>'[전용기] 15초마다 거대 특이점 — 흡인 후 대폭발 (피해 '+R(50*m)+')', apply:(p,m)=>{ p.singularity=50*m; } },
       { key:'g_dense',  name:'고밀도 코어', tier:1, max:3, desc:(m)=>'중력 우물 피해 +'+R(4*m)+'/초', apply:(p,m)=>{ p.gravDps=(p.gravDps||8)+4*m; if(!p.gravLv) p.gravLv=1; } },
-      { key:'g_field',  name:'인력장',     tier:1, max:2, desc:(m)=>'수집 범위 +'+R(20*m)+', 적 이속 -'+R(2*m)+'%', apply:(p,m)=>{ p.magnet+=20*m; p.slowAll*=1-0.02*m; } },
+      { key:'g_field',  name:'인력장',     tier:1, max:2, desc:(m)=>'집합 확률 +'+R(8*m)+'%p', apply:(p,m)=>{ p.gravChance=Math.min(0.8,(p.gravChance||0)+0.08*m); } },
       { key:'g_mass',   name:'질량 붕괴',   tier:2, max:2, desc:(m)=>'압착 효과 +'+R(8*m)+'%', apply:(p,m)=>{ p.crushAmp=(p.crushAmp||0)+0.08*m; } },
-      { key:'g_anchor', name:'중력 닻',     tier:1, max:2, desc:(m)=>'받는 피해 -'+R(3*m)+'%, 수집 범위 +'+R(10*m)+' (무거워질수록 끌어당긴다)', apply:(p,m)=>{ p.dmgTaken*=1-0.03*m; p.magnet+=10*m; } },
+      { key:'g_anchor', name:'중력 닻',     tier:1, max:2, desc:(m)=>'압축 피해 +'+R(5*m), apply:(p,m)=>{ p.gravCrush=(p.gravCrush||8)+5*m; } },
       { key:'g_lens',   name:'중력 렌즈',   tier:2, max:2, desc:(m)=>'관통 +1, 투사체 +'+R(5*m)+'%', apply:(p,m)=>{ p.pierce+=1; p.projMult*=1+0.05*m; } },
       // v6.46 하위 테크 5종
       { key:'g_tide',   name:'조석력',     tier:1, max:2, desc:(m)=>'중력 우물 피해 +'+R(3*m)+'/초, 적 이속 -'+R(2*m)+'%', apply:(p,m)=>{ p.gravDps=(p.gravDps||8)+3*m; if(!p.gravLv) p.gravLv=1; p.slowAll*=1-0.02*m; } },
-      { key:'g_vortex', name:'인력 소용돌이',tier:1, max:2, desc:(m)=>'수집 범위 +'+R(15*m)+', 우물 피해 +'+R(2*m)+'/초', apply:(p,m)=>{ p.magnet+=15*m; p.gravDps=(p.gravDps||8)+2*m; if(!p.gravLv) p.gravLv=1; } },
+      { key:'g_vortex', name:'인력 소용돌이',tier:1, max:2, desc:(m)=>'끌어당기는 힘 +'+R(32*m)+', 압축 피해 +'+R(3*m), apply:(p,m)=>{ p.gravPull=(p.gravPull||150)+32*m; p.gravCrush=(p.gravCrush||8)+3*m; } },
       { key:'g_press2', name:'중압',       tier:2, max:2, desc:(m)=>'압착 효과 +'+R(6*m)+'% (짓눌린 것은 일어나지 못한다)', apply:(p,m)=>{ p.crushAmp=(p.crushAmp||0)+0.06*m; } },
       { key:'g_dwarf',  name:'백색왜성',   tier:2, max:2, desc:(m)=>'엘리트·보스 피해 +'+R(6*m)+'% (작아진 별이 더 무겁다)', apply:(p,m)=>{ p.eliteDmg*=1+0.06*m; p.bossDmg*=1+0.06*m; } },
-      { key:'g_disk',   name:'강착원반',   tier:1, max:2, desc:(m)=>'골드 +'+R(5*m)+'%, 수집 범위 +'+R(10*m)+' (떨어지는 것은 전부 내 것)', apply:(p,m)=>{ p.goldMult*=1+0.05*m; p.magnet+=10*m; } },
+      { key:'g_disk',   name:'강착원반',   tier:1, max:2, desc:(m)=>'압축 피해 +'+R(7*m), apply:(p,m)=>{ p.gravCrush=(p.gravCrush||8)+7*m; } },
       { key:'g_myth',   name:'사건의 지평선', tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 중력 우물 상시 유지 + 우물 피해·압착 +50%', apply:(p)=>{ p.gravAlways=true; if(!p.gravLv){ p.gravLv=1; p.gravDps=8; } p.gravDps=Math.round(p.gravDps*1.5); p.crushAmp=(p.crushAmp||0)*1.5+0.1; } },
     ]},
     chrono: { name:'시간', nodes:[
       { key:'c_cut',    name:'시간 절단',   tier:1, max:3, desc:(m)=>'타격 시 '+R(6*m)+'% 확률로 0.5초 정지', apply:(p,m)=>{ p.stutterChance=Math.min(0.5,(p.stutterChance||0)+0.06*m); p.stutterDur=0.5; } },
-      { key:'c_haste',  name:'가속',        tier:1, max:3, desc:(m)=>'공격속도 +'+R(5*m)+'%, 쿨다운 -'+R(3*m)+'%', apply:(p,m)=>{ p.rateMult*=1+0.05*m; p.cdr*=1-0.03*m; } },
+      { key:'c_haste',  name:'가속',        tier:1, max:3, desc:(m)=>'되돌아오는 피해 +'+R(7*m), apply:(p,m)=>{ p.chronoEcho=(p.chronoEcho||16)+7*m; } },
       { key:'c_drag',   name:'지연장',      tier:2, max:2, desc:(m)=>'내 주변 적 탄환 속도 -'+R(15*m)+'%', apply:(p,m)=>{ p.dragField=Math.min(0.6,(p.dragField||0)+0.15*m); } },
       { key:'c_moment', name:'찰나 포착',   tier:2, max:2, desc:(m)=>'정지 상태의 적 피해 +'+R(15*m)+'%', apply:(p,m)=>{ p.frozenAmp+=0.15*m; } },
       { key:'c_stop',   name:'시간 정지',   tier:3, max:1, desc:(m)=>'[전용기] 16초마다 전 화면 1.2초 정지 (피해 '+R(20*m)+')', apply:(p,m)=>{ p.timestop=20*m; } },
-      { key:'c_wind',   name:'태엽 감기',   tier:1, max:3, desc:(m)=>'공격속도 +'+R(4*m)+'%, 정지 상태의 적 피해 +'+R(3*m)+'% (태엽이 감길수록 빨라진다)', apply:(p,m)=>{ p.rateMult*=1+0.04*m; p.frozenAmp+=0.03*m; } },
+      { key:'c_wind',   name:'태엽 감기',   tier:1, max:3, desc:(m)=>'시간차 확률 +'+R(8*m)+'%p', apply:(p,m)=>{ p.chronoChance=Math.min(0.8,(p.chronoChance||0)+0.08*m); } },
       { key:'c_split',  name:'초침 분할',   tier:2, max:2, desc:(m)=>'시간 절단 확률 +'+R(5*m)+'%p', apply:(p,m)=>{ p.stutterChance=Math.min(0.6,(p.stutterChance||0)+0.05*m); p.stutterDur=p.stutterDur||0.5; } },
       { key:'c_dilate', name:'시공 팽창',   tier:2, max:2, desc:(m)=>'지연장 감속 +'+R(10*m)+'%p', apply:(p,m)=>{ p.dragField=Math.min(0.7,(p.dragField||0)+0.10*m); } },
-      { key:'c_loop',   name:'시간 고리',   tier:1, max:2, desc:(m)=>'쿨다운 -'+R(4*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.04*m; } },
+      { key:'c_loop',   name:'시간 고리',   tier:1, max:2, desc:(m)=>'되돌아오는 피해 +'+R(9*m), apply:(p,m)=>{ p.chronoEcho=(p.chronoEcho||16)+9*m; } },
       { key:'c_after',  name:'잔상',       tier:1, max:2, desc:(m)=>'회피 +'+R(4*m)+'%', apply:(p,m)=>{ p.dodge=Math.min(0.6,p.dodge+0.04*m); } },
       // v6.46 하위 테크 5종
-      { key:'c_gear',   name:'톱니 맞물림', tier:1, max:2, desc:(m)=>'공격속도 +'+R(3*m)+'%, 정지 확률 +'+R(2*m)+'%p', apply:(p,m)=>{ p.rateMult*=1+0.03*m; p.stutterChance=Math.min(0.6,(p.stutterChance||0)+0.02*m); p.stutterDur=p.stutterDur||0.5; } },
-      { key:'c_sand',   name:'모래시계 파편',tier:1, max:2, desc:(m)=>'쿨다운 -'+R(2*m)+'%, 회피 +'+R(2*m)+'%', apply:(p,m)=>{ p.cdr*=1-0.02*m; p.dodge=Math.min(0.6,p.dodge+0.02*m); } },
-      { key:'c_rewind', name:'되감기 태엽', tier:2, max:2, desc:(m)=>'재생 +'+R1(0.3*m)+' (상처가 아물던 순간으로)', apply:(p,m)=>{ p.regen+=0.3*m; } },
+      { key:'c_gear',   name:'톱니 맞물림', tier:1, max:2, desc:(m)=>'시간차 확률 +'+R(6*m)+'%p, 피해 +'+R(4*m), apply:(p,m)=>{ p.chronoChance=Math.min(0.8,(p.chronoChance||0)+0.06*m); p.chronoEcho=(p.chronoEcho||16)+4*m; } },
+      { key:'c_sand',   name:'모래시계 파편',tier:1, max:2, desc:(m)=>'되돌아오는 피해 +'+R(6*m), apply:(p,m)=>{ p.chronoEcho=(p.chronoEcho||16)+6*m; } },
+      { key:'c_rewind', name:'되감기 태엽', tier:2, max:2, desc:(m)=>'시간차 확률 +'+R(7*m)+'%p', apply:(p,m)=>{ p.chronoChance=Math.min(0.8,(p.chronoChance||0)+0.07*m); } },
       { key:'c_future', name:'미래시',     tier:2, max:2, desc:(m)=>'치명 확률 +'+R(4*m)+'% (0.5초 뒤를 본다)', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.04*m); } },
       { key:'c_bubble', name:'시간 거품',   tier:2, max:2, desc:(m)=>'지연장 감속 +'+R(8*m)+'%p, 받는 피해 -'+R(2*m)+'%', apply:(p,m)=>{ p.dragField=Math.min(0.7,(p.dragField||0)+0.08*m); p.dmgTaken*=1-0.02*m; } },
       { key:'c_myth',   name:'인과 역전',   tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 정지 지속 2배, 정지 적 피해 +40%, 시간 정지 쿨 -25%', apply:(p)=>{ p.stutterDur=1.0; p.frozenAmp+=0.40; p.timestopCdMult=0.75; } },
@@ -4807,7 +4807,7 @@ import { FX } from "./fx.js";
       // v6.46 하위 테크 5종
       { key:'b_scent',  name:'피 냄새',    tier:1, max:2, desc:(m)=>'혈폭 피해 +'+R(10*m)+'%', apply:(p,m)=>{ p.bloodMult=(p.bloodMult||1)*(1+0.10*m); } },
       { key:'b_ritual', name:'소혈 의식',   tier:1, max:2, desc:(m)=>'혈폭 확률 +'+R(5*m)+'%p', apply:(p,m)=>{ p.bloodBurstCh=Math.min(0.7,(p.bloodBurstCh||0)+0.05*m); if(!p.bloodBurstDmg) p.bloodBurstDmg=14; } },
-      { key:'b_vessel', name:'핏빛 그릇',   tier:1, max:2, desc:(m)=>'최대체력 +'+R(10*m)+', 처치 회복 +1', apply:(p,m)=>{ p.maxHp+=10*m; p.lifesteal+=1; } },
+      { key:'b_vessel', name:'핏빛 그릇',   tier:1, max:2, desc:(m)=>'흡혈 확률 +'+R(5*m)+'%p', apply:(p,m)=>{ p.bloodLeechChance=Math.min(0.8,(p.bloodLeechChance||0)+0.05*m); } },
       { key:'b_razor',  name:'면도날 낙인', tier:2, max:2, desc:(m)=>'치명 확률 +'+R(3*m)+'%, 흡혈 낙인 확률 +'+R(2*m)+'%p', apply:(p,m)=>{ p.critChance=Math.min(0.85,p.critChance+0.03*m); p.bloodLeechChance=Math.min(0.6,(p.bloodLeechChance||0)+0.02*m); p.bloodMult=p.bloodMult||1; } },
       { key:'b_hunger', name:'끝없는 허기', tier:2, max:2, desc:(m)=>'엘리트·보스 피해 +'+R(5*m)+'%, 처치 회복 +1 (큰 사냥감일수록 달다)', apply:(p,m)=>{ p.eliteDmg*=1+0.05*m; p.bossDmg*=1+0.05*m; p.lifesteal+=1; } },
       { key:'b_myth',   name:'진혈각성',    tier:4, max:1, myth:true, desc:()=>'[신화 · 유일] 모든 흡혈·회복 낙인 2배, 혈폭 확률 +15%p, 피의 군주 체력 소모 절반', apply:(p)=>{ p.bloodMult=(p.bloodMult||1)*1.5; p.lifesteal=Math.round(p.lifesteal*1.5); p.bloodBurstCh=Math.min(0.7,(p.bloodBurstCh||0)+0.12); p.bloodLordHalf=true; } },
@@ -11622,6 +11622,21 @@ import { FX } from "./fx.js";
       t.burnT = 3;
       t.burnDps = Math.max(t.burnDps||0, (player.burnDps||6) * D * (isBoss?0.5:1));
       burst(t.x, t.y-4, 3, 90, 0xe2603f, COLORS.fire); // v6.55 발화 피드백
+    } else if (elem==='grav'){
+      //  v6.158 중력 — **한 점으로 모은다**. 끌려온 적끼리 겹치면 압축 피해(tickStatus)
+      if (!isBoss){ t.gravT = Math.max(t.gravT||0, 0.8); t.gravX = player.x; t.gravY = player.y; }
+      burst(t.x, t.y, 3, 70, 0x6a5acd, '#6a5acd');
+    } else if (elem==='psi'){
+      //  v6.158 염동 — 들어올린다. 뜬 적은 못 움직이고 떨어질 때 아프다
+      if (!isBoss) t.liftT = Math.max(t.liftT||0, 0.9 + (player.psiLift||0));
+      burst(t.x, t.y-6, 3, 80, 0x9a6fc4, '#9a6fc4');
+    } else if (elem==='chrono'){
+      //  v6.158 시간 — 지금 준 피해의 일부를 **뒤로 미룬다**. 몇 초 뒤 한 번 더 터진다
+      t.echoD = (t.echoD||0) + (player.chronoEcho || 16) * player.dmgMult * (isBoss?0.5:1);
+      t.echoT = 2.5;
+      addTextNum(t.x, t.y-18, '⏳');
+    } else if (elem==='crystal2'){
+      // (예약) — 결정 2단계
     } else if (elem==='storm'){
       //  v6.157 폭풍 — 플레이어 반대 방향으로 **밀친다**. 밀린 적이 다른 적과 부딪히면 둘 다 아프다
       const pa = Math.atan2(t.y-player.y, t.x-player.x);
@@ -11643,6 +11658,17 @@ import { FX } from "./fx.js";
       burst(t.x, t.y-4, 3, 80, 0x7fbf3f, '#7fbf3f');
     } else if (elem==='frost'){
       if (isBoss) return;
+      //  🔴 v6.158 **서리 = 깨진다** — 이미 얼어붙은 적을 다시 때리면 **파쇄**된다.
+      //   둔화만으로는 '서리를 골랐다'는 감각이 없었다. 얼리는 것은 준비이고 **깨는 것이 본체**다
+      if ((t.chillS||0) >= 3 || (t.frozenT||0) > 0){
+        const sh = (player.frostShatter || 26) * D * (1 + (t.chillS||0)*0.15);
+        t.hp -= sh; addDmgNum(t.x, t.y-8, sh, true); addTextNum(t.x, t.y-24, '파쇄!');
+        effects.push({ type:'ring', x:t.x, y:t.y, life:0.26, age:0, r0:6, r1:52 });
+        for (let k3=0;k3<4;k3++){ const a3=(Math.PI*2/4)*k3+Math.random();
+          projectiles.push({ x:t.x, y:t.y, vx:Math.cos(a3)*380, vy:Math.sin(a3)*380, r:3,
+            damage:sh*0.35, crit:false, pierce:1, life:0.55, tracer:true }); }
+        t.chillS = 0;
+      }
       t.chillS = Math.min(3, (t.chillS||0)+1);
       t.chillT = 2.5;
       burst(t.x, t.y-4, 2, 60, 0x7ec8e3, COLORS.frost); // 냉기 결정 파편
@@ -11704,7 +11730,10 @@ import { FX } from "./fx.js";
     if (player.stormChance>0 && Math.random()<player.stormChance+pb) procElement(t, 'storm', isBoss);     // v6.157 폭풍
     if (player.sonicChance>0 && Math.random()<player.sonicChance+pb) procElement(t, 'sonic', isBoss);     // v6.157 공명
     if (player.crysChance>0 && Math.random()<player.crysChance+pb) procElement(t, 'crystal', isBoss);    // v6.157 결정
-    if (player.chillOn && !isBoss) procElement(t, 'frost', isBoss);
+    if (player.gravChance>0 && Math.random()<player.gravChance+pb) procElement(t, 'grav', isBoss);       // v6.158 중력
+    if (player.psiChance>0 && Math.random()<player.psiChance+pb) procElement(t, 'psi', isBoss);          // v6.158 염동
+    if (player.chronoChance>0 && Math.random()<player.chronoChance+pb) procElement(t, 'chrono', isBoss); // v6.158 시간
+    if (!isBoss && (player.chillOn || (player.chillChance>0 && Math.random()<player.chillChance+pb))) procElement(t, 'frost', isBoss);   // v6.158 냉기 확률 스탯 배선
     const shockCh = player.shockSureT>0 ? 1 : player.shockChance;
     if (player.shockDmg>0 && shockCh>0 && Math.random()<shockCh+pb) procElement(t, 'volt', isBoss);
     if (player.corrodeChance>0 && Math.random()<player.corrodeChance+pb) procElement(t, 'acid', isBoss);
@@ -11760,6 +11789,56 @@ import { FX } from "./fx.js";
     //    화상=고정 도트 · 부식=방어 붕괴 · 폭발=연쇄 폭발 이므로,
     //   맹독은 **중첩이 쌓일수록 초당 피해가 가속**하고 **죽으면 그 중첩이 주변으로 옮는다**.
     //   → 한 마리에 오래 붙이는 것이 아니라 **무리 전체로 번지게 만드는** 것이 이 속성의 게임이다
+    //  🔴 v6.158 **중력 = 한 점으로 모은다** — 끌려와 **겹친 적끼리 압축 피해**를 받는다.
+    //   (폭풍은 밀어내고 중력은 끌어당긴다 — 방향이 반대라 같은 '위치 조작'이어도 게임이 다르다)
+    if (t.gravT > 0){
+      t.gravT -= dt;
+      const gx = (t.gravX||player.x) - t.x, gy = (t.gravY||player.y) - t.y;
+      const gd = Math.hypot(gx,gy) || 1;
+      const gp = (player.gravPull || 150);
+      t.x += (gx/gd)*gp*dt; t.y += (gy/gd)*gp*dt;
+      if (!isBoss) for (const o of enemies){
+        if (!o || o===t || (o.crashCd||0) > 0) continue;
+        if (Math.hypot(o.x-t.x, o.y-t.y) > (o.r+t.r)*0.8) continue;
+        const gc = (player.gravCrush || 8) * player.dmgMult;
+        o.hp -= gc; t.hp -= gc; o.crashCd = 0.5; t.crashCd = 0.5;
+        addDmgNum(o.x, o.y, gc, false);
+        break;
+      }
+    }
+    //  🔴 v6.158 **염동 = 띄운다** — 공중에 뜬 적은 **움직이지 못하고 더 아프다**.
+    //   (끌어당기는 중력과 달리 염동은 *들어올린다* — 무방비 상태를 만드는 것이 이 속성의 게임)
+    if (t.liftT > 0){
+      t.liftT -= dt;
+      t.frozenT = Math.max(t.frozenT||0, 0.1);          // 떠 있는 동안 못 움직인다
+      t.liftY = Math.min(14, (t.liftY||0) + dt*40);      // 그리기용 높이
+      if (t.liftT <= 0){                                  // 떨어질 때 낙하 피해
+        const fd = (player.psiSlam || 12) * player.dmgMult;
+        t.hp -= fd; addDmgNum(t.x, t.y, fd, false);
+        burst(t.x, t.y, 4, 100, 0x9a6fc4, '#9a6fc4');
+        t.liftY = 0;
+      }
+    }
+    //  🔴 v6.158 **시간 = 되돌아온다** — 지금 준 피해의 일부가 **몇 초 뒤에 한 번 더** 터진다.
+    //   (감속이 아니라 *시간차*가 정체성. 지금 때린 것이 나중에 다시 온다)
+    if (t.echoT > 0){
+      t.echoT -= dt;
+      if (t.echoT <= 0 && t.echoD > 0){
+        t.hp -= t.echoD; addDmgNum(t.x, t.y, t.echoD, true);
+        effects.push({ type:'ring', x:t.x, y:t.y, life:0.28, age:0, r0:4, r1:40 });
+        t.echoD = 0;
+      }
+    }
+    //  🔴 v6.158 **지옥불 = 번진다** — 화상이 옆 적에게 옮는다 (도트가 아니라 *전염*이 정체성)
+    if (t.burnT > 0 && player.fireSpread > 0 && Math.random() < dt*0.8){
+      for (const o of enemies){
+        if (!o || o===t || o.burnT>0) continue;
+        if (Math.hypot(o.x-t.x, o.y-t.y) > player.fireSpread) continue;
+        o.burnT = t.burnT*0.7; o.burnDps = t.burnDps*0.7;    // ⚠ 옮을 때 약해진다(v6.144 무감쇠 폭주 방지)
+        effects.push({ type:'chain', x1:t.x, y1:t.y, x2:o.x, y2:o.y, life:0.14, age:0 });
+        break;
+      }
+    }
     //  🔴 v6.157 **폭풍** — 밀어내고 **부딪히게** 한다. 위치를 흔드는 것이 이 속성의 게임이다
     //   (다른 속성은 전부 '적에게 무언가를 건다'인데, 폭풍만 **적을 움직인다**)
     if (t.pushT > 0){
