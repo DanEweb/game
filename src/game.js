@@ -4913,6 +4913,23 @@ import { FX } from "./fx.js";
     frenzy:'madman', smash:'gymbro', riposte:'baeksu', cadence:'bard', kesagiri:'shadow',
     heroblade:'exhero', duel:'duelist', noname:'mumyeong',
   };
+  //  🔴 v6.159 **무기에는 임자가 있다** (사용자 지적)
+  //   사용자: *"수리검이나 드론 이런 게 있을 텐데 이건 어울리는 직업이 따로 있는데,
+  //    이걸 공통적으로 무기로 줘버리면 해당 직업의 특색에 반하는 것 같아서"*
+  //   맞다. 근접 엔진은 v6.121에서 `ENGINE_OWNER`로 막았는데 **원거리 무기는 그대로 열려 있었다**:
+  //   수리검(닌자·도굴꾼·검은 고양이) · 드론(파일럿·관광객) · 위성(5직업) · 화살(궁수) …
+  //   전부 시작 무기로 쓰는 임자가 있는데 아무 직업에게나 카드로 나왔다.
+  //   ⇒ **시작 무기로 쓰는 직업에게만** 그 무기가 카드로 등장한다.
+  //   ⚠ 표를 손으로 적지 않는다 — `CLASSES`에서 **자동으로 만든다**(직업이 늘어도 저절로 맞는다)
+  const WEAPON_OWNER = (()=>{
+    const m = {};
+    for (const ck in CLASSES){
+      const w = CLASSES[ck].weapon;
+      if (!w || w === 'random2' || w === 'random3') continue;
+      (m[w] = m[w] || []).push(ck);
+    }
+    return m;
+  })();
   // v6.82 판정 축 교체: '직업 계열'이 아니라 **지금 들고 있는 무기 구성**으로 본다.
   // 계열로 판정하면 ① 낫을 쓰는 사신·도적군 근접이 빠지고 ② 룬기사 같은 중거리 하이브리드를 오분류하며
   // ③ 전향(원거리→근접)으로 무기가 바뀌어도 반영되지 않는다. 무기 기준이면 셋 다 자동으로 맞는다.
@@ -5182,13 +5199,22 @@ import { FX } from "./fx.js";
         if (hasGrowth) return; // 성장무기 소지 시 일반 새 무기도 미등장
         if (!ownedWeapon(key) && !banned.has('wn_'+key)){
           const def = WEAPONS[key];
-          // v6.54 전향 무기: 계열 + 성도 타 계열 별 투자 조건을 만족해야만 카드로 등장
-          if (def.cross && (!def.req || !def.req(player))) return;
+          //  v6.54 전향 무기: 계열 + 성도 타 계열 별 투자 조건을 만족해야만 카드로 등장
+          //  🔴 v6.159 **'겸업'이 성도 조건을 대신한다** — v6.159에서 남의 시그니처 무기를 막으면서
+          //   새 무기 풀에 전향 무기만 남았다. 그런데 그것마저 성도 조건에 막히면 **겸업이 죽은 카드**가 된다.
+          //   런 안에서 고른 '겸업'도 하나의 선택이므로 같은 문을 연다
+          if (def.cross && !player.hybridOpen && (!def.req || !def.req(player))) return;
           // v6.80 무기 직업군화 1단계: 전사군(근접)에게 원거리 무기 카드가 그대로 나오던 문제.
           // 성도 원거리 계열(rng)에 별을 하나라도 투자하면 해제 — '원거리화'를 선택한 사람만 열린다
           if (!def.cross && !MELEE_WEAPONS[key] && isPureMeleeBuild() && starBranchSpent('rng') < 1) return;
           // v6.121 남의 직업 엔진은 카드로 나오지 않는다 (자기 것은 이미 들고 있어 어차피 안 나온다)
           if (ENGINE_OWNER[key]) return;
+          //  🔴 v6.159 **남의 시그니처 무기는 나오지 않는다** — 수리검은 닌자의 것이고 드론은 파일럿의 것이다.
+          //   시작 무기로 쓰는 직업이 있는 무기는 **그 직업들에게만** 카드로 뜬다.
+          //   ⇒ 남는 것은 **전향 무기**(검기 방출·총검 돌격·마나 블레이드·룬 폭충·사신의 낫)뿐이고,
+          //     그게 원래 하이브리드용으로 설계된 것들이다 — '겸업'과 정확히 짝이 맞는다
+          { const ow = WEAPON_OWNER[key];
+            if (ow && ow.length && ow.indexOf(player.classKey) < 0) return; }
           //  🔴 v6.155 **새 무기 카드는 '겸업'을 연 사람에게만** (배치 6의 ③ — 로드맵: *"무기 카드는 하이브리드용으로 제한"*).
           //   엔진 체계가 생긴 뒤로 무기를 하나 더 주는 것은 **엔진을 흐리는 선택**이 됐다:
           //   자원은 주 무기 하나로만 차는데(v6.130 `rangedEngineKey`), 무기가 늘면 화력만 분산된다.
