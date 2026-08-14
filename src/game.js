@@ -5806,6 +5806,58 @@ import { FX } from "./fx.js";
   }
   //  각성한 성물의 계승 배율 — 바친 성장무기의 레벨이 높을수록 강하다.
   //  ⚠ 사용자 지시대로 **PGW 만렙보다 위**다(v6.164에서는 동급이었다). 대신 그 대가로 다 키운 무기 하나를 잃는다
+  //  🔴 v6.177 **성물 권능(權能)** — 사용자: *"유일무기 성장무기 성유물은 그 직업의 특징과 특색에 맞는
+  //   설정과 능력이 있어야 의미가있는건데 / 직업마다 다 다르게해 그런 설정과 이펙트들을"*
+  //   ⚠ 그동안 성물이 하는 일은 `sacredMult` **하나뿐**이었다 — 피해 배율 ×1.25~1.70.
+  //   37종이 이름과 서사만 다르고 **능력은 완전히 동일**했다. '그냥 일반무기'라는 지적이 정확했다.
+  //   ⇒ 계승(각성)한 성물은 직업마다 **다른 권능**을 준다. 배율이 아니라 **플레이가 바뀌는** 것으로.
+  //   설계 원칙: 그 직업이 원래 잘하는 것을 **극단까지** 밀고, 몇몇은 **대가**를 치른다
+  //   (사무라이는 공속을 버리고 한 방, 승려는 치명을 버리고 횟수, 광인은 받는 피해가 늘어난다).
+  const SACRED_POWER = {
+    samurai:     ['일섬(一閃)', '치명 배율 +1.2 · 공속 -18% — 여러 번이 아니라 한 번에 벤다', (p)=>{ p.critMult+=1.2; p.rateMult*=0.82; }],
+    sniper:      ['정지한 숨', '치명 확률 +22% · 이동속도 -10% — 멈춘 자만 맞힌다', (p)=>{ p.critChance=Math.min(0.95,p.critChance+0.22); p.speed*=0.90; }],
+    archer:      ['놓지 않는 시위', '관통 +3 · 공속 +12%', (p)=>{ p.pierce+=3; p.rateMult*=1.12; }],
+    rusher:      ['멈추지 않는 돌격', '이동속도 +22% · 피해 +12% — 빠를수록 깊이 박힌다', (p)=>{ p.speed*=1.22; p.dmgMult*=1.12; }],
+    paladin:     ['무너지지 않는 벽', '받는 피해 -22% · 최대체력 +90', (p)=>{ p.dmgTaken*=0.78; p.maxHp+=90; p.hp+=90; }],
+    manager:     ['멈추지 않는 궤도', '쿨다운 -20% · 소환물 피해 +35% — 하늘이 대신 싸운다', (p)=>{ p.cdr*=0.80; p.droneBoost=(p.droneBoost||1)+0.35; }],
+    ninja:       ['그림자 도둑질', '회피 +18% · 치명 확률 +12%', (p)=>{ p.dodge=Math.min(0.6,p.dodge+0.18); p.critChance=Math.min(0.95,p.critChance+0.12); }],
+    engineer:    ['멈추지 않는 태엽', '쿨다운 -16% · 포탑 피해 +40%', (p)=>{ p.cdr*=0.84; p.turretDmg=(p.turretDmg||8)*1.40; }],
+    reaper:      ['수확의 경계', '처형 임계 +12%p · 처형 시 회복 — 죽음이 곧 양식', (p)=>{ p.execThresh=(p.execThresh||0)+0.12; p.lifesteal+=3; }],
+    pilot:       ['추락하지 않는 날개', '소환물 피해 +55% · 이동속도 +10%', (p)=>{ p.droneBoost=(p.droneBoost||1)+0.55; p.speed*=1.10; }],
+    cheol:       ['식지 않는 쇠', '받는 피해 -18% · 최대체력 +12% · 이동 -8%', (p)=>{ p.dmgTaken*=0.82; p.maxHp=Math.round(p.maxHp*1.12); p.hp=p.maxHp; p.speed*=0.92; }],
+    voidc:       ['굶주린 장(章)', '모든 원소 발동 +18%p — 굶주림은 가리지 않는다', (p)=>{ p.procBonus=(p.procBonus||0)+0.18; }],
+    necro:       ['식지 않는 등불', '유령 최대 +3 · 지속 +8초 · 유령 피해 +40%', (p)=>{ p.ghostCap=(p.ghostCap||0)+3; p.ghostDur=(p.ghostDur||0)+8; p.ghostDmg=(p.ghostDmg||1)*1.40; }],
+    bard:        ['끊기지 않는 현', '콤보 유지 +3초 · 공속 +14%', (p)=>{ p.comboKeep=(p.comboKeep||0)+3; p.rateMult*=1.14; }],
+    duelist:     ['한 사람만 본다', '보스·엘리트 피해 +40% · 잡몹 피해 -10%', (p)=>{ p.bossDmg=(p.bossDmg||1)*1.40; p.eliteDmg=(p.eliteDmg||1)*1.40; p.dmgMult*=0.90; }],
+    monk:        ['천 번의 주먹', '공속 +38% · 치명 배율 -0.2 — 세기가 아니라 횟수다', (p)=>{ p.rateMult*=1.38; p.critMult=Math.max(1.2,p.critMult-0.2); }],
+    gymbro:      ['최후의 1RM', '최대체력 +30% · 체력에 비례해 피해', (p)=>{ p.maxHp=Math.round(p.maxHp*1.30); p.hp=p.maxHp; p.dmgMult*=1.15; }],
+    baeksu:      ['눕는 자의 여유', '재생 +3.0 · 받는 피해 -12% — 버티는 것도 실력이다', (p)=>{ p.regen+=3.0; p.dmgTaken*=0.88; p.healMult*=1.25; }],
+    madman:      ['금 간 이성', '피해 +45% / 받는 피해 +18% — 대가 없는 광기는 없다', (p)=>{ p.dmgMult*=1.45; p.dmgTaken*=1.18; }],
+    exhero:      ['녹슬지 않은 이름', '피해 +20% · 최대체력 +70 · 쿨다운 -10%', (p)=>{ p.dmgMult*=1.20; p.maxHp+=70; p.hp+=70; p.cdr*=0.90; }],
+    shadow:      ['그림자만 남기고', '이동속도 +18% · 회피 +14% · 치명 확률 +10%', (p)=>{ p.speed*=1.18; p.dodge=Math.min(0.6,p.dodge+0.14); p.critChance=Math.min(0.95,p.critChance+0.10); }],
+    blackcat:    ['아홉 번째 목숨', '회피 +22% · 행운 +35%', (p)=>{ p.dodge=Math.min(0.6,p.dodge+0.22); p.luck*=1.35; }],
+    tombraider:  ['봉인된 부장품', '아이템 드랍 +55% · 수집 +90 · 골드 +25%', (p)=>{ p.luck*=1.55; p.magnet+=90; p.goldMult*=1.25; }],
+    mumyeong:    ['무명(無名)', '피해 +18% · 쿨다운 -18% — 이름이 없어 무엇이든 된다', (p)=>{ p.dmgMult*=1.18; p.cdr*=0.82; }],
+    glitch:      ['복구 불가', '카드 상위 등급 확률 +60% · 리롤 +2', (p)=>{ p.luck*=1.60; rerollsLeft+=2; }],
+    debug:       ['끝까지 읽는 자', '카드 +2장 · 리롤 +2 · 쿨다운 -8%', (p)=>{ p.cardSlots=(p.cardSlots||6)+2; rerollsLeft+=2; p.cdr*=0.92; }],
+    returner:    ['멈춘 손목시계', '쿨다운 -28% — 시간이 그의 편이다', (p)=>{ p.cdr*=0.72; }],
+    druid:       ['마르지 않는 가지', '재생 +2.5 · 회복 +55% · 최대체력 +60', (p)=>{ p.regen+=2.5; p.healMult*=1.55; p.maxHp+=60; p.hp+=60; }],
+    tourist:     ['마지막 기념품', '이동속도 +25% · 골드 +30% — 멈추지 않는 자의 특권', (p)=>{ p.speed*=1.25; p.goldMult*=1.30; }],
+    stonks:      ['상장 폐지 통지서', '골드 +70% · 골드가 곧 화력', (p)=>{ p.goldMult*=1.70; p.dmgMult*=1.10; }],
+    gambler:     ['한 닢의 승부', '행운 +45% · 치명 배율 +0.6', (p)=>{ p.luck*=1.45; p.critMult+=0.6; }],
+    collector:   ['비어 있던 진열대', '아이템 드랍 +60% · 카드 +1장', (p)=>{ p.luck*=1.60; p.cardSlots=(p.cardSlots||6)+1; }],
+    slime:       ['나뉘어도 죽지 않는', '최대체력 +35% · 받는 피해 -10%', (p)=>{ p.maxHp=Math.round(p.maxHp*1.35); p.hp=p.maxHp; p.dmgTaken*=0.90; }],
+    contributor: ['병합된 손들', '카드 +2장 · 피해 +14%', (p)=>{ p.cardSlots=(p.cardSlots||6)+2; p.dmgMult*=1.14; }],
+    specialist:  ['만능의 증표', '쿨다운 -14% · 공속 +14% · 원소 발동 +8%p', (p)=>{ p.cdr*=0.86; p.rateMult*=1.14; p.procBonus=(p.procBonus||0)+0.08; }],
+    runeknight:  ['새겨진 이름', '원소 발동 +22%p · 피해 +10%', (p)=>{ p.procBonus=(p.procBonus||0)+0.22; p.dmgMult*=1.10; }],
+    commander:   ['부러지지 않는 지휘봉', '소환물 피해 +65% · 유령 최대 +2', (p)=>{ p.droneBoost=(p.droneBoost||1)+0.65; p.ghostDmg=(p.ghostDmg||1)*1.5; p.ghostCap=(p.ghostCap||0)+2; }],
+  };
+  function applySacredPower(ck){
+    const SP = SACRED_POWER[ck];
+    if (!SP || !sacredAwoken(ck)) return null;
+    try { SP[2](player); } catch(e){}
+    return SP;
+  }
   function sacredMult(ck){
     const a = DB.sacredAwake && DB.sacredAwake[ck];
     if (!a) return 1;
@@ -7952,6 +8004,14 @@ import { FX } from "./fx.js";
   //  v6.171 QA: 장비 착용 비주얼 확인용 — 희귀도/무게를 지정해 전 부위를 한 번에 입힌다
   //  v6.172 QA: 등급 치장 단계가 실제로 갈리는지 값으로 확인
   //  v6.175 QA: 무기 3층 최고 상태를 한 번에 세팅 — 스크린샷 비교용
+  //  v6.177 QA: 성물 권능이 실제 스탯에 반영되는지 확인
+  window.__qaPower2 = ()=>{ try { return JSON.stringify({
+    직업:player.classKey, 성물:!!player.sacredTitle,
+    공속:+(player.rateMult||1).toFixed(3), 치명배율:+(player.critMult||1).toFixed(2),
+    치명확률:+(player.critChance||0).toFixed(3), 피해:+(player.dmgMult||1).toFixed(3),
+    받는피해:+(player.dmgTaken||1).toFixed(3), 쿨감:+(player.cdr||1).toFixed(3),
+    이속:Math.round(player.speed||0), 최대체력:Math.round(player.maxHp||0)
+  }); } catch(e){ return "ERR "+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
     //  ⚠ __qaWeapon은 교체가 아니라 **추가**다 — 안 지우면 이전 층이 남아
@@ -7969,6 +8029,7 @@ import { FX } from "./fx.js";
       DB.sacredAwake = DB.sacredAwake||{}; DB.sacredAwake[ck] = { lv:50 };
       saveDB(); __qaWeapon("pgw_"+ck+"_0");
       player.sacredTitle = "絶名 · " + (SACRED[ck] ? SACRED[ck][0] : "이름");
+      applySacredPower(ck);   // v6.177 QA도 실제 경로와 같이 권능을 먹인다
     }
     return __qaRank();
   } catch(e){ return "ERR "+String(e); } };
@@ -16945,6 +17006,8 @@ import { FX } from "./fx.js";
       const w0 = player.weapons[player.weapons.length-1];
       if (w0) w0.lv = 5;                          // 성물은 처음부터 최상급(PGW 만렙 동급)
       player.sacredTitle = '絶名 · ' + SACRED[classKey][0];   // v6.164 성물 칭호
+      const SP = applySacredPower(classKey);                  // v6.177 직업 고유 권능
+      if (SP) toast('絶名 권능 — 「' + SP[0] + '」 ' + SP[1]);
     }
     // 장비탭에서 장착한 유일·성장무기: 런 시작부터 들고 나간다
     const gwSel = loadoutFor(classKey).gw;
