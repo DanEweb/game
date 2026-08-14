@@ -5576,13 +5576,35 @@ import { FX } from "./fx.js";
     rog:['pierce','spread','homing'], pri:['nova','homing','wave'], mer:['mortar','spread','homing'],
   };
   // 직업별 원형 오버라이드 — 특색이 강한 직업은 그룹 원형 대신 전용 조합 (신규 원형: spiral 나선탄 / quake 전방 강타 / burst 즉발 폭발)
+  //  🔴 v6.178 **37직업 전원 재배정** — 이전에는 계열 6종 표(`CGW_ARCH`)가 기본이라
+  //   **근접 직업(사무라이·철혈·헬창…)까지 전부 투사체를 쏘고 있었다.**
+  //   이제 직업마다 3종이 '어떻게 싸우는가'로 갈린다. 근접 직업은 최소 하나가 `cleave`다.
   const CGW_ARCH_OVR = {
-    gymbro:['quake','nova','spiral'], slime:['burst','nova','homing'], gambler:['spiral','spread','burst'],
-    glitch:['spiral','burst','homing'], monk:['quake','wave','burst'], commander:['burst','mortar','homing'],
-    stonks:['burst','spread','mortar'], tombraider:['quake','spread','burst'], bard:['spiral','nova','homing'],
-    pilot:['snipe','spiral','mortar'], madman:['quake','spiral','pierce'], voidc:['spiral','burst','mortar'],
-    samurai:['lance','wave','echo'], specialist:['cross','rain','burst'], runeknight:['lance','echo','spiral'],
-    druid:['quake','rain','orbitb'], duelist:['lance','cross','snipe'],
+    // ── 근접: 베거나(cleave) 자리를 소유한다(aura)
+    samurai:   ['cleave','lance','echo'],      cheol:     ['cleave','quake','aura'],
+    gymbro:    ['cleave','quake','aura'],      monk:      ['cleave','chainx','wave'],
+    paladin:   ['aura','cleave','burst'],      duelist:   ['cleave','lance','snipe'],
+    rusher:    ['lance','cleave','quake'],     madman:    ['cleave','spiral','quake'],
+    exhero:    ['cleave','wave','burst'],      mumyeong:  ['cleave','pierce','echo'],
+    reaper:    ['cleave','aura','rain'],       baeksu:    ['aura','cleave','burst'],
+    shadow:    ['cleave','chainx','spread'],   slime:     ['aura','burst','nova'],
+    bard:      ['aura','chainx','nova'],
+    // ── 도적: 설치·연쇄·기습
+    ninja:     ['trap','spread','cleave'],     blackcat:  ['chainx','spread','trap'],
+    tombraider:['trap','quake','spread'],
+    // ── 원거리: 쏘는 게 맞는 직업들 (정체성 그대로)
+    sniper:    ['snipe','pierce','cross'],     archer:    ['rain','spread','homing'],
+    pilot:     ['snipe','spiral','mortar'],    specialist:['cross','rain','burst'],
+    stonks:    ['burst','spread','mortar'],    gambler:   ['spiral','spread','burst'],
+    // ── 마법·소환: 장판·연쇄·궤도
+    manager:   ['mortar','orbitb','rain'],     voidc:     ['chainx','burst','mortar'],
+    necro:     ['aura','homing','rain'],       commander: ['mortar','trap','homing'],
+    runeknight:['chainx','echo','lance'],      druid:     ['aura','rain','orbitb'],
+    engineer:  ['trap','chainx','mortar'],     glitch:    ['spiral','burst','chainx'],
+    debug:     ['chainx','echo','spread'],     returner:  ['echo','orbitb','homing'],
+    contributor:['orbitb','chainx','rain'],
+    // ── 상인·기타
+    tourist:   ['trap','spread','rain'],       collector: ['orbitb','trap','burst'],
   };
   const CGW_NAMES = {
     rusher:['파성추','창격 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
@@ -5865,7 +5887,9 @@ import { FX } from "./fx.js";
   }
   function pgwRec(key){ DB.pgw = DB.pgw||{}; return DB.pgw[key] = DB.pgw[key]||{found:false,lv:1,xp:0}; }
   // 원형별 밸런스 계수: 발사 주기·발수·판정을 반영해 3종의 DPS가 동일하도록 — 성능은 같고 손맛만 다르다
-  const ARCH_BAL = { pierce:1.2, wave:1.15, snipe:2.0, spread:0.42, homing:0.6, mortar:1.9, nova:0.22,
+  //  v6.178 신규 행동 4종 — cleave는 사거리가 짧은 대신 배수가 높다(붙어야 닿는 값)
+  const ARCH_BAL = { cleave:1.35, trap:0.75, aura:0.5, chainx:0.7,
+                     pierce:1.2, wave:1.15, snipe:2.0, spread:0.42, homing:0.6, mortar:1.9, nova:0.22,
                      spiral:0.55, quake:0.32, burst:0.85, lance:0.9, cross:0.32, rain:0.45, orbitb:0.28, echo:0.6 };
   Object.keys(CGW_NAMES).forEach((ck)=>{
     const g = CGW_CLASS_GROUP(ck);
@@ -13141,6 +13165,58 @@ import { FX } from "./fx.js";
             // 수호탄: 내 주위를 감싸며 바깥으로 퍼지는 원진
             for (let i=0;i<n+4;i++){ const a=(Math.PI*2/(n+4))*i;
               projectiles.push({ x:player.x+Math.cos(a)*30, y:player.y+Math.sin(a)*30, vx:Math.cos(a)*180, vy:Math.sin(a)*180, r:5, damage:dmg*0.9, crit:false, pierce:2, life:1.1, tracer:true }); }
+          } else if (arch==='cleave'){
+            //  🔴 v6.178 **근접 참격** — 사용자: *"다 발사체면 뭔 의미가 있어"*
+            //   근접 직업까지 전부 투사체를 쏘고 있었다. 이건 **날아가지 않는다** —
+            //   조준 방향 앞 부채꼴을 즉시 벤다. 붙어야 닿고, 붙으면 여러 놈이 한 번에 맞는다.
+            const reach = 78 + n*6;
+            let hitN = 0;
+            for (let i=enemies.length-1;i>=0;i--){
+              const e = enemies[i]; if (!e) continue;
+              const dx=e.x-player.x, dy=e.y-player.y, d2=Math.hypot(dx,dy);
+              if (d2 > reach) continue;
+              const da = Math.abs(((Math.atan2(dy,dx)-baseA+Math.PI*3)%(Math.PI*2))-Math.PI);
+              if (da > 0.95) continue;
+              e.hp -= dmg*1.45; addDmgNum(e.x, e.y, dmg*1.45, Math.random()<player.critChance);
+              staggerEnemy(e, 0.5); procOnHit(e, false, w.imbue||null); hitN++;
+            }
+            for (const b2 of bosses){ if (!b2) continue;
+              const dx=b2.x-player.x, dy=b2.y-player.y;
+              if (Math.hypot(dx,dy) > reach+14) continue;
+              const da = Math.abs(((Math.atan2(dy,dx)-baseA+Math.PI*3)%(Math.PI*2))-Math.PI);
+              if (da <= 1.05){ b2.hp -= dmg*1.45; addDmgNum(b2.x, b2.y, dmg*1.45, true); procOnHit(b2, true, w.imbue||null); hitN++; }
+            }
+            effects.push({ type:'arc', x:player.x, y:player.y, a:baseA, r:reach, life:0.22, age:0, col:player.tierC||null });
+            if (hitN) { freeze = Math.max(freeze, 0.045); shake = Math.min(12, shake+3); }
+          } else if (arch==='trap'){
+            //  v6.178 **설치** — 쏘는 게 아니라 **깔아 두고 기다린다**. 밟으면 터진다.
+            for (let i=0;i<n;i++){
+              const a2 = Math.random()*Math.PI*2, d3 = 30+Math.random()*70;
+              addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 46, 2.2, dmg*1.15, true);
+            }
+          } else if (arch==='aura'){
+            //  v6.178 **영역 유지** — 발밑에 계속 깔린다. 자리를 소유하는 방식.
+            addHazard(player.x, player.y, 92 + n*5, 1.5, dmg*0.65, true);
+          } else if (arch==='chainx'){
+            //  v6.178 **연쇄** — 한 놈을 치고 가까운 놈으로 옮겨 붙는다 (투사체가 아니라 즉시 판정)
+            let cx = t.x, cy = t.y, hits = 0;
+            const used = new Set();
+            for (let k=0;k<n+2;k++){
+              let best=null, bd=1e9;
+              for (let i=0;i<enemies.length;i++){
+                const e=enemies[i]; if (!e || used.has(i)) continue;
+                const d2=Math.hypot(e.x-cx, e.y-cy);
+                if (d2<bd && d2<170){ bd=d2; best=i; }
+              }
+              if (best===null) break;
+              const e=enemies[best]; used.add(best);
+              const dd = dmg*Math.pow(0.86,k);
+              e.hp -= dd; addDmgNum(e.x, e.y, dd, false);
+              procOnHit(e, false, w.imbue||null);
+              effects.push({ type:'chain', x1:cx, y1:cy, x2:e.x, y2:e.y, life:0.18, age:0 });
+              cx=e.x; cy=e.y; hits++;
+            }
+            if (!hits && t){ t.hp -= dmg; addDmgNum(t.x, t.y, dmg, false); }
           } else if (arch==='echo'){
             // 잔향격: 표적을 치고, 반 박자 뒤 같은 자리가 다시 터진다
             addHazard(t.x, t.y, 50, 0.2, dmg, true);
