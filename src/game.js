@@ -70,7 +70,7 @@ import { FX } from "./fx.js";
     star: { pts:0, nodes:{} },
     growth: { found:false, lv:1, xp:0 },
     gweps: { bow:{found:false,lv:1,xp:0}, tome:{found:false,lv:1,xp:0}, blade:{found:false,lv:1,xp:0} },
-    mats: { shard:0, essence:0, gear:0 },
+    mats: { shard:0, essence:0, gear:0, forge:0, sigil:0 },
     consum: { reroll:0, revive:0 },
     peril: 0, perilMax: 0,
     metaRefunded: false,
@@ -116,7 +116,7 @@ import { FX } from "./fx.js";
           DB.star.nodes = DB.star.nodes||{};
           DB.growth = Object.assign({found:false,lv:1,xp:0}, d.growth||{});
           DB.gweps = Object.assign({bow:{found:false,lv:1,xp:0},tome:{found:false,lv:1,xp:0},blade:{found:false,lv:1,xp:0}}, d.gweps||{});
-          DB.mats = Object.assign({shard:0,essence:0,gear:0}, d.mats||{});
+          DB.mats = Object.assign({shard:0,essence:0,gear:0,forge:0,sigil:0}, d.mats||{});
           DB.consum = Object.assign({reroll:0,revive:0}, d.consum||{});
           DB.peril = d.peril||0;
           DB.perilMax = d.perilMax||0;
@@ -1383,15 +1383,16 @@ import { FX } from "./fx.js";
           const aw = document.createElement('div');
           aw.className = 'shopItem';
           aw.innerHTML = '<div class="info"><div class="nm">🔥 격(格) 돌파 의식 — '+WEAPONS[pkey].name+'</div>'
-            + '<div class="ds">Lv'+prec.lv+'의 벽 — ★2 ◆2 + 500G를 바쳐 다음 격을 연다</div></div>';
+            + '<div class="ds">Lv'+prec.lv+'의 벽 — ◈'+needAwk+' ★2 ◆2 + 500G를 바쳐 다음 격을 연다<br>'
+            + '<span style="color:var(--gold);">각인핵은 관문 보스에서만 나온다</span></div></div>';
           const ab = document.createElement('button');
           ab.className = 'buy';
-          const canA = DB.mats.shard>=2 && DB.mats.essence>=2 && DB.gold>=500;
+          const canA = DB.mats.shard>=2 && DB.mats.essence>=2 && DB.mats.sigil>=needAwk && DB.gold>=500;
           ab.textContent = '의식 거행';
           ab.disabled = !canA;
           ab.addEventListener('click', ()=>{
             if (!canA) return;
-            DB.mats.shard-=2; DB.mats.essence-=2; DB.gold-=500;
+            DB.mats.shard-=2; DB.mats.essence-=2; DB.mats.sigil-=needAwk; DB.gold-=500;
             prec.awk = (prec.awk||0)+1;
             questAdd('craft', 1); unlockAch('pgwawk');
             saveDB(); renderEquip(); goldVal.textContent = DB.gold;
@@ -1425,6 +1426,55 @@ import { FX } from "./fx.js";
         invList.appendChild(row);
       }
     }
+    //  🔴 v6.167 ⬡ **벼림 대장간** — 성장·유일무기를 '키우는' 수단 (로드맵 19번)
+    //   그동안 PGW/CGW는 순수 방치였다: PGW는 런 종료 시 킬수 흡수, CGW는 보스 처치당 xp+1.
+    //   CGW는 Lv1→40 누적이 보스 1100킬이 넘어 **사실상 도달 불가능한 만렙**이었다.
+    //   이제 벼림쇠로 직접 두드려 올린다. 단 **격의 벽은 벼림으로 못 넘는다** — 벽은 관문(◈)의 몫.
+    (function forgeBench(){
+      const flist = [];
+      (CGW_NAMES[equipClassTab]||[]).forEach((nm, i)=>{
+        const r = (DB.cgw||{})[equipClassTab+'_'+i];
+        if (r && r.found) flist.push({ rec:r, key:'cgw_'+equipClassTab+'_'+i, cap:40, uniq:true });
+      });
+      for (let pi2=0; pi2<3; pi2++){
+        const r = (DB.pgw||{})[equipClassTab+'_'+pi2];
+        if (r && r.found) flist.push({ rec:r, key:'pgw_'+equipClassTab+'_'+pi2, cap:50, uniq:false });
+      }
+      flist.forEach(w=>{
+        if (!WEAPONS[w.key]) return;
+        const lv = w.rec.lv||1;
+        if (lv >= w.cap) return;
+        // 격의 벽에 걸려 있으면 벼림 자체가 막힌다 (성장무기만 해당)
+        const wallAwk = w.uniq ? 0 : ({10:1,20:2,30:3,40:4}[lv]||0);
+        const walled = !!(wallAwk && (w.rec.awk||0) < wallAwk);
+        const needF = 2 + Math.floor(lv/8);
+        // 유일무기는 Lv30부터 각인핵까지 요구한다 — '완성'은 관문을 거쳐야 한다
+        const needS = (w.uniq && lv>=30) ? 1 : 0;
+        const fgold = 120 + lv*45;
+        const row = document.createElement('div');
+        row.className = 'shopItem';
+        row.innerHTML = '<div class="info"><div class="nm">⬡ 벼림 — '+WEAPONS[w.key].name+' <span style="font-size:9px;color:var(--ink-500);">Lv'+lv+'/'+w.cap+'</span></div>'
+          + '<div class="ds">'+(walled
+              ? '<span style="color:var(--gold);">격(格)의 벽 — 돌파 의식을 먼저 거행해야 한다</span>'
+              : '두드려 Lv'+(lv+1)+'로 — ⬡'+needF+(needS?' ◈'+needS:'')+' + '+fgold+'G')+'</div></div>';
+        const fb = document.createElement('button');
+        fb.className = 'buy sec';
+        fb.textContent = '벼림';
+        const canF = !walled && DB.mats.forge>=needF && DB.mats.sigil>=needS && DB.gold>=fgold;
+        fb.disabled = !canF;
+        fb.addEventListener('click', ()=>{
+          if (!canF) return;
+          DB.mats.forge-=needF; DB.mats.sigil-=needS; DB.gold-=fgold;
+          w.rec.lv = lv+1;   // ⚠ xp는 남긴다 — 벼림했다고 그동안 쌓은 걸 뺏으면 손해 보는 기분만 남는다
+          questAdd('craft', 1);
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          toast('⬡ ['+WEAPONS[w.key].name+'] 벼림 — Lv'+w.rec.lv);
+          SFX.play('equip');
+        });
+        row.appendChild(fb);
+        invList.appendChild(row);
+      });
+    })();
     // 🗡 무기고 — 드랍된 일반 무기 인스턴스 (장착 시 기본 무기 대체 + 희귀도만큼 강하게 시작)
     (DB.armory||[]).forEach(it=>{
       if (!WEAPONS[it.wkey]) return;
@@ -1644,7 +1694,8 @@ import { FX } from "./fx.js";
     const matRow = document.createElement('div');
     matRow.className = 'shopItem';
     matRow.innerHTML = '<div class="info"><div class="nm">파밍 재료</div>'
-      + '<div class="ds">★ 별의 조각 <b>'+DB.mats.shard+'</b> (엘리트) · ◆ 보스의 정수 <b>'+DB.mats.essence+'</b> (보스) · ⚙ 고대 톱니 <b>'+DB.mats.gear+'</b> (보물 골렘)</div></div>';
+      + '<div class="ds">★ 별의 조각 <b>'+DB.mats.shard+'</b> (엘리트) · ◆ 보스의 정수 <b>'+DB.mats.essence+'</b> (보스) · ⚙ 고대 톱니 <b>'+DB.mats.gear+'</b> (보물 골렘)<br>'
+      + '⬡ 벼림쇠 <b>'+DB.mats.forge+'</b> (사냥 전반) · ◈ 각인핵 <b>'+DB.mats.sigil+'</b> <span style="color:var(--gold);">(관문 보스 전용)</span></div></div>';
     shopList.appendChild(matRow);
     // 소모품 (다음 런 1회용)
     [
@@ -6707,7 +6758,7 @@ import { FX } from "./fx.js";
     refreshBossBar();
     if (success){
       dropItem(player.x+40, player.y, 'chest');
-      DB.mats.shard += 1; saveDB();
+      DB.mats.shard += 1; DB.mats.forge += 1; saveDB();
       const g = gainGold(40+(DB.peril||0)*5);
       unlockAch('rift1');
       showBossBanner('시련 돌파', '보물상자 + 별의 조각 + '+g+'G', '#d9a53f');
@@ -7034,7 +7085,8 @@ import { FX } from "./fx.js";
       // 보물 골렘 처치: 대박 보상 + 고대 톱니
       questAdd('treasure', 1);
       DB.mats.gear += 1;
-      toast('⚙ 고대 톱니 획득 ('+DB.mats.gear+')');
+      DB.mats.forge += 2;
+      toast('⚙ 고대 톱니 +1 · ⬡ 벼림쇠 +2');
       const g = gainGold(35 + ((Math.random()*26)|0));
       addTextNum(e.x, e.y-20, '+'+g+'G!!');
       dropItem(e.x, e.y, 'chest');
@@ -7061,12 +7113,19 @@ import { FX } from "./fx.js";
         DB.mats.shard += 1;
         toast('★ 별의 조각 획득 ('+DB.mats.shard+')');
       }
+      if (Math.random()<0.22){ DB.mats.forge += 1; toast('⬡ 벼림쇠 획득 ('+DB.mats.forge+')'); }
       if (Math.random()<0.55) dropItem(e.x, e.y, 'chest'); // 엘리트 상자도 확정 아님
       if (Math.random()<0.10) dropItem(e.x+30, e.y, 'whet'); // 강화석 (희귀)
       const g = gainGold(15 + ((Math.random()*10)|0));
       addTextNum(e.x, e.y-16, '+'+g+'G');
       freeze = Math.max(freeze, 0.05);
       SFX.play('boom');
+    } else if (Math.random() < 0.005*player.luck){
+      //  🔴 v6.167 ⬡ 벼림쇠 — **하급 재료는 그냥 사냥하다 보면 쌓여야 한다**.
+      //   무기 레벨을 킬 방치로만 올리던 걸 '내가 지금 이 무기를 키운다'로 바꾸는 재료라
+      //   접근성이 낮으면 의미가 없다. 대신 개당 가치는 낮게(격의 벽은 못 넘는다)
+      DB.mats.forge += 1; saveDB();
+      addTextNum(e.x, e.y-14, '⬡');
     } else if (Math.random() < 0.009*player.luck){
       dropItem(e.x, e.y);
     } else if (Math.random() < 0.05*player.luck*(player.goldDropMod||1)){
@@ -7525,6 +7584,7 @@ import { FX } from "./fx.js";
     const t = sacredTributeReady(ck);
     return JSON.stringify({ 제물가능:!!t, 제물레벨:t&&t.lv });
   } catch(e){ return 'ERR '+String(e); } };
+  window.__qaMats = (n,g)=>{ if (g!==undefined){ DB.gold=g; saveDB(); } if (n!==null && typeof n==="object"){ Object.assign(DB.mats, n); saveDB(); } else if (n!==undefined){ DB.mats.forge=n; DB.mats.sigil=n; DB.mats.shard=n; DB.mats.essence=n; DB.mats.gear=n; saveDB(); } return JSON.parse(JSON.stringify(Object.assign({gold:DB.gold}, DB.mats))); };
   window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
     return JSON.stringify({ 계승:ok, 각성:sacredAwoken(ck), 배율:+sacredMult(ck).toFixed(2), 제물무기레벨:(DB.pgw[ck+'_0']||{}).lv });
   } catch(e){ return 'ERR '+String(e); } };
@@ -7607,6 +7667,16 @@ import { FX } from "./fx.js";
     //  🔴 v6.163 **성물 판정은 보스를 잡는 순간에 한다** — 성물은 '그 직업답게 싸웠다'는 증명이고,
     //   그 증명이 완성되는 지점이 보스전의 끝이다. (드랍 확률이 아니라 **행위**로 얻는다)
     if (b.gate || b.gateStage!==undefined || b.finale) runProof.gateBoss = true;   // v6.165 관문 보스에서만 성물이 열린다
+    //  🔴 v6.167 ◈ 각인핵 — **관문 밖에서는 단 한 개도 안 나온다**.
+    //   관문은 지금까지 ★열쇠를 '쓰기만' 하는 곳이라 파밍 관점에선 순손해였다.
+    //   성장무기가 Lv10/20/30/40의 벽을 넘으려면 이게 필요하게 만들어서,
+    //   **관문을 깨야만 무기가 완성된다**는 선을 하나 긋는다 (로드맵 20번)
+    if (runProof.gateBoss){
+      const sg = 1 + (b.finale?1:0) + Math.floor((DB.peril||0)/12);   // ⚠ /5로 두니 위험도 60 관문 한 번에 50개가 넘게 나왔다 — 벽 예산이 무기당 10개인데 그러면 재료가 아니라 그냥 통과권이 된다
+      DB.mats.sigil += sg; saveDB();
+      toast('◈ 각인핵 +'+sg+' — 관문 너머에서만 나오는 것 ('+DB.mats.sigil+')');
+      SFX.play('evolve');
+    }
     tryUnlockRelic();
     addCombo();
     questAdd('boss', 1);
