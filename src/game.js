@@ -18175,6 +18175,15 @@ import { FX } from "./fx.js";
     //  ⚠ 이 save는 **무기 프롭 직전**이어야 한다. 처음엔 `const g` 바로 뒤에 뒀다가
     //   스윙 호·앞팔·손까지 같이 커져 손이 어깨에서 떨어져 나갔다.
     if (wst > 0){ ctx.save(); ctx.scale(wsc, wsc); }
+    //  🔴 v6.174 **무기가 '검은 작대기'였다** — 사용자: *"무기들이 여전히 검은색 작대기라서 모르겠네"*
+    //   37종 프롭은 각자 형태가 달랐지만 **전부 `ink` 한 색**이라, 카타나든 활이든 화면에선 검은 선이었다.
+    //   (사무라이 카타나 = `moveTo(4,2) → lineTo(18,-12) → stroke`, lineWidth 2.2 — 말 그대로 선 하나)
+    //   37개 분기를 하나씩 고치는 대신 **체인을 함수로 묶어 세 번 그린다**:
+    //     ① 어두운 윤곽(오프셋) — 배경·몸에서 무기를 떼어낸다
+    //     ② 본체 — 기본색을 잉크가 아니라 **금속 톤**으로 (분기가 색을 직접 지정한 곳은 그 색이 이긴다)
+    //     ③ 반대쪽 오프셋 하이라이트 — 날에 빛이 걸린다
+    //   ⇒ 한 번의 구조 변경으로 **37종 전부** 올라간다.
+    const drawProp = ()=>{
     if (g==='manager'){
       ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
       ctx.fillRect(-7,-16.5,14,2.5);
@@ -18466,6 +18475,36 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-4,8); ctx.quadraticCurveTo(-12,6,-11,-2+Math.sin(performance.now()/350)*3); ctx.stroke();
     }
+    };
+    //  ⚠ `ctx.filter`로 명도를 강제한다 — 분기 일부가 색을 하드코딩해 놔서(넥타이·차트선 등)
+    //   그냥 색만 바꿔 그리면 윤곽 패스에 **색 번짐**이 남는다.
+    const canF = (typeof ctx.filter === 'string');
+    ctx.save();
+    ctx.translate(0.9, 0.9);                       // ① 윤곽
+    if (canF) ctx.filter = 'brightness(0)';
+    ctx.globalAlpha = 0.5;
+    drawProp();
+    ctx.restore();
+    ctx.save();                                    // ② 본체 — 자루는 어둡고 날은 밝다
+    //  자루/날을 분기마다 표시할 순 없으니 **손에서 멀어지는 축**으로 그라디언트를 건다.
+    //  손 근처(4,2)=가죽 자루 → 바깥(20,-14)=금속 날. 모자·드론처럼 축 밖의 프롭은
+    //  자연히 어두운 쪽으로 클램프되어 오히려 알맞다.
+    const wg = ctx.createLinearGradient(4, 2, 20, -14);
+    wg.addColorStop(0.00, PC.leather);
+    wg.addColorStop(0.28, PC.leather);
+    wg.addColorStop(0.42, PC.metal);
+    wg.addColorStop(1.00, mixHex(PC.metal, '#ffffff', 0.35));
+    ctx.strokeStyle = wg; ctx.fillStyle = wg;
+    ctx.lineJoin = 'round';
+    drawProp();
+    ctx.restore();
+    ctx.save();                                    // ③ 하이라이트
+    ctx.translate(-0.55, -0.55);
+    if (canF) ctx.filter = 'brightness(2.2)';
+    ctx.globalAlpha = 0.30;
+    ctx.strokeStyle = PC.metal; ctx.fillStyle = PC.metal;
+    drawProp();
+    ctx.restore();
     if (wst > 0) ctx.restore();            // v6.173 무기 성장 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
