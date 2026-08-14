@@ -3263,7 +3263,7 @@ import { FX } from "./fx.js";
   const SKILL_POOLS = {
     manager: [
       { n:'정지 명령', lv:3, cd:16, d:'모든 적을 1.5초 정지', fx:()=>skFreezeAll(1.5) },
-      { n:'강제 종료', lv:8, cd:14, d:'주변 적 현재 체력 20% 피해', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (Math.hypot(e.x-player.x,e.y-player.y)<200){ const d2=e.hp*0.2+8; e.hp-=d2; addDmgNum(e.x,e.y,d2,false); if(e.hp<=0) defeatEnemy(i); } } SFX.play('boom'); } },
+      { n:'강제 종료', lv:8, cd:14, d:'주변 적 현재 체력 20% 피해', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (!e) continue; if (Math.hypot(e.x-player.x,e.y-player.y)<200){ const d2=e.hp*0.2+8; e.hp-=d2; addDmgNum(e.x,e.y,d2,false); if(e.hp<=0) defeatEnemy(i); } } SFX.play('boom'); } },
       { n:'재배치', lv:15, cd:10, d:'무작위 순간이동 + 1초 무적', fx:()=>{ const a=Math.random()*Math.PI*2; burst(player.x,player.y,12,160); player.x+=Math.cos(a)*220; player.y+=Math.sin(a)*220; player.invuln=Math.max(player.invuln,1); SFX.play('tele'); } },
       { n:'루트 권한', lv:25, cd:30, d:'5초간 공격속도 +50%', fx:()=>{ tbuff('rate',1.5,5); addTextNum(player.x,player.y-26,'ROOT'); SFX.play('fever'); } },
     ],
@@ -3271,7 +3271,7 @@ import { FX } from "./fx.js";
       { n:'조준 사격', lv:3, cd:8, d:'모든 것을 관통하는 저격탄', fx:()=>{ const t=nearestTarget(); if(t){ const a=Math.atan2(t.y-player.y,t.x-player.x); projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*700,vy:Math.sin(a)*700,r:5,damage:30*player.dmgMult,crit:true,pierce:9999,life:1.2,mega:true}); SFX.play('shoot'); } } },
       { n:'연막', lv:8, cd:16, d:'3초간 회피 +40%', fx:()=>{ player.dodge=Math.min(0.9,player.dodge+0.4); setTimeout(()=>{ player.dodge=Math.max(0,player.dodge-0.4); },3000); burst(player.x,player.y,20,120); } },
       { n:'더블탭', lv:15, cd:14, d:'3초간 모든 공격 확정 치명타', fx:()=>{ const o=player.critChance; player.critChance=1; setTimeout(()=>{ player.critChance=o; },3000); SFX.play('fever'); } },
-      { n:'데드아이', lv:25, cd:26, d:'적 8명을 즉시 저격', fx:()=>{ let n=0; for (let i=enemies.length-1;i>=0&&n<8;i--,n++){ const e=enemies[i]; const d2=40*player.dmgMult*player.critMult; e.hp-=d2; addDmgNum(e.x,e.y,d2,true); burst(e.x,e.y,6,140); if(e.hp<=0) defeatEnemy(i); } SFX.play('boom'); } },
+      { n:'데드아이', lv:25, cd:26, d:'적 8명을 즉시 저격', fx:()=>{ let n=0; for (let i=enemies.length-1;i>=0&&n<8;i--,n++){ const e=enemies[i]; if (!e) continue; const d2=40*player.dmgMult*player.critMult; e.hp-=d2; addDmgNum(e.x,e.y,d2,true); burst(e.x,e.y,6,140); if(e.hp<=0) defeatEnemy(i); } SFX.play('boom'); } },
     ],
     rusher: [
       { n:'기병 돌격', lv:3, cd:9, d:'말을 몰아 앞을 꿰뚫는다', fx:()=>{ tryDashFree(); dashExplosion(player.x,player.y,30); } },
@@ -3355,7 +3355,7 @@ import { FX } from "./fx.js";
       { n:'print()', lv:3, cd:8, d:'전방에 데미지 로그를 출력한다', fx:()=>{ const a=player.facing; for(let k=0;k<5;k++) addHazard(player.x+Math.cos(a)*(60+k*55),player.y+Math.sin(a)*(60+k*55),40,0.1+k*0.08,22*player.dmgMult,true); } },
       { n:'git revert', lv:8, cd:18, d:'체력 20% 복구', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.2*player.healMult); addTextNum(player.x,player.y-26,'reverted'); } },
       { n:'sudo', lv:15, cd:20, d:'4초간 모든 버프 (공속·이속·피해 +20%)', fx:()=>{ tbuff('rate',1.2,4); tbuff('spd',1.2,4); tbuff('dmg',1.2,4); addTextNum(player.x,player.y-26,'#'); } },
-      { n:'rm -rf', lv:25, cd:34, d:'보스를 제외한 화면을 청소한다', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(e.type!=='treasure'){ e.hp-=200*player.dmgMult; addDmgNum(e.x,e.y,200*player.dmgMult,true); if(e.hp<=0) defeatEnemy(i); } } shake=Math.min(24,shake+18); SFX.play('boom'); } },
+      { n:'rm -rf', lv:25, cd:34, d:'보스를 제외한 화면을 청소한다', fx:()=>{ for (let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if (!e) continue; if(e.type!=='treasure'){ e.hp-=200*player.dmgMult; addDmgNum(e.x,e.y,200*player.dmgMult,true); if(e.hp<=0) defeatEnemy(i); } } shake=Math.min(24,shake+18); SFX.play('boom'); } },
     ],
     tourist: [
       { n:'셀카', lv:3, cd:14, d:'주변 적 1.5초 정지 + 골드 5', fx:()=>{ for (const e of enemies){ if((e.x-player.x)**2+(e.y-player.y)**2<160*160) e.frozenT=Math.max(e.frozenT||0,1.5); } runGold+=Math.round(5*player.goldMult); addTextNum(player.x,player.y-26,'📸'); SFX.play('tele'); } },
@@ -6025,11 +6025,19 @@ import { FX } from "./fx.js";
       + ((player.jobBr && Object.values(player.jobBr).reduce((s,v)=>s+v,0))||0)
       + (player.ascSeal2?2:0) + (player.ascSeal3?3:0) + (player.ascAwakenTaken?3:0);
     pw += (player.csEvo||0) * 0.03 + ascAll * 0.015;
-    return 1 + Math.min(2.3, pw);                                 // 최대 +230% — 운명이 커질수록 세상도 커진다
+    //  v6.148 상한 2.3 → 3.4. **상한이 플레이어 성장보다 먼저 끝나 있었다.**
+    //   실측: 레벨40·테크30·성도100·장비0.5 프로필의 pw가 2.84인데 2.3에서 잘렸다 —
+    //   즉 그 지점부터 **성장은 계속되는데 세상은 멈춘다**. 그 뒤로 얻는 모든 힘이 공짜였다
+    return 1 + Math.min(3.4, pw);
   }
   // v6.13 난이도 재상향: 웨이브 3부터는 무빙·기믹 없이는 절대 못 버틴다 (자동사냥 사형선고)
   function hpScale(){ return (1 + elapsed*0.027 + Math.pow(Math.max(0,elapsed-240)*0.0070,1.7)) * MAP.mult.ehp * perilE() * powerScale(); }
-  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0060 + Math.max(0,elapsed-300)*0.0038) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.85 + powerScale()*0.15) * ((player&&player.midEdmg)||1); }
+  //  🔴 v6.148 **적 체력은 성장을 전부 반영하는데(hpScale) 적 피해는 15%만 반영하고 있었다.**
+  //   `0.85 + ps*0.15` → 풀성장에서도 **+34%**뿐. 그래서 후반 적은 *단단하기만 하고 아프지 않았다* —
+  //   "웨이브 2~4만 버티면 죽을 수 없다"는 체감의 정체가 이것이다.
+  //   ⇒ `0.55 + ps*0.45`. **성장 이전(ps=1.0)에는 정확히 1.00으로 지금과 같다** — 초반 난이도는 건드리지 않는다.
+  //   풀성장(ps=3.84)에서 1.34 → 2.28 (+69%). 세상이 성장을 따라온다
+  function dmgScale(){ const p=DB.peril||0; return (1 + elapsed*0.0060 + Math.max(0,elapsed-300)*0.0038) * MAP.mult.edmg * (1 + 0.25*Math.min(p,20) + 0.15*Math.max(0,p-20)) * (0.55 + powerScale()*0.45) * ((player&&player.midEdmg)||1); }
   function spdScale(){ return 1 + Math.min(0.75, elapsed*0.0017); }
   function ringSpawnPos(minR, maxR){
     const a = Math.random()*Math.PI*2;
@@ -6276,7 +6284,7 @@ import { FX } from "./fx.js";
     } else if (it.type==='bomb'){
       const dmg = 130 * (1 + elapsed*0.006) * player.dmgMult;
       for (let i=enemies.length-1;i>=0;i--){
-        const e = enemies[i];
+        const e = enemies[i]; if (!e) continue;
         // 등급별 계수: 일반 100% / 축복 60% / 엘리트 35%
         const coef = e.elite ? 0.35 : e.blessed ? 0.6 : 1;
         e.hp -= dmg*coef;
@@ -6284,7 +6292,7 @@ import { FX } from "./fx.js";
         if (e.hp<=0) defeatEnemy(i);
       }
       for (let i=bosses.length-1;i>=0;i--){
-        const b = bosses[i];
+        const b = bosses[i]; if (!b) continue;
         b.hp -= dmg*0.2; // 보스 계수 하향 (폭탄으로 보스를 녹이지 못하게)
         addDmgNum(b.x, b.y, dmg*0.2, true);
         if (b.hp<=0) defeatBoss(i); else refreshBossBar();
@@ -6983,6 +6991,23 @@ import { FX } from "./fx.js";
     window.__qaToTitle();
     return out;
   };
+  //  v6.148 QA: **시간 강제**. 지금까지 모든 벤치가 12~20초짜리라 **후반 난이도를 한 번도 재본 적이 없다**.
+  //   적 체력·피해·스폰이 전부 `elapsed`에 걸려 있으므로 여기를 옮기면 10분 뒤 세상을 즉시 볼 수 있다.
+  //   ⚠ 플레이어 성장은 따라오지 않는다 — '같은 캐릭터가 맞는 세상의 세기'를 재는 용도다
+  window.__qaTime = (sec)=>{ try { elapsed = Math.max(0, sec||0); return 't='+Math.round(elapsed); } catch(e){ return 'ERR '+String(e); } };
+  //  위험도는 `DB`(모듈 스코프)에 있어 콘솔에서 못 건드린다 — 훅으로 연다 (난이도 실측용)
+  window.__qaPeril = (n)=>{ try { DB.peril = Math.max(0, n||0); return 'peril='+DB.peril; } catch(e){ return 'ERR '+String(e); } };
+  //  v6.148 QA: 성장 대리. 실제 20분 빌드를 재현할 수 없으니 **성장의 결과값**(파워스케일 입력)을 직접 세운다
+  window.__qaPower = (lv, tech, star, equip)=>{
+    try {
+      player.level = lv || player.level;
+      player.tech = player.tech || {};
+      if (tech){ player.tech.__qa = tech; }
+      //  ⚠ 성도(starSpent)는 저장소 기반이라 여기서 못 세운다 — 대신 equipPower에 합산해 같은 무게로 넣는다
+      player.equipPower = (equip || 0) + (star || 0) * 0.006;
+      return 'powerScale='+powerScale().toFixed(2);
+    } catch(e){ return 'ERR '+String(e); }
+  };
   window.__qaSet = (k,v)=>{ // v6.51 QA: 플레이어 플래그 강제 설정 (전직 메커니즘 검증용)
     try { player[k]=v; return k+'='+String(v); } catch(e){ return 'ERR '+String(e); }
   };
@@ -7017,6 +7042,15 @@ import { FX } from "./fx.js";
         mCharge: +((player&&player.mCharge)||0).toFixed(3),
         gore: zones.filter(z=>z.type==='gore').length,
         kills: killCount,
+        //  v6.148 난이도 계측 — "몇 분부터 안 죽는가"를 값으로 말하려면 시간·레벨·웨이브가 필요하다
+        //   (지금까지 벤치는 12~20초짜리라 **후반 난이도를 한 번도 재본 적이 없다**)
+        t: Math.round(elapsed), lv: player&&player.level, maxHp: Math.round(player&&player.maxHp||0),
+        wave: waveCount, peril: DB.peril||0, dr: +((player&&player.dmgTaken)||1).toFixed(3),
+        taken: Math.round((player&&player.qaTaken)||0), hitN: (player&&player.qaHitN)||0,   // v6.148 실제 누적 피해
+        //  v6.148 패링 축 — 예고가 실제로 뜨는지, 완벽 패링이 성립하는지를 **값으로** 확인한다
+        threatT: +((player&&player.threatT)||0).toFixed(2), threatKind: player&&player.threatKind,
+        parryN: (player&&player.qaParryN)||0, parryPerfect: (player&&player.qaParryPerfect)||0,
+        regen: +((player&&player.regen)||0).toFixed(2), state: state,
         // v6.147 위성 조작 축 — 사출한 수·궤도에 남은 수·꿰뚫은 수를 **값으로** 확인한다
         //  (v6.138 교훈: 새 축은 '켜졌는지'가 아니라 '반영되는지'를 재야 한다)
         satFly: satFlight.length, satOrbitN: player&&player.satOrbitN|0,
@@ -7187,10 +7221,17 @@ import { FX } from "./fx.js";
   // 관문 보정: 플레이어가 과성장했으면 관문도 함께 단단해진다 (웨이브 파밍으로 밸런스 붕괴 방지)
   function applyGateScale(gb){
     if (!gb) return;
-    const gs = 0.5 + 0.75*powerScale(); // 초반 1.25× ~ 풀성장 2.0× (레벨·테크·성도·장비 전부 반영)
+    //  🔴 v6.148 관문 보스가 **나오자마자 죽는다**(사용자 피드백). 원인은 상한이다:
+    //   기존 `0.5 + 0.75*ps`는 powerScale 상한(2.3+1)에 걸려 **최대 2.98배**에서 멈췄다.
+    //   그 사이 플레이어 화력은 전용기·스킬·궁극·성장무기로 **수십 배**가 된다 — 상대가 안 된다.
+    //   ⇒ 성장분에 **가속 항**을 붙인다. `ps=1.0`(성장 전)에서는 1.25배로 **지금과 같고**,
+    //     풀성장(ps=4.4)에서 3.8 + 3.36 = **7.2배**. 관문은 '성장의 시험'이라 여기가 가팔라야 한다
+    const ps = powerScale();
+    const gs = 0.5 + 0.75*ps + 1.2*Math.max(0, ps-1.0);
     gb.maxHp = Math.round(gb.maxHp * gs);
     gb.hp = gb.maxHp;
-    gb.dmg = Math.round(gb.dmg * (0.8 + 0.3*powerScale()));
+    //  피해도 같은 이유로 상한이 낮았다 (최대 1.79배) — 성장분을 키운다. ps=1.0에서는 1.1배로 동일
+    gb.dmg = Math.round(gb.dmg * (0.8 + 0.3*ps + 0.35*Math.max(0, ps-1.0)));
     refreshBossBar();
   }
   // 수문장 테마 전용 한 수 — 3종 엔진 공통으로 호출
@@ -9885,7 +9926,7 @@ import { FX } from "./fx.js";
   function cutHostileShots(cx, cy, radius, baseA, arc){
     let cut = 0;
     for (let i=hostileShots.length-1;i>=0;i--){
-      const b = hostileShots[i];
+      const b = hostileShots[i]; if (!b) continue;
       const d = Math.hypot(b.x-cx, b.y-cy);
       if (d > radius + 8) continue;
       if (arc < Math.PI*2){
@@ -10019,7 +10060,7 @@ import { FX } from "./fx.js";
       } else if (g1==='rog'){
         if (vv===0){ player.invuln = Math.max(player.invuln, 0.6); player.shadows && player.shadows.push({ x:player.x, y:player.y, t:2, cd:0.3 }); }
         else if (vv===1){ let bt=null, bd=1e9; for (const e2 of enemies){ const d2=Math.hypot(e2.x-player.x,e2.y-player.y); if (d2<bd){ bd=d2; bt=e2; } } if (bt){ const dd=(14+lm*0.5)*player.dmgMult*player.critMult; bt.hp-=dd; addDmgNum(bt.x,bt.y,dd,true); } }
-        else { let culled=0; for (let i2=enemies.length-1;i2>=0 && culled<3;i2--){ const e2=enemies[i2]; if (!e2.elite && e2.type!=='treasure' && e2.maxHp && e2.hp<e2.maxHp*0.15 && Math.hypot(e2.x-player.x,e2.y-player.y)<180){ e2.hp=0; defeatEnemy(i2); culled++; } } }
+        else { let culled=0; for (let i2=enemies.length-1;i2>=0 && culled<3;i2--){ const e2=enemies[i2]; if (!e2) continue; if (!e2.elite && e2.type!=='treasure' && e2.maxHp && e2.hp<e2.maxHp*0.15 && Math.hypot(e2.x-player.x,e2.y-player.y)<180){ e2.hp=0; defeatEnemy(i2); culled++; } } }
       } else if (g1==='pri'){
         if (vv===0){ const hv=Math.round((3+lm*0.15)*player.healMult); player.hp=Math.min(player.maxHp,player.hp+hv); addTextNum(player.x,player.y-46,'+'+hv); }
         else if (vv===1){ player.invuln = Math.max(player.invuln, 0.8); }
@@ -10117,7 +10158,7 @@ import { FX } from "./fx.js";
       }
     }
     for (let i=bosses.length-1;i>=0;i--){
-      const b = bosses[i];
+      const b = bosses[i]; if (!b) continue;
       if (!b.ghost && Math.hypot(b.x-x, b.y-y) < 100+b.r){
         b.hp -= d;
         addDmgNum(b.x,b.y,d,false);
@@ -10208,6 +10249,80 @@ import { FX } from "./fx.js";
   //   적을 통과해 버린다. 상한 6이 걸릴 일이 없으니 '조작의 보상'도 같이 사라졌다.
   //   속도를 낮추고 판정을 키워 **선으로 훑히게** 만든다 (상한은 그대로 — 쓸어담기는 여전히 막힌다)
   const SAT_FLIGHT = { range:330, out:560, back:520, r:16, max:2, life:7, budget:6 };
+  //  🔴 v6.148 **위협 예고** — 사용자: *"패링은 화면을 가리고, 있어도 무슨 의미인지 모르겠다"*
+  //   진짜 원인은 연출이 아니라 **읽을 것이 없다**는 것이었다:
+  //   이 게임 피해의 대부분은 **예고 없는 접촉 피해**인데, 패링은 원래 *예고된 한 방*에 대응하는 기술이다.
+  //   0.22초 창 / 1.6초 쿨로 무리를 상대하라니 누를 근거가 없었다 — 그래서 "왜 있는지 모르겠다"가 된다.
+  //   ⇒ **닥쳐오는 한 방을 표시해 준다.** 이제 패링은 '아무 때나 누르는 버튼'이 아니라
+  //     **표시된 것에 맞춰 누르는 기술**이 된다. (요격도 같은 표시를 쓴다 — 날아오는 탄을 겨눈다)
+  const THREAT = { lead:0.55, r:150 };
+  function updateThreat(dt){
+    if (!player) return;
+    player.threatT = 0; player.threatX = 0; player.threatY = 0; player.threatKind = null;
+    let best = 999;
+    // ① 곧 닿는 접촉 — 다가오는 속도로 도달 시각을 추정한다
+    for (const e of enemies){
+      if (!e || e.dmg<=0 || (e.hitCd||0) > 0) continue;
+      const dx = e.x-player.x, dy = e.y-player.y;
+      const dist = Math.hypot(dx,dy) - (e.r + player.r);
+      if (dist > THREAT.r) continue;
+      //  ⚠ 적에게는 `vx/vy`가 **없다** — `speed`로 플레이어를 향해 곧장 온다(1차 구현에서 `e.vx`를 읽어
+      //   예고 표시율이 **0%**였다. HANDOFF의 '없는 전역을 참조하지 말 것'을 그대로 반복했다).
+      //   쫓아오는 적이므로 접근 속도 = speed 로 봐도 예고로는 충분하다
+      const closing = Math.max(1, e.speed || 40);
+      const eta = dist <= 0 ? 0 : dist / closing;
+      if (eta < best && eta <= THREAT.lead){ best = eta; player.threatX = e.x; player.threatY = e.y; player.threatKind = 'touch'; }
+    }
+    // ② 곧 닿는 적탄 — 요격/패링 둘 다의 표적이 된다
+    for (const p of hostileShots){
+      if (!p) continue;
+      const dx = p.x-player.x, dy = p.y-player.y;
+      const d2 = Math.hypot(dx,dy);
+      if (d2 > 320) continue;
+      const closing = ((p.vx||0)*(-dx) + (p.vy||0)*(-dy)) / Math.max(1, d2);
+      if (closing <= 20) continue;
+      const eta = (d2 - player.r) / closing;
+      if (eta < best && eta <= THREAT.lead){ best = eta; player.threatX = p.x; player.threatY = p.y; player.threatKind = 'shot'; }
+    }
+    // ③ 보스의 접촉·돌진 — 잡몹과 달리 **한 방이 크다**. 이게 패링이 진짜로 필요한 순간이다
+    for (const b of bosses){
+      if (!b || b.ghost) continue;
+      const dx = b.x-player.x, dy = b.y-player.y;
+      const dist = Math.hypot(dx,dy) - (b.r + player.r);
+      if (dist > THREAT.r) continue;
+      const eta = dist <= 0 ? 0 : dist / Math.max(1, (b.speed||60) * (b.chargeState==='charging'?3:1));
+      if (eta <= THREAT.lead && eta < best){ best = eta; player.threatX = b.x; player.threatY = b.y; player.threatKind = 'boss'; }
+    }
+    if (best <= THREAT.lead) player.threatT = Math.max(0.001, best);
+  }
+  //  예고 그리기 — ⚠ **화면을 덮지 않는다.** 큰 링 대신 위협 위의 작은 조임 브래킷 + 내 발밑의 방향 눈금.
+  //   (기존 패링 연출은 반경 118 흰 링이라 정작 **막아야 할 것을 가렸다**)
+  function drawThreat(){
+    if (!player || !(player.threatT>0)) return;
+    const k = 1 - Math.min(1, player.threatT / THREAT.lead);      // 0(멀다) → 1(임박)
+    const ang = Math.atan2(player.threatY-player.y, player.threatX-player.x);
+    const ready = (player.guardCd||0) <= 0;
+    const col = ready ? '#e0a94f' : '#9aa0a6';                    // 쿨이 돌면 회색 — '지금은 못 막는다'가 보인다
+    ctx.save();
+    // 위협 위의 조임 브래킷 (네 귀퉁이가 좁혀 들어온다 = 타이밍이 눈에 보인다)
+    //  ⚠ 접촉과 적탄은 **대응이 다르다**(막기 / 쏘아 떨구기) → 브래킷 갈래 수로 구분한다.
+    //   접촉 = 네 귀퉁이가 조인다 / 적탄 = 진행선을 낀 두 갈래 (탄이 지나는 길이 보인다)
+    const shot = player.threatKind === 'shot';
+    const br = 22 - 12*k;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.globalAlpha = 0.35 + 0.55*k;
+    const seg = shot ? 2 : 4;
+    for (let q=0;q<seg;q++){
+      const a0 = shot ? (ang + Math.PI/2 + Math.PI*q) : (Math.PI/2*q + Math.PI/4);
+      ctx.beginPath();
+      ctx.arc(player.threatX, player.threatY, br, a0-0.34, a0+0.34);
+      ctx.stroke();
+    }
+    // 내 몸 가장자리에 방향 눈금 — 어디서 오는지 (시야를 안 가리는 얇은 호)
+    ctx.globalAlpha = 0.30 + 0.6*k; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.arc(player.x, player.y, player.r+13, ang-0.5, ang+0.5); ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
   // v6.107 엔진 자원 — 이미 엔진이 쓰고 있는 값을 그대로 읽어 게이지로 만든다 (새 자원을 만들지 않는다)
   // v6.110 장착한 근접 엔진의 판정 범위를 옅게 그린다. 형태가 엔진마다 달라 '무엇을 소유하는지'도 함께 읽힌다
   function drawMeleeRange(){
@@ -10395,6 +10510,12 @@ import { FX } from "./fx.js";
     player.guardCd = GUARD_CD;
     player.guardT = GUARD_WIN;
     player.guardKind = isRangedBuild() ? 'shoot' : 'parry';
+    //  🔴 v6.148 **'완벽'은 무엇을 받아쳤는지로 가른다.**
+    //   1차 시도(맞는 순간 예고 여부)는 완벽 7/7, 2차 시도(누른 순간 예고 여부)도 **마구 눌러도 100%**였다 —
+    //   무리 속에서는 *맞는 순간엔 언제나 적이 붙어 있어서* 접촉 예고가 상시로 뜨기 때문이다.
+    //   ⇒ 접촉(잡몹)은 기본 패링, **적탄·보스**를 받아친 것만 완벽. 이 둘이 '읽고 대응할 값어치가 있는' 위협이다
+    const tk = player.threatKind;
+    player.guardPerfect = (player.threatT||0) > 0 && (tk === 'shot' || tk === 'boss');
     SFX.play('tele');
     if (player.guardKind === 'shoot'){
       // v6.131 요격은 **누르는 순간 전부 지우는 버튼이 아니다.**
@@ -11848,7 +11969,7 @@ import { FX } from "./fx.js";
     const radius = pull ? 170 : 130;
     effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0: pull?radius:20, r1: pull?20:radius+40 });
     for (let i=enemies.length-1;i>=0;i--){
-      const e = enemies[i];
+      const e = enemies[i]; if (!e) continue;
       const d = Math.hypot(e.x-player.x, e.y-player.y);
       if (d < radius+e.r){
         e.hp -= dmg;
@@ -11860,7 +11981,7 @@ import { FX } from "./fx.js";
       }
     }
     for (let i=bosses.length-1;i>=0;i--){
-      const b = bosses[i];
+      const b = bosses[i]; if (!b) continue;
       if (!b.ghost && Math.hypot(b.x-player.x, b.y-player.y) < radius+b.r){
         b.hp -= dmg*0.7;
         addDmgNum(b.x,b.y,dmg*0.7,false);
@@ -11931,7 +12052,7 @@ import { FX } from "./fx.js";
       player.awaveT = (player.awaveT||8) - dt;
       if (player.awaveT<=0){
         for (let i2=enemies.length-1;i2>=0;i2--){
-          const e2 = enemies[i2];
+          const e2 = enemies[i2]; if (!e2) continue;
           if (Math.hypot(e2.x-player.x, e2.y-player.y) < 140+e2.r){
             const d2 = player.awaveDmg*D*corrodeMult(e2);
             e2.hp -= d2; addDmgNum(e2.x, e2.y, d2, false);
@@ -11967,7 +12088,7 @@ import { FX } from "./fx.js";
       player.empT = (player.empT||9) - dt;
       if (player.empT<=0){
         for (let i2=enemies.length-1;i2>=0;i2--){
-          const e2 = enemies[i2];
+          const e2 = enemies[i2]; if (!e2) continue;
           if (Math.hypot(e2.x-player.x, e2.y-player.y) < 150+e2.r){
             e2.hp -= player.empDmg*D;
             e2.frozenT = Math.max(e2.frozenT||0, 0.4);
@@ -11987,7 +12108,7 @@ import { FX } from "./fx.js";
       if (player.wardT<=0){
         let cleared = 0;
         for (let i2=hostileShots.length-1;i2>=0;i2--){
-          const s2 = hostileShots[i2];
+          const s2 = hostileShots[i2]; if (!s2) continue;
           if (Math.hypot(s2.x-player.x, s2.y-player.y) < 150){ hostileShots.splice(i2,1); cleared++; }
         }
         if (cleared>0){
@@ -12058,7 +12179,7 @@ import { FX } from "./fx.js";
       player.tstopT = (player.tstopT||16) - dt;
       if (player.tstopT<=0){
         for (const e2 of enemies) e2.frozenT = Math.max(e2.frozenT||0, 1.2*(player.stutterDur>=1?1.5:1));
-        for (let i2=enemies.length-1;i2>=0;i2--){ const e2=enemies[i2]; e2.hp -= player.timestop*D; if (e2.hp<=0) defeatEnemy(i2); }
+        for (let i2=enemies.length-1;i2>=0;i2--){ const e2=enemies[i2]; if (!e2) continue; e2.hp -= player.timestop*D; if (e2.hp<=0) defeatEnemy(i2); }
         addTextNum(player.x, player.y-30, '시간 정지!');
         FX.ring(player.x, player.y, 0x5ab8c9, 20);
         screenDimT = Math.max(screenDimT, 0.3);
@@ -12115,7 +12236,7 @@ import { FX } from "./fx.js";
       if (player.infernoT<=0){
         effects.push({ type:'ring', x:player.x, y:player.y, life:0.5, age:0, r0:30, r1:200 });
         for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
+          const e = enemies[i]; if (!e) continue;
           if (Math.hypot(e.x-player.x,e.y-player.y) < 180+e.r){
             let d = player.inferno*D*corrodeMult(e);
             if (e.burnT>0){ d += e.burnDps*e.burnT*2; e.burnT=0; }
@@ -12125,7 +12246,7 @@ import { FX } from "./fx.js";
           }
         }
         for (let i=bosses.length-1;i>=0;i--){
-          const b = bosses[i];
+          const b = bosses[i]; if (!b) continue;
           if (!b.ghost && Math.hypot(b.x-player.x,b.y-player.y) < 180+b.r){
             let d = player.inferno*D*0.8;
             if (b.burnT>0){ d += b.burnDps*b.burnT*2; b.burnT=0; }
@@ -12165,14 +12286,14 @@ import { FX } from "./fx.js";
       if (player.absZeroT<=0){
         effects.push({ type:'ring', x:player.x, y:player.y, life:0.6, age:0, r0:30, r1:460 });
         for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
+          const e = enemies[i]; if (!e) continue;
           e.frozenT = Math.max(e.frozenT||0, 2);
           e.hp -= player.absZero*D;
           addDmgNum(e.x,e.y,player.absZero*D,false);
           if (e.hp<=0) defeatEnemy(i);
         }
         for (let i=bosses.length-1;i>=0;i--){
-          const b = bosses[i];
+          const b = bosses[i]; if (!b) continue;
           if (b.ghost) continue;
           b.hp -= player.absZero*D*0.5;
           if (b.hp<=0) defeatBoss(i); else refreshBossBar();
@@ -12189,7 +12310,7 @@ import { FX } from "./fx.js";
       if (player.magfieldT<=0){
         effects.push({ type:'ring', x:player.x, y:player.y, life:0.3, age:0, r0:20, r1:135 });
         for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
+          const e = enemies[i]; if (!e) continue;
           if (Math.hypot(e.x-player.x,e.y-player.y) < 130+e.r){
             const d = player.magfieldDmg*D*(e.corrodeS>0?1.5:1);
             e.hp -= d;
@@ -12729,6 +12850,7 @@ import { FX } from "./fx.js";
       //  생존 벤치에서 궁수 14초·저격수 28초 사망(근접은 전원 생존)이라 **벗어날 수단이 아예 없었다**.
       //  조준 축과 정합적이다: 붙으면 조준이 풀리니, 대신 벗어날 힘을 준다
       player.kiteT = (isRangedBuild() && (player.aimNear||999) < 90) ? 1 : 0;
+      updateThreat(dt);                                                                                   // v6.148 위협 예고 갱신
       if (player.guardCd>0) player.guardCd -= dt;                                                         // v6.127 D축 쿨다운
       if (player.guardT>0){                                                                              // v6.127 방어 창
         // v6.131 요격: 창이 열려 있는 동안 **새로 들어온** 탄을 잡는다. 이게 타이밍을 만든다
@@ -12839,7 +12961,17 @@ import { FX } from "./fx.js";
       }
     }
     if (player.hitFlash>0) player.hitFlash -= dt;
-    if (player.regen>0){ player.hp = Math.min(player.maxHp, player.hp + player.regen*player.healMult*dt); }
+    //  🔴 v6.148 **교전 중 재생 감쇠 (40%)** — 재생이 초당 피해를 넘으면 그 순간부터 불사가 된다.
+    //   실측(10분·풀빌드): 초당 받는 피해 13.8인데 재생만 18이면 **맞으면서 체력이 찬다**.
+    //   피해 감소·회피에 하한/상한을 걸어도 여기가 열려 있으면 결국 같은 결론이 나온다.
+    //   ⇒ **맞은 뒤 2.5초 동안은 재생이 40%로 준다.** 재생을 '전투 중 무적'이 아니라
+    //     **물러나서 회복하는 자원**으로 되돌린다 — 빼는 게 아니라 **타이밍을 만든다**
+    //   ⚠ 초반에는 재생이 0~1이라 차이가 없다. 스택을 쌓은 후반에서만 물린다
+    if (player.combatT>0) player.combatT -= dt;
+    if (player.regen>0){
+      const rg = player.regen * player.healMult * ((player.combatT||0) > 0 ? 0.40 : 1);
+      player.hp = Math.min(player.maxHp, player.hp + rg*dt);
+    }
     // 흡혈 감쇠 윈도 리셋 (1초 단위)
     player.__lsWinT = (player.__lsWinT||0) + dt;
     if (player.__lsWinT >= 1){ player.__lsWinT = 0; player.__lsWin = 0; }
@@ -13246,7 +13378,14 @@ import { FX } from "./fx.js";
 
     // enemies
     for (let i=enemies.length-1;i>=0;i--){
-      const e = enemies[i];
+      const e = enemies[i]; if (!e) continue;
+      //  🔴 v6.148 **역방향 루프 중에 배열이 줄면 인덱스가 비어 버린다.**
+      //   `i`의 상한은 루프 시작 시점의 length인데, 이 루프 안에서 `playerHit`(패링 반격)·연쇄·폭발이
+      //   적을 **한 번에 여러 마리** 지운다 → `enemies[i]`가 undefined → `e.x`에서 예외 →
+      //   워치독이 **그 프레임을 통째로 스킵**한다. 매 프레임 반복되면 게임이 사실상 정지한다.
+      //   ⚠ v6.147에서 관측하고 원인을 못 찾았던 `reading 'elite'` 크래시가 **바로 이것이었다**
+      //     (그땐 defeatEnemy에 방어만 넣었다 — 진짜 발생지는 여기다)
+      //   ⚠ 같은 모양이 23곳 있었다 — **전부** 가드를 넣었다 (scratchpad/scanloops.mjs로 검출)
       const ex = player.x-e.x, ey = player.y-e.y;
       const ed = Math.hypot(ex,ey)||1;
       if (e.hitCd>0) e.hitCd -= dt;
@@ -13601,7 +13740,7 @@ import { FX } from "./fx.js";
 
     // bosses
     for (let i=bosses.length-1;i>=0;i--){
-      const b = bosses[i];
+      const b = bosses[i]; if (!b) continue;
       if (b.hitCd>0) b.hitCd -= dt;
       if (tickStatus(b, dt, true)){ defeatBoss(i); continue; }
       if (updateBoss(b, dt)) return;
@@ -13716,7 +13855,7 @@ import { FX } from "./fx.js";
 
     // hostile shots
     for (let i=hostileShots.length-1;i>=0;i--){
-      const p = hostileShots[i];
+      const p = hostileShots[i]; if (!p) continue;
       if (p.kind==='tornado'){
         const cur = Math.atan2(p.vy,p.vx);
         const sp = Math.hypot(p.vx,p.vy);
@@ -13928,17 +14067,32 @@ import { FX } from "./fx.js";
                          vx:Math.cos(sa2)*(140+Math.random()*220), vy:Math.sin(sa2)*(140+Math.random()*220)-60,
                          life:0.34, age:0, r:1.6 });
       }
-      effects.push({ type:'ring', x:player.x, y:player.y, life:0.32, age:0, r0:player.r, r1:118 });
-      effects.push({ type:'ring', x:player.x, y:player.y, life:0.22, age:0, r0:player.r, r1:62 });
-      effects.push({ type:'arc', x:player.x, y:player.y, a:pa, arc:2.2, r:player.r+30, life:0.24, age:0, friendly:true, col:'#e0a94f' });
-      if (FX.enabled){ FX.ring(player.x, player.y, 0xe0a94f, 26); FX.burst(player.x+Math.cos(pa)*14, player.y, 0xf6f6f4, 10, 200, 0.45); }
-      friendlyBlast(player.x, player.y, 118, 95*player.dmgMult*(player.meleeBoost||1), false);
-      cutHostileShots(player.x, player.y, 130, 0, Math.PI*2);
-      player.mCharge = Math.min(1, (player.mCharge||0) + 0.25);   // 되받아친 만큼 기력이 돌아온다
-      player.guardCd = Math.min(player.guardCd, 0.5);             // 성공하면 쿨이 짧아진다 — 잘하면 더 자주
+      //  v6.148 **연출을 줄인다.** 반경 118 흰 링 두 겹이 *정작 막아야 할 것을 가리고 있었다*(사용자 지적).
+      //   링은 62로 줄이고 한 겹만, 대신 **막은 방향의 호**를 진하게 — '무엇을 어디서 쳐냈는지'가 읽힌다
+      effects.push({ type:'ring', x:player.x, y:player.y, life:0.20, age:0, r0:player.r, r1:62 });
+      effects.push({ type:'arc', x:player.x, y:player.y, a:pa, arc:2.2, r:player.r+30, life:0.26, age:0, friendly:true, col:'#e0a94f' });
+      if (FX.enabled){ FX.ring(player.x, player.y, 0xe0a94f, 14); FX.burst(player.x+Math.cos(pa)*14, player.y, 0xf6f6f4, 8, 180, 0.4); }
+      //  🔴 **완벽 패링** — 예고가 떠 있을 때(=닥친 한 방을 보고) 막으면 보상이 커진다.
+      //   이게 없으면 패링은 여전히 '아무 때나 누르고 운 좋으면 성립'이라 기술이 되지 않는다
+      const perfect = !!player.guardPerfect;      // 누른 시점의 판정 (위 tryGuard에서 굳힌다)
+      player.qaParryN = (player.qaParryN||0) + 1;                                    // v6.148 계측
+      if (perfect) player.qaParryPerfect = (player.qaParryPerfect||0) + 1;
+      friendlyBlast(player.x, player.y, perfect?150:110, (perfect?190:95)*player.dmgMult*(player.meleeBoost||1), false);
+      cutHostileShots(player.x, player.y, perfect?180:130, 0, Math.PI*2);
+      player.mCharge = Math.min(1, (player.mCharge||0) + (perfect?0.45:0.25));   // 되받아친 만큼 기력이 돌아온다
+      player.guardCd = perfect ? 0 : Math.min(player.guardCd, 0.5);              // 완벽하면 **즉시** 다시 막을 수 있다
+      if (perfect){
+        addTextNum(player.x, player.y-32, '완벽!');
+        player.surgeT = Math.max(player.surgeT||0, 2.0);          // 각성 창 — 잘 막으면 그 다음이 강해진다
+        hitStop(0.10); slowmoT = Math.max(slowmoT, 0.22);         // 짧은 슬로모 — '쳐냈다'가 몸으로 읽힌다
+      }
       return false;
     }
-    if (player.dodge>0 && Math.random()<player.dodge){
+    //  🔴 v6.148 **회피 전역 상한 0.55.** 개별 출처는 `Math.min(0.7~0.75, …)`로 막혀 있었지만
+    //   그건 *한 출처의 상한*이라 여러 갈래로 쌓으면 0.7까지 갔고, 거기에 아래 피해 감소가 **또 곱해졌다**.
+    //   실측: 회피0.65+감소0.25 조합이 10분 세상에서 30초에 **47 피해**만 받았다(맨몸 400의 1/8.5).
+    //   ⚠ 상한은 **여기 한 곳**에서 건다 — 출처마다 걸면 새 출처가 생길 때마다 또 뚫린다 (v6.140의 교훈)
+    if (player.dodge>0 && Math.random()<Math.min(0.55, player.dodge)){
       addTextNum(player.x, player.y-14, 'MISS');
       player.invuln = 0.25;
       return false;
@@ -13973,10 +14127,23 @@ import { FX } from "./fx.js";
     // v6.134 근접을 실제로 어렵게 — **맞으면 열기가 절반 날아간다**.
     //  지금까지 근접은 붙어도 잃는 게 없어서 '위험을 진다'는 말이 수치로 성립하지 않았다
     if ((player.heat||0) > 0) player.heat *= 0.5;
-    let d = dmg * player.dmgTaken * buffMult('dr') * encircleCut() * satGuard;
+    //  🔴 v6.148 **피해 감소 하한 0.40 (최대 60% 감소).**
+    //   `dmgTaken *= 0.9x`가 코드 전체에 **89곳**이고 전부 곱연산인데 하한이 없었다 —
+    //   10개만 먹어도 0.43, 20개면 0.19가 된다. 감소원을 하나 더 먹을수록 **가치가 커지는** 구조라
+    //   임계점을 넘는 순간 절벽처럼 무적이 됐다.
+    //   ⚠ 하한도 **한 곳**에서 건다. 개별 출처를 깎으면 89곳을 다 고쳐야 하고 새로 생기면 또 뚫린다.
+    //   ⚠ 초반에는 감소원이 몇 개 없어 하한에 닿지 않는다 — **초반 난이도는 그대로**다
+    const MIT_FLOOR = 0.40;
+    const mit = Math.max(MIT_FLOOR, player.dmgTaken * buffMult('dr') * encircleCut() * satGuard);
+    let d = dmg * mit;
     if (player.baeksu && (player.__baeksuT||0)>0.8) d *= 0.8; // 백수: 집콕 방어
-    // 불굴: 낮은 체력 피해 감소
+    // 불굴: 낮은 체력 피해 감소 (하한 밖 — '빈사에서만' 걸리는 구제책이라 상시 감소와 성격이 다르다)
     if (player.undyingDR>0 && player.hp < player.maxHp*0.3) d *= (1-player.undyingDR);
+    //  v6.148 QA 계측 — **체력 샘플링으로는 재생이 사이를 메워 실제 피해를 놓친다**.
+    //   (실측에서 재생 10인 빌드가 '더 안전해진 것처럼' 나왔다 — 지표가 틀린 것이었다)
+    player.qaTaken = (player.qaTaken||0) + d;
+    player.qaHitN = (player.qaHitN||0) + 1;
+    player.combatT = 2.5;                 // v6.148 교전 표시 — 이 동안 재생이 40%로 준다
     player.hp -= d;
     noHitT = 0;
     // 생존 의뢰 실패
@@ -14025,7 +14192,7 @@ import { FX } from "./fx.js";
         player.invuln = Math.max(2.5, player.reviveInvuln||0);   // v6.77 reviveInvuln 연결
         addTextNum(player.x, player.y-20, '재기동!');
         for (let i=enemies.length-1;i>=0;i--){
-          const e = enemies[i];
+          const e = enemies[i]; if (!e) continue;
           if (Math.hypot(e.x-player.x, e.y-player.y) < 200){
             e.hp -= 600;
             if (e.hp<=0) defeatEnemy(i);
@@ -19252,6 +19419,7 @@ import { FX } from "./fx.js";
     }
     // v6.110 근접 사거리 가이드 — 닿는 곳이 보여야 붙을지 뺄지 판단할 수 있다
     drawMeleeRange();
+    drawThreat();      // v6.148 위협 예고 — 패링/요격이 '읽고 누르는' 기술이 되게 하는 유일한 근거
     // v6.107 엔진 자원 게이지 — 캐릭터 발밑. 만충이면 맥동하며 'R' 안내가 뜬다
     {
       const rs = engineResource();
