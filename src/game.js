@@ -18183,6 +18183,41 @@ import { FX } from "./fx.js";
     //     ② 본체 — 기본색을 잉크가 아니라 **금속 톤**으로 (분기가 색을 직접 지정한 곳은 그 색이 이긴다)
     //     ③ 반대쪽 오프셋 하이라이트 — 날에 빛이 걸린다
     //   ⇒ 한 번의 구조 변경으로 **37종 전부** 올라간다.
+    //  🔴 v6.175 **무기 재질 팔레트** — 사용자: *"왜 다 회색으로 바꿨어 뭔의미가있는데"*
+    //   금속 하나로 칠하면 카타나든 활이든 같은 물건이다. 재질을 갈라야 무기가 구분된다.
+    const WM = {
+      steel:  mixHex(ink, '#d6dae4', 0.56),   // 강철 — 날
+      edge:   mixHex(ink, '#ffffff', 0.80),   // 날선 하이라이트
+      iron:   mixHex(ink, '#9aa0ac', 0.40),   // 무쇠 — 둔기·갑주
+      grip:   mixHex(ink, '#6b5847', 0.34),   // 감은 가죽 자루
+      wood:   mixHex(ink, '#8a6a44', 0.38),   // 나무 — 자루·활대
+      gold:   mixHex(ink, '#d9a53f', 0.62),   // 금 — 코등이·장식
+      cloth:  mixHex(ink, '#b0453c', 0.42),   // 천 — 손잡이 끈
+      dark:   mixHex(ink, '#000000', 0.25),   // 총열·그림자면
+    };
+    //  ── 날 형태: 시작폭 w0 → 끝폭 w1로 **좁아지며 휘는** 폴리곤.
+    //     선(stroke) 하나로는 절대 안 나오는 '깎인 날'을 만든다. curve>0이면 바깥으로 휜다.
+    const blade = (x0,y0,x1,y1,w0,w1,curve)=>{
+      const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1;
+      const nx=-dy/L, ny=dx/L, c=curve||0;
+      const mx=(x0+x1)/2 + nx*c, my=(y0+y1)/2 + ny*c;
+      ctx.beginPath();
+      ctx.moveTo(x0+nx*w0, y0+ny*w0);
+      ctx.quadraticCurveTo(mx+nx*(w0+w1)*0.5, my+ny*(w0+w1)*0.5, x1+nx*w1, y1+ny*w1);
+      ctx.lineTo(x1-nx*w1*0.35, y1-ny*w1*0.35);                       // 칼끝
+      ctx.quadraticCurveTo(mx-nx*(w0+w1)*0.30, my-ny*(w0+w1)*0.30, x0-nx*w0*0.62, y0-ny*w0*0.62);
+      ctx.closePath();
+    };
+    //  ── 감은 자루: 굵은 심 + 사선 감기 3줄
+    const grip = (x0,y0,x1,y1,w)=>{
+      ctx.strokeStyle = WM.grip; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = Math.max(0.4, w*0.28);
+      for (let k=1;k<=3;k++){
+        const t=k/4, px=x0+(x1-x0)*t, py=y0+(y1-y0)*t;
+        ctx.beginPath(); ctx.moveTo(px-1.1,py-0.9); ctx.lineTo(px+1.1,py+0.9); ctx.stroke();
+      }
+    };
     const drawProp = ()=>{
     if (g==='manager'){
       ctx.beginPath(); ctx.moveTo(-5,-15); ctx.lineTo(7,-15); ctx.lineTo(2,-25); ctx.closePath(); ctx.fill();
@@ -18190,12 +18225,18 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(7,-2); ctx.lineTo(7,-20); ctx.stroke();
       ctx.beginPath(); ctx.arc(7,-21.5,2.6,0,Math.PI*2); ctx.fill();
     } else if (g==='sniper'){
-      ctx.fillRect(-5,-17,11,3);
-      ctx.fillRect(3,-17,6,2);
-      ctx.lineWidth = 2.6;
-      ctx.beginPath(); ctx.moveTo(2,-2); ctx.lineTo(16,-4); ctx.stroke();
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(9,-3.4); ctx.lineTo(9,0); ctx.stroke();
+      //  v6.175 저격총 — 나무 개머리판 / 쇠 기관부 / 가는 총열 / 조준경
+      ctx.fillRect(-5,-17,11,3); ctx.fillRect(3,-17,6,2);                          // 모자
+      ctx.fillStyle = WM.wood;                                                     // 개머리판
+      ctx.beginPath(); ctx.moveTo(0.5,-0.4); ctx.lineTo(6.5,-2.2); ctx.lineTo(6.8,0.6); ctx.lineTo(1.2,2.2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = WM.iron;                                                     // 기관부
+      ctx.fillRect(6.2,-3.4,4.2,2.9);
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 1.5; ctx.lineCap='round';         // 총열
+      ctx.beginPath(); ctx.moveTo(10.2,-3.1); ctx.lineTo(18.4,-4.2); ctx.stroke();
+      ctx.strokeStyle = WM.iron; ctx.lineWidth = 1.2;                              // 조준경
+      ctx.beginPath(); ctx.moveTo(6.8,-4.8); ctx.lineTo(11.2,-5.4); ctx.stroke();
+      ctx.fillStyle = WM.dark;                                                     // 방아쇠울
+      ctx.beginPath(); ctx.arc(8.0,0.4,1.3,0,Math.PI); ctx.fill();
     } else if (g==='rusher'){
       ctx.beginPath(); ctx.arc(1,-13,6.2,Math.PI,0); ctx.fill();      // 투구
       ctx.fillRect(-6,-13.4,14,1.8);                                   // 챙
@@ -18213,11 +18254,18 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.ellipse(29.0+TH, -8.6, 3.6, 2.1, -0.26, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1; ctx.fillStyle = ink;
     } else if (g==='archer'){
-      ctx.beginPath(); ctx.arc(0,-12,6.4,Math.PI*0.9,Math.PI*0.1); ctx.fill();
-      ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.moveTo(10,-9); ctx.quadraticCurveTo(15,-2,10,5); ctx.stroke();
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(10,-9); ctx.lineTo(10,5); ctx.stroke();
+      //  v6.175 활 — 나무 활대(굵기 변화) + 양끝 고자 + 가는 시위 + 그립
+      ctx.beginPath(); ctx.arc(0,-12,6.4,Math.PI*0.9,Math.PI*0.1); ctx.fill();     // 두건
+      ctx.strokeStyle = WM.wood; ctx.lineCap = 'round';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(10,-8.4); ctx.quadraticCurveTo(15.4,-1.8,10,4.6); ctx.stroke();
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.9;                              // 고자(끝 보강)
+      ctx.beginPath(); ctx.moveTo(9.6,-9.2); ctx.lineTo(10.6,-7.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(9.6,5.4);  ctx.lineTo(10.6,3.8);  ctx.stroke();
+      ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.5;                              // 시위
+      ctx.beginPath(); ctx.moveTo(10,-8.8); ctx.lineTo(10,5.0); ctx.stroke();
+      ctx.strokeStyle = WM.cloth; ctx.lineWidth = 1.5;                             // 그립 감기
+      ctx.beginPath(); ctx.moveTo(13.6,-1.6); ctx.lineTo(13.6,1.2); ctx.stroke();
     } else if (g==='ninja'){
       ctx.fillRect(-5,-14,12,2.6);
       ctx.lineWidth = 1.6;
@@ -18243,11 +18291,21 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(0,-3.5); ctx.lineTo(0,3.5); ctx.stroke();
       ctx.restore();
     } else if (g==='reaper'){
-      ctx.beginPath(); ctx.arc(0,-12,6.8,Math.PI*0.85,Math.PI*0.15); ctx.fill();
-      ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.moveTo(6,6); ctx.lineTo(12,-18); ctx.stroke();
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(12,-18); ctx.quadraticCurveTo(4,-24,-1,-20); ctx.stroke();
+      //  v6.175 낫 — 나무 자루 + 쇠고리 + **안쪽으로 휜 초승달 날**
+      ctx.beginPath(); ctx.arc(0,-12,6.8,Math.PI*0.85,Math.PI*0.15); ctx.fill();   // 두건
+      ctx.strokeStyle = WM.wood; ctx.lineWidth = 2.3;
+      ctx.beginPath(); ctx.moveTo(6,6.5); ctx.lineTo(12,-18); ctx.stroke();        // 자루
+      ctx.strokeStyle = WM.iron; ctx.lineWidth = 1.0;
+      ctx.beginPath(); ctx.moveTo(9.2,-7); ctx.lineTo(10.4,-11.5); ctx.stroke();   // 쇠고리
+      ctx.fillStyle = WM.steel;
+      ctx.beginPath();                                                             // 초승달 날
+      ctx.moveTo(12,-18);
+      ctx.quadraticCurveTo(3.5,-25.5, -2.2,-20.5);
+      ctx.quadraticCurveTo(3.8,-22.2, 11.2,-16.2);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.45; ctx.stroke();
+      ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.6;                              // 날선
+      ctx.beginPath(); ctx.moveTo(11.6,-18.2); ctx.quadraticCurveTo(3.6,-24.8,-1.8,-20.3); ctx.stroke();
     } else if (g==='pilot'){
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(1,-12,6.4,Math.PI,0); ctx.stroke();
@@ -18316,12 +18374,21 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(11,-4); ctx.lineTo(14,-9); ctx.stroke();
     } else if (g==='samurai'){
-      // 상투 + 카타나 (긴 사선 검 + 츠바)
-      ctx.fillRect(-1,-19,3,4); ctx.beginPath(); ctx.arc(0.5,-19.5,2,0,Math.PI*2); ctx.fill();
-      ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.moveTo(4,2); ctx.lineTo(18,-12); ctx.stroke();
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(6,-1.5); ctx.lineTo(9,1.5); ctx.stroke();
+      //  🔴 v6.175 **카타나를 실제로 깎는다** (사용자: "카타나가 어떻게 생겼는지 몰라?")
+      //   전에는 `moveTo→lineTo→stroke` 선 하나였다. 카타나는 부위가 넷이다:
+      //   자루(츠카·감은 가죽) / 코등이(츠바·금테) / 날(살짝 휜 채 좁아지는 폴리곤) / 하몬(날선)
+      ctx.fillRect(-1,-19,3,4); ctx.beginPath(); ctx.arc(0.5,-19.5,2,0,Math.PI*2); ctx.fill();  // 상투
+      ctx.fillStyle = WM.steel;
+      blade(8,-2.6, 19.5,-14.5, 1.45, 0.55, 1.25); ctx.fill();          // 날 — 등은 두껍고 끝은 얇다
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.45;
+      blade(8,-2.6, 19.5,-14.5, 1.45, 0.55, 1.25); ctx.stroke();        // 날 윤곽
+      ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.55;                   // 하몬 — 날 쪽만 밝게
+      ctx.beginPath(); ctx.moveTo(8.9,-3.6); ctx.quadraticCurveTo(14.2,-8.4,19.1,-14.2); ctx.stroke();
+      ctx.fillStyle = WM.gold;                                           // 츠바 — 타원 코등이
+      ctx.beginPath(); ctx.ellipse(7.4,-1.9, 2.5, 0.95, -0.72, 0, 6.283); ctx.fill();
+      grip(3.0, 3.2, 6.9, -1.4, 2.1);                                    // 츠카 — 감은 자루
+      ctx.fillStyle = WM.dark;                                           // 카시라 — 자루 끝 마구리
+      ctx.beginPath(); ctx.arc(2.7, 3.7, 1.15, 0, 6.283); ctx.fill();
     } else if (g==='specialist'){
       // 베레모 + 소총
       ctx.beginPath(); ctx.ellipse(0,-15,6.5,2.6,-0.15,0,Math.PI*2); ctx.fill();
@@ -18383,12 +18450,18 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(6,0); ctx.quadraticCurveTo(14,2+Math.sin(walk)*2,18,-3+Math.sin(walk*1.3)*3); ctx.stroke();
     } else if (g==='mumyeong'){
-      // 무명 두건 + 이름 없는 장검 (장식 없는 직선)
-      ctx.beginPath(); ctx.arc(0,-12,6.2,Math.PI*0.95,Math.PI*0.05); ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(5,3); ctx.lineTo(16,-9); ctx.stroke();
-      ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.moveTo(7,-0.5); ctx.lineTo(9.5,2); ctx.stroke();
+      //  v6.175 무명검 — **장식이 없다는 게 정체성**이라 깎되 비워 둔다.
+      //   금테도 하몬도 없다. 곧은 양날과 밋밋한 일자 코등이뿐.
+      ctx.beginPath(); ctx.arc(0,-12,6.2,Math.PI*0.95,Math.PI*0.05); ctx.fill();   // 두건
+      ctx.fillStyle = WM.steel;
+      blade(8,-1.2, 17.5,-11.6, 1.55, 0.5, 0); ctx.fill();                         // 곧은 날(휨 0)
+      ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.45;
+      blade(8,-1.2, 17.5,-11.6, 1.55, 0.5, 0); ctx.stroke();
+      ctx.strokeStyle = WM.edge; ctx.lineWidth = 0.45;                             // 가운데 능선
+      ctx.beginPath(); ctx.moveTo(8.6,-1.7); ctx.lineTo(17.2,-11.4); ctx.stroke();
+      ctx.strokeStyle = WM.iron; ctx.lineWidth = 1.6;                              // 일자 코등이
+      ctx.beginPath(); ctx.moveTo(5.6,-2.6); ctx.lineTo(9.0,1.0); ctx.stroke();
+      grip(3.4, 2.6, 6.8, -0.7, 1.9);
     } else if (g==='tourist'){
       // 밀짚모자 + 목에 건 카메라
       ctx.fillRect(-9,-14,19,2);
@@ -18480,31 +18553,23 @@ import { FX } from "./fx.js";
     //   그냥 색만 바꿔 그리면 윤곽 패스에 **색 번짐**이 남는다.
     const canF = (typeof ctx.filter === 'string');
     ctx.save();
-    ctx.translate(0.9, 0.9);                       // ① 윤곽
+    //  ⚠ 오프셋을 0.9로 두니 v6.175에서 깎은 카타나·낫의 **날 형태가 뭉개졌다**.
+    //   무기가 자기 윤곽선을 갖게 된 뒤로는 덧칠이 세면 오히려 디테일을 먹는다.
+    ctx.translate(0.5, 0.5);                       // ① 윤곽(약하게)
     if (canF) ctx.filter = 'brightness(0)';
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.34;
     drawProp();
     ctx.restore();
-    ctx.save();                                    // ② 본체 — 자루는 어둡고 날은 밝다
-    //  자루/날을 분기마다 표시할 순 없으니 **손에서 멀어지는 축**으로 그라디언트를 건다.
-    //  손 근처(4,2)=가죽 자루 → 바깥(20,-14)=금속 날. 모자·드론처럼 축 밖의 프롭은
-    //  자연히 어두운 쪽으로 클램프되어 오히려 알맞다.
-    const wg = ctx.createLinearGradient(4, 2, 20, -14);
-    wg.addColorStop(0.00, PC.leather);
-    wg.addColorStop(0.28, PC.leather);
-    wg.addColorStop(0.42, PC.metal);
-    wg.addColorStop(1.00, mixHex(PC.metal, '#ffffff', 0.35));
-    ctx.strokeStyle = wg; ctx.fillStyle = wg;
+    ctx.save();                                    // ② 본체
+    //  ⚠ v6.174에서 여기에 **손→바깥 그라디언트를 통짜로** 걸었더니 카타나·활·소총이
+    //   전부 같은 회색 덩어리가 됐다. 무기가 37종인데 재질이 하나면 구분될 리가 없다.
+    //   ⇒ 기본값은 **철**로만 두고, 각 무기가 자기 재질(WM)로 덮어 쓰게 되돌린다.
+    ctx.strokeStyle = WM.steel; ctx.fillStyle = WM.steel;
     ctx.lineJoin = 'round';
     drawProp();
     ctx.restore();
-    ctx.save();                                    // ③ 하이라이트
-    ctx.translate(-0.55, -0.55);
-    if (canF) ctx.filter = 'brightness(2.2)';
-    ctx.globalAlpha = 0.30;
-    ctx.strokeStyle = PC.metal; ctx.fillStyle = PC.metal;
-    drawProp();
-    ctx.restore();
+    //  ③ 전면 하이라이트 패스는 걷어냈다 — 깎은 무기들이 이미 자기 날선(하몬·능선)을 갖고 있어
+    //   위에 한 겹 더 덮으면 그 선이 묻힌다.
     if (wst > 0) ctx.restore();            // v6.173 무기 성장 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
