@@ -3414,22 +3414,55 @@ import { FX } from "./fx.js";
     //   배율 S일 때 세로로 31·S 픽셀을 먹는다. 96px 액자에 여백까지 넣으려면 2.6이 상한이다
     //  ⚠ 2.6도 여전히 **머리 위가 잘렸다** — 몸통 −18만 보고 계산했는데 실제로는
     //   전직 표식(머리 위 별)과 탈것이 그 위/아래로 더 나간다. 실측 범위는 대략 −22 ~ +14(36단위).
-    const S = 2.3;
+    const S = 2.0;   // v6.187 도트 확대는 같은 배율이라도 더 커 보인다
     const pose = Object.assign({ face:1, walk:0, gear:key, scale:S, tierC:col, wslot:(window.__forceSlot===undefined?0:window.__forceSlot) },
                                PORTRAIT_POSE[grp] || PORTRAIT_POSE.war);
     if (key==='reaper') pose.robe = true;
     if (key==='rusher') pose.mount = 'horse';
     //  캐릭터만 따로 그린 뒤 음영을 입혀 합성한다 — 인게임 도트 경로엔 있는 3톤 셰이딩이
     //  벡터 경로엔 없어서, 그냥 그리면 **납작한 검은 실루엣**으로 보인다
+    //  🔴 v6.187 **초상화가 도트 파이프라인을 안 탔다** — 눈으로 보니 인게임은 도트인데
+    //   초상화만 **안티앨리어싱된 벡터**라 흐릿했다. `drawHumanoidVec`를 직접 불렀기 때문이다.
+    //   인게임 경로(`drawHumanoid`)는 **저해상도 버퍼에 그린 뒤 포스터라이즈 + 아웃라인**을 거친다.
+    //   초상화도 같은 처리를 태워 **같은 그림**이 되게 한다.
+    //   ⚠ 버퍼 해상도(PPU)가 곧 도트 굵기다 — 크게 잡으면 다시 벡터처럼 매끈해진다.
+    const PPU = 1.05, BSZ = 128;
+    const bb = document.createElement('canvas'); bb.width = BSZ; bb.height = BSZ;
+    const bg2 = bb.getContext('2d');
+    const main = ctx;
+    bg2.setTransform(PPU,0,0,PPU, BSZ/2, BSZ*0.62);
+    ctx = bg2;
+    try { drawHumanoidVec(0, 0, Object.assign({}, pose, { scale:1 })); } catch(e){} finally { ctx = main; }
+    // 인게임과 같은 3톤 셰이딩 → 포스터라이즈 → 아웃라인
+    bg2.setTransform(1,0,0,1,0,0);
+    bg2.save();
+    bg2.globalCompositeOperation = 'source-atop';
+    const shd = bg2.createLinearGradient(0, BSZ*0.62-19*PPU, 0, BSZ*0.62+14*PPU);
+    shd.addColorStop(0,    'rgba(255,252,240,0.30)');
+    shd.addColorStop(0.40, 'rgba(255,252,240,0.08)');
+    shd.addColorStop(0.62, 'rgba(0,0,0,0)');
+    shd.addColorStop(1,    'rgba(10,10,14,0.32)');
+    bg2.fillStyle = shd; bg2.fillRect(0,0,BSZ,BSZ);
+    bg2.restore();
+    try { dotPosterize(bg2, BSZ); } catch(e){}
+    const ob = document.createElement('canvas'); ob.width = BSZ; ob.height = BSZ;
+    try { dotOutline({ c:bb, ox:ob.getContext('2d') }, BSZ, '#26272e'); } catch(e){}
+    // 도트 버퍼를 액자 크기로 **확대**한다 — 부드럽게 늘리면 도트가 죽는다
     const ch = document.createElement('canvas');
     ch.width = Math.round(W*DPR); ch.height = Math.round(H*DPR);
     const cg = ch.getContext('2d');
+    cg.imageSmoothingEnabled = false;
+    //  ⚠ 버퍼 원점은 (BSZ/2, BSZ*0.62)이지 버퍼 중앙이 아니다.
+    //   가로·세로에 같은 `half`를 쓰면 **세로가 34px 어긋나 하반신이 잘린다**(실제로 잘렸다).
+    //   확대비 k로 원점을 각각 환산할 것.
+    const k = S / PPU;
+    const dw = BSZ * k;
+    const dx = W/2      - (BSZ/2)    * k;
+    const dy = H*0.62   - (BSZ*0.62) * k;
     cg.setTransform(DPR,0,0,DPR,0,0);
-    const main = ctx;
-    cg.save(); cg.translate(W/2, H*0.62);
-    ctx = cg;
-    try { drawHumanoidVec(0, 0, pose); } catch(e){} finally { ctx = main; }
-    cg.restore();
+    cg.imageSmoothingEnabled = false;
+    cg.drawImage(ob, dx, dy, dw, dw);
+    cg.drawImage(bb, dx, dy, dw, dw);
     // 실루엣 안쪽에만: 위 하이라이트 · 아래 그림자 · 직업색 반사광
     cg.save();
     cg.setTransform(DPR,0,0,DPR,0,0);
