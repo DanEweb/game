@@ -8409,6 +8409,32 @@ import { FX } from "./fx.js";
     } finally { ctx = main; }
     return cv.toDataURL('image/png');
   } catch(e){ return 'ERR '+String(e); } };
+  //  v6.201 QA: 37직업 이펙트를 한 장에 — 공유가 있는지, 형태가 갈리는지는 나란히 봐야 안다
+  window.__qaFxSheet = (dark)=>{ try {
+    const K = Object.keys(CLASS_FX), C=7, W2=190, H2=170;
+    const cv = document.createElement("canvas");
+    cv.width = W2*C; cv.height = H2*Math.ceil(K.length/C);
+    const g2 = cv.getContext("2d"); const main = ctx; ctx = g2; const bad = [];
+    try {
+      g2.fillStyle = dark ? "#141416" : "#eeeeec"; g2.fillRect(0,0,cv.width,cv.height);
+      K.forEach((k,i)=>{
+        g2.save(); g2.translate((i%C)*W2 + W2/2, Math.floor(i/C)*H2 + H2/2);
+        LA_T = 0.42;
+        //  ⚠ 한 직업이 던지면 ctx.save 스택이 어긋나 **그 뒤 전부가 안 보인다**(밝은 시트가 druid에서 멈췄다).
+        //   직업마다 상태를 강제로 되돌리고, 던진 직업을 모아서 보고한다.
+        try { CLASS_FX[k](0,0,-0.35,74, CLASS_COLORS[k]||"#8a8d98", !!dark, 7919+i*131, 0.42); }
+        catch(e){ bad.push(k+": "+e.message); }
+        g2.globalAlpha = 1; g2.globalCompositeOperation = "source-over";
+        LA_T = 0;
+        g2.restore();
+        g2.fillStyle = dark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
+        g2.font = "11px sans-serif"; g2.fillText(k, (i%C)*W2+6, Math.floor(i/C)*H2+14);
+      });
+    } finally { ctx = main; }
+    if (bad.length && window.console) console.warn("CLASS_FX 예외:", bad);
+    window.__qaFxBad = bad;
+    return cv.toDataURL("image/png");
+  } catch(e){ return "ERR "+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
     //  ⚠ __qaWeapon은 교체가 아니라 **추가**다 — 안 지우면 이전 층이 남아
@@ -13587,8 +13613,9 @@ import { FX } from "./fx.js";
           const step = Math.max(40, w2*0.9);
           for (let d3=step; d3<=len; d3+=step) addHazard(player.x+Math.cos(ang)*d3, player.y+Math.sin(ang)*d3, w2, dur, dd, true);
         };
-        const FXA = (ang, reach, life)=> effects.push({ type:'arc', x:player.x, y:player.y, a:ang, r:reach, life:life||0.2, age:0 });
-        const FXR = (rad)=> effects.push({ type:'ring', x:player.x, y:player.y, life:0.24, age:0, r0:8, r1:rad, col:CLASS_COLORS[player.classKey]||null });
+        //  v6.201 직업 고유 이펙트로 교체 — 예전엔 37직업이 **같은 부채꼴 호** 하나를 썼다
+        const FXA = (ang, reach, life)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:ang, r:reach, life:life||0.34, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973 });
+        const FXR = (rad)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:0, r:rad, life:0.36, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973 });
         const C = { t:null, n:0, dmg:0, baseA:0, w:null };
         const t = nearestTarget();
         const n = def.count(w);
@@ -22915,6 +22942,188 @@ import { FX } from "./fx.js";
     }
     ctx.restore();
   }
+  //  ═══════════════════════════════════════════════════════════════════════════
+  //  🔴 v6.201 **직업 고유 이펙트 37종** — 사용자: *"좋다 그런느낌으로 모든 직업을 다만들어봐"*
+  //   v6.200의 리본 기법(윤곽선으로 딴 면 · 폭 요동 · 뾰족한 촉)을 **전 직업**에 얹는다.
+  //   ⚠ 아키타입 돌려쓰기 금지 — v6.179 교훈("나눠 주는 것은 고유가 아니다").
+  //    프리미티브는 공유하되 **형태·수·각도·조합이 전부 다르다**.
+  //   ⚠ 색은 직업 악센트(`CLASS_COLORS`)를 쓴다 — 37장 초상화와 같은 색이라 "그 직업"으로 읽힌다.
+  //   ⚠ 밝은 맵 7개에서는 가산 발광이 안 먹는다 → `dark` 분기는 프리미티브가 알아서 처리한다.
+  //  ── 🔴 v6.201 프리미티브 — **라테일식 발광 덩어리**.
+  //   사용자: *"뭔가 라테일의 이펙트 느낌이 가장좋긴한데"*
+  //   ⚠ v6.200의 번개는 **속을 비운 선화**였다. 라테일 계열은 정반대다:
+  //    ① **채운 덩어리** — 속이 꽉 찬 큰 면 ② **흰 심 → 채도색 → 번짐**의 3단 램프
+  //    ③ **커지면서 흐려진다**(진행도로 확대+페이드) ④ 캐릭터보다 **크다**
+  //   ⇒ 리본 폴리곤(폭 요동·뾰족한 촉)은 형태감으로 남기되 **속을 채우고 발광을 얹는다**.
+  //   ⚠ 밝은 맵 7개에서는 가산 번짐이 안 먹는다 → 어두운 테두리로 형태를 분리한다.
+  let LA_T = 0;                     // 현재 이펙트 진행도(0→1) — 프리미티브가 공유한다
+  function laDraw(pts, w, col, dark, seed){
+    const t = LA_T;
+    const fade = t < 0.14 ? t/0.14 : Math.max(0, 1 - (t-0.14)/0.86);
+    const ws = boltWidths(pts, w*2.2*(0.8+0.45*t), seed);
+    const poly = boltRibbon(pts, ws);
+    ctx.save(); ctx.lineJoin="round"; ctx.lineCap="round";
+    if (dark) ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = col; ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.26*fade; ctx.lineWidth = w*3.4; polyPath(poly); ctx.stroke();   // ① 바깥 번짐
+    ctx.globalAlpha = 0.80*fade; polyPath(poly); ctx.fill();                            // ② 채운 본체
+    if (!dark){ ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=0.55*fade;  // 밝은 맵 형태 분리
+      ctx.strokeStyle="rgba(16,14,26,0.9)"; ctx.lineWidth=1.3; polyPath(poly); ctx.stroke(); }
+    if (dark) ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = fade;                                                             // ③ 흰 심
+    ctx.strokeStyle = dark ? "#ffffff" : mixHex(col,"#ffffff",0.88);
+    ctx.lineWidth = Math.max(1.2, w*0.55);
+    ctx.beginPath();
+    for (let i=0;i<pts.length;i++){ if(i) ctx.lineTo(pts[i][0],pts[i][1]); else ctx.moveTo(pts[i][0],pts[i][1]); }
+    ctx.stroke();
+    ctx.restore();
+  }
+  //  4각 반짝임 — 라테일 계열의 서명 같은 장식
+  function laGlint(x,y,r,col,dark){
+    const t=LA_T, fade=Math.max(0,1-t);
+    ctx.save(); if (dark) ctx.globalCompositeOperation="lighter";
+    ctx.globalAlpha=fade; ctx.fillStyle = dark ? "#ffffff" : mixHex(col,"#ffffff",0.8);
+    ctx.beginPath();
+    ctx.moveTo(x,y-r); ctx.quadraticCurveTo(x+r*0.16,y-r*0.16, x+r,y);
+    ctx.quadraticCurveTo(x+r*0.16,y+r*0.16, x,y+r);
+    ctx.quadraticCurveTo(x-r*0.16,y+r*0.16, x-r,y);
+    ctx.quadraticCurveTo(x-r*0.16,y-r*0.16, x,y-r);
+    ctx.fill(); ctx.restore();
+  }
+  function rbPts(fn, n){ const p=[]; for(let i=0;i<=n;i++) p.push(fn(i/n)); return p; }
+  function rbArc(x,y,r,a0,a1,w,col,dark,seed,wob){
+    const pts = rbPts(t=>{ const a=a0+(a1-a0)*t, rr=r*(1+(wob||0)*Math.sin(t*9+seed));
+      return [x+Math.cos(a)*rr, y+Math.sin(a)*rr]; }, 14);
+    laDraw(pts, w, col, dark, seed);
+  }
+  function rbLine(x,y,a,len,w,col,dark,seed,jag){
+    const pts = rbPts(t=>{ const j=(jag||0)*Math.sin(t*11+seed)*len*0.06;
+      return [x+Math.cos(a)*len*t - Math.sin(a)*j, y+Math.sin(a)*len*t + Math.cos(a)*j]; }, 8);
+    laDraw(pts, w, col, dark, seed);
+  }
+  function rbBurst(x,y,r0,r1,n,w,col,dark,seed,spread,base){
+    for(let k=0;k<n;k++){
+      const a = (base||0) + (spread||6.283)*(k/n - (spread?0.5:0)) + seed*0.013;
+      rbLine(x+Math.cos(a)*r0, y+Math.sin(a)*r0, a, r1-r0, w, col, dark, seed+k*37, 0.4);
+    }
+  }
+  function rbRing(x,y,r,w,col,dark,seed,lobe){
+    const pts = rbPts(t=>{ const a=t*6.283, rr=r*(1+(lobe||0.12)*Math.sin(a*5+seed));
+      return [x+Math.cos(a)*rr, y+Math.sin(a)*rr]; }, 26);
+    laDraw(pts, w, col, dark, seed);
+  }
+  function rbCrescent(x,y,a,len,w,col,dark,seed){
+    const pts = rbPts(t=>{ const th=a-0.9+1.8*t;
+      return [x+Math.cos(th)*len, y+Math.sin(th)*len]; }, 8);
+    laDraw(pts, w, col, dark, seed);
+  }
+  function rbBolt(x,y,a,len,w,col,dark,seed,br){
+    for(let k=0;k<(br||1);k++){
+      const sp=a+(k-((br||1)-1)/2)*0.34;
+      const pts=boltPath(x,y,x+Math.cos(sp)*len,y+Math.sin(sp)*len,seed+k*977,len*0.46,3);
+      //  ⚠⚠ 여기서 인자 순서를 틀렸었다 — `drawBolt(pts, col, w, …)`와 `laDraw(pts, w, col, …)`는
+      //   앞 두 인자의 순서가 반대다. 어두운 맵은 흰색을 상수로 써서 `mixHex`를 안 타기 때문에
+      //   **조용히 넘어갔고 밝은 맵에서만 터졌다**(`h.slice is not a function`).
+      //   게다가 한 직업이 던지면 `ctx.save` 스택이 어긋나 **그 뒤 직업 전부가 안 보였다**.
+      //   📌 비슷한 프리미티브를 둘 만들 때는 **인자 순서를 반드시 같게** 할 것.
+      laDraw(pts, k===0?w:w*0.62, col, dark, seed+k*7);
+    }
+  }
+  //  ── 직업 37종. `t`는 0→1 진행도. 전부 자기 형태를 갖는다(공유 0).
+  const CLASS_FX = {
+    // ── 전사군 8: 베고·버티고·짓밟는다
+    samurai(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.9,a-0.8,a+0.8,5.2,c,d,s,0.05);                 // 발도 — 한 줄기 참격
+                              rbLine(x+Math.cos(a)*r*0.5,y+Math.sin(a)*r*0.5,a,r*0.6,2.4,c,d,s+7,0.2); },
+    cheol(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.86,a-1.15,a+1.15,7.0,c,d,s,0.10);                // 대검 — 두껍고 넓게
+                            rbBurst(x,y,r*0.5,r*0.95,3,3.0,c,d,s+11,1.9,a); },
+    paladin(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,4.4,c,d,s,0.06);                             // 성역 — 결계 고리
+                              rbBurst(x,y,r*0.2,r*0.72,6,2.6,c,d,s+3); },
+    rusher(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.25,6.0,c,d,s,0.10);                           // 돌격 — 꿰뚫는 직선
+                             rbBurst(x+Math.cos(a)*r,y+Math.sin(a)*r,4,26,5,2.2,c,d,s+5,2.2,a); },
+    exhero(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.92,a-0.95,a+0.95,5.6,c,d,s,0.04);                // 용사 — 십자 참격
+                             rbLine(x,y,a-1.57,r*0.8,3.4,c,d,s+9,0); rbLine(x,y,a+1.57,r*0.8,3.4,c,d,s+13,0); },
+    madman(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++)                                            // 광인 — 난도질
+                               rbArc(x,y,r*(0.6+0.09*k),a-1.3+k*0.5,a-0.5+k*0.5,3.2,c,d,s+k*29,0.16); },
+    monk(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.5,3.4,c,d,s,0.18);                                 // 수도승 — 기(氣) 파문
+                           rbRing(x,y,r*0.82,2.4,c,d,s+17,0.10);
+                           rbBurst(x,y,r*0.86,r*1.05,8,1.8,c,d,s+23); },
+    duelist(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.1,3.0,c,d,s,0.05);                            // 결투가 — 세 번 찌르기
+                              rbLine(x,y,a-0.18,r*0.9,2.2,c,d,s+5,0.05);
+                              rbLine(x,y,a+0.18,r*0.9,2.2,c,d,s+9,0.05); },
+    // ── 원거리 4: 쏘고·꿰뚫고·훑는다
+    archer(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++)                                            // 궁수 — 화살 비
+                               rbLine(x,y,a-0.5+k*0.25,r*(0.85+0.05*k),2.2,c,d,s+k*41,0.06); },
+    sniper(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.5,3.6,c,d,s,0.02);                             // 저격수 — 한 줄기 관통선
+                             rbCrescent(x+Math.cos(a)*r*1.5,y+Math.sin(a)*r*1.5,a+3.14,16,2.6,c,d,s+7); },
+    pilot(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.9,a-1.4,a-0.2,3.2,c,d,s,0.08);                     // 파일럿 — 급강하 훑기
+                            rbArc(x,y,r*0.9,a+0.2,a+1.4,3.2,c,d,s+13,0.08);
+                            rbBurst(x,y,r*0.3,r*0.6,4,2.0,c,d,s+19,1.6,a); },
+    specialist(x,y,a,r,c,d,s,t){ rbBurst(x,y,r*0.25,r*0.85,5,2.4,c,d,s,2.6,a);               // 스페셜리스트 — 도구 산개
+                                 rbRing(x,y,r*0.34,2.2,c,d,s+7,0.22); },
+    // ── 마법군 3 (+지휘관)
+    manager(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.75,3.2,c,d,s,0.05);                             // 관측자 — 궤도
+                              rbArc(x,y,r*0.95,a-2.2,a+0.6,2.6,c,d,s+11,0.03);
+                              rbBurst(x,y,0,r*0.3,4,2.0,c,d,s+17); },
+    voidc(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.62,4.6,c,d,s,0.26);                               // 공허술사 — 뒤틀린 구멍
+                            for(let k=0;k<6;k++) rbLine(x,y,(6.283/6)*k+s*0.01,r*0.55,2.0,c,d,s+k*53,0.5); },
+    runeknight(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.88,a-0.9,a+0.9,4.6,c,d,s,0.04);               // 룬기사 — 참격 + 룬 문양
+                                 for(let k=0;k<3;k++){ const ra=a-0.6+k*0.6;
+                                   rbRing(x+Math.cos(ra)*r*0.7,y+Math.sin(ra)*r*0.7,9,1.8,c,d,s+k*31,0.3); } },
+    commander(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*0.9,4.0,c,d,s,0);                             // 지휘관 — 지휘선 + 대열
+                                for(let k=-1;k<=1;k+=2) rbLine(x+Math.cos(a+1.57*k)*22,y+Math.sin(a+1.57*k)*22,a,r*0.7,2.4,c,d,s+k*29,0); },
+    // ── 도적군 7: 파고들고·베고·사라진다
+    ninja(x,y,a,r,c,d,s,t){ for(let k=0;k<4;k++){ const ra=a-0.9+k*0.6;                      // 닌자 — 표창 궤적
+                              rbLine(x,y,ra,r*0.9,2.0,c,d,s+k*37,0.35);
+                              rbRing(x+Math.cos(ra)*r*0.9,y+Math.sin(ra)*r*0.9,6,1.6,c,d,s+k*11,0.4); } },
+    reaper(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.95,a-1.5,a+1.5,6.4,c,d,s,0.12);                   // 사신 — 대낫 훑기
+                             rbCrescent(x+Math.cos(a)*r*0.6,y+Math.sin(a)*r*0.6,a,r*0.42,3.0,c,d,s+7); },
+    glitch(x,y,a,r,c,d,s,t){ for(let k=0;k<7;k++){ const ra=s*0.01+k*0.9;                    // 글리치 — 어긋난 조각
+                               rbLine(x+Math.cos(ra)*r*0.3,y+Math.sin(ra)*r*0.3,ra+1.57,r*0.4,2.6,c,d,s+k*61,0.02); } },
+    blackcat(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++)                                           // 검은고양이 — 세 갈래 발톱
+                                 rbArc(x,y,r*(0.72+0.11*k),a-0.55,a+0.55,2.8,c,d,s+k*43,0.03); },
+    shadow(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.8,a-0.7,a+0.7,4.0,c,d,s,0.06);                    // 그림자 — 앞뒤로 베기
+                             rbArc(x,y,r*0.8,a+3.14-0.7,a+3.14+0.7,4.0,c,d,s+19,0.06); },
+    tombraider(x,y,a,r,c,d,s,t){ const pts=rbPts(u=>{ const th=a-1.6+u*3.2, rr=r*(0.35+0.6*u);
+                                   return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },16);      // 도굴꾼 — 채찍 나선
+                                 drawBolt(pts,c,3.4,d,s); },
+    mumyeong(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.15,4.2,c,d,s,0.03);                          // 무명자 — 이름 없는 한 줄
+                               rbCrescent(x,y,a,r*0.5,2.2,c,d,s+11); },
+    // ── 사제군 4
+    necro(x,y,a,r,c,d,s,t){ for(let k=0;k<4;k++){ const ra=a-1.1+k*0.73;                     // 망자 — 솟아오르는 혼
+                              rbLine(x+Math.cos(ra)*r*0.4,y+Math.sin(ra)*r*0.4,-1.57,r*0.5,2.6,c,d,s+k*47,0.6);
+                              rbRing(x+Math.cos(ra)*r*0.4,y+Math.sin(ra)*r*0.4-r*0.5,7,1.6,c,d,s+k*13,0.35); } },
+    bard(x,y,a,r,c,d,s,t){ for(let k=1;k<=3;k++) rbRing(x,y,r*0.32*k,2.6,c,d,s+k*23,0.05); },// 선율가 — 퍼지는 음파
+    returner(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,3.0,c,d,s,0.04);                             // 귀환자 — 시계바늘
+                               rbLine(x,y,a,r*0.78,3.2,c,d,s+5,0); rbLine(x,y,a-2.1,r*0.5,2.4,c,d,s+9,0); },
+    druid(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.01;               // 드루이드 — 뻗는 덩굴
+                              const pts=rbPts(u=>{ const th=ra+Math.sin(u*3+k)*0.5, rr=r*0.9*u;
+                                return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },10);
+                              drawBolt(pts,c,2.6,d,s+k*31); } },
+    // ── 상인군 10: 일하고·팔고·놀고·던진다
+    engineer(x,y,a,r,c,d,s,t){ rbBolt(x,y,a,r,4.2,c,d,s,3); },                               // 기술자 — 방전
+    debug(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.7,2.6,c,d,s,0.02);                                // 디버거 — 스캔 격자
+                            for(let k=0;k<4;k++) rbLine(x-Math.cos((6.283/4)*k)*r*0.7,y-Math.sin((6.283/4)*k)*r*0.7,(6.283/4)*k,r*1.4,1.8,c,d,s+k*17,0); },
+    tourist(x,y,a,r,c,d,s,t){ rbBurst(x,y,r*0.15,r*0.95,10,2.2,c,d,s);                       // 관광객 — 플래시
+                              rbRing(x,y,r*0.28,3.0,c,d,s+7,0.04); },
+    slime(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.02;               // 슬라임 — 튀는 점액
+                              rbRing(x+Math.cos(ra)*r*0.55,y+Math.sin(ra)*r*0.55,r*0.2,2.4,c,d,s+k*29,0.3); } },
+    gambler(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=a-1.0+k*0.5;                    // 도박사 — 뿌려지는 카드
+                                const px2=x+Math.cos(ra)*r*0.8, py2=y+Math.sin(ra)*r*0.8;
+                                rbLine(px2-Math.cos(ra+1.2)*9,py2-Math.sin(ra+1.2)*9,ra+1.2,18,2.6,c,d,s+k*53,0); } },
+    collector(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.85,2.8,c,d,s,0.08);                           // 수집가 — 끌어모으는 고리
+                                rbBurst(x,y,r*0.8,r*0.3,6,2.2,c,d,s+11); },
+    contributor(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*0.5,3.0,c,d,s,0);                           // 브랜치 — 갈라졌다 합친다
+                                  const mx=x+Math.cos(a)*r*0.5, my=y+Math.sin(a)*r*0.5;
+                                  rbLine(mx,my,a-0.5,r*0.5,2.4,c,d,s+7,0); rbLine(mx,my,a+0.5,r*0.5,2.4,c,d,s+11,0);
+                                  rbRing(mx,my,7,1.8,c,d,s+13,0.2); },
+    baeksu(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.6,a-1.9,a+1.9,3.0,c,d,s,0.22); },                 // 백수 — 축 늘어진 호
+    stonks(x,y,a,r,c,d,s,t){ const pts=rbPts(u=>[x+r*u*Math.cos(a)-Math.sin(a)*(-r*0.5*u+Math.sin(u*9)*r*0.09),
+                                                 y+r*u*Math.sin(a)+Math.cos(a)*(-r*0.5*u+Math.sin(u*9)*r*0.09)],12);
+                             drawBolt(pts,c,3.6,d,s);                                        // 주식쟁이 — 상승 차트
+                             rbLine(x+Math.cos(a)*r,y+Math.sin(a)*r-r*0.5,a-0.9,20,2.6,c,d,s+7,0); },
+    gymbro(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.55,6.0,c,d,s,0.05);                              // 헬창 — 터지는 근육
+                             rbBurst(x,y,r*0.55,r*1.0,6,3.2,c,d,s+7); },
+  };
   function drawHazards(){
     for (const h of hazards){
       const tt = 1 - h.timer/h.maxT;
@@ -22991,6 +23200,14 @@ import { FX } from "./fx.js";
         const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
         ctx.lineWidth = 2.5*tt+0.5;
         ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI*2); ctx.stroke();
+      } else if (fx.type==='clsfx'){
+        //  v6.201 직업 고유 이펙트 — 37종이 각자 자기 형태를 갖는다
+        const cd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        LA_T = Math.min(1, fx.age/fx.life);
+        const fn = CLASS_FX[fx.key];
+        if (fn){ try { fn(fx.x, fx.y, fx.a||0, fx.r||90, fx.col||CLASS_COLORS[fx.key]||'#8a8d98',
+                          cd, fx.seed||7, LA_T); } catch(e){} }
+        LA_T = 0;
       } else if (fx.type==='pxdeath'){
         //  🔴 v6.198 **처치 연출** (수문장·보스·관문보스 전용) — 네 박자로 끊는다.
         //   ① 흰 섬광 ② 터져 나가는 블록 고리 ③ 떨어지는 파편 ④ 솟는 빛기둥
