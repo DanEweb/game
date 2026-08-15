@@ -5895,7 +5895,12 @@ import { FX } from "./fx.js";
     const g = CGW_CLASS_GROUP(ck);
     (PGW_SUFFIX_OVR[ck]||PGW_SUFFIX[g]).forEach((sfx, i)=>{
       const key = 'pgw_'+ck+'_'+i;
-      const arch = (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3]; // 유일무기와 다른 원형 배치
+      //  🔴 v6.180 **성장무기도 그 직업의 고유 행동을 쓴다** (사용자: *"유일무기 성장무기 성유물은 달라야지 /
+      //   성장무기가 더좋은거고 성유물은 제일좋은거니까"*)
+      //   ⚠ 이전에는 유일무기와 **다른 원형**을 배정했다 — 그러면 같은 직업인데 무기마다 딴 사람이 된다.
+      //   3층은 **다른 무기가 아니라 같은 무기의 다른 경지**다. 계보를 하나로 두고 층으로 질을 가른다.
+      //   (0번 슬롯 = 그 직업의 얼굴. 1·2번은 기존 공용 원형을 남겨 빌드 선택지로 쓴다)
+      const arch = i===0 ? ('u_'+ck) : (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3];
       const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
       WEAPONS[key] = {
         name: sfx+' · '+cname, cgw:true, pgw:true, arch,
@@ -13121,6 +13126,7 @@ import { FX } from "./fx.js";
         //   ⚠ 37개가 같은 원시함수(SL/RING)를 쓰되 **수치·횟수·부가효과가 전부 다르다** —
         //     발도는 175 길이 단발, 백보권압은 74 길이 3연타, 할퀴기는 회피율이 곱해진다.
         const SL = (ang, reach, wide, dd, wp, kb)=>{            // 부채꼴 즉시 참격
+          reach = reach * TR;                                   // v6.180 층이 오르면 더 멀리 닿는다
           let hit = 0;
           for (let i=enemies.length-1;i>=0;i--){
             const e = enemies[i]; if (!e) continue;
@@ -13143,6 +13149,7 @@ import { FX } from "./fx.js";
           return hit;
         };
         const RING = (rad, dd, wp, extra)=>{                    // 내 주위 원형 즉시 타격
+          rad = rad * TR;                                        // v6.180 층이 오르면 더 넓다
           for (let i=enemies.length-1;i>=0;i--){
             const e = enemies[i]; if (!e) continue;
             if (Math.hypot(e.x-player.x, e.y-player.y) > rad) continue;
@@ -13162,10 +13169,20 @@ import { FX } from "./fx.js";
         const n = def.count(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
         const arch = def.arch;
-        C.t = t; C.n = n; C.dmg = dmg; C.w = w;
+        //  🔴 v6.180 **층 위계** — 유일(1) < 성장(2) < 성유물(3).
+        //   같은 고유 행동이지만 층이 오르면 **더 멀리·더 세게·더 여러 번**이 되고,
+        //   성유물은 벤 자리에 **흔적이 남는다**(질적 변화).
+        const TIER = player.sacredTitle ? 3 : (w.key && w.key.indexOf('pgw_')===0 ? 2 : 1);
+        const TD = [1, 1, 1.40, 2.05][TIER];        // 피해
+        const TR = [1, 1, 1.22, 1.50][TIER];        // 사거리·범위
+        const TN = [0, 0, 1, 2][TIER];              // 추가 반복 횟수
+        C.t = t; C.n = n; C.dmg = dmg * TD; C.w = w;
         C.baseA = t ? Math.atan2(t.y-player.y, t.x-player.x) : (player.faceX>0?0:Math.PI);
         if (arch.indexOf('u_')===0){
           const baseA = C.baseA;
+          //  성장(2)은 한 번 더, 성유물(3)은 두 번 더 — 각도를 조금씩 틀어 '연격'으로 읽히게 한다
+          for (let rep=0; rep<=TN; rep++){
+          if (rep > 0) C.baseA = baseA + (rep%2? 0.30 : -0.30);
           if (arch==='u_samurai'){ /* 발도(拔刀) — 멀리 뻗는 일직선 참격 — 한 번, 깊게 */
             const L=175; SL(C.baseA, L, 26, C.dmg*2.1, C.w); FXA(C.baseA, L, 0.26);
           }
@@ -13276,6 +13293,13 @@ import { FX } from "./fx.js";
           }
           else if (arch==='u_collector'){ /* 진열 — 모은 만큼 세진다 */
             const own=Math.min(20,(DB.inv||[]).length); RING(88, C.dmg*(0.8+own*0.06), C.w); FXR(88);
+          }
+          }
+          C.baseA = baseA;
+          //  성유물: 벤 자리에 흔적이 남는다 — 층이 다르면 '남는 것'도 달라야 한다
+          if (TIER >= 3){
+            addHazard(player.x + Math.cos(baseA)*54, player.y + Math.sin(baseA)*54, 62, 1.3, C.dmg*0.35, true);
+            effects.push({ type:'ring', x:player.x, y:player.y, life:0.34, age:0, r0:10, r1:96, col:'#e0a94f' });
           }
           SFX.play('shoot');
           continue;
