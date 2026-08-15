@@ -8400,7 +8400,7 @@ import { FX } from "./fx.js";
           for (let br=0; br<3; br++){
             const sp = -0.35 + (br-0.5)*0.34;
             const pts = boltPath(ox, oy, ox+Math.cos(sp)*200, oy+Math.sin(sp)*200, 7919+br*977+k*131, 92, 3);
-            drawBolt(pts, col||'#39e0f0', br===0?4.6:2.8, dark);
+            drawBolt(pts, col||'#39e0f0', br===0?4.6:2.8, dark, 7919+br*7+k);
             drawBoltShards(pts, col||'#39e0f0', 2, dark, 7919+br*31+k*7);
           }
           g2.restore();
@@ -22812,6 +22812,44 @@ import { FX } from "./fx.js";
     }
     return pts;
   }
+  //  🔴 v6.200 **질감 재작업** — 사용자: *"뭔가 질감이 다른데? 내가준거랑??"*
+  //   맞다. v6.199는 **균일 굵기 스트로크 + 흰 심**이라 '네온 튜브'였다. 레퍼런스는 기법이 다르다:
+  //    ① 선이 아니라 **리본(닫힌 폴리곤)** 이다 — 마디마다 **부풀었다 잘록해지고** 끝이 뾰족하다
+  //    ② **안쪽이 비어 있다** — 어두운 속 + **밝은 테두리**. 그래서 '그려진 것'처럼 보인다
+  //    ③ 흰색은 길 전체가 아니라 **몇 군데에만** 얹힌다
+  //   ⇒ 스트로크를 버리고 **폭 프로파일을 가진 리본 폴리곤**으로 간다.
+  //  ── 중심선 + 정점별 폭 → 닫힌 리본 폴리곤
+  function boltRibbon(pts, ws){
+    const A=[], B=[];
+    for (let i=0;i<pts.length;i++){
+      const p0 = pts[Math.max(0,i-1)], p1 = pts[Math.min(pts.length-1,i+1)];
+      const dx=p1[0]-p0[0], dy=p1[1]-p0[1], d=Math.hypot(dx,dy)||1;
+      const nx=-dy/d, ny=dx/d, w=ws[i];
+      A.push([pts[i][0]+nx*w, pts[i][1]+ny*w]);
+      B.push([pts[i][0]-nx*w, pts[i][1]-ny*w]);
+    }
+    return A.concat(B.reverse());
+  }
+  //  ⚠ 폭이 매끄럽게 줄기만 하면 다시 튜브다 — **마디마다 부풀고 잘록해져야** 손으로 그린 리본이 된다
+  function boltWidths(pts, base, seed){
+    const n = pts.length-1, ws = [];
+    let s = seed|0;
+    const rnd = ()=>{ s = (s*1664525 + 1013904223) & 0x7fffffff; return s/0x7fffffff; };
+    for (let i=0;i<=n;i++){
+      const t = i/n;
+      const taper = Math.pow(1-t, 0.55);                 // 끝으로 갈수록 뾰족하게
+      const swell = 0.14 + 1.45*Math.pow(rnd(), 0.75);   // ⚠ 요동 폭이 작으면 다시 튜브다    // 마디별 굵기 요동 (이게 질감이다)
+      ws.push(Math.max(0.35, base * taper * swell));
+    }
+    ws[n] = 0.2;                                         // 끝점은 한 점으로 — 뾰족한 촉
+    return ws;
+  }
+  function polyPath(poly){
+    ctx.beginPath();
+    ctx.moveTo(poly[0][0], poly[0][1]);
+    for (let i=1;i<poly.length;i++) ctx.lineTo(poly[i][0], poly[i][1]);
+    ctx.closePath();
+  }
   //  ⚠ 굵기가 균일하면 전선이다 — 구간마다 굵기를 줄여 가며 따로 긋는다
   function boltStroke(pts, col, w, cap){
     ctx.lineCap = cap || 'round'; ctx.lineJoin = 'round';
@@ -22822,24 +22860,33 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i+1][0], pts[i+1][1]); ctx.stroke();
     }
   }
-  function drawBolt(pts, col, w, dark){
+  function drawBolt(pts, col, w, dark, seed){
+    const ws = boltWidths(pts, w*2.5, (seed|0) || 7);
+    const poly = boltRibbon(pts, ws);
     ctx.save();
-    //  ① 어두운 윤곽 — **밝은 맵에서 형태를 잡는 유일한 수단**. 어두운 맵에서는 거의 안 보인다
-    if (!dark){ boltStroke(pts, 'rgba(14,12,22,0.85)', w*2.6); }
-    //  ② 발광 헤일로 — 어두운 맵에서만 가산으로. 밝은 맵에서는 얹어도 흰색을 못 넘는다
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    //  ① 헤일로 — 어두운 맵에서만 가산. 밝은 맵에서는 흰색을 못 넘으므로 의미가 없다
     if (dark){
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.30; boltStroke(pts, col, w*4.2);
-      ctx.globalAlpha = 0.55; boltStroke(pts, col, w*2.2);
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.globalAlpha = 0.34; boltStroke(pts, col, w*2.0); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = col; ctx.lineWidth = w*3.4;
+      polyPath(poly); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     }
-    //  ③ 본체
-    boltStroke(pts, col, w*1.15);
-    //  ④ 흰 심 — 가장 얇게. **레퍼런스의 '빛난다'는 느낌이 여기서 나온다**
+    //  ② 속 — **비운다**. 어두운 맵은 검정, 밝은 맵은 잉크.
+    //   이 '윤곽선으로 딴 리본' 이 레퍼런스 질감의 핵심이다 — 꽉 찬 스트로크는 네온 튜브가 된다
+    ctx.fillStyle = dark ? 'rgba(6,8,14,0.92)' : mixHex(col, '#14121e', 0.80);
+    polyPath(poly); ctx.fill();
+    //  ③ 테두리 — 밝은 색으로 리본을 딴다
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.4, w*0.62);
+    polyPath(poly); ctx.stroke();
+    //  ④ 흰 하이라이트 — **길 전체가 아니라 몇 마디에만**. 전체에 깔면 다시 튜브가 된다
+    ctx.strokeStyle = dark ? '#ffffff' : mixHex(col,'#ffffff',0.9);
+    ctx.lineWidth = Math.max(1, w*0.34);
     if (dark) ctx.globalCompositeOperation = 'lighter';
-    boltStroke(pts, dark ? '#ffffff' : mixHex(col,'#ffffff',0.86), w*0.50);
+    for (let i=0;i<pts.length-1;i++){
+      if ((i + (seed|0)) % 2) continue;
+      ctx.beginPath(); ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[i+1][0],pts[i+1][1]); ctx.stroke();
+    }
     ctx.restore();
   }
   //  파편 — 본선에서 튀어나가는 각진 조각. 이게 없으면 그냥 구불구불한 선이다
@@ -22924,7 +22971,7 @@ import { FX } from "./fx.js";
             sx = fx.x + (br-(brN-1)/2)*26; sy = fx.y - 160; ex = fx.x; ey = fx.y;
           }
           const pts = boltPath(sx, sy, ex, ey, seed+br*977+frm*131, (fx.r||160)*0.46, 3);
-          drawBolt(pts, col, br===0 ? 4.6 : 2.8, boltDark);
+          drawBolt(pts, col, br===0 ? 4.6 : 2.8, boltDark, seed+br*7+frm);
           drawBoltShards(pts, col, 2, boltDark, seed+br*31+frm*7);
         }
         //  착탄점 — 밝은 심 + 퍼지는 고리
