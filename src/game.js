@@ -8362,6 +8362,21 @@ import { FX } from "./fx.js";
     document.body.appendChild(box);
     return 'shown '+list.length;
   } catch(e){ return "ERR "+String(e); } };
+  //  v6.198 QA: 이펙트는 발동 조건(무기·자원·보스 존재)에 걸려 눈으로 보기 어렵다 — 직접 띄운다.
+  //   `__qaFx('arc')` 참격 · `__qaFx('death')` 처치 연출 · `__qaFx('deathbig')` 관문 처치 · `__qaFx('fire')` 지옥불 탄환
+  window.__qaFx = (kind, col)=>{ try {
+    const c = col || CLASS_COLORS[player.classKey] || '#e8c56a';
+    if (kind==='arc'){ effects.push({ type:'arc', x:player.x, y:player.y, a:0, r:120, arc:1.5, life:0.34, age:0, col:c }); }
+    else if (kind==='death' || kind==='deathbig'){
+      effects.push({ type:'pxdeath', x:player.x+90, y:player.y, life:0.9, age:0, r:34, col:c, big:kind==='deathbig' });
+      hitStop(0.12); shake = Math.min(26, shake+16);
+    }
+    else if (kind==='fire'){
+      for (let k=0;k<3;k++) projectiles.push({ x:player.x+k*30, y:player.y-26+k*26, vx:220, vy:0, r:5,
+        damage:0, crit:false, pierce:9, life:2.4, kind:'fireball' });
+    }
+    return 'fx '+kind;
+  } catch(e){ return 'ERR '+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
     //  ⚠ __qaWeapon은 교체가 아니라 **추가**다 — 안 지우면 이전 층이 남아
@@ -8496,6 +8511,14 @@ import { FX } from "./fx.js";
     burst(b.x,b.y, 34, 240, 0xe8c56a);
     FX.ring(b.x, b.y, 0xe8c56a, 22);
     effects.push({ type:'ring', x:b.x, y:b.y, life:0.5, age:0, r0:20, r1:220 });
+    //  🔴 v6.198 **처치 연출** — 사용자 지시: *"처치연출은 수문장,보스,관문보스들만 넣어놔"*
+    //   ⚠ 잡몹 처치에는 붙이지 않는다. 물량 게임이라 초당 수십 번 터지면 화면이 시끄럽고 성능도 먹는다.
+    //   `defeatBoss`는 **수문장·필드보스·관문보스가 전부** 지나는 자리다 — 잡몹은 여기 안 온다(별도 경로).
+    effects.push({ type:'pxdeath', x:b.x, y:b.y, life:0.9, age:0,
+                   r:(b.r||30), col: (BOSS_ACCENTS && BOSS_ACCENTS[b.key]) || '#e8c56a',
+                   big: !!(b.gate || b.finale || b.gateStage!==undefined) });
+    hitStop(b.finale ? 0.16 : 0.11);
+    shake = Math.min(26, shake + (b.finale ? 20 : 14));
     const n = 5;
     for (let i=0;i<n;i++){
       const a = (Math.PI*2/n)*i;
@@ -22699,6 +22722,30 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
   }
+  //  ═══════════════════════════════════════════════════════════════════════════
+  //  🔴 v6.198 **도트 이펙트 툴킷** — 사용자 지시: 캐릭터 다음은 이펙트.
+  //   캐릭터에서 배운 것이 이펙트에도 그대로 적용된다:
+  //    ① **블록으로 찍는다** — 부드러운 호·그라디언트는 벡터로 읽힌다. 정수 격자에 스냅한 사각형만 쓴다
+  //    ② **시간을 3~4단으로 끊는다** — 알파를 매끄럽게 줄이면 '사라지는 벡터'다.
+  //       도트 이펙트가 '움직이는 그림'으로 읽히는 이유는 **프레임이 뚝뚝 끊기기** 때문이다
+  //    ③ **3톤 램프** — 심(밝게) / 본체(속성색) / 가장자리(차갑고 어둡게). 색조 이동은 캐릭터와 같은 규칙
+  //   ⚠ 블록 크기는 월드 도트(2px)보다 **한 단 크게**(3px) — 같으면 배경 격자에 묻힌다
+  const FXPX = 3;
+  function fxBlock(x, y, c, s){
+    const k = s || FXPX;
+    ctx.fillStyle = c;
+    ctx.fillRect(Math.round(x/k)*k, Math.round(y/k)*k, k, k);
+  }
+  //  3톤 램프 — 그림자는 차갑게(캐릭터 팔레트와 같은 규칙)
+  const FX_RAMP_CACHE = {};
+  function fxRamp(col){
+    if (FX_RAMP_CACHE[col]) return FX_RAMP_CACHE[col];
+    const r = [ mixHex(col,'#fffbe8',0.72), col, mixHex(col,'#241a45',0.42) ];
+    FX_RAMP_CACHE[col] = r;
+    return r;
+  }
+  //  진행도를 N단으로 끊는다 — 이펙트가 '벡터처럼 스르륵'이 아니라 '도트처럼 뚝뚝' 가게 하는 핵심
+  function fxStep(t, n){ return Math.min(n-1, Math.floor(t*n)); }
   function drawHazards(){
     for (const h of hazards){
       const tt = 1 - h.timer/h.maxT;
@@ -22755,6 +22802,50 @@ import { FX } from "./fx.js";
         const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
         ctx.lineWidth = 2.5*tt+0.5;
         ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI*2); ctx.stroke();
+      } else if (fx.type==='pxdeath'){
+        //  🔴 v6.198 **처치 연출** (수문장·보스·관문보스 전용) — 네 박자로 끊는다.
+        //   ① 흰 섬광 ② 터져 나가는 블록 고리 ③ 떨어지는 파편 ④ 솟는 빛기둥
+        //   ⚠ 전부 블록이다. 부드러운 원·그라디언트를 하나라도 섞으면 그것만 벡터로 튄다.
+        const pr = fx.age/fx.life, RM = fxRamp(fx.col), K = FXPX + (fx.big?1:0);
+        //  ① 섬광 — 첫 2프레임만. 알파를 매끄럽게 줄이지 않고 **두 단**으로 끊는다
+        if (pr < 0.14){
+          ctx.save();
+          ctx.globalAlpha = pr < 0.07 ? 0.55 : 0.22;
+          ctx.fillStyle = '#fffbe8';
+          ctx.fillRect(fx.x - W, fx.y - H, W*2, H*2);
+          ctx.restore();
+        }
+        //  ② 블록 고리 — 4단으로 끊어 퍼진다
+        const rs = fxStep(pr, 4);
+        const rr = fx.r * (0.7 + rs*0.85) * (fx.big?1.35:1);
+        if (pr < 0.7){
+          const n = 22 + rs*10;                                // ⚠ 성글면 고리가 아니라 점 몇 개로 보인다
+          for (let k=0;k<n;k++){
+            const a2 = (6.283/n)*k + rs*0.2;
+            fxBlock(fx.x+Math.cos(a2)*rr, fx.y+Math.sin(a2)*rr, rs<2?RM[0]:RM[1], K);
+            fxBlock(fx.x+Math.cos(a2)*(rr-K*1.7), fx.y+Math.sin(a2)*(rr-K*1.7), rs<2?RM[1]:RM[2], K);
+          }
+        }
+        //  ③ 파편 — 위로 튀었다 떨어진다(중력). 시드는 인덱스 고정이라 매 프레임 같은 조각이다
+        const dn = fx.big ? 22 : 14;
+        for (let k=0;k<dn;k++){
+          const a2 = (k*2.399), sp = 60 + (k%5)*34;
+          const t2 = fx.age;
+          const dx2 = Math.cos(a2)*sp*t2;
+          const dy2 = Math.sin(a2)*sp*t2*0.6 - 150*t2 + 340*t2*t2;
+          fxBlock(fx.x+dx2, fx.y+dy2, (k%3===0)?RM[0]:(k%3===1?RM[1]:RM[2]), K);
+        }
+        //  ④ 빛기둥 — 관문/최종에서만.
+        //   ⚠ 1차 시안은 폭 9블록·높이 130px이라 **화면을 먹는 붉은 기둥**이었다. 연출은 주인공을 가리면 안 된다.
+        //   좁고(3블록) 짧게(70px), 그리고 앞쪽 절반에서만.
+        if (fx.big && pr < 0.42){
+          const cs = fxStep(pr, 3);
+          for (let y2=0; y2 < 46 + cs*12; y2 += K){
+            const w2 = y2 < 24 ? 1 : 0;
+            for (let x2=-w2; x2<=w2; x2++)
+              fxBlock(fx.x + x2*K, fx.y - y2, (x2===0) ? RM[0] : RM[1], K);
+          }
+        }
       } else if (fx.type==='psywave'){
         ctx.lineWidth = 3;
         ctx.setLineDash([10,8]);
@@ -22763,33 +22854,40 @@ import { FX } from "./fx.js";
       } else if (fx.type==='arc'){
         // v6.84 근접 궤적 재작업: 옅은 부채꼴(α0.22)이라 배경에 묻혀 "아무 이펙트도 없다"는 피드백.
         // → 날이 지나간 자리를 '긁는' 초승달로: 바깥 밝은 날 + 안쪽 그림자 + 끝단 스파크
+        //  🔴 v6.198 **참격을 도트로 다시 찍는다** — 이전은 `arc` + `lineWidth` + 알파 감쇠,
+        //   즉 **부드러운 벡터 호**였다. 몸이 도트인데 참격만 벡터라 v6.194의 무기와 같은 문제였다.
+        //   ⇒ 호 위에 블록을 박고, 시간을 **3단**으로 끊는다(1단 두꺼운 날 → 2단 얇은 날 → 3단 흩어지는 파편).
         const sweep = fx.arc >= Math.PI*2 ? Math.PI*2 : fx.arc;
-        const start = fx.a - sweep/2 + (fx.age/fx.life)*0.4;
-        const acc = fx.col || (dark ? '#e8f2f6' : '#f6f6f4');
+        const prog = fx.age/fx.life;
+        const start = fx.a - sweep/2 + prog*0.4;
+        const acc = fx.col || (dark ? '#e8f2f6' : '#dfe6ea');
+        const RM = fxRamp(acc);
+        const stage = fxStep(prog, 3);
         ctx.save();
-        // 안쪽 그림자 — 베인 자리가 어두워진다
-        ctx.fillStyle = dark ? 'rgba(255,255,255,'+(0.20*tt)+')' : 'rgba(24,25,29,'+(0.30*tt)+')';
-        ctx.beginPath();
-        ctx.moveTo(fx.x, fx.y);
-        ctx.arc(fx.x, fx.y, fx.r*0.92, start, start+sweep);
-        ctx.closePath(); ctx.fill();
-        // 날 — 굵고 밝은 호가 바깥을 훑는다
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = acc;
-        ctx.globalAlpha = 0.95*tt;
-        ctx.lineWidth = 5.5*tt + 1.5;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*(0.94+0.06*tt), start, start+sweep); ctx.stroke();
-        // 잔상 — 한 겹 더 안쪽에 얇게
-        ctx.globalAlpha = 0.45*tt;
-        ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*0.74, start+0.12, start+sweep-0.12); ctx.stroke();
-        // 끝단 스파크 — 날이 빠져나간 지점에서 픽셀이 튄다
-        ctx.globalAlpha = tt;
-        ctx.fillStyle = acc;
-        for (let k=0;k<3;k++){
-          const ea = start + sweep*(0.82 + k*0.06);
-          const er = fx.r*(0.96 + k*0.05) + tt*4;
-          ctx.fillRect(Math.round(fx.x+Math.cos(ea)*er)-1, Math.round(fx.y+Math.sin(ea)*er)-1, 3, 3);
+        //  ⚠ 1차 시안은 부채꼴 **안쪽을 블록으로 가득 채웠다** — 참격이 아니라 **흩어진 구름**이 됐다.
+        //   면을 블록으로 채우면 노이즈다. 그림자는 **날 바로 안쪽 한 줄**이면 충분하다.
+        if (stage < 2){
+          const sh = dark ? 'rgba(255,255,255,0.18)' : 'rgba(20,16,34,0.26)';
+          for (let a2=0; a2<=sweep; a2+=0.075)
+            fxBlock(fx.x+Math.cos(start+a2)*fx.r*0.80, fx.y+Math.sin(start+a2)*fx.r*0.80, sh);
+        }
+        //  날 — 호를 따라 블록을 박는다. 단계가 오를수록 얇아지고 성글어진다
+        const bandN = stage===0 ? 3 : stage===1 ? 2 : 1;      // 날 두께(블록 줄 수)
+        const dStep = stage===2 ? 0.16 : 0.075;               // 성글기
+        for (let a2=0; a2<=sweep; a2+=dStep){
+          if (stage===2 && ((a2*10)|0)%2) continue;           // 마지막 단계는 이가 빠진다
+          const ang2 = start + a2;
+          for (let k=0;k<bandN;k++){
+            const rr = fx.r*(0.96 - k*0.055);
+            const c = k===0 ? RM[0] : (k===1 ? RM[1] : RM[2]);
+            fxBlock(fx.x+Math.cos(ang2)*rr, fx.y+Math.sin(ang2)*rr, c);
+          }
+        }
+        //  끝단 파편 — 날이 빠져나간 지점에서 큰 픽셀이 튄다
+        for (let k=0;k<4;k++){
+          const ea = start + sweep*(0.80 + k*0.07);
+          const er = fx.r*(0.98 + k*0.06) + stage*5;
+          fxBlock(fx.x+Math.cos(ea)*er, fx.y+Math.sin(ea)*er, k<2?RM[0]:RM[1], FXPX+1);
         }
         ctx.restore();
       } else if (fx.type==='iai'){
@@ -22876,19 +22974,38 @@ import { FX } from "./fx.js";
   let fxBulletFrame = [];
   // v6.55 속성별 탄환 형태 — 색만이 아니라 '모양'으로 구분된다 (Canvas2D, 단일 빌드 호환)
   const ELEM_BULLET = {
-    fire(p, pc){ // 불꽃 물방울 — 진행 방향으로 뾰족, 노란 심지가 일렁인다
-      ctx.save();
-      ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy,p.vx));
-      const fl = 1 + Math.sin(performance.now()/60 + p.x)*0.18;
-      ctx.fillStyle = pc;
-      ctx.beginPath();
-      ctx.moveTo(p.r*1.9*fl, 0);
-      ctx.quadraticCurveTo(0, -p.r*1.05, -p.r*1.1, 0);
-      ctx.quadraticCurveTo(0, p.r*1.05, p.r*1.9*fl, 0);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#f6c96b';
-      ctx.beginPath(); ctx.arc(p.r*0.15, 0, p.r*0.5*fl, 0, Math.PI*2); ctx.fill();
-      ctx.restore();
+    //  🔴 v6.198 **지옥불 탄환을 도트로** (샘플) — 이전은 `quadraticCurveTo` 물방울, 즉 부드러운 벡터였다.
+    //   ⇒ 3톤 램프 블록으로 심지·본체·그을음을 쌓고, 꼬리는 **불규칙하게 뒤로 흩어지는 블록**으로.
+    //   ⚠ 일렁임을 `sin(시간)`으로 매끄럽게 주면 다시 벡터로 보인다 — **4프레임으로 끊어** 깜빡이게 한다.
+    //   ⚠ 블록을 격자에 스냅하면 탄환이 빠를 때 **덜덜 떠는 것처럼** 보인다 → 탄환 본체는 지역 좌표에서
+    //    스냅하고(자기 격자), 화면 격자에는 스냅하지 않는다.
+    fire(p, pc){
+      const RM = fxRamp(pc);
+      const fr = Math.floor(performance.now()/70 + p.x*0.05) % 4;      // 4프레임 깜빡임
+      const a = Math.atan2(p.vy, p.vx);
+      const cs = Math.cos(a), sn = Math.sin(a);
+      const K = 3;
+      const put = (fx2, fy2, c)=>{                                     // 진행 방향 기준 지역 좌표
+        ctx.fillStyle = c;
+        ctx.fillRect(Math.round(p.x + fx2*cs - fy2*sn), Math.round(p.y + fx2*sn + fy2*cs), K, K);
+      };
+      const R = p.r;
+      //  본체 — 앞이 뾰족하고 뒤가 넓은 불덩이
+      for (let ix=-1; ix<=2; ix++){
+        const half = ix>=1 ? 1 : (ix===0 ? 2 : 2);
+        for (let iy=-half; iy<=half; iy++){
+          const edge = (Math.abs(iy)===half || ix===2);
+          put(ix*K + R*0.2, iy*K, edge ? RM[2] : RM[1]);
+        }
+      }
+      //  심지 — 가장 밝은 두 칸이 프레임마다 자리를 바꾼다
+      put(R*0.2 + (fr%2?0:K), (fr<2?0:-K), RM[0]);
+      put(R*0.2, 0, RM[0]);
+      //  꼬리 — 뒤로 갈수록 어둡고 성글게, 프레임마다 흔들린다
+      for (let k=1;k<=3;k++){
+        const off = ((fr+k)%3 - 1) * K;
+        put(R*0.2 - (k+1.6)*K, off, k<2 ? RM[1] : RM[2]);
+      }
     },
     frost(p, pc){ // 육각 얼음 결정 — 천천히 회전, 흰 코어
       ctx.save();
