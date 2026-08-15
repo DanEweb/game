@@ -437,6 +437,11 @@
   }
   /* 모바일 편의성: 터치 타깃 확대 + 세이프 에어리어
      겹침 해소: 스킬바는 왼쪽 하단, 대시는 오른쪽 하단, Q는 대시 바로 위 — 서로 침범 금지 */
+  /* 🔴 v6.185 위성 버튼 **데스크톱 기본 위치** — 좌표 규칙이 @media(pointer:coarse) 안에만 있어
+     데스크톱에서 표시하자마자 둘 다 좌표 없이 겹쳐(6,725) 화면 밖으로 잘렸다. */
+  #orbBtn{ right:24px; bottom:210px; }
+  #ejBtn { right:24px; bottom:276px; }
+
   @media (pointer:coarse){
     .skillChip{ width:54px; height:54px; font-size:15px; }
     #dashBtn{ width:84px; height:84px; font-size:12px; right:14px; bottom:calc(16px + env(safe-area-inset-bottom)); }

@@ -597,7 +597,10 @@ import { FX } from "./fx.js";
     gb.style.borderColor = ready ? col : 'rgba(246,246,244,0.25)';
   }
   function refreshOrbBtn(){
-    const on = IS_TOUCH && state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
+    //  🔴 v6.185 **버튼이 '사라진' 게 아니라 모바일 전용이었다** (사용자: "궤도 확장 버튼 어디갔어?")
+    //   데스크톱에선 E(궤도)·F(사출) 키로만 되고 화면에 아무 표시가 없어 **기능이 없는 줄 알게 된다.**
+    //   위성 직업이면 **데스크톱에도 띄운다** — 키가 있어도 보이는 게 있어야 존재를 안다.
+    const on = state==='playing' && player && player.weapons && player.weapons.some(w=>w.key==='satellite');
     if (orbBtn){
       orbBtn.style.display = on ? 'flex' : 'none';
       if (on){
@@ -13307,9 +13310,8 @@ import { FX } from "./fx.js";
                 r:10, damage:C.dmg*2.2, crit:true, pierce:6, life:1.9,
                 orb:true, imbue:C.w.imbue||null });
             }
-            player.satBurstT = Math.max(player.satBurstT||0, 4.0);
-            player.satRush = Math.min(3.0, (player.satRush||1) + 1.0);
-            player.satOrbit = 1;
+            player.satBurstT = Math.max(player.satBurstT||0, 4.5);
+            player.satRush = Math.min(3.0, (player.satRush||1) + 1.0);   // 궤도는 건드리지 않는다 (플레이어 선택)
             RING(190, C.dmg*1.4, C.w);
             FXR(190);
           }
@@ -13446,8 +13448,9 @@ import { FX } from "./fx.js";
           }
           else if (arch==='g_manager'){
             //  v6.184 성장: **고리를 넓혀 훑는다** — 확장 궤도로 전환 + 궤도 폭주
-            player.satOrbit = 1;                          // 확장 궤도
-            player.satBurstT = Math.max(player.satBurstT||0, 2.2);
+            //  ⚠ v6.184에서 `player.satOrbit = 1`을 강제로 덮어썼다 → 궤도 버튼을 눌러도
+            //   무기가 매 발사마다 되돌려놔 **버튼이 죽은 것처럼** 보였다. 선택권은 플레이어 것이다.
+            player.satBurstT = Math.max(player.satBurstT||0, 2.6);
             player.satRush = Math.min(2.6, (player.satRush||1) + 0.55);
             RING(150, C.dmg*0.9, C.w);
             FXR(150);
@@ -19383,10 +19386,16 @@ import { FX } from "./fx.js";
     //  v6.183 **장식** — 자루~날을 따라 박히는 보석/못. 슬롯이 오를수록 늘어난다
     if (WF.FO > 0){
       ctx.save();
+      //  ⚠ 직선으로 늘어놓으니 무기가 없는 직업(관측자·수도승·백수…)에서 **없는 지팡이가 생겼다**.
+      //   날붙이 계열만 축을 따라 박고, 나머지는 **프롭 주위를 도는 점**으로 흩는다.
+      const BLADEY = { samurai:1, cheol:1, mumyeong:1, duelist:1, exhero:1, shadow:1, runeknight:1, madman:1, reaper:1, rusher:1, ninja:1, blackcat:1, paladin:1 };
+      const axial = !!BLADEY[o.gear];
       const gx0=6.0, gy0=0.0, gx1=16.0*WF.FL, gy1=-10.5*WF.FL;
       for (let k=0;k<WF.FO;k++){
         const t2 = 0.18 + k*(0.62/Math.max(1,WF.FO));
-        const px = gx0+(gx1-gx0)*t2, py = gy0+(gy1-gy0)*t2;
+        let px, py;
+        if (axial){ px = gx0+(gx1-gx0)*t2; py = gy0+(gy1-gy0)*t2; }
+        else { const a3 = (6.283/WF.FO)*k + 0.4; px = 7.4 + Math.cos(a3)*5.6; py = -5.4 + Math.sin(a3)*4.2; }
         ctx.fillStyle = (o.wslot>=6) ? '#e0a94f' : WM.gold;
         ctx.beginPath(); ctx.arc(px, py, 0.95+(o.wslot>=6?0.35:0), 0, 6.283); ctx.fill();
         ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.32; ctx.stroke();
