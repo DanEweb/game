@@ -3405,7 +3405,10 @@ import { FX } from "./fx.js";
     //   그러면 아트픽셀 하나가 화면에서 1px, 2px 제멋대로가 되어 격자가 무너진다. '뭉개져 보인' 절반이 이것이다.
     //   ⇒ 버퍼를 액자(132×120)의 **정수 약수**로 잡고 정확히 ×2로 늘린다.
     //   ⚠ 버퍼 폭은 몸이 아니라 **무기**가 정한다 — 몸은 x −13…13인데 카타나 끝이 x≈30이다.
-    const BW = 66, BH = 60, FOOT = 56, ORGX = 24;
+    //  ⚠⚠ v6.194 버퍼는 66×60인데 `dx=18`로 놓아 **왼쪽 9열이 잘리고 오른쪽 무기가 액자 밖으로** 나갔다.
+    //   ×2 확대라면 66×60 버퍼는 132×120 액자와 **정확히 1:1**이다 — dx·dy를 0으로 두고 버퍼 안에서 배치할 것.
+    //   ⇒ 몸은 버퍼 x=26(액자 x=52, 살짝 왼쪽)에 세우고 오른쪽 39열을 무기에 준다.
+    const BW = 66, BH = 60, FOOT = 58, ORGX = 26;
     const bb = document.createElement('canvas'); bb.width = BW; bb.height = BH;
     const bx = bb.getContext('2d');
     const main = ctx; ctx = bx;
@@ -3447,7 +3450,7 @@ import { FX } from "./fx.js";
     //  ⚠ 중앙을 맞출 것은 버퍼가 아니라 **몸**이다 — 몸은 버퍼 안에서 왼쪽(ORGX)에 서 있다.
     const k = 2;
     const dw = BW*k, dh = BH*k;
-    const dx = Math.round(W/2 - ORGX*k), dy = Math.round(H*0.94 - FOOT*k);
+    const dx = 0, dy = 0;                                 // 66×60 ×2 = 132×120 — 액자와 정확히 같다
     g.imageSmoothingEnabled = false;
     g.drawImage(ob, dx, dy, dw, dh);
     g.drawImage(bb, dx, dy, dw, dh);
@@ -20028,10 +20031,175 @@ import { FX } from "./fx.js";
       const nx=-dy/L*w/2, ny=dx/L*w/2;
       PX.POLY([[x0+nx,y0+ny],[x1+nx,y1+ny],[x1-nx,y1-ny],[x0-nx,y0-ny]], c); },
   };
+  //  ── 🔴 v6.194 **무기 37종을 도트로 다시 찍는다** — 사용자: *"아직도 캐릭터 부족해"*
+  //   v6.193까지 몸은 정수 픽셀로 찍고 **무기만 옛 벡터 프롭**(`propOnly`)을 빌려 썼다.
+  //   그래서 한 그림 안에서 **몸은 도트, 칼은 벡터**로 그림체가 갈렸다 — 가장 눈에 걸리는 결함이었다.
+  //   ⇒ 손을 원점(위가 음수)으로 하는 지역 좌표에 **37종을 각자** 찍는다. 아키타입 돌려쓰기 금지
+  //     (v6.183 교훈: 같은 그림에 크기·표식만 다른 건 고유가 아니다).
+  const WP = {
+    //  날: 시작폭 w0 → 끝폭 w1로 좁아지는 사다리꼴 + 광원 쪽 날선 + 반대쪽 그늘
+    blade(x0,y0,x1,y1,w0,w1,base,edge,dark){
+      const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L;
+      PX.POLY([[x0+nx*w0,y0+ny*w0],[x1+nx*w1,y1+ny*w1],[x1-nx*w1,y1-ny*w1],[x0-nx*w0,y0-ny*w0]], base);
+      PX.POLY([[x0+nx*w0,y0+ny*w0],[x1+nx*w1,y1+ny*w1],
+               [x1+nx*w1*0.15,y1+ny*w1*0.15],[x0+nx*w0*0.25,y0+ny*w0*0.25]], edge);
+      if (dark) PX.POLY([[x0-nx*w0,y0-ny*w0],[x1-nx*w1,y1-ny*w1],
+               [x1-nx*w1*0.25,y1-ny*w1*0.25],[x0-nx*w0*0.35,y0-ny*w0*0.35]], dark);
+    },
+    haft(x0,y0,x1,y1,t,c,cl){ PX.LINE(x0,y0,x1,y1,t,c); if(cl) PX.LINE(x0,y0,x1,y1,Math.max(1,t-2),cl); },
+    disc(cx,cy,r,c,cl){ PX.ELL(cx,cy,r,r,c); if(cl) PX.ELL(cx-r*0.3,cy-r*0.3,r*0.45,r*0.45,cl); },
+    grip(x0,y0,x1,y1,P){ PX.LINE(x0,y0,x1,y1,4,P.out2); PX.LINE(x0,y0,x1,y1,2,P.leaD); },
+  };
+  //  ⚠ 좌표계: 손이 (0,0), 위가 음수. 무기는 대개 오른쪽 위로 뻗는다.
+  //   버퍼 여유는 x ≤ +26 / y ≥ −34 — 이걸 넘으면 액자에서 잘린다.
+  const CHIBI_WEAPON = {
+    samurai(P){ WP.grip(-4,4, 2,-2, P); PX.R(1,-3,3,2,P.gold);                       // 츠카·츠바
+      WP.blade(3,-4, 19,-22, 2, 1, P.metM, P.metL, P.metD);
+      PX.R(-5,4,3,3,P.out2); },
+    cheol(P){ WP.grip(-4,5, 1,-1, P); PX.R(-2,-3,8,2,P.metD);                        // 대검 — 두껍다
+      WP.blade(2,-3, 17,-21, 4, 2, P.metM, P.metL, P.metD);
+      PX.R(-5,5,4,3,P.metD); },
+    runeknight(P){ WP.grip(-4,4, 1,-1, P); PX.R(-2,-3,7,2,P.gold);
+      WP.blade(2,-3, 17,-20, 3, 1.5, P.metM, P.metL, P.metD);
+      for(let k=0;k<3;k++) PX.R(4+k*4, -7-k*4, 2,2, P.gold); },
+    mumyeong(P){ WP.grip(-4,4, 1,-1, P); PX.R(-1,-3,4,1,P.metD);                     // 장식 없음이 정체성
+      WP.blade(2,-3, 18,-21, 2.5, 1.2, P.metM, P.metL, P.metD); },
+    exhero(P){ WP.grip(-4,4, 1,-1, P); PX.R(-2,-3,7,2,P.metD);                       // 낡은 장검 — 이가 빠졌다
+      WP.blade(2,-3, 16,-19, 3, 1.5, P.metD, P.metM, P.out2);
+      PX.R(7,-10,2,2,P.out); PX.R(11,-15,2,2,P.out);
+      PX.LINE(-4,4,-7,8, 2, P.accM); },
+    duelist(P){ PX.ELL(0,0,4,4,P.gold); PX.ELL(0,0,2,2,P.out2);                      // 바구니 손잡이
+      WP.blade(2,-3, 21,-26, 1.5, 0.8, P.metL, P.white, P.metD); },
+    madman(P){ WP.grip(-3,4, 1,0, P);                                                // 식칼 — 짧고 넓다
+      WP.blade(1,-1, 12,-12, 4, 3, P.metM, P.metL, P.metD);
+      PX.R(8,-11,2,2,P.out); PX.R(5,-6,2,2,P.out); },
+    //  ⚠ 방패를 손 기준 x −16에 뒀더니 **몸통 뒤로 들어가 안 보였다**. 반대편 손(월드 x≈−14)까지 가야 한다
+    paladin(P){ PX.POLY([[-33,-10],[-24,-13],[-23,2],[-32,5]], P.metM);              // 방패
+      PX.POLY([[-33,-10],[-29,-11],[-28,3],[-32,5]], P.metL);
+      PX.POLY([[-31,-8],[-26,-9],[-26,-1],[-31,0]], P.gold);
+      PX.POLY([[-33,-10],[-24,-13],[-24,-11],[-33,-8]], P.out2);
+      WP.haft(0,2, 7,-8, 3, P.leaD);                                                 // 철퇴
+      WP.disc(9,-12, 5, P.metM, P.metL);
+      for(const [a,b] of [[9,-18],[14,-12],[9,-6],[4,-12]]) PX.R(a-1,b-1,3,3,P.metD); },
+    rusher(P){ WP.haft(-6,6, 12,-12, 4, P.leaD, P.leaM);                             // 랜스
+      PX.R(2,-3,5,3,P.gold);
+      PX.POLY([[11,-11],[22,-24],[16,-8]], P.metM);
+      PX.POLY([[13,-13],[21,-22],[17,-12]], P.metL); },
+    monk(P){ for(const [a,b] of [[-1,-2],[3,-4],[6,-1],[3,2]]) PX.R(a,b,2,2,P.gold); // 맨손 — 염주와 기
+      PX.ELL(7,-8,5,5,P.accM); PX.ELL(7,-8,3,3,P.accL); PX.ELL(6,-9,1,1,P.white); },
+    //  ⚠ 1차 시안은 활대가 짧고 두꺼워 **나무 판자**로 보였다 — 활은 길고 얇은 C자여야 활이다
+    archer(P){ PX.POLY([[2,-22],[7,-15],[9,-4],[9,3],[7,12],[2,19],                  // 활대(바깥)
+                        [4,17],[7,9],[7,2],[7,-5],[5,-13],[3,-19]], P.leaM);
+      PX.POLY([[2,-22],[5,-16],[6,-6],[5,-8],[3,-18]], P.leaL);                      // 위쪽 하이라이트
+      PX.LINE(2,-22, 2,19, 1, P.white);                                              // 시위
+      PX.R(6,-4,4,8,P.accM); PX.R(6,-4,4,3,P.accL); },                               // 그립
+    sniper(P){ PX.POLY([[-8,4],[-1,1],[0,4],[-7,7]], P.leaM);                        // 개머리판
+      PX.R(-1,-2,7,5,P.metD); PX.R(-1,-2,7,2,P.metM);
+      PX.LINE(5,-1, 22,-9, 3, P.out2); PX.LINE(5,-2, 22,-10, 1, P.metM);             // 총열
+      PX.R(1,-6,8,3,P.metM); PX.R(1,-6,8,1,P.metL);                                  // 조준경
+      PX.R(0,3,3,3,P.out2); },
+    pilot(P){ PX.R(-1,-2,3,7,P.out2); PX.R(-2,-4,5,3,P.metM);                        // 조종간
+      PX.R(6,-18,12,5,P.metM); PX.R(6,-18,12,2,P.metL);                              // 드론
+      PX.R(4,-20,4,2,P.out2); PX.R(16,-20,4,2,P.out2);
+      PX.R(11,-15,2,2,P.accL); },
+    specialist(P){ WP.blade(1,-2, 11,-12, 2, 1, P.metM, P.metL, P.metD);             // 단검 + 도구 벨트
+      WP.grip(-3,3, 0,-1, P);
+      PX.R(-9,0,5,5,P.leaD); PX.R(-9,0,5,2,P.leaM); PX.R(-8,-4,3,4,P.metD); },
+    manager(P){ PX.ELL(6,-11,6,6,P.accM); PX.ELL(4,-13,3,3,P.accL);                  // 관측 오브
+      PX.ELL(6,-11,2,2,P.white);
+      for(let k=-1;k<=1;k+=2){ PX.POLY([[6-11,-11+k*4],[6+11,-11-k*4],[6+11,-11-k*4+2],[6-11,-11+k*4+2]], P.metL); } },
+    voidc(P){ PX.POLY([[-2,-2],[10,-6],[10,4],[-2,8]], P.leaD);                      // 마도서
+      PX.POLY([[-1,-2],[9,-5],[9,3],[-1,7]], P.white);
+      PX.POLY([[3,-3],[5,-4],[5,6],[3,7]], P.leaM);
+      PX.R(12,-13,4,3,P.white); PX.R(16,-18,3,3,P.white); },
+    ninja(P){ PX.POLY([[2,-2],[8,-10],[16,-19],[9,-7]], P.metM);                     // 쿠나이
+      PX.POLY([[3,-3],[8,-9],[15,-18],[10,-8]], P.metL);
+      PX.LINE(-1,2, 3,-3, 3, P.out2);
+      PX.ELL(-3,4,3,3,P.metD); PX.ELL(-3,4,1.5,1.5,P.out); },
+    reaper(P){ WP.haft(-3,8, 8,-20, 3, P.leaD, P.leaM);                              // 낫
+      PX.R(4,-9,3,2,P.metD);
+      PX.POLY([[8,-21],[20,-30],[24,-24],[14,-22],[9,-18]], P.metM);
+      PX.POLY([[9,-21],[19,-29],[22,-25],[13,-23]], P.metL); },
+    glitch(P){ for(const [a,b,w,h] of [[1,-6,6,4],[8,-13,5,6],[3,1,4,4]]){           // 깨진 화면 조각
+        PX.R(a,b,w,h,P.accL); PX.R(a,b,w,1,P.white); }
+      PX.R(6,-9,3,2,P.accM); },
+    blackcat(P){ for(let k=0;k<3;k++)                                                // 갈고리 발톱
+        WP.blade(1+k*2, -1-k, 9+k*3, -9-k*3, 1.6, 0.7, P.metM, P.metL, P.metD);
+      PX.R(-3,-1,6,5,P.leaD); },
+    shadow(P){ WP.blade(1,-2, 11,-13, 2, 1, P.metM, P.metL, P.metD);                 // 쌍단검
+      WP.blade(-2,2, 6,-8, 1.8, 0.9, P.metD, P.metM, P.out2);
+      WP.grip(-4,3, 0,-1, P); },
+    tombraider(P){ let x=1,y=0;                                                      // 채찍
+      for(let k=0;k<7;k++){ const nx2=x+3, ny2=y-2+((k%2)?3:-3);
+        PX.LINE(x,y,nx2,ny2, 2, k<5?P.leaM:P.leaD); x=nx2; y=ny2; }
+      PX.R(-3,-2,5,5,P.leaD); PX.R(-3,-2,5,2,P.leaM); },
+    commander(P){ WP.haft(-2,2, 10,-11, 3, P.out2);                                  // 지휘봉
+      PX.R(-4,1,4,4,P.gold); PX.R(9,-14,4,4,P.gold); PX.R(9,-14,4,2,P.goldL); },
+    necro(P){ WP.haft(-3,8, 6,-16, 3, P.leaD, P.leaM);                               // 등불 지팡이
+      PX.POLY([[6,-17],[12,-22],[13,-19],[8,-16]], P.metD);
+      PX.ELL(12,-15,4,4,P.accL); PX.ELL(12,-15,2,2,P.white);
+      PX.R(11,-19,2,3,P.metM); },
+    //  ⚠ 1차 시안은 몸통이 작고 목이 가늘어 **국자**로 보였다 — 류트는 몸통이 크고 목이 굵다
+    bard(P){ PX.ELL(1,4,9,8,P.leaM); PX.ELL(-2,1,5,4,P.leaL);                        // 류트 몸통
+      PX.ELL(3,4,3,3,P.out2);                                                        // 사운드홀
+      PX.LINE(5,-1, 17,-15, 4, P.leaD); PX.LINE(5,-1, 17,-15, 2, P.leaM);            // 목
+      for(let k=0;k<3;k++) PX.LINE(2+k*1.4, 2-k*1.2, 16+k*0.6, -14-k*0.6, 1, P.white);
+      PX.POLY([[16,-16],[21,-21],[23,-18],[18,-14]], P.leaD);                        // 머리(줄감개)
+      for(const [a,b] of [[18,-19],[20,-17]]) PX.R(a,b,2,2,P.goldL); },
+    returner(P){ for(let k=0;k<5;k++) PX.R(1+k*2, -2-k*3, 2,2, P.gold);              // 회중시계
+      PX.ELL(12,-17,6,6,P.gold); PX.ELL(12,-17,4.5,4.5,P.white);
+      PX.LINE(12,-17, 12,-21, 1, P.out); PX.LINE(12,-17, 15,-16, 1, P.out); },
+    druid(P){ WP.haft(-3,7, 5,-14, 3, P.leaD, P.leaM);                               // 나무 지팡이
+      PX.LINE(5,-15, 11,-21, 2, P.leaD); PX.LINE(5,-15, 1,-21, 2, P.leaD);
+      for(const [a,b] of [[11,-23],[0,-23],[6,-19]]) PX.ELL(a,b,3,2,P.accM);
+      for(const [a,b] of [[11,-24],[0,-24]]) PX.ELL(a,b,1.5,1,P.accL); },
+    //  ⚠ 1차 시안은 머리가 삼각형이라 **도끼/화살촉**으로 보였다 — 렌치는 '벌어진 두 턱'이 정체성이다
+    engineer(P){ WP.haft(-2,3, 9,-10, 4, P.metD, P.metM);                            // 렌치 자루
+      PX.POLY([[6,-11],[14,-19],[12,-22],[8,-18],[6,-16]], P.metM);                  // 위턱
+      PX.POLY([[9,-8],[17,-16],[15,-19],[11,-15],[9,-13]], P.metM);                  // 아래턱
+      PX.POLY([[7,-12],[13,-18],[12,-20],[8,-17]], P.metL);
+      PX.POLY([[6,-11],[9,-8],[11,-11],[8,-14]], P.metD);                            // 두 턱을 잇는 목
+      PX.ELL(-3,4,3,3,P.gold); PX.ELL(-3,4,1.5,1.5,P.goldL); },                      // 태엽
+    debug(P){ WP.haft(-3,4, 3,-3, 3, P.leaD);                                        // 돋보기
+      PX.ELL(9,-10,7,7,P.metM); PX.ELL(9,-10,5,5,P.accL); PX.ELL(7,-12,2,2,P.white); },
+    tourist(P){ PX.R(-2,-6,13,10,P.out2); PX.R(-2,-6,13,3,P.metD);                   // 카메라
+      PX.ELL(5,-1,4,4,P.metM); PX.ELL(5,-1,2.5,2.5,P.accL); PX.ELL(4,-2,1,1,P.white);
+      PX.R(-1,-9,4,3,P.white); },
+    slime(P){ for(const [a,b,r] of [[3,-3,5],[9,-9,4],[6,3,3],[12,-2,3]]){           // 점액 돌기
+        PX.ELL(a,b,r,r,P.accM); PX.ELL(a-r*0.3,b-r*0.3,r*0.4,r*0.4,P.accL); } },
+    //  ⚠ 1차 시안은 카드가 겹쳐 **분홍 덩어리**가 됐다 — 부채는 장마다 각도가 벌어지고 테두리가 보여야 한다
+    gambler(P){ for(let k=0;k<4;k++){                                                // 카드 부채
+        const a = -1.05 + k*0.42, c = Math.cos(a), s = Math.sin(a);
+        const bx = 1 + c*3, by = 1 + s*3, tx = 1 + c*13, ty = 1 + s*13;
+        const nx = -s*3.2, ny = c*3.2;
+        PX.POLY([[bx+nx,by+ny],[tx+nx,ty+ny],[tx-nx,ty-ny],[bx-nx,by-ny]], P.out2);
+        PX.POLY([[bx+nx*0.7,by+ny*0.7],[tx+nx*0.7,ty+ny*0.7],
+                 [tx-nx*0.7,ty-ny*0.7],[bx-nx*0.7,by-ny*0.7]], k%2 ? P.white : P.accL); }
+      PX.R(-8,2,7,7,P.white); PX.R(-8,2,7,2,P.metL);                                 // 주사위
+      PX.R(-6,4,2,2,P.out); PX.R(-3,6,2,2,P.out); },
+    collector(P){ PX.R(-2,-10,15,14,P.leaD); PX.R(0,-8,11,10,P.metL);                // 진열 상자
+      PX.R(0,-8,11,3,P.white);
+      PX.R(2,-5,3,3,P.accM); PX.R(7,-4,3,3,P.gold); PX.R(4,-1,3,2,P.accL); },
+    contributor(P){ PX.LINE(-2,4, 4,-4, 2, P.accM); PX.LINE(4,-4, 10,-14, 2, P.accM);// 브랜치
+      PX.LINE(4,-4, 13,-6, 2, P.accD); PX.LINE(13,-6, 12,-14, 2, P.accD);
+      for(const [a,b] of [[-2,4],[4,-4],[10,-14],[13,-6],[12,-14]]){
+        PX.ELL(a,b,3,3,P.accL); PX.ELL(a,b,1.5,1.5,P.white); } },
+    baeksu(P){ PX.R(0,-9,6,15,P.out2); PX.R(0,-9,6,3,P.metD);                        // 리모컨
+      for(let k=0;k<3;k++){ PX.R(1,-4+k*3,2,2,P.accM); PX.R(4,-4+k*3,2,2,P.metL); }
+      PX.ELL(-9,7,8,3,P.leaD); },
+    stonks(P){ PX.R(-1,-11,14,15,P.out2); PX.R(0,-10,12,13,P.metD);                  // 차트 태블릿
+      let x=1,y=1; for(let k=0;k<5;k++){ const nx2=x+2.2, ny2=y-2.2;
+        PX.LINE(x,y,nx2,ny2, 2, P.accL); x=nx2; y=ny2; }
+      PX.POLY([[11,-9],[13,-9],[13,-6]], P.accL); },
+    gymbro(P){ PX.LINE(-9,3, 15,-9, 3, P.metD);                                      // 바벨
+      for(const [a,b] of [[-8,3],[-4,1],[11,-7],[15,-9]]){
+        PX.ELL(a,b,5,5,P.out2); PX.ELL(a,b,3.5,3.5,P.metM); PX.ELL(a-1,b-1,1.5,1.5,P.metL); } },
+  };
   //  ── 치비 바디. 좌표계: **발밑이 원점**, 위가 음수, 1단위 = 1 아트 픽셀.
   //   버퍼 66×60 · 액자 132×120의 정수 약수 → 확대 ×2 (비정수 확대는 격자를 무너뜨린다)
   //   발 0 / 엉덩이 −16 / 어깨 −30~−33(기울어 있다) / 머리중심 −42(r10) / 머리칼 끝 −56
-  const CHIBI_HEAD_R = 10, CHIBI_HEAD_Y = -42;
+  //  ⚠ 머리칼 끝(HY−17)이 버퍼 위로 넘치면 잘린다. 발 58 · 머리중심 −40 · 머리칼 −57 → 60행에 딱 들어간다.
+  const CHIBI_HEAD_R = 10, CHIBI_HEAD_Y = -40;
   const HX0 = 15, HY0 = -22;            // 무기를 쥔 손 = 프롭 앵커
   const CHIBI_PK = 1.62;                // 프롭 배율 — 1.45는 날이 1px이라 무기가 희미했다
   //  프롭이 머리 상자를 지나가 잘리는 직업만 돌려 뺀다 (기본 0)
@@ -20110,22 +20278,13 @@ import { FX } from "./fx.js";
     };
     arm(-10,-32, -16,-27, -14,-22, 6);                              // 뒷팔 — 팔꿈치를 뒤로 굽힌다
 
-    // ── ⑥ 무기 프롭 — **기존 37종을 그대로 빌려 쓴다** (손 앵커 + 머리 상자 evenodd 클립)
+    //  ── ⑥ 무기 — 🔴 v6.194부터 **도트로 직접 찍는다**.
+    //   v6.193까지는 옛 벡터 프롭을 `propOnly`로 빌려 썼는데, 한 그림 안에서 **몸은 도트 / 칼은 벡터**로
+    //   그림체가 갈렸다. 그게 *"아직도 캐릭터 부족해"* 의 가장 큰 원인이었다.
+    //   ⚠ 손이 원점이다 — 정수 이동이라 `PX`의 픽셀 격자가 그대로 유지된다.
     ctx.save();
     ctx.translate(HX0, HY0);
-    ctx.scale(CHIBI_PK, CHIBI_PK);
-    const prot = CHIBI_PROP_ROT[key] || 0;
-    if (prot) ctx.rotate(prot);
-    ctx.translate(-9, -1);                                          // 옛 손 (9,1) → 원점
-    ctx.beginPath();
-    ctx.rect(-60,-60, 140, 100);
-    ctx.rect(-60,-60, 67.5, 48.5);                                  // 머리 상자(x≤7.5, y≤−11.5)를 도려낸다
-    ctx.clip('evenodd');
-    try {
-      drawHumanoidVec(0, 0, { gear:key, propOnly:true, scale:1, face:1, walk:0,
-                              wslot:(o.wslot===undefined?0:o.wslot), tierC:P.accM,
-                              ink:'#2b2534', vivid:true });
-    } catch(e){}
+    try { (CHIBI_WEAPON[key] || CHIBI_WEAPON.mumyeong)(P); } catch(e){}
     ctx.restore();
 
     arm(8,-29, 15,-27, HX0,HY0, 6);                                 // 앞팔 — 무기를 쥔다
@@ -20157,20 +20316,20 @@ import { FX } from "./fx.js";
     // ── ⑨ 머리칼 — 실루엣의 주인공. 바깥 윤곽 + 안쪽 뾰족 갈래를 **한 폴리곤**으로.
     let hp;
     if (st===1){                                   // 긴 머리
-      hp = [[-12,HY+20],[-15,HY-1],[-12,HY-11],[-4,HY-15],[6,HY-13],[13,HY-8],[15,HY+1],[14,HY+20],
+      hp = [[-12,HY+20],[-15,HY-1],[-12,HY-11],[-4,HY-14],[6,HY-13],[13,HY-8],[15,HY+1],[14,HY+20],
             [10,HY+4],[9,HY-2],[6,HY-7],[4,HY-1],[1,HY-8],[-2,HY-1],[-5,HY-8],[-8,HY-2],[-10,HY-5]];
     } else if (st===2){                            // 짧고 단정 — 옆가르마
       hp = [[-11,HY+1],[-13,HY-4],[-10,HY-13],[-1,HY-15],[8,HY-13],[13,HY-6],[14,HY+1],
             [11,HY-3],[5,HY-8],[-3,HY-4],[-8,HY-5]];
     } else if (st===3){                            // 일자 앞머리
-      hp = [[-12,HY+4],[-14,HY-4],[-10,HY-14],[1,HY-16],[11,HY-12],[14,HY-5],[14,HY+4],
+      hp = [[-12,HY+4],[-14,HY-4],[-10,HY-13],[1,HY-15],[11,HY-11],[14,HY-5],[14,HY+4],
             [11,HY-2],[-9,HY-2]];
     } else if (st===4){                            // 덥수룩
-      hp = [[-14,HY+5],[-16,HY-4],[-10,HY-7],[-12,HY-14],[-4,HY-11],[-2,HY-19],[4,HY-12],
-            [10,HY-16],[10,HY-8],[16,HY-6],[15,HY+4],
+      hp = [[-14,HY+5],[-16,HY-4],[-10,HY-7],[-12,HY-13],[-4,HY-11],[-2,HY-16],[4,HY-12],
+            [10,HY-14],[10,HY-8],[16,HY-6],[15,HY+4],
             [11,HY-2],[5,HY-6],[1,HY-1],[-4,HY-6],[-8,HY-1],[-11,HY-4]];
     } else {                                       // 0 스파이크 — 갈래가 눈 위까지 내려온다
-      hp = [[-12,HY+1],[-14,HY-6],[-11,HY-16],[-3,HY-21],[7,HY-19],[13,HY-13],[15,HY-5],[14,HY+1],
+      hp = [[-12,HY+1],[-14,HY-6],[-11,HY-14],[-3,HY-17],[7,HY-16],[13,HY-12],[15,HY-5],[14,HY+1],
             [11,HY-7],[9,HY-3],[7,HY-11],[4,HY-3],[2,HY-12],[-1,HY-4],[-3,HY-13],[-6,HY-5],[-8,HY-12],[-10,HY-6]];
     }
     POLY(hp, P.hairM);
