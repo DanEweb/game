@@ -20195,6 +20195,79 @@ import { FX } from "./fx.js";
       for(const [a,b] of [[-8,3],[-4,1],[11,-7],[15,-9]]){
         PX.ELL(a,b,5,5,P.out2); PX.ELL(a,b,3.5,3.5,P.metM); PX.ELL(a-1,b-1,1.5,1.5,P.metL); } },
   };
+  //  ── 🔴 v6.195 **머리장식** — v6.191에서 옛 프롭의 모자·두건을 클립으로 도려내고 **대체를 안 했다**.
+  //   사무라이 상투 · 저격수 삿갓 · 궁수/닌자 두건 · 관측자 바이저가 전부 사라진 채로 네 버전이 흘렀다.
+  //   치비에서 **머리장식은 실루엣 구분 1순위**다 — 머리색·머리모양만으로는 37장이 안 갈린다.
+  //   ⚠ 머리칼 **뒤에** 그린다(얹히는 물건이므로). 머리 기울기(shear)를 같이 받아야 따로 놀지 않는다.
+  //   좌표: 머리 중심 (1, HY), 반지름 10.
+  const CHIBI_HAT = {
+    topknot(P,HY){ PX.R(-1,HY-15,5,3,P.out2);                                    // 상투
+      PX.ELL(1,HY-17,3.5,3,P.hairD); PX.ELL(0,HY-18,1.5,1.2,P.hairM);
+      PX.R(-8,HY-10,18,2,P.out2); },
+    helm(P,HY){ PX.R(-10,HY-9,22,4,P.metM); PX.R(-10,HY-9,22,1,P.metL);          // 투구 이마가리개
+      PX.R(-10,HY-5,22,1,P.metD);
+      PX.R(-11,HY-7,3,8,P.metM); PX.R(10,HY-7,3,8,P.metM);                       // 측면 가드
+      PX.R(-11,HY-7,3,1,P.metL); PX.R(10,HY-7,3,1,P.metL);
+      PX.R(0,HY-13,3,5,P.accM); },                                               // 볏
+    visor(P,HY){ PX.R(-11,HY-8,23,5,P.metD); PX.R(-11,HY-8,23,1,P.metM);         // 관측 바이저
+      PX.R(-9,HY-6,19,2,P.accL); PX.R(-7,HY-6,4,2,P.white);
+      PX.R(-12,HY-6,2,5,P.metM); PX.R(11,HY-6,2,5,P.metM); },
+    sedge(P,HY){ PX.POLY([[-18,HY-6],[1,HY-16],[20,HY-6],[13,HY-4],[1,HY-7],[-11,HY-4]], P.leaM);
+      PX.POLY([[-18,HY-6],[1,HY-16],[6,HY-13],[-9,HY-5]], P.leaL);               // 삿갓
+      PX.POLY([[-18,HY-6],[-11,HY-4],[13,HY-4],[20,HY-6],[20,HY-4],[-18,HY-4]], P.out2); },
+    fedora(P,HY){ PX.ELL(1,HY-7,16,4,P.leaD); PX.ELL(1,HY-8,16,3,P.leaM);        // 페도라 챙
+      PX.POLY([[-7,HY-9],[-5,HY-17],[7,HY-17],[9,HY-9]], P.leaD);
+      PX.POLY([[-7,HY-9],[-5,HY-17],[0,HY-17],[-2,HY-9]], P.leaM);
+      PX.R(-8,HY-11,18,3,P.out2); },
+    officer(P,HY){ PX.POLY([[-9,HY-16],[10,HY-16],[11,HY-9],[-10,HY-9]], P.clothD);
+      PX.POLY([[-9,HY-16],[0,HY-16],[0,HY-9],[-10,HY-9]], P.clothM);             // 정모
+      PX.R(-11,HY-9,23,3,P.out2); PX.R(-11,HY-9,23,1,P.gold);
+      PX.R(-2,HY-14,6,4,P.gold); PX.R(-1,HY-13,4,2,P.goldL); },
+    wizard(P,HY){ PX.POLY([[1,HY-26],[6,HY-14],[11,HY-8],[-9,HY-8],[-4,HY-14]], P.clothD);
+      PX.POLY([[1,HY-26],[4,HY-16],[0,HY-8],[-9,HY-8],[-4,HY-14]], P.clothM);    // 고깔모자
+      PX.R(-10,HY-9,22,3,P.accM); PX.R(-10,HY-9,22,1,P.accL);
+      PX.R(0,HY-22,3,3,P.goldL); },
+    band(P,HY){ PX.R(-11,HY-8,23,3,P.accM); PX.R(-11,HY-8,23,1,P.accL);          // 머리띠
+      PX.POLY([[-11,HY-8],[-15,HY-5],[-16,HY+2],[-12,HY-2]], P.accM); },         // 뒤로 흐르는 자락
+    cap(P,HY){ PX.ELL(1,HY-9,11,7,P.clothD); PX.ELL(-2,HY-11,6,3.5,P.clothM);    // 캡
+      PX.R(-10,HY-9,22,2,P.out2);
+      PX.POLY([[9,HY-10],[19,HY-8],[19,HY-5],[9,HY-6]], P.clothD);               // 챙
+      PX.R(-2,HY-13,5,3,P.accM); },
+    leaf(P,HY){ for(const [a,b,r] of [[-8,HY-11,4],[1,HY-14,4],[10,HY-11,4]]){   // 잎관
+        PX.ELL(a,b,r,r*0.6,P.accD); PX.ELL(a-1,b-1,r*0.5,r*0.35,P.accM); }
+      PX.R(-10,HY-9,22,2,P.leaD); },
+    beret(P,HY){ PX.ELL(0,HY-11,11,5,P.accD); PX.ELL(-3,HY-12,6,2.5,P.accM);     // 베레모
+      PX.R(2,HY-16,3,3,P.accM);
+      PX.R(-10,HY-8,21,2,P.out2); },
+    goggles(P,HY){ PX.R(-11,HY-8,23,3,P.leaD);                                   // 고글
+      PX.ELL(-5,HY-7,4.5,4,P.metD); PX.ELL(6,HY-7,4.5,4,P.metD);
+      PX.ELL(-5,HY-7,3,2.6,P.accL); PX.ELL(6,HY-7,3,2.6,P.accL);
+      PX.ELL(-6,HY-8,1.2,1,P.white); PX.ELL(5,HY-8,1.2,1,P.white); },
+    circlet(P,HY){ PX.R(-10,HY-7,21,2,P.gold); PX.R(-10,HY-7,21,1,P.goldL);      // 서클릿
+      PX.POLY([[-1,HY-8],[1,HY-12],[3,HY-8]], P.gold);
+      PX.R(0,HY-9,3,3,P.accL); PX.R(0,HY-9,1,1,P.white); },
+    hood(P,HY){ PX.POLY([[-14,HY+11],[-15,HY-3],[-10,HY-13],[1,HY-17],[12,HY-13],[16,HY-3],[15,HY+11],
+                         [11,HY+5],[12,HY-3],[8,HY-10],[1,HY-12],[-6,HY-10],[-10,HY-3],[-10,HY+5]], P.clothD);
+      PX.POLY([[-14,HY+11],[-15,HY-3],[-10,HY-13],[-2,HY-16],[-4,HY-12],[-9,HY-4],[-10,HY+5]], P.clothM);
+      PX.POLY([[-10,HY-3],[-6,HY-10],[1,HY-12],[8,HY-10],[12,HY-3],[11,HY-1],[7,HY-8],[1,HY-10],[-6,HY-8],[-9,HY-1]], P.out2);
+      PX.R(-12,HY+7,6,3,P.accM); },                                              // 목 여밈
+    none(){},
+  };
+  //  직업 → 머리장식. **없는 것도 선택**이다(머리칼이 그 일을 한다).
+  const CHIBI_HAT_OF = {
+    rusher:'helm', paladin:'helm', cheol:'helm', exhero:'helm',
+    madman:'band', monk:'band', gymbro:'band',
+    samurai:'topknot', duelist:'circlet', runeknight:'circlet', returner:'circlet',
+    archer:'hood', ninja:'hood', reaper:'hood', blackcat:'hood', shadow:'hood', mumyeong:'hood',
+    sniper:'sedge', pilot:'cap', stonks:'cap', contributor:'cap',
+    specialist:'goggles', engineer:'goggles',
+    manager:'visor', debug:'visor', glitch:'visor',
+    voidc:'wizard', necro:'wizard',
+    tombraider:'fedora', commander:'officer',
+    bard:'beret', tourist:'beret',
+    druid:'leaf', slime:'leaf',
+    gambler:'none', collector:'none', baeksu:'none',
+  };
   //  ── 치비 바디. 좌표계: **발밑이 원점**, 위가 음수, 1단위 = 1 아트 픽셀.
   //   버퍼 66×60 · 액자 132×120의 정수 약수 → 확대 ×2 (비정수 확대는 격자를 무너뜨린다)
   //   발 0 / 엉덩이 −16 / 어깨 −30~−33(기울어 있다) / 머리중심 −42(r10) / 머리칼 끝 −56
@@ -20355,6 +20428,8 @@ import { FX } from "./fx.js";
     clipHair([[-18,HY-24],[2,HY-24],[-4,HY+24],[-18,HY+24]], P.hairL);   // 좌상단 빛
     clipHair([[6,HY-24],[20,HY-24],[20,HY+24],[2,HY+24]], P.hairD);      // 우하단 그늘
     clipHair([[-20,HY-7],[20,HY-7],[20,HY-4],[-20,HY-4]], P.hairD);      // 앞머리 밑그늘
+    // ── ⑩ 머리장식 — 머리칼 위에 얹힌다(기울기를 같이 받는다)
+    try { (CHIBI_HAT[CHIBI_HAT_OF[key]] || CHIBI_HAT.none)(P, HY); } catch(e){}
     PX.shear(0,0);
   }
   // 직업 악센트 컬러 — 목도리와 전용기 링에 반영
