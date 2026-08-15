@@ -22970,10 +22970,23 @@ import { FX } from "./fx.js";
   }
   function laDraw(pts, w, col, dark, seed){
     const t = LA_T;
-    const fade = t < 0.14 ? t/0.14 : Math.max(0, 1 - (t-0.14)/0.86);
+    //  🔴 v6.204 **다단 연출** — 확대+페이드 한 방(2단)이라 "커졌다 사라진다"였다.
+    //   라테일은 단계가 있다: ① 터짐(0~0.12: 작고 제일 밝다 — 심이 몸보다 먼저 찬다)
+    //   ② 퍼짐(~0.45: 최대 크기로 벌어지며 심이 식는다) ③ 잔상(~0.78: 속이 꺼지고
+    //   **껍데기 윤곽만 남는다**) ④ 걷힘(잔상이 마저 사라진다).
+    //   ⚠ 여기 한 곳이 37직업 이펙트·ring·chain 전부의 그리는 자리다(v6.174 원칙).
+    let sc, fade, coreA, ghostA;
+    if (t < 0.12){ const u = t/0.12;
+      sc = 0.55+0.45*u*u; fade = u; coreA = Math.min(1, u*1.7); ghostA = 0; }
+    else if (t < 0.45){ const u = (t-0.12)/0.33;
+      sc = 1+0.20*u; fade = 1-0.18*u; coreA = 1-0.45*u; ghostA = 0.25*u; }
+    else if (t < 0.78){ const u = (t-0.45)/0.33;
+      sc = 1.20+0.10*u; fade = 0.62*(1-u); coreA = 0.55*(1-u)*(1-u); ghostA = 0.55-0.20*u; }
+    else { const u = (t-0.78)/0.22;
+      sc = 1.30; fade = 0; coreA = 0; ghostA = 0.35*(1-u); }
     const R = laRamp(col);
     //  ⚠ v6.201은 캐릭터의 절반 크기였다 — 라테일은 이펙트가 **캐릭터를 덮는다**. 폭·확대를 함께 올린다.
-    const ws = boltWidths(pts, w*3.1*(0.85+0.55*t), seed);
+    const ws = boltWidths(pts, w*3.1*sc, seed);
     const poly = boltRibbon(pts, ws);
     const mid = boltRibbon(pts, ws.map(v=>v*0.58));
     ctx.save(); ctx.lineJoin="round"; ctx.lineCap="round";
@@ -22987,12 +23000,20 @@ import { FX } from "./fx.js";
     if (!dark){ ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=0.55*fade;  // 밝은 맵 형태 분리
       ctx.strokeStyle="rgba(16,14,26,0.9)"; ctx.lineWidth=1.3; polyPath(poly); ctx.stroke(); }
     if (dark) ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = fade;                                                             // ④ 심 — 가장 밝게
+    ctx.globalAlpha = coreA;                                                            // ④ 심 — 가장 밝게, 터짐에서 먼저 차고 먼저 식는다
     ctx.strokeStyle = dark ? "#ffffff" : R.core;
     ctx.lineWidth = Math.max(1.4, w*0.7);
     ctx.beginPath();
     for (let i=0;i<pts.length;i++){ if(i) ctx.lineTo(pts[i][0],pts[i][1]); else ctx.moveTo(pts[i][0],pts[i][1]); }
     ctx.stroke();
+    //  ⑤ 잔상 — 속이 꺼진 뒤에도 껍데기 윤곽이 잠깐 남았다가 걷힌다
+    if (ghostA > 0.01){
+      ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
+      ctx.globalAlpha = ghostA;
+      ctx.strokeStyle = dark ? R.mid : "rgba(16,14,26,0.85)";
+      ctx.lineWidth = 1.4;
+      polyPath(poly); ctx.stroke();
+    }
     ctx.restore();
   }
   //  4각 반짝임 — 라테일 계열의 서명 같은 장식
