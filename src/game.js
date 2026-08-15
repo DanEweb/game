@@ -13614,8 +13614,8 @@ import { FX } from "./fx.js";
           for (let d3=step; d3<=len; d3+=step) addHazard(player.x+Math.cos(ang)*d3, player.y+Math.sin(ang)*d3, w2, dur, dd, true);
         };
         //  v6.201 직업 고유 이펙트로 교체 — 예전엔 37직업이 **같은 부채꼴 호** 하나를 썼다
-        const FXA = (ang, reach, life)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:ang, r:reach, life:life||0.34, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973 });
-        const FXR = (rad)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:0, r:rad, life:0.36, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973 });
+        const FXA = (ang, reach, life)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:ang, r:reach, life:life||0.34, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973, tier:TIER });
+        const FXR = (rad)=> effects.push({ type:'clsfx', key:player.classKey, x:player.x, y:player.y, a:0, r:rad, life:0.36, age:0, col:CLASS_COLORS[player.classKey]||null, seed:(performance.now()|0)%9973, tier:TIER });
         const C = { t:null, n:0, dmg:0, baseA:0, w:null };
         const t = nearestTarget();
         const n = def.count(w);
@@ -23209,14 +23209,21 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(fx.x, fx.y, 10+26*(1-tt), 0, Math.PI*2); ctx.stroke();
         ctx.restore();
       } else if (fx.type==='chain'){
-        ctx.lineWidth = 2;
-        const mx = (fx.x1+fx.x2)/2 + (Math.random()*14-7);
-        const my = (fx.y1+fx.y2)/2 + (Math.random()*14-7);
-        ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(mx, my); ctx.lineTo(fx.x2, fx.y2); ctx.stroke();
+        //  v6.203 연쇄 번개 — 꺾인 선 두 개였다 → 각진 리본(번개와 같은 기법)
+        const ccd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const cseed = ((fx.x1|0)*13 + (fx.y1|0)*7) & 1023;
+        const cpts = boltPath(fx.x1, fx.y1, fx.x2, fx.y2, cseed, Math.hypot(fx.x2-fx.x1, fx.y2-fx.y1)*0.28, 3);
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { laDraw(cpts, 2.6, fx.col || COLORS.volt, ccd, cseed); } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='ring'){
+        //  🔴 v6.203 스킬·궁극·폭발이 **공유하는 고리**. 얇은 원 하나였다 → 라테일 리본으로.
+        //   ⚠ 호출부가 수십 곳이라 여기 한 곳만 바꾸면 **그 전부가 같이 올라간다**.
         const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
-        ctx.lineWidth = 2.5*tt+0.5;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI*2); ctx.stroke();
+        const rcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { rbRing(fx.x, fx.y, r, 2.4, fx.col || COLORS.volt, rcd, ((fx.x|0)*7+(fx.y|0)*3)&1023, 0.07); } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='clsfx'){
         //  v6.201 직업 고유 이펙트 — 37종이 각자 자기 형태를 갖는다
         const cd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
@@ -23224,9 +23231,23 @@ import { FX } from "./fx.js";
         const fn = CLASS_FX[fx.key];
         //  ⚠ v6.202 **연출 크기는 판정 사거리와 별개다** — 라테일은 이펙트가 캐릭터를 덮는다.
         //   `fx.r`은 스킬의 실제 사거리라 건드리면 안 되므로, **그리기에만** 배율을 건다.
-        const vr = (fx.r||90) * 1.55;
+        //  🔴 v6.203 **층은 같은 기술의 다른 경지다**(v6.180 원칙) — 다른 이펙트로 갈아치우지 않는다.
+        //   유일(1) → 성장(2) → 성유물(3)로 갈수록 **더 크고 더 밝고, 성유물에는 금 잔광·문양이 붙는다**.
+        const tier = fx.tier || 1;
+        const vr = (fx.r||90) * 1.55 * [1, 1, 1.18, 1.40][tier];
         if (fn){ try { fn(fx.x, fx.y, fx.a||0, vr, fx.col||CLASS_COLORS[fx.key]||'#8a8d98',
                           cd, fx.seed||7, LA_T); } catch(e){} }
+        //  성유물 — 금 잔광 고리 + 반짝임(v6.176: 성물은 '붙는 물건'이 달라야 한다)
+        if (tier >= 3){
+          LA_T = Math.min(1, fx.age/fx.life);
+          try { rbRing(fx.x, fx.y, vr*0.62, 2.6, '#e0a94f', cd, (fx.seed||7)+313, 0.09); } catch(e){}
+          for (let k=0;k<4;k++){ const ga=(fx.seed||7)*0.01 + k*1.571 + LA_T*0.8;
+            try { laGlint(fx.x+Math.cos(ga)*vr*0.78, fx.y+Math.sin(ga)*vr*0.78, 7+6*(1-LA_T), '#f4d787', cd); } catch(e){} }
+        } else if (tier === 2){
+          //  성장 — 한 겹 더 두른다(질이 오른 것이지 다른 기술이 아니다)
+          LA_T = Math.min(1, fx.age/fx.life);
+          try { rbRing(fx.x, fx.y, vr*0.52, 1.8, fx.col||CLASS_COLORS[fx.key]||'#8a8d98', cd, (fx.seed||7)+717, 0.14); } catch(e){}
+        }
         LA_T = 0;
       } else if (fx.type==='pxdeath'){
         //  🔴 v6.198 **처치 연출** (수문장·보스·관문보스 전용) — 네 박자로 끊는다.
