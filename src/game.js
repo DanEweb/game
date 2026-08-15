@@ -3099,13 +3099,13 @@ import { FX } from "./fx.js";
     runeknight: {
       name:'룬 기사', tag:'마검 융합', cost:700,
       desc:'[위성]으로 시작. 원소 발동 +8%p, 피해 +5% — 검에 룬을 새긴 마검사.',
-      weapon:'satellite',
+      weapon:'runebolt',
       apply:(p)=>{ p.procBonus=(p.procBonus||0)+0.08; p.dmgMult*=1.05; }
     },
     druid: {
       name:'드루이드', tag:'자연의 벗', cost:600,
       desc:'[위성]으로 시작. 재생 +0.8, 회복 효과 +20% — 숲이 함께 싸운다.',
-      weapon:'satellite',
+      weapon:'seed',
       apply:(p)=>{ p.regen+=0.8; p.healMult*=1.2; }
     },
     duelist: {
@@ -3123,7 +3123,7 @@ import { FX } from "./fx.js";
     sniper: {
       name:'저격수', tag:'한 방 묵직',
       desc:'[추적 탄환]으로 시작. 공속 -58%, 대신 탄환 피해 +230% · 25% 확률 3배 치명타 · 관통 +1 · 보스 피해 +90%. 큰 표적일수록 무겁다.',
-      weapon:'missile',
+      weapon:'snipeshot',
       // v6.125 느림의 대가를 실제로 지급한다 — 기존 0.38×2.9 = 순 1.10배라 62% 느려진 값을 10%로 받고 있었다.
       //  0.42×4.2 = 순 1.76배 + 관통 2. '묵직하다'가 수치로 성립해야 느림을 감수할 이유가 생긴다
       //  ⚠ 1차 조정(4.2×관통2)은 단일 115로 궁수의 2배가 됐다 — 관통이 큰 보스에 다단히트로 들어간다.
@@ -3188,13 +3188,13 @@ import { FX } from "./fx.js";
     voidc: {
       name:'공허술사', tag:'금단 마도', cost:1000,
       desc:'[낙뢰]로 시작. 모든 원소 발동 +6%p, 쿨다운 -8%.',
-      weapon:'lightning',
+      weapon:'voidbolt',
       apply:(p)=>{ p.procBonus=(p.procBonus||0)+0.06; p.cdr*=0.92; }
     },
     necro: {
       name:'망자의 목자', tag:'강령', cost:1200,
       desc:'[위성]으로 시작. 처치한 적이 12% 확률로 아군 유령이 된다 (최대 4).',
-      weapon:'satellite',
+      weapon:'soulfire',
       apply:(p)=>{ p.necroChance=0.12; p.ghostCap=4; }
     },
     bard: {
@@ -3207,7 +3207,7 @@ import { FX } from "./fx.js";
     tourist: {
       name:'관광객', tag:'재미', cost:500,
       desc:'[드론(셀카봉)]으로 시작. 이동 중 골드가 저절로 모인다 (+행운 +30%). 싸움엔 관심 없음.',
-      weapon:'drone',
+      weapon:'flash',
       //  v6.141 11킬 — 최고(108)의 **1/10**. '싸움엔 관심 없다'는 컨셉이라도 이건 컨셉이 아니라 고장이다.
       //   원인은 명확했다: **가장 약한 무기(드론)에 피해 ×0.9까지 얹혀 있었다.** 무기 상향과 함께 계수를 뒤집는다
       //   (여전히 최하위권이되 '게임은 되는' 대역으로)
@@ -3218,7 +3218,7 @@ import { FX } from "./fx.js";
     stonks: {
       name:'주식쟁이', tag:'재미', cost:600,
       desc:'[추적 탄환]으로 시작. 피해가 시장처럼 등락하고(±40% 사이클), 30초마다 보유 골드의 3% 이자.',
-      weapon:'missile',
+      weapon:'coin',
       apply:(p)=>{ p.stonks=true; p.goldMult*=1.15; }
     },
     gymbro: {
@@ -3236,7 +3236,7 @@ import { FX } from "./fx.js";
     gambler: {
       name:'도박사', tag:'재미', cost:800,
       desc:'[추적 탄환]으로 시작. 모든 피해가 0.5×~2.5× 사이에서 무작위. 카드 상위 등급 확률 +50%.',
-      weapon:'missile',
+      weapon:'card',
       apply:(p)=>{ p.luck*=1.5; p.gambleDmg=true; }
     },
     // ---- 히든 직업 (골드가 아니라 조건으로 해금) ----
@@ -3245,7 +3245,7 @@ import { FX } from "./fx.js";
       condDesc:'유니크 장비 3종 보유 시 해금',
       cond:()=> DB.inv.filter(i=>i.r===5).length>=3,
       desc:'무작위 무기 2개로 시작. 아이템 드랍 +50%, 상자에서 나오는 것이 한 단계 좋아진다.',
-      weapon:'random2',
+      weapon:'relichunt',
       apply:(p)=>{ p.luck*=1.5; p.chestPlus=true; }
     },
     madman: {
@@ -3269,7 +3269,7 @@ import { FX } from "./fx.js";
       condDesc:'위험도 15 도달 시 해금',
       cond:()=> (DB.perilMax||0)>=15,
       desc:'직접 싸우지 않는다. 터렛 1기·유령 소환으로 시작, 모든 소환물 +50% / 본인 투사체 -30%.',
-      weapon:'satellite',
+      weapon:'orders',
       //  v6.142 위성 하향(v6.141)에도 97→130으로 **올랐다** — 이 직업의 화력은 위성이 아니라 소환물에서 나온다.
       //   ⚠ 교훈: 밸런스는 **그 직업의 화력원**을 먼저 짚어야 한다. 들고 있는 무기가 곧 화력원은 아니다
       apply:(p)=>{ p.turretLv=1; p.turretDmg=8; p.necroChance=0.10; p.ghostCap=4; p.droneBoost+=0.3; p.ghostDmg=(p.ghostDmg||1)*1.25; p.projMult*=0.7; }
@@ -3279,7 +3279,7 @@ import { FX } from "./fx.js";
       condDesc:'위험도 20 도달 시 해금',
       cond:()=> (DB.perilMax||0)>=20,
       desc:'수집 범위 +100, 아이템 드랍 +70%. 그러나 몹이 골드를 떨구지 않는다 — 상자가 전부다.',
-      weapon:'shuriken',
+      weapon:'whip',
       apply:(p)=>{ p.magnet+=100; p.luck*=1.7; p.goldDropMod=0; }
     },
     mumyeong: {
@@ -3311,7 +3311,7 @@ import { FX } from "./fx.js";
       condDesc:'업적 20개 달성 시 해금',
       cond:()=> achCount()>=20,
       desc:'아홉 개의 목숨. 부활 +2, 회피 +12%, 몸이 작다. 가끔 아무 이유 없이 뛰어다닌다.',
-      weapon:'shuriken',
+      weapon:'claw',
       //  v6.141 24킬(최고 108의 1/4.5). 회피·부활은 '생존'인데 생존 축도 평범했다 — 화력을 준다
       apply:(p)=>{ p.reviveLeft+=2; p.dodge=Math.min(0.6,p.dodge+0.12); p.catSmall=true; p.speed*=1.08; p.r=10; p.dmgMult*=1.28; }
     },
@@ -3320,7 +3320,7 @@ import { FX } from "./fx.js";
       condDesc:'누적 20,000마리 처치 시 해금',
       cond:()=> (DB.prog.kill||0)>=20000,
       desc:'너무 많이 죽여서 몬스터가 되어버렸다. [역장]으로 시작, 체력이 높을수록 커지고 강해진다.',
-      weapon:'aura',
+      weapon:'blob',
       apply:(p)=>{ p.maxHp=Math.round(p.maxHp*1.3); p.hp=p.maxHp; p.slimeBody=true; p.speed*=0.95; }
     },
     glitch: {
@@ -3336,7 +3336,7 @@ import { FX } from "./fx.js";
       condDesc:'업적 12개 달성 시 해금',
       cond:()=> achCount()>=12,
       desc:'모든 것을 기억한 채 돌아왔다. 속성을 4계열까지 선택 가능, 리롤 +2.',
-      weapon:'missile',
+      weapon:'pendulum',
       apply:(p)=>{ p.attrLimit=4; rerollsLeft+=2; }
     },
     contributor: {
@@ -3352,7 +3352,7 @@ import { FX } from "./fx.js";
       condDesc:'??? (비밀 커맨드로만 해금)',
       cond:()=> false,
       desc:'존재해선 안 되는 열람자. 레벨업 카드가 5장 보이지만, 능력치는 평범하다.',
-      weapon:'missile',
+      weapon:'logshot',
       apply:(p)=>{ p.cardSlots=8; }
     }
   };
@@ -4601,6 +4601,145 @@ import { FX } from "./fx.js";
   // ---------- weapons (8) ----------
   const MAX_WEAPONS = 4;
   const WEAPONS = {
+    //  🔴 v6.186 **시작 무기 고유화** — 비근접 22직업이 `missile`(6) `satellite`(5) `shuriken`(3)
+    //   `drone`(2) `lightning`(2) `random`(3) 여섯 종류를 나눠 써서, 초반에 직업색이 전혀 안 났다.
+    //   (근접 15직업은 이미 iaido·charge·kesagiri… 로 각자 달랐다 — 문제는 비근접 쪽이었다)
+    //   ⚠ 3층 무기(u_/g_/s_)는 정체성에 맞췄는데 **정작 처음 손에 쥐는 것**이 공용이었다.
+    snipeshot: {
+      name:'저격탄', desc:'멈춰 쏠수록 정확하다 — 한 발이 줄을 뚫는다',
+      evName:'제로인 탄도', evDesc:'탄속과 관통이 극단으로 갑니다',
+      lvDesc:['','피해 +35%','관통 +1','피해 +45%','발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 1.0 : (w.lv>=5 ? 1.25 : 1.5),
+      dmg:(w)=> (w.evolved ? 62 : [26,35,35,48,58][w.lv-1]),
+      count:(w)=> 1,
+      splash:(w)=> 0
+    },
+    orders: {
+      name:'사격 지시', desc:'내가 쏘지 않는다 — 사방에서 대신 날아온다',
+      evName:'일제 사격', evDesc:'지시가 겹칩니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.75 : (w.lv>=5 ? 0.92 : 1.1),
+      dmg:(w)=> (w.evolved ? 24 : [10,10,14,14,18][w.lv-1]),
+      count:(w)=> (w.evolved ? 6 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> 0
+    },
+    claw: {
+      name:'할퀴기', desc:'짧게, 세 줄로 긁는다 — 붙어야 닿는다',
+      evName:'아홉 발톱', evDesc:'줄이 늘어납니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.38 : (w.lv>=5 ? 0.48 : 0.58),
+      dmg:(w)=> (w.evolved ? 20 : [8,8,11,11,15][w.lv-1]),
+      count:(w)=> (w.evolved ? 5 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> 0
+    },
+    voidbolt: {
+      name:'공허탄', desc:'느리게 나아가며 주변을 끌어당긴다',
+      evName:'붕괴점', evDesc:'끌어당기는 힘이 커집니다',
+      lvDesc:['','피해 +30%','발사 수 +1','피해 +40%','발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.9 : (w.lv>=5 ? 1.1 : 1.3),
+      dmg:(w)=> (w.evolved ? 32 : [13,17,17,23,29][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=3?1:0)),
+      splash:(w)=> (w.evolved ? 80 : 66)
+    },
+    blob: {
+      name:'점액 튀기기', desc:'튀어 올라 여기저기 들러붙는다',
+      evName:'대분열', evDesc:'조각이 늘어납니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.7 : (w.lv>=5 ? 0.85 : 1.0),
+      dmg:(w)=> (w.evolved ? 23 : [9,9,13,13,17][w.lv-1]),
+      count:(w)=> (w.evolved ? 6 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> (w.evolved ? 46 : 36)
+    },
+    relichunt: {
+      name:'유물 감정', desc:'값나가는 것부터 노린다 — 드랍이 늘어난다',
+      evName:'진열장', evDesc:'감정이 빨라집니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.68 : (w.lv>=5 ? 0.84 : 1.0),
+      dmg:(w)=> (w.evolved ? 25 : [10,10,14,14,19][w.lv-1]),
+      count:(w)=> (w.evolved ? 4 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> (w.evolved ? 52 : 42)
+    },
+    coin: {
+      name:'동전 던지기', desc:'동전을 튕겨 맞힌다 — 골드가 많을수록 잘 맞는다',
+      evName:'주화 폭풍', evDesc:'한 움큼씩 흩뿌립니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.42 : (w.lv>=5 ? 0.55 : 0.66),
+      dmg:(w)=> (w.evolved ? 22 : [8,8,12,12,16][w.lv-1]) * (1 + Math.min(0.6, (DB.gold||0)/4000)),
+      count:(w)=> (w.evolved ? 5 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> 0
+    },
+    card: {
+      name:'카드 던지기', desc:'부채꼴로 흩뿌린다 — 어디에 맞을지는 운이다',
+      evName:'하우스 엣지', evDesc:'패가 커집니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.62 : (w.lv>=5 ? 0.78 : 0.9),
+      dmg:(w)=> (w.evolved ? 24 : [9,9,13,13,17][w.lv-1]),
+      count:(w)=> (w.evolved ? 7 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> 0
+    },
+    pendulum: {
+      name:'시계추', desc:'앞뒤로 오가며 지나간 자리를 두 번 친다',
+      evName:'멈춘 시계', evDesc:'추가 무거워집니다',
+      lvDesc:['','피해 +30%','발사 수 +1','피해 +40%','발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.7 : (w.lv>=5 ? 0.88 : 1.05),
+      dmg:(w)=> (w.evolved ? 30 : [13,17,17,23,28][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=3?1:0)),
+      splash:(w)=> (w.evolved ? 54 : 42)
+    },
+    logshot: {
+      name:'로그 출력', desc:'읽어 낸 좌표로 곧장 꽂는다 — 빗나가지 않는다',
+      evName:'스택 트레이스', evDesc:'호출 경로를 따라 연달아 꽂힙니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.55 : (w.lv>=5 ? 0.7 : 0.85),
+      dmg:(w)=> (w.evolved ? 27 : [11,11,15,15,20][w.lv-1]),
+      count:(w)=> (w.evolved ? 4 : 1 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> 0
+    },
+    runebolt: {
+      name:'룬 화살', desc:'새겨진 문양이 터진다 — 맞은 자리가 넓게 갈라진다',
+      evName:'진명의 화살', evDesc:'문양이 겹쳐 폭발이 커집니다',
+      lvDesc:['','피해 +30%','발사 수 +1','피해 +40%','발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.72 : (w.lv>=5 ? 0.9 : 1.05),
+      dmg:(w)=> (w.evolved ? 28 : [12,16,16,21,26][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=3?1:0)),
+      splash:(w)=> (w.evolved ? 72 : 58)
+    },
+    seed: {
+      name:'씨앗 뿌리기', desc:'떨어진 자리에서 덩굴이 돋아 붙든다',
+      evName:'세계수의 씨', evDesc:'덩굴이 오래 남습니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.8 : (w.lv>=5 ? 0.95 : 1.1),
+      dmg:(w)=> (w.evolved ? 25 : [10,10,14,14,19][w.lv-1]),
+      count:(w)=> (w.evolved ? 4 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> (w.evolved ? 60 : 48)
+    },
+    soulfire: {
+      name:'혼불', desc:'느리게 쫓아가 붙는다 — 꺼지지 않는다',
+      evName:'꺼지지 않는 등불', evDesc:'불씨가 늘어납니다',
+      lvDesc:['','발사 수 +1','피해 +40%','발사 수 +1','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.85 : (w.lv>=5 ? 1.0 : 1.15),
+      dmg:(w)=> (w.evolved ? 26 : [11,11,15,15,20][w.lv-1]),
+      count:(w)=> (w.evolved ? 4 : 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> (w.evolved ? 50 : 40)
+    },
+    flash: {
+      name:'플래시', desc:'터뜨려 눈을 멀게 한다 — 넓게, 얕게',
+      evName:'파노라마', evDesc:'화각이 넓어집니다',
+      lvDesc:['','범위 +','피해 +40%','범위 +','피해 강화 + 발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.9 : (w.lv>=5 ? 1.05 : 1.25),
+      dmg:(w)=> (w.evolved ? 22 : [9,9,13,13,17][w.lv-1]),
+      count:(w)=> (w.evolved ? 6 : 3 + (w.lv>=2?1:0) + (w.lv>=4?1:0)),
+      splash:(w)=> (w.evolved ? 78 : 64)
+    },
+    whip: {
+      name:'채찍', desc:'멀리 감아 끌어온다 — 닿으면 끌려온다',
+      evName:'유물 사냥꾼의 채찍', evDesc:'사거리가 늘어납니다',
+      lvDesc:['','피해 +30%','발사 수 +1','피해 +40%','발사간격 감소'],
+      baseCd:(w)=> w.evolved ? 0.65 : (w.lv>=5 ? 0.8 : 0.95),
+      dmg:(w)=> (w.evolved ? 29 : [12,16,16,21,26][w.lv-1]),
+      count:(w)=> (w.evolved ? 3 : 1 + (w.lv>=3?1:0)),
+      splash:(w)=> 0
+    },
     missile: {
       name:'추적 탄환', desc:'가장 가까운 적을 향해 자동 사격 — 맞은 자리가 작게 터진다',
       evName:'유도 미사일', evDesc:'적을 스스로 쫓는 유도탄을 연발합니다',
@@ -13106,7 +13245,52 @@ import { FX } from "./fx.js";
       //   근접은 평타 피해로 보상받으므로, 원거리는 **연사**로 보상한다 (계열마다 각성의 모양이 다르다)
       if ((player.surgeT||0) > 0 && !MELEE_ENGINE[w.key]) w.cd /= 1.45;
 
-      if (w.key==='missile'){
+      //  🔴 v6.186 **신규 기본 무기 15종 배선** — 발사 루프가 `w.key==='missile'`처럼 **키로 분기**해서
+      //   새로 만든 무기들은 **어느 분기에도 안 걸려 발사가 아예 안 됐다**(주식쟁이 5초 0킬).
+      //   ⚠ 무기 정의(WEAPONS)만 추가하는 걸로는 부족하다 — **발사 분기도 같이** 넣어야 한다.
+      //   각자 다르게 쏜다: 부채꼴 폭·탄속·관통·유도·끌어당김이 전부 다르다.
+      if (w.key==='coin' || w.key==='card' || w.key==='logshot' || w.key==='orders'
+          || w.key==='claw' || w.key==='blob' || w.key==='relichunt' || w.key==='snipeshot'
+          || w.key==='pendulum' || w.key==='runebolt' || w.key==='seed' || w.key==='soulfire'
+          || w.key==='flash' || w.key==='whip' || w.key==='voidbolt'){
+        const t = nearestTarget();
+        if (!t){ w.cd = 0.12; continue; }
+        const baseA = Math.atan2(t.y-player.y, t.x-player.x);
+        const n = def.count(w);
+        const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
+        const sp = def.splash(w);
+        const K = w.key;
+        //  무기마다 퍼짐·속도·수명·특성이 다르다
+        const P = {
+          coin:     { spread:0.10, speed:600, life:1.0, pierce:0 },   // 동전 — 빠르고 곧다
+          card:     { spread:0.30, speed:470, life:1.2, pierce:0 },   // 카드 — 넓은 부채꼴
+          logshot:  { spread:0.00, speed:820, life:1.1, pierce:1 },   // 로그 — 빗나가지 않는다
+          orders:   { spread:0.55, speed:520, life:1.3, pierce:0, scatter:true }, // 지시 — 사방에서
+          claw:     { spread:0.16, speed:300, life:0.32, pierce:2 },  // 발톱 — 짧게 닿는다
+          blob:     { spread:0.42, speed:360, life:1.1, pierce:1 },   // 점액 — 튄다
+          relichunt:{ spread:0.22, speed:500, life:1.2, pierce:1 },
+          snipeshot:{ spread:0.00, speed:1150, life:1.6, pierce:99 }, // 저격 — 줄을 뚫는다
+          pendulum: { spread:0.12, speed:330, life:1.6, pierce:2 },   // 추 — 느리고 무겁다
+          runebolt: { spread:0.14, speed:560, life:1.2, pierce:1 },
+          seed:     { spread:0.34, speed:380, life:1.0, pierce:0 },
+          soulfire: { spread:0.26, speed:250, life:2.0, pierce:0, homing:true },  // 혼불 — 쫓아간다
+          flash:    { spread:0.62, speed:420, life:0.7, pierce:0 },   // 플래시 — 넓고 얕게
+          whip:     { spread:0.10, speed:520, life:0.55, pierce:3, pull:true },   // 채찍 — 끌어온다
+          voidbolt: { spread:0.16, speed:220, life:1.9, pierce:2, pull:true },    // 공허 — 빨아들인다
+        }[K] || { spread:0.14, speed:480, life:1.2, pierce:0 };
+        for (let i=0;i<n;i++){
+          const a = P.scatter ? (Math.random()*Math.PI*2)
+                              : baseA + (i - (n-1)/2) * P.spread;
+          const opt = { imbue:w.imbue, splash:sp };
+          if (P.homing || w.evolved) opt.homing = true;
+          if (P.pull) opt.pull = true;
+          fireProjectile(a, P.speed, dmg, player.pierce + P.pierce, P.life, opt);
+        }
+        rangedCharge(K);
+        effects.push({ type:'muzzle', x:player.x+Math.cos(baseA)*16, y:player.y+Math.sin(baseA)*16, life:0.1, age:0 });
+        SFX.play('shoot');
+
+      } else if (w.key==='missile'){
         const t = nearestTarget();
         if (!t){ w.cd = 0.12; continue; }
         const baseA = Math.atan2(t.y-player.y, t.x-player.x);
