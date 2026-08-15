@@ -3401,17 +3401,22 @@ import { FX } from "./fx.js";
     const P = chibiPalette(key);
     if (window.__forcePal) Object.assign(P, window.__forcePal);
     // ── ① 캐릭터를 아트 해상도(76×92) 버퍼에 그린다. 1단위 = 1픽셀, 발밑이 원점.
-    //  ⚠ 버퍼 반폭 38이면 카타나(끝 x≈41)·낫이 **잘린다**. 무기가 몸보다 길다는 걸 잊지 말 것.
-    const BW = 110, BH = 96, FOOT = 88;
+    //  ⚠⚠⚠ v6.192 **최근접 확대는 정수배여야 한다.** v6.191은 110×96 버퍼를 **1.22배**로 늘렸다 —
+    //   그러면 아트픽셀 하나가 화면에서 1px, 2px 제멋대로가 되어 격자가 무너진다. '뭉개져 보인' 절반이 이것이다.
+    //   ⇒ 버퍼를 액자(132×120)의 **정수 약수**로 잡고 정확히 ×2로 늘린다.
+    //   ⚠ 버퍼 폭은 몸이 아니라 **무기**가 정한다 — 몸은 x −13…13인데 카타나 끝이 x≈30이다.
+    const BW = 66, BH = 60, FOOT = 56, ORGX = 24;
     const bb = document.createElement('canvas'); bb.width = BW; bb.height = BH;
     const bx = bb.getContext('2d');
     const main = ctx; ctx = bx;
-    try { bx.setTransform(1,0,0,1, BW/2, FOOT); drawChibi({ key, pal:P, wslot:(window.__forceSlot===undefined?0:window.__forceSlot) }); }
+    //  ⚠ 원점을 버퍼 중앙에 두면 무기가 오른쪽으로 삐져나가 잘린다 — **몸은 왼쪽으로 치우쳐** 세운다
+    try { bx.setTransform(1,0,0,1, ORGX, FOOT); drawChibi({ key, pal:P, wslot:(window.__forceSlot===undefined?0:window.__forceSlot) }); }
     catch(e){ if (window.console) console.warn('chibi', key, e); }
     finally { ctx = main; }
     bx.setTransform(1,0,0,1,0,0);
     // ── ② 팔레트 강제 스냅 (여기서 색 수가 확정된다 — 이후 어떤 그라디언트도 캐릭터 위에 칠하지 않는다)
     try { snapToPalette(bx, BW, BH, P); } catch(e){}
+    try { rimLight(bx, BW, BH, P.rim); } catch(e){}
     // ── ③ 아웃라인 — 색이 있는 외곽선(순검정은 도트에서 무겁다)
     const ob = document.createElement('canvas'); ob.width = BW; ob.height = BH;
     try { dotOutline({ c:bb, ox:ob.getContext('2d') }, BW, P.out); } catch(e){}
@@ -3438,12 +3443,11 @@ import { FX } from "./fx.js";
     g.restore();
     g.save(); g.globalAlpha = 0.30; g.fillStyle = '#05060a';    // 바닥 그림자
     g.beginPath(); g.ellipse(W/2, H*0.90, 24, 5, 0, 0, 6.283); g.fill(); g.restore();
-    // ── ⑤ 최근접 확대 — 액자 세로에 맞춘다(발이 바닥 그림자 위에 오게)
-    //  ⚠ 버퍼를 넓히면(무기 때문에) **몸이 액자 한가운데서 작아진다**. 중앙을 맞출 것은 버퍼가 아니라 **몸**이다.
-    //  ⚠ k=1.30은 **머리칼 끝이 액자 위로 3px 잘렸다**. 그림의 꼭대기는 머리가 아니라 **머리칼**이다(y≈−86).
-    const k = 1.22;
+    // ── ⑤ 최근접 확대 — **정수배로만**. 그리고 **정수 좌표에** 놓는다(반픽셀만 어긋나도 격자가 흐려진다).
+    //  ⚠ 중앙을 맞출 것은 버퍼가 아니라 **몸**이다 — 몸은 버퍼 안에서 왼쪽(ORGX)에 서 있다.
+    const k = 2;
     const dw = BW*k, dh = BH*k;
-    const dx = W*0.46 - (BW/2)*k, dy = H*0.90 - FOOT*k;
+    const dx = Math.round(W/2 - ORGX*k), dy = Math.round(H*0.94 - FOOT*k);
     g.imageSmoothingEnabled = false;
     g.drawImage(ob, dx, dy, dw, dh);
     g.drawImage(bb, dx, dy, dw, dh);
@@ -19904,7 +19908,9 @@ import { FX } from "./fx.js";
       out:'#16121e', out2:'#2a2432',
       hairD: mixHex(hair,'#000000',0.44), hairM: hair, hairL: mixHex(hair,'#ffffff',0.40),
       skinD: sk[0], skinM: sk[1], skinL: sk[2],
-      clothD:'#221f2b', clothM:'#3a3543', clothL:'#565064',
+      //  ⚠ v6.192 옷이 거의 검정(#221f2b)이라 **어두운 배경에 묻혔다**. 도트는 명도 폭이 좁으면 형태가 사라진다.
+      clothD:'#2b2735', clothM:'#4a4458', clothL:'#6d6580',
+      rim: mixHex(acc,'#ffffff',0.62),      // 왼쪽 가장자리에 걸리는 빛 — 배경에서 인물을 떼어낸다
       accD: mixHex(acc,'#000000',0.44), accM: acc, accL: mixHex(acc,'#ffffff',0.38),
       metD:'#5d626d', metM:'#adb4c1', metL:'#e9edf5',
       leaD:'#5b432f', leaM:'#84603f',
@@ -19934,141 +19940,139 @@ import { FX } from "./fx.js";
     }
     dx.putImageData(im,0,0);
   }
+  //  ── 🔴 v6.192 **림라이트** — 도트 캐릭터가 배경에서 떠 보이게 하는 가장 값싼 수단.
+  //   실루엣의 **왼쪽 가장자리 1픽셀**(광원 방향)을 밝은 직업색으로 갈아 준다.
+  //   ⚠ 스냅 뒤에 하되 팔레트 안의 색(`P.rim`)만 쓴다 — 안 그러면 색 수가 다시 늘어난다.
+  //   ⚠ 이미 밝은 픽셀에 걸면 지저분해진다 — **어두운 픽셀에만** 건다.
+  function rimLight(dx, w, h, hex){
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    const im = dx.getImageData(0,0,w,h), d = im.data;
+    for (let y=0; y<h; y++){
+      for (let x=0; x<w-1; x++){
+        const i=(y*w+x)*4;
+        if (d[i+3]===0) continue;
+        const lum = d[i]*0.30 + d[i+1]*0.59 + d[i+2]*0.11;
+        if (lum < 150){ d[i]=r; d[i+1]=g; d[i+2]=b; }
+        break;                                    // 그 행의 첫 불투명 픽셀에서 멈춘다
+      }
+    }
+    dx.putImageData(im,0,0);
+  }
+  //  ── 🔴 v6.192 **정수 픽셀 그리기 API** — 사용자: *"너가 그린것들 약간 너무 허접해 찰흙같아"*
+  //   맞는 지적이었다. v6.191은 색만 도트로 줄이고 **형태는 여전히 둥근 벡터**였다:
+  //   팔은 둥근 캡의 굵은 선, 손은 원, 머리는 타원, 하이라이트도 타원 — 그래서 찰흙 인형이 됐다.
+  //   ⇒ 모든 형태를 **정수 좌표의 가로 스팬**으로 래스터화한다. 가장자리가 계단으로 떨어져야 '찍은' 그림이다.
+  //   ⚠ `ctx.fill()`을 쓰면 그 순간 AA가 끼어든다 — 여기서는 `fillRect`만 쓴다.
+  const PX = {
+    R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h))); },
+    //  타원: 행마다 폭을 구해 한 줄씩 채운다 — 캔버스 원과 달리 **계단이 살아 있는** 원이 된다
+    ELL(cx,cy,rx,ry,c){ ctx.fillStyle=c;
+      for (let y=Math.round(cy-ry); y<=Math.round(cy+ry); y++){
+        const t=(y+0.5-cy)/ry; if (Math.abs(t)>=1) continue;
+        const w=rx*Math.sqrt(1-t*t);
+        const x0=Math.round(cx-w), x1=Math.round(cx+w);
+        if (x1>x0) ctx.fillRect(x0,y,x1-x0,1);
+      } },
+    //  폴리곤: 짝수-홀수 스캔라인. 모든 형태(몸통·머리칼·망토)가 이걸 지난다
+    POLY(pts,c){ ctx.fillStyle=c;
+      let mn=1e9, mx=-1e9;
+      for (const p of pts){ if(p[1]<mn)mn=p[1]; if(p[1]>mx)mx=p[1]; }
+      for (let y=Math.floor(mn); y<=Math.ceil(mx); y++){
+        const yc=y+0.5, xs=[];
+        for (let i=0;i<pts.length;i++){
+          const a=pts[i], b=pts[(i+1)%pts.length];
+          if ((a[1]<=yc && b[1]>yc) || (b[1]<=yc && a[1]>yc))
+            xs.push(a[0] + (yc-a[1])/(b[1]-a[1])*(b[0]-a[0]));
+        }
+        xs.sort((p,q)=>p-q);
+        for (let i=0;i+1<xs.length;i+=2){
+          const x0=Math.round(xs[i]), x1=Math.round(xs[i+1]);
+          if (x1>x0) ctx.fillRect(x0,y,x1-x0,1);
+        }
+      } },
+    //  굵은 선 = 사각 폴리곤 (둥근 캡을 쓰지 않는다 — 둥근 캡이 '소시지 팔'의 원인이었다)
+    LINE(x0,y0,x1,y1,w,c){ const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1;
+      const nx=-dy/L*w/2, ny=dx/L*w/2;
+      PX.POLY([[x0+nx,y0+ny],[x1+nx,y1+ny],[x1-nx,y1-ny],[x0-nx,y0-ny]], c); },
+  };
   //  ── 치비 바디. 좌표계: **발밑이 원점**, 위가 음수, 1단위 = 1 아트 픽셀.
-  //     발 0 / 다리 −22 / 몸통 −46 / 어깨 −44 / 머리중심 −58(r13.5) / 머리칼 끝 −80
-  //     ⚠ 머리 반지름 13.5는 임의값이 아니다 — 옛 프롭 좌표의 머리(r4.7)에 **배율 2.87**을 걸어
-  //      모자·두건이 제자리에 얹히게 맞춘 값이다. 바꾸면 37종 모자가 전부 뜬다.
-  const CHIBI_HEAD_R = 13.5, CHIBI_HEAD_Y = -58;
-  const HX0 = 22, HY0 = -27;            // 무기를 쥔 손 = 프롭 앵커
-  //  ⚠ 1.70은 **무기가 장난감처럼 작았다**(카타나 24px vs 몸 84px). 레퍼런스는 무기가 몸 길이에 육박한다.
-  const CHIBI_PK = 2.25;                // 프롭 배율
+  //   ⚠⚠ 해상도를 v6.191의 절반으로 **내렸다**. 86px에 벡터 곡선으로 그리면 뭉개지지만
+  //    54px에 블록으로 찍으면 픽셀 하나하나가 결정이 된다 — 레퍼런스의 밀도가 이쪽이다.
+  //    그리고 액자(132×120)의 **정수 약수**여야 확대가 깨지지 않는다 → 버퍼 66×60, 확대 ×2.
+  //   발 0 / 다리 −16 / 몸통 −32 / 어깨 −31 / 머리중심 −41(r10) / 머리칼 끝 −55
+  const CHIBI_HEAD_R = 10, CHIBI_HEAD_Y = -41;
+  const HX0 = 14, HY0 = -19;            // 무기를 쥔 손 = 프롭 앵커
+  const CHIBI_PK = 1.62;                // 프롭 배율 — 1.45는 날이 1px이라 무기가 희미했다
   //  프롭이 머리 상자를 지나가 잘리는 직업만 돌려 뺀다 (기본 0)
   const CHIBI_PROP_ROT = { reaper:0.62, necro:0.18, engineer:0.20, pilot:0.24 };
   function drawChibi(o){
     const P = o.pal, key = o.key, grp = P._grp, st = P._style;
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    const HY = CHIBI_HEAD_Y;
+    const HY = CHIBI_HEAD_Y, R = PX.R, ELL = PX.ELL, POLY = PX.POLY, LINE = PX.LINE;
 
-    // ── ① 뒤 레이어: 망토·자락 (실루엣의 절반은 천이다 — 레퍼런스가 붉은 목도리로 하는 그 일)
-    //  ⚠ 1차 시안은 망토가 왼쪽으로 삐죽 솟아 **날개**로 읽혔다. 망토는 어깨에서 걸려
-    //   **아래로 넓어지며** 떨어져야 한다 — 위가 좁고 아래가 넓은 사다리꼴.
+    // ── ① 망토·로브 자락 (뒤 레이어) — 위가 좁고 아래가 넓어야 '걸친 천'으로 읽힌다
     if (grp==='rng' || grp==='rog' || grp==='war'){
-      ctx.fillStyle = P.accD;
-      ctx.beginPath();
-      ctx.moveTo(-14,-47); ctx.quadraticCurveTo(-24,-34, -26,-8);
-      ctx.lineTo(-19,-12); ctx.lineTo(-14,-4); ctx.lineTo(-8,-11);
-      ctx.quadraticCurveTo(-6,-30, -6,-47);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.accM;
-      ctx.beginPath();
-      ctx.moveTo(-13,-47); ctx.quadraticCurveTo(-21,-34, -23,-11);
-      ctx.lineTo(-18,-14); ctx.quadraticCurveTo(-14,-30, -12,-47);
-      ctx.closePath(); ctx.fill();
-    } else {                                       // 마법·사제·상인: 아래로 퍼지는 로브 자락
-      ctx.fillStyle = P.clothD;
-      ctx.beginPath();
-      ctx.moveTo(-13,-44); ctx.quadraticCurveTo(-21,-24, -22,-3);
-      ctx.lineTo(-14,-6); ctx.lineTo(-7,-2); ctx.lineTo(0,-6); ctx.lineTo(7,-2);
-      ctx.lineTo(14,-6); ctx.lineTo(22,-3);
-      ctx.quadraticCurveTo(21,-24, 13,-44); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.clothM;
-      ctx.beginPath();
-      ctx.moveTo(-13,-44); ctx.quadraticCurveTo(-19,-24, -20,-4);
-      ctx.lineTo(-14,-6); ctx.lineTo(-7,-2); ctx.lineTo(-4,-3); ctx.lineTo(-4,-44);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.accM;                                     // 밑단 트림 — 로브가 종처럼 밋밋해지지 않게
-      ctx.beginPath();
-      ctx.moveTo(-21,-9); ctx.lineTo(21,-9); ctx.lineTo(21,-5); ctx.lineTo(-21,-5); ctx.closePath(); ctx.fill();
+      POLY([[-10,-33],[-15,-20],[-17,-2],[-12,-5],[-8,-1],[-5,-6],[-4,-20],[-4,-33]], P.accD);
+      POLY([[-9,-33],[-13,-20],[-14,-5],[-10,-7],[-8,-20],[-8,-33]], P.accM);
+    } else {
+      POLY([[-9,-31],[-14,-16],[-15,-2],[-9,-4],[-4,-1],[0,-4],[4,-1],[9,-4],[15,-2],[14,-16],[9,-31]], P.clothD);
+      POLY([[-9,-31],[-12,-16],[-13,-3],[-9,-4],[-5,-1],[-3,-2],[-3,-31]], P.clothM);
+      R(-14,-8, 28,3, P.accM);                                    // 밑단 트림
     }
 
-    // ── ② 다리 (치비는 다리가 짧고 굵다)
+    // ── ② 다리·부츠
     if (grp!=='mag' && grp!=='pri'){
-      ctx.fillStyle = P.clothD;
-      ctx.beginPath(); ctx.moveTo(-12,-22); ctx.lineTo(-2,-22); ctx.lineTo(-3,-6); ctx.lineTo(-13,-6); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(2,-22);  ctx.lineTo(12,-22); ctx.lineTo(13,-6);  ctx.lineTo(3,-6);  ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.clothM;                                   // 왼쪽 다리에 빛(좌상단 광원)
-      ctx.beginPath(); ctx.moveTo(-12,-22); ctx.lineTo(-7,-22); ctx.lineTo(-8,-6); ctx.lineTo(-13,-6); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.leaD;                                     // 부츠 — 명도를 갈라야 접지가 보인다
-      ctx.fillRect(-15,-8, 13,8); ctx.fillRect(2,-8, 13,8);
-      ctx.fillStyle = P.leaM; ctx.fillRect(-15,-8, 13,2.5); ctx.fillRect(2,-8, 13,2.5);
-      ctx.fillStyle = P.out2; ctx.fillRect(-15,-2, 13,2); ctx.fillRect(2,-2, 13,2);
+      R(-8,-16, 6,12, P.clothD); R(2,-16, 6,12, P.clothD);
+      R(-8,-16, 2,12, P.clothM);                                  // 좌상단 광원
+      R(-9,-5, 8,5, P.leaD);  R(1,-5, 8,5, P.leaD);               // 부츠 — 명도를 갈라야 접지가 보인다
+      R(-9,-5, 8,2, P.leaM);  R(1,-5, 8,2, P.leaM);
+      R(-9,-1, 8,1, P.out);   R(1,-1, 8,1, P.out);
+      R(-1,-16, 2,11, P.out);                                     // 두 다리 사이 어두운 틈
     }
 
-    // ── ③ 몸통 (어깨가 넓고 허리가 좁은 사다리꼴)
-    ctx.fillStyle = P.clothD;
-    ctx.beginPath();
-    ctx.moveTo(-15,-46); ctx.quadraticCurveTo(0,-49, 15,-46);
-    ctx.lineTo(12,-22); ctx.quadraticCurveTo(0,-20, -12,-22);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = P.clothM;                                     // 왼쪽 절반이 밝다
-    ctx.beginPath();
-    ctx.moveTo(-15,-46); ctx.quadraticCurveTo(-8,-48, -2,-47);
-    ctx.lineTo(-2,-21); ctx.lineTo(-12,-22); ctx.closePath(); ctx.fill();
+    // ── ③ 몸통
+    POLY([[-10,-32],[10,-32],[9,-16],[-9,-16]], P.clothD);
+    POLY([[-10,-32],[-1,-32],[-1,-16],[-9,-16]], P.clothM);
+    R(-10,-32, 20,1, P.out);                                      // 어깨선
 
     // ── ④ 계열 의상 — 6군이 눈에 띄게 갈려야 한다
-    if (grp==='war'){                                             // 흉갑 + 어깨 갑주
-      ctx.fillStyle = P.metM;
-      ctx.beginPath();
-      ctx.moveTo(-12,-45); ctx.quadraticCurveTo(0,-48, 12,-45);
-      ctx.quadraticCurveTo(11,-34, 8,-26); ctx.quadraticCurveTo(0,-23, -8,-26);
-      ctx.quadraticCurveTo(-11,-34, -12,-45); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.metD;
-      ctx.beginPath(); ctx.moveTo(1,-47); ctx.quadraticCurveTo(9,-35, 7,-25); ctx.lineTo(1,-24); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.metL; ctx.fillRect(-1,-47, 2,23);         // 중앙 능선
-      ctx.fillStyle = P.accM;                                     // 어깨 갑주(직업색)
-      ctx.beginPath(); ctx.ellipse(-15,-44, 7,5.5, -0.25, 0, 6.283); ctx.fill();
-      ctx.beginPath(); ctx.ellipse( 15,-44, 7,5.5,  0.25, 0, 6.283); ctx.fill();
-      ctx.fillStyle = P.accL;
-      ctx.beginPath(); ctx.ellipse(-16,-46, 4,2.6, -0.25, 0, 6.283); ctx.fill();
-    } else if (grp==='rng'){                                      // 가슴 사선 스트랩 + 벨트 파우치
-      ctx.strokeStyle = P.leaM; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(-11,-45); ctx.lineTo(9,-26); ctx.stroke();
-      ctx.fillStyle = P.leaD; ctx.fillRect(6,-30, 7,7);
-      ctx.fillStyle = P.accM; ctx.fillRect(-12,-27, 24,5);
-    } else if (grp==='mag' || grp==='pri'){                       // 칼라 트림 + 룬 띠
-      ctx.fillStyle = P.accM;
-      ctx.beginPath(); ctx.moveTo(-11,-46); ctx.lineTo(0,-38); ctx.lineTo(11,-46);
-      ctx.lineTo(11,-43); ctx.lineTo(0,-35); ctx.lineTo(-11,-43); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.accL;
-      ctx.beginPath(); ctx.arc(0,-28,2.4,0,6.283); ctx.fill();
-      ctx.fillStyle = P.gold; ctx.fillRect(-12,-24, 24,4);
-    } else if (grp==='rog'){                                      // 목도리 + 허리 끈
-      ctx.fillStyle = P.accM;
-      ctx.beginPath(); ctx.ellipse(0,-45, 14,6, 0, 0, 6.283); ctx.fill();
-      ctx.fillStyle = P.accL;
-      ctx.beginPath(); ctx.ellipse(-4,-47, 8,3.4, -0.15, 0, 6.283); ctx.fill();
-      ctx.fillStyle = P.out2; ctx.fillRect(-12,-26, 24,4);
-    } else {                                                      // 상인: 셔츠 + 넥타이 + 벨트
-      ctx.fillStyle = P.clothL; ctx.fillRect(-6,-46, 12,18);
-      ctx.fillStyle = P.accM;
-      ctx.beginPath(); ctx.moveTo(-2,-46); ctx.lineTo(2,-46); ctx.lineTo(3,-30); ctx.lineTo(0,-27); ctx.lineTo(-3,-30); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.leaD; ctx.fillRect(-13,-26, 26,5);
-      ctx.fillStyle = P.gold; ctx.fillRect(-3,-26, 6,5);
+    if (grp==='war'){
+      POLY([[-8,-31],[8,-31],[7,-21],[0,-19],[-7,-21]], P.metM);  // 흉갑
+      POLY([[1,-31],[8,-31],[7,-21],[1,-20]], P.metD);            // 그늘 면
+      R(-1,-31, 2,12, P.metL);                                    // 중앙 능선
+      R(-13,-32, 5,5, P.accM); R(8,-32, 5,5, P.accM);             // 어깨 갑주(직업색)
+      R(-13,-32, 5,2, P.accL); R(8,-32, 5,2, P.accL);
+      R(-13,-27, 5,1, P.out);  R(8,-27, 5,1, P.out);
+    } else if (grp==='rng'){
+      LINE(-8,-31, 7,-19, 3, P.leaM);                             // 가슴 사선 스트랩
+      R(5,-23, 5,5, P.leaD);                                      // 파우치
+      R(-9,-19, 18,3, P.accM);
+    } else if (grp==='mag' || grp==='pri'){
+      POLY([[-8,-32],[0,-26],[8,-32],[8,-29],[0,-23],[-8,-29]], P.accM);   // 칼라 트림
+      R(-2,-21, 4,4, P.accL);                                     // 룬 보석
+      R(-2,-21, 2,2, P.white);
+    } else if (grp==='rog'){
+      R(-10,-32, 20,4, P.accM);                                   // 목도리
+      R(-10,-32, 12,2, P.accL);
+      R(-10,-28, 20,1, P.out);
+      R(-9,-19, 18,2, P.out2);
+    } else {
+      R(-4,-32, 8,13, P.clothL);                                  // 셔츠
+      POLY([[-2,-32],[2,-32],[2,-21],[0,-19],[-2,-21]], P.accM);  // 넥타이
+      R(-10,-19, 20,3, P.leaD);
+      R(-2,-19, 4,3, P.gold);
     }
 
-    // ── ⑤ 팔 (2관절 — 어깨 → 팔꿈치 → 손. 무기 손은 프롭 앵커와 같은 자리다)
-    //  ⚠ 팔을 몸통과 같은 `clothD`로 그리면 **몸에 묻혀 안 보인다**(v6.189에서 배운 것과 같은 함정).
-    //   소매는 한 단 밝게 + 팔꿈치 아래는 어둡게 + **손목에 직업색 커프**를 넣어 세 번 갈라 준다.
-    const HX = HX0, HandY = HY0;
-    const arm = (sx, ex1, ey1, ex2, ey2, hx, hy)=>{
-      ctx.strokeStyle = P.clothL; ctx.lineWidth = 9;              // 소매(위팔) — 몸통보다 밝다
-      ctx.beginPath(); ctx.moveTo(sx,-44); ctx.lineTo(ex1,ey1); ctx.stroke();
-      ctx.strokeStyle = P.clothD; ctx.lineWidth = 7.4;            // 아래팔
-      ctx.beginPath(); ctx.moveTo(ex1,ey1); ctx.lineTo(ex2,ey2); ctx.stroke();
-      ctx.strokeStyle = P.accM; ctx.lineWidth = 7.4;              // 손목 커프(직업색)
-      ctx.beginPath(); ctx.moveTo(ex2,ey2); ctx.lineTo(hx,hy+2.6); ctx.stroke();
-      ctx.fillStyle = P.skinM; ctx.beginPath(); ctx.arc(hx,hy, 4.8, 0, 6.283); ctx.fill();
-      ctx.fillStyle = P.skinL; ctx.beginPath(); ctx.arc(hx-1,hy-1, 2.6, 0, 6.283); ctx.fill();
+    // ── ⑤ 팔 — **둥근 캡 금지.** 위팔(밝은 소매) / 아래팔(어둡게) / 손목 커프(직업색) / 손(각진 블록)
+    const arm = (sx, ex, ey, hx, hy)=>{
+      LINE(sx,-31, ex,ey, 6, P.clothL);
+      LINE(ex,ey, hx,hy-3, 5, P.clothD);
+      R(hx-3, hy-4, 6, 2, P.accM);                                // 손목 커프
+      R(hx-3, hy-2, 6, 4, P.skinM);                               // 손
+      R(hx-3, hy-2, 3, 2, P.skinL);
     };
-    arm(-13, -21,-37, -22,-30, -22,-26);                          // 뒷팔(왼쪽)
+    arm(-9, -13,-25, -13,-19);                                    // 뒷팔
 
-    // ── ⑥ 무기 프롭 — **기존 37종을 그대로 빌려 쓴다**
-    //  ⚠ 1차 시도는 **머리 중심 앵커 + 배율 2.87**이었다(모자를 맞추려고). 그랬더니 카타나 끝이 x=53까지
-    //   나가 버퍼(반폭 38) 밖으로 **잘렸고**, 무기가 손에서 떨어져 떠 보였다.
-    //   ⇒ 앵커는 **손**(옛 (9,1) → 새 (23,−25))으로 잡고 배율은 1.7로 낮춘다.
-    //  ⚠ 프롭 분기에는 무기와 **모자·두건이 같이** 들어 있다. 손 앵커로 옮기면 두건이 가슴에 붙는다.
-    //   ⇒ 옛 좌표의 머리 상자(x≤7.5, y≤−11.5)를 **evenodd 클립으로 도려낸다**. 머리칼이 그 역할을 대신한다.
-    //  ⚠ 낫만은 날이 그 상자 안(x −2…12, y −16…−25)을 지나 잘린다 → `CHIBI_PROP_ROT`으로 돌려 뺀다.
+    // ── ⑥ 무기 프롭 — **기존 37종을 그대로 빌려 쓴다** (손 앵커 + 머리 상자 evenodd 클립)
     ctx.save();
     ctx.translate(HX0, HY0);
     ctx.scale(CHIBI_PK, CHIBI_PK);
@@ -20076,8 +20080,8 @@ import { FX } from "./fx.js";
     if (prot) ctx.rotate(prot);
     ctx.translate(-9, -1);                                        // 옛 손 (9,1) → 원점
     ctx.beginPath();
-    ctx.rect(-60,-60, 140, 100);                                  // 전체
-    ctx.rect(-60,-60, 67.5, 48.5);                                // 머리 상자 (x≤7.5, y≤−11.5)
+    ctx.rect(-60,-60, 140, 100);
+    ctx.rect(-60,-60, 67.5, 48.5);                                // 머리 상자 (x≤7.5, y≤−11.5)를 도려낸다
     ctx.clip('evenodd');
     try {
       drawHumanoidVec(0, 0, { gear:key, propOnly:true, scale:1, face:1, walk:0,
@@ -20086,78 +20090,53 @@ import { FX } from "./fx.js";
     } catch(e){}
     ctx.restore();
 
-    arm(13, 21,-38, 22,-31, HX, HandY);                           // 앞팔(오른쪽) — 무기를 쥔다
+    arm(9, 13,-25, HX0,HY0);                                      // 앞팔 — 무기를 쥔다
 
-    // ── ⑦ 머리
-    ctx.fillStyle = P.skinM;
-    ctx.beginPath(); ctx.ellipse(0, HY, CHIBI_HEAD_R, CHIBI_HEAD_R+0.5, 0, 0, 6.283); ctx.fill();
-    ctx.fillStyle = P.skinL;
-    ctx.beginPath(); ctx.ellipse(-4, HY-4, 9, 9, 0, 0, 6.283); ctx.fill();
-    ctx.fillStyle = P.skinD;
-    ctx.beginPath(); ctx.ellipse(2, HY+9, 9, 4.5, 0, 0, 6.283); ctx.fill();
+    // ── ⑦ 머리 (스캔라인 타원 = 계단이 살아 있는 원)
+    ELL(0, HY, CHIBI_HEAD_R, CHIBI_HEAD_R+0.5, P.skinM);
+    ELL(-3, HY-3, 6.5, 6.5, P.skinL);                             // 좌상단 광원
+    R(-6, HY+7, 11, 3, P.skinD);                                  // 턱 아래 그늘
+    R(-8, HY+10, 16, 1, P.out);                                   // 턱선 — 얼굴과 몸을 가르는 선
 
-    // ── ⑧ 눈·눈썹·입 — **캐릭터성의 대부분이 여기서 나온다**
-    //   ⚠ 눈은 ⑴머리 아래쪽 ⑵눈 하나 폭만큼만 벌리고 ⑶안쪽이 낮게 기울어야 표정이 생긴다
-    for (const [ex, dir] of [[-6,1],[6,-1]]){
-      ctx.save(); ctx.translate(ex, HY+3); ctx.rotate(dir*0.13);
-      ctx.fillStyle = P.out;
-      ctx.beginPath(); ctx.moveTo(-3.2,-3.4); ctx.lineTo(3.2,-2.6); ctx.lineTo(2.6,3.4); ctx.lineTo(-2.8,3.0); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = P.accM;  ctx.fillRect(-2.3,-2.0, 4.6, 4.6);            // 홍채 = 직업색
-      ctx.fillStyle = P.accL;  ctx.fillRect(-2.0, 1.2, 4.0, 1.6);
-      ctx.fillStyle = P.white; ctx.fillRect(-1.9,-1.7, 1.9, 1.9);            // 하이라이트 — 눈이 살아난다
-      ctx.fillStyle = P.out;                                                 // 눈썹: 안쪽이 내려온다
-      ctx.beginPath(); ctx.moveTo(-4.0,-7.4); ctx.lineTo(3.6,-5.8); ctx.lineTo(3.4,-4.2); ctx.lineTo(-4.2,-6.0); ctx.closePath(); ctx.fill();
-      ctx.restore();
+    // ── ⑧ 눈·눈썹·입 — **캐릭터성의 대부분이 여기서 나온다**. 전부 사각 블록이다.
+    for (const [ex, dir] of [[-5,1],[4,-1]]){
+      R(ex-1, HY-4, 4, 1, P.out);                                 // 눈썹 (안쪽이 내려온다)
+      R(ex-2+dir, HY-5, 2, 1, P.out);
+      R(ex-1, HY-1, 4, 5, P.out);                                 // 눈매
+      R(ex,   HY,   3, 3, P.accM);                                // 홍채 = 직업색
+      R(ex,   HY+3, 3, 1, P.accL);
+      R(ex,   HY,   1, 1, P.white);                               // 하이라이트 — 눈이 살아난다
     }
-    ctx.fillStyle = P.skinD; ctx.fillRect(1.4, HY+4.5, 1.4, 2.6);            // 코 그늘
-    ctx.fillStyle = P.out;
-    ctx.beginPath(); ctx.moveTo(-2.2,HY+9.4); ctx.lineTo(2.2,HY+9.0); ctx.lineTo(2.0,HY+10.4); ctx.lineTo(-2.0,HY+10.6); ctx.closePath(); ctx.fill();
+    R(1, HY+2, 1, 2, P.skinD);                                    // 코
+    R(-2, HY+6, 4, 1, P.out);                                     // 입
 
     // ── ⑨ 머리칼 — 실루엣의 주인공.
-    //   ⚠ 정수리를 타원으로 깔고 앞머리를 **가로 띠**로 얹으면 헬멧이 된다(프로토 1·2차에서 실패).
-    //    바깥 윤곽(둥근 덩어리) + 안쪽 윤곽(아래로 뾰족한 갈래)을 **하나의 폴리곤**으로 그린다.
-    const hairPath = ()=>{
-      ctx.beginPath();
-      if (st===1){                                  // 1 긴 머리 — 어깨 아래까지 흐른다
-        ctx.moveTo(-19,HY+30); ctx.lineTo(-22,HY-2);
-        ctx.quadraticCurveTo(-20,HY-18, -5,HY-19); ctx.quadraticCurveTo(10,HY-19, 18,HY-11);
-        ctx.lineTo(21,HY+2); ctx.lineTo(19,HY+30);
-        ctx.lineTo(14,HY+6); ctx.lineTo(12,HY-2); ctx.lineTo(8,HY-9);
-        ctx.lineTo(4,HY-1);  ctx.lineTo(0,HY-10); ctx.lineTo(-4,HY-2);
-        ctx.lineTo(-9,HY-10); ctx.lineTo(-13,HY-3); ctx.lineTo(-16,HY-8);
-      } else if (st===2){                           // 2 짧고 단정 — 옆가르마
-        ctx.moveTo(-18,HY+2); ctx.lineTo(-19,HY-6);
-        ctx.quadraticCurveTo(-17,HY-19, -3,HY-20); ctx.quadraticCurveTo(12,HY-20, 18,HY-9);
-        ctx.lineTo(19,HY+2);
-        ctx.lineTo(15,HY-4); ctx.quadraticCurveTo(4,HY-11, -8,HY-5); ctx.lineTo(-14,HY-6);
-      } else if (st===3){                           // 3 일자 앞머리 (두건·모자에 눌린 머리)
-        ctx.moveTo(-19,HY+6); ctx.lineTo(-20,HY-5);
-        ctx.quadraticCurveTo(-18,HY-19, -2,HY-20); ctx.quadraticCurveTo(13,HY-20, 19,HY-8);
-        ctx.lineTo(20,HY+6); ctx.lineTo(16,HY-2); ctx.lineTo(-15,HY-2);
-      } else if (st===4){                           // 4 덥수룩 — 사방으로 뻗는다
-        ctx.moveTo(-22,HY+8); ctx.lineTo(-24,HY-6); ctx.lineTo(-17,HY-10);
-        ctx.lineTo(-19,HY-19); ctx.lineTo(-8,HY-16); ctx.lineTo(-4,HY-24);
-        ctx.lineTo(4,HY-16);  ctx.lineTo(13,HY-21); ctx.lineTo(13,HY-11);
-        ctx.lineTo(22,HY-8);  ctx.lineTo(20,HY+6);
-        ctx.lineTo(15,HY-3);  ctx.lineTo(6,HY-9); ctx.lineTo(0,HY-2);
-        ctx.lineTo(-7,HY-9);  ctx.lineTo(-13,HY-1); ctx.lineTo(-17,HY-6);
-      } else {                                      // 0 스파이크 — 갈래가 눈 위까지 내려온다
-        ctx.moveTo(-19,HY+2); ctx.lineTo(-20,HY-9);
-        ctx.quadraticCurveTo(-19,HY-24, -6,HY-27); ctx.quadraticCurveTo(9,HY-28, 17,HY-20);
-        ctx.lineTo(20,HY-8); ctx.lineTo(19,HY+2);
-        ctx.lineTo(15,HY-10); ctx.lineTo(12,HY-4); ctx.lineTo(9,HY-15);
-        ctx.lineTo(5,HY-5);   ctx.lineTo(2,HY-16); ctx.lineTo(-2,HY-6);
-        ctx.lineTo(-6,HY-17); ctx.lineTo(-10,HY-7); ctx.lineTo(-13,HY-16); ctx.lineTo(-16,HY-9);
-      }
-      ctx.closePath();
-    };
-    ctx.fillStyle = P.hairM; hairPath(); ctx.fill();
-    ctx.save(); hairPath(); ctx.clip();                       // 3톤은 머리칼 안쪽에만
-    ctx.fillStyle = P.hairL;                                  // 정수리 하이라이트 — 광원 쪽
-    ctx.beginPath(); ctx.ellipse(-6, HY-19, 13, 6, -0.22, 0, 6.283); ctx.fill();
-    ctx.fillStyle = P.hairD;                                  // 오른쪽 그늘
-    ctx.beginPath(); ctx.moveTo(8,HY-30); ctx.lineTo(26,HY-18); ctx.lineTo(26,HY+34); ctx.lineTo(10,HY+34); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.rect(-26,HY-8, 52, 5); ctx.fill();    // 앞머리 밑그늘
+    //   ⚠ 정수리 타원 + 가로 띠 앞머리 = 헬멧. 바깥 윤곽 + 안쪽 뾰족 갈래를 **한 폴리곤**으로.
+    let hp;
+    if (st===1){                                   // 긴 머리
+      hp = [[-13,HY+20],[-15,HY-1],[-12,HY-11],[-4,HY-14],[5,HY-13],[12,HY-8],[14,HY+1],[13,HY+20],
+            [9,HY+4],[8,HY-2],[5,HY-7],[3,HY-1],[0,HY-7],[-3,HY-1],[-6,HY-7],[-9,HY-2],[-11,HY-5]];
+    } else if (st===2){                            // 짧고 단정 — 옆가르마
+      hp = [[-12,HY+1],[-13,HY-4],[-10,HY-12],[-2,HY-14],[7,HY-13],[12,HY-6],[13,HY+1],
+            [10,HY-3],[4,HY-7],[-4,HY-4],[-9,HY-5]];
+    } else if (st===3){                            // 일자 앞머리
+      hp = [[-13,HY+4],[-14,HY-4],[-10,HY-13],[0,HY-15],[10,HY-12],[13,HY-5],[13,HY+4],
+            [10,HY-2],[-10,HY-2]];
+    } else if (st===4){                            // 덥수룩
+      hp = [[-15,HY+5],[-16,HY-4],[-11,HY-7],[-13,HY-13],[-5,HY-11],[-3,HY-17],[3,HY-11],
+            [9,HY-15],[9,HY-8],[15,HY-6],[14,HY+4],
+            [10,HY-2],[4,HY-6],[0,HY-1],[-5,HY-6],[-9,HY-1],[-12,HY-4]];
+    } else {                                       // 0 스파이크 — 갈래가 눈 위까지 내려온다
+      hp = [[-13,HY+1],[-14,HY-6],[-12,HY-15],[-4,HY-19],[6,HY-18],[12,HY-13],[14,HY-5],[13,HY+1],
+            [10,HY-7],[8,HY-3],[6,HY-10],[3,HY-3],[1,HY-11],[-2,HY-4],[-4,HY-12],[-7,HY-5],[-9,HY-11],[-11,HY-6]];
+    }
+    POLY(hp, P.hairM);
+    ctx.save(); ctx.beginPath();
+    ctx.moveTo(hp[0][0],hp[0][1]); for(let i=1;i<hp.length;i++) ctx.lineTo(hp[i][0],hp[i][1]);
+    ctx.closePath(); ctx.clip();                                  // 3톤은 머리칼 안쪽에만
+    ELL(-4, HY-13, 9, 4, P.hairL);                                // 정수리 하이라이트
+    POLY([[5,HY-22],[18,HY-13],[18,HY+24],[6,HY+24]], P.hairD);   // 오른쪽 그늘
+    R(-18, HY-6, 36, 2, P.hairD);                                 // 앞머리 밑그늘
     ctx.restore();
   }
   // 직업 악센트 컬러 — 목도리와 전용기 링에 반영
