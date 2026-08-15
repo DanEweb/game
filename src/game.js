@@ -18837,12 +18837,20 @@ import { FX } from "./fx.js";
         ctx.lineWidth = 1.3;                                        // 등자
         ctx.beginPath(); ctx.moveTo(2.2, 7.6); ctx.lineTo(4.4, 11.6); ctx.stroke();
       } else {
-      // 다리 — 볼륨 있는 캡슐 + 부츠
-      ctx.lineWidth = 3.2;
-      ctx.beginPath(); ctx.moveTo(-1.5,3); ctx.lineTo(-2.4+swing, 10.6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(1.5,3); ctx.lineTo(2.4-swing, 10.6); ctx.stroke();
-      ctx.fillRect(-4.4+swing, 10.2, 4.2, 2.5);
-      ctx.fillRect(0.4-swing, 10.2, 4.2, 2.5);
+      //  🔴 v6.188 **두 다리가 검은 기둥 하나로 뭉쳤다** — 직접 보고 확인한 문제.
+      //   ① 다리를 더 벌리고 얇게(3.2→2.6) 해서 **사이에 틈**이 보이게
+      //   ② 부츠를 가죽 톤으로 빼서 **다리와 명도를 가른다**(발이 따로 읽힌다)
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(-2.0,3); ctx.lineTo(-3.2+swing, 10.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(2.0,3);  ctx.lineTo(3.2-swing, 10.6); ctx.stroke();
+      const _bs = ctx.fillStyle;
+      ctx.fillStyle = PC.leather;
+      ctx.fillRect(-5.4+swing, 10.2, 4.4, 2.6);
+      ctx.fillRect(1.0-swing,  10.2, 4.4, 2.6);
+      ctx.fillStyle = PC.dark;                                   // 바닥 그림자 면
+      ctx.fillRect(-5.4+swing, 12.2, 4.4, 0.8);
+      ctx.fillRect(1.0-swing,  12.2, 4.4, 0.8);
+      ctx.fillStyle = _bs;
       }
       ctx.strokeStyle = ink; ctx.fillStyle = ink;
       // 몸통 — 계열별 실루엣 (옷감 톤 + 잉크 윤곽)
@@ -18925,8 +18933,11 @@ import { FX } from "./fx.js";
     ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.moveTo(1,-6.5); ctx.lineTo(1,-8.5); ctx.stroke();
     // head
-    ctx.fillStyle = PC.skin;                       // v6.171 얼굴만 한 단 밝게
-    ctx.beginPath(); ctx.arc(1,-11,5.6,0,Math.PI*2); ctx.fill();
+    //  🔴 v6.188 **머리를 줄인다** — 직접 뽑아 보니 머리가 화면의 절반을 먹는 회색 덩어리로 읽혔다.
+    //   도트 스프라이트에서 가장 흔한 실패가 이것이다. 반지름 5.6 → 4.7 (약 −16%).
+    //   ⚠ 머리 반지름은 머리칼·모자·투구·눈 좌표가 전부 물려 있는 값이다 — 줄이면 같이 내려야 한다.
+    ctx.fillStyle = PC.skin;
+    ctx.beginPath(); ctx.arc(1,-10.4,4.7,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = PC.dark;
     // 머리칼 실루엣 — 계열별 (모자 프롭이 위에 얹혀도 읽히는 최소 형태)
     ctx.fillStyle = PC.hair;   // v6.171 머리칼은 가장 어둡게 — 얼굴과 갈라져야 이목구비가 산다
@@ -18943,8 +18954,9 @@ import { FX } from "./fx.js";
       }
     }
     // 눈: 미니멀 외눈 점 유지 (v6.72 두 눈·눈썹 시도 → 모자에 가려지고 개성 없어 롤백 — 사용자 지시)
+    //  v6.188 눈은 머리 **중앙이 아니라 아래쪽**에 둔다 — 도트 캐릭터가 사람으로 읽히는 핵심
     ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
-    ctx.beginPath(); ctx.arc(3.4,-11.6,1.3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(3.0,-10.2,1.15,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = ink;
     // v6.60 보스 모드: 악센트색으로 발광하는 눈 — 인간형 보스의 위압
     if (o.boss && o.tierC){
