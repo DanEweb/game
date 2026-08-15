@@ -8371,11 +8371,43 @@ import { FX } from "./fx.js";
       effects.push({ type:'pxdeath', x:player.x+90, y:player.y, life:0.9, age:0, r:34, col:c, big:kind==='deathbig' });
       hitStop(0.12); shake = Math.min(26, shake+16);
     }
+    else if (kind==='bolt'){
+      effects.push({ type:'bolt', x:player.x, y:player.y, a:-0.35, r:200, life:0.5, age:0,
+                     col:'#39e0f0', seed:(kind.length*7919)|0, branch:3 });
+    }
     else if (kind==='fire'){
       for (let k=0;k<3;k++) projectiles.push({ x:player.x+k*30, y:player.y-26+k*26, vx:220, vy:0, r:5,
         damage:0, crit:false, pierce:9, life:2.4, kind:'fireball' });
     }
     return 'fx '+kind;
+  } catch(e){ return 'ERR '+String(e); } };
+  //  v6.199 QA: **같은 코드**를 밝은 배경/어두운 배경에 나란히 그려 비교한다.
+  //   가산 발광은 밝은 배경에서 아무 일도 안 하므로, 두 경우를 같이 보지 않으면 판단이 안 된다.
+  window.__qaBoltSheet = (col)=>{ try {
+    const W2=280, H2=200, N=3;
+    const cv = document.createElement('canvas');
+    cv.width = W2*N; cv.height = H2*2;
+    const g2 = cv.getContext('2d');
+    const main = ctx; ctx = g2;
+    try {
+      for (let row=0; row<2; row++){
+        const dark = row===1;
+        g2.fillStyle = dark ? '#141416' : '#eeeeec';
+        g2.fillRect(0, row*H2, W2*N, H2);
+        for (let k=0;k<N;k++){
+          g2.save(); g2.translate(k*W2, row*H2);
+          const ox=40, oy=H2/2;
+          for (let br=0; br<3; br++){
+            const sp = -0.35 + (br-0.5)*0.34;
+            const pts = boltPath(ox, oy, ox+Math.cos(sp)*200, oy+Math.sin(sp)*200, 7919+br*977+k*131, 92, 3);
+            drawBolt(pts, col||'#39e0f0', br===0?4.6:2.8, dark);
+            drawBoltShards(pts, col||'#39e0f0', 2, dark, 7919+br*31+k*7);
+          }
+          g2.restore();
+        }
+      }
+    } finally { ctx = main; }
+    return cv.toDataURL('image/png');
   } catch(e){ return 'ERR '+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
@@ -22746,6 +22778,96 @@ import { FX } from "./fx.js";
   }
   //  진행도를 N단으로 끊는다 — 이펙트가 '벡터처럼 스르륵'이 아니라 '도트처럼 뚝뚝' 가게 하는 핵심
   function fxStep(t, n){ return Math.min(n-1, Math.floor(t*n)); }
+  //  ═══════════════════════════════════════════════════════════════════════════
+  //  🔴 v6.199 **벡터 번개** — 사용자: *"벡터를 이정도로하게해주는건 어렵나?"* (검정 배경 청록 번개 레퍼런스)
+  //   어렵지 않다. 저 그림의 힘은 손맛이 아니라 **네 가지 기법**이고 전부 코드로 재현된다:
+  //    ① **중심선 변위(midpoint displacement)** — 곡선이 아니라 **각진 꺾임**이어야 번개다
+  //    ② **4겹 스트로크** — 어두운 윤곽 / 발광 헤일로 / 본체 / **흰 심(가장 얇게)**.
+  //       레퍼런스의 '빛나는' 느낌은 전부 **흰 심 + 채도 높은 헤일로**의 대비에서 나온다
+  //    ③ **끝으로 갈수록 얇아진다** — 균일 굵기면 전선이지 번개가 아니다
+  //    ④ **파편(shard)** — 본선에서 튀어나가는 작은 각진 조각. 이게 없으면 그냥 선이다
+  //
+  //   ⚠⚠ **레퍼런스는 완전한 검정 위다.** 이 게임은 13맵 중 **7맵이 밝은 배경**이고,
+  //    가산합성 발광은 밝은 배경에서 아무 일도 안 한다(흰색보다 밝아질 수 없다).
+  //    ⇒ 밝은 맵에서는 **어두운 윤곽**이 형태를 잡고, 어두운 맵에서만 헤일로를 가산으로 얹는다.
+  //    같은 코드가 양쪽에서 다르게 읽히도록 짠다.
+  //   📌 캐릭터는 도트, 이펙트는 매끈한 발광 — 이 조합은 흔하고 정당하다(데드셀즈·하이퍼라이트 계열).
+  //    v6.198의 '이펙트도 도트로'는 **내 판단이었지 지시가 아니었다**.
+  function boltPath(x0, y0, x1, y1, seed, amp, depth){
+    let pts = [[x0,y0],[x1,y1]];
+    let s = seed;
+    const rnd = ()=>{ s = (s*1664525 + 1013904223) & 0x7fffffff; return s/0x7fffffff; };
+    for (let d=0; d<(depth||5); d++){
+      const out = [pts[0]];
+      const a = amp / (d+1);
+      for (let i=0;i<pts.length-1;i++){
+        const A = pts[i], B = pts[i+1];
+        const mx = (A[0]+B[0])/2, my = (A[1]+B[1])/2;
+        const dx = B[0]-A[0], dy = B[1]-A[1], L = Math.hypot(dx,dy)||1;
+        const off = (rnd()-0.5)*a;
+        out.push([mx - dy/L*off, my + dx/L*off]);
+        out.push(B);
+      }
+      pts = out;
+    }
+    return pts;
+  }
+  //  ⚠ 굵기가 균일하면 전선이다 — 구간마다 굵기를 줄여 가며 따로 긋는다
+  function boltStroke(pts, col, w, cap){
+    ctx.lineCap = cap || 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = col;
+    const n = pts.length-1;
+    for (let i=0;i<n;i++){
+      ctx.lineWidth = Math.max(0.6, w * (1 - i/n*0.72));
+      ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i+1][0], pts[i+1][1]); ctx.stroke();
+    }
+  }
+  function drawBolt(pts, col, w, dark){
+    ctx.save();
+    //  ① 어두운 윤곽 — **밝은 맵에서 형태를 잡는 유일한 수단**. 어두운 맵에서는 거의 안 보인다
+    if (!dark){ boltStroke(pts, 'rgba(14,12,22,0.85)', w*2.6); }
+    //  ② 발광 헤일로 — 어두운 맵에서만 가산으로. 밝은 맵에서는 얹어도 흰색을 못 넘는다
+    if (dark){
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.30; boltStroke(pts, col, w*4.2);
+      ctx.globalAlpha = 0.55; boltStroke(pts, col, w*2.2);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.globalAlpha = 0.34; boltStroke(pts, col, w*2.0); ctx.globalAlpha = 1;
+    }
+    //  ③ 본체
+    boltStroke(pts, col, w*1.15);
+    //  ④ 흰 심 — 가장 얇게. **레퍼런스의 '빛난다'는 느낌이 여기서 나온다**
+    if (dark) ctx.globalCompositeOperation = 'lighter';
+    boltStroke(pts, dark ? '#ffffff' : mixHex(col,'#ffffff',0.86), w*0.50);
+    ctx.restore();
+  }
+  //  파편 — 본선에서 튀어나가는 각진 조각. 이게 없으면 그냥 구불구불한 선이다
+  function drawBoltShards(pts, col, w, dark, seed){
+    let s = seed|0;
+    const rnd = ()=>{ s = (s*1103515245 + 12345) & 0x7fffffff; return s/0x7fffffff; };
+    ctx.save();
+    if (dark) ctx.globalCompositeOperation = 'lighter';
+    for (let i=2;i<pts.length-2;i+=3){
+      if (rnd() > 0.45) continue;
+      const A = pts[i], B = pts[i+1];
+      const dx = B[0]-A[0], dy = B[1]-A[1], L = Math.hypot(dx,dy)||1;
+      const nx = -dy/L, ny = dx/L, sg = rnd()<0.5?-1:1;
+      const len = 6 + rnd()*16;
+      const tipX = A[0] + nx*sg*len + dx*0.4, tipY = A[1] + ny*sg*len + dy*0.4;
+      if (!dark){ ctx.fillStyle = 'rgba(14,12,22,0.85)';
+        ctx.beginPath(); ctx.moveTo(A[0]-nx*sg*2.6, A[1]-ny*sg*2.6);
+        ctx.lineTo(tipX, tipY); ctx.lineTo(A[0]+dx*0.9+nx*sg*2.6, A[1]+dy*0.9+ny*sg*2.6);
+        ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(A[0]-nx*sg*1.4, A[1]-ny*sg*1.4);
+      ctx.lineTo(tipX, tipY); ctx.lineTo(A[0]+dx*0.9+nx*sg*1.4, A[1]+dy*0.9+ny*sg*1.4);
+      ctx.closePath(); ctx.fill();
+      if (rnd()<0.5){ ctx.fillStyle = dark ? '#ffffff' : mixHex(col,'#ffffff',0.8);
+        ctx.beginPath(); ctx.arc(tipX, tipY, 1.6+rnd()*1.8, 0, 6.283); ctx.fill(); }
+    }
+    ctx.restore();
+  }
   function drawHazards(){
     for (const h of hazards){
       const tt = 1 - h.timer/h.maxT;
@@ -22784,15 +22906,35 @@ import { FX } from "./fx.js";
       if (fx.type==='bolt' || fx.type==='chain') ctx.strokeStyle = COLORS.volt;
       if (fx.type==='psywave') ctx.strokeStyle = COLORS.psi;
       if (fx.type==='bolt'){
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(fx.x + (Math.random()*8-4), fx.y-150);
-        for (let k=1;k<=5;k++){
-          ctx.lineTo(fx.x + (k===5?0:(Math.random()*24-12)), fx.y - 150*(1-k/5));
+        //  🔴 v6.199 낙뢰를 새 벡터 번개로 교체. 이전은 `lineTo` 5번 + 균일 굵기 2.5px — 지그재그 선 하나였다.
+        //  ⚠⚠ **`type:'bolt'`는 이미 세 곳에서 쓰이고 있었다**(낙뢰·번개 스킬·QA).
+        //   기존 푸시에는 `a`/`r`/`col`/`seed`가 없다 → 없으면 **하늘에서 내리꽂는** 기본값으로 그린다.
+        //   (처음에 `else if`로 새 분기를 덧붙였다가 **도달하지 않는 죽은 코드**가 됐다 — 같은 타입이 이미 위에 있었다)
+        const boltDark = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const frm = Math.floor(fx.age*22);
+        const seed = (fx.seed || ((fx.x|0)*31 + (fx.y|0)*17)) | 0;
+        const brN = fx.branch || 1;
+        const col = fx.col || COLORS.volt;
+        for (let br=0; br<brN; br++){
+          let sx, sy, ex, ey;
+          if (fx.r){                                   // 방향·길이가 지정된 경우(스킬·QA)
+            const sp = (fx.a||0) + (br-(brN-1)/2)*0.34;
+            sx = fx.x; sy = fx.y; ex = fx.x + Math.cos(sp)*fx.r; ey = fx.y + Math.sin(sp)*fx.r;
+          } else {                                     // 낙뢰 — 위에서 내리꽂는다
+            sx = fx.x + (br-(brN-1)/2)*26; sy = fx.y - 160; ex = fx.x; ey = fx.y;
+          }
+          const pts = boltPath(sx, sy, ex, ey, seed+br*977+frm*131, (fx.r||160)*0.46, 3);
+          drawBolt(pts, col, br===0 ? 4.6 : 2.8, boltDark);
+          drawBoltShards(pts, col, 2, boltDark, seed+br*31+frm*7);
         }
-        ctx.stroke();
-        ctx.fillStyle = dark ? 'rgba(255,255,255,0.4)' : 'rgba(32,33,36,0.4)';
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, 8*tt, 0, Math.PI*2); ctx.fill();
+        //  착탄점 — 밝은 심 + 퍼지는 고리
+        ctx.save();
+        if (boltDark) ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = boltDark ? '#ffffff' : mixHex(col,'#ffffff',0.7);
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, 3+7*tt, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 2*tt+0.5;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, 10+26*(1-tt), 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
       } else if (fx.type==='chain'){
         ctx.lineWidth = 2;
         const mx = (fx.x1+fx.x2)/2 + (Math.random()*14-7);
