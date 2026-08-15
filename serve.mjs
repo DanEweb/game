@@ -3,7 +3,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css' };
+const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.png':'image/png' };
 http.createServer((req,res)=>{
   let p = req.url.split('?')[0];
   //  v6.190 스냅 저장 — 브라우저 창이 안 보이면 스크린샷을 못 찍는다(v6.182).

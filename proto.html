@@ -1,0 +1,231 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Gray Survivor — 캐릭터 스펙 프로토타입</title>
+<style>body{background:#20222a;color:#ddd;font:12px sans-serif;margin:0;padding:12px}
+canvas{image-rendering:pixelated;display:block}
+.row{display:flex;gap:14px;flex-wrap:wrap}.cell{text-align:center}</style>
+<div class="row" id="row"></div>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  캐릭터 스펙 프로토타입 (v6.191 검토용)
+//  현행 대비 바꾼 것 넷:
+//   ① 아트 픽셀 36×40 → 76×88   ② 색 948개 → 팔레트 18색 강제 스냅
+//   ③ 5등신 → 치비 2.7등신(머리 42%)  ④ 눈 점 1개 → 두 눈·눈썹·하이라이트
+//  ⚠ 현행 파이프라인의 진짜 결함: 포스터라이즈 **뒤에** 셰이딩·림 그라디언트를 다시 칠한다.
+//    그래서 양자화가 무효가 되고 948색이 나온다. 여기서는 **맨 마지막에** 팔레트로 스냅한다.
+// ─────────────────────────────────────────────────────────────────────────────
+const PAL_COLOR = {
+  out:'#191320', out2:'#2e2430',
+  hairD:'#6a6f7e', hairM:'#a9aebb', hairL:'#e2e6ef',
+  skinD:'#c2855f', skinM:'#efb98f', skinL:'#ffdcb8',
+  eyeD:'#3a0f14',  eyeR:'#e03a2e',  eyeL:'#ff9a7a',
+  clothD:'#221f29', clothM:'#37323f',
+  scarfD:'#8d1f22', scarfM:'#cc2f2b', scarfL:'#e8635a',
+  metD:'#6b7280',  metM:'#b7bdc9',  metL:'#eef1f7',
+  gold:'#d9a53f',  goldL:'#f4d787',
+};
+//  무채색 변형 — 현재 아트 방향(흑백 + 악센트)을 유지한 채 나머지 3개만 적용한 경우
+const PAL_MONO = (()=>{ const o={}; for(const k in PAL_COLOR){ const c=PAL_COLOR[k];
+  const r=parseInt(c.slice(1,3),16), g=parseInt(c.slice(3,5),16), b=parseInt(c.slice(5,7),16);
+  let l=Math.round(r*0.30+g*0.59+b*0.11);
+  if (k.startsWith('scarf')||k.startsWith('eyeR')||k==='eyeL'||k==='gold'||k==='goldL'){ o[k]=c; continue; } // 악센트만 색 유지
+  const h=l.toString(16).padStart(2,'0'); o[k]='#'+h+h+h; }
+  return o; })();
+
+const hex2rgb = c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];
+
+//  ── 팔레트 강제 스냅: AA로 생긴 중간색을 전부 가장 가까운 팔레트 색으로 끌어당긴다.
+//     이 한 단계가 '벡터를 뭉갠 그림'과 '도트로 찍은 그림'을 가른다.
+function snapToPalette(ctx, w, h, pal){
+  const list = Object.values(pal).map(hex2rgb);
+  const im = ctx.getImageData(0,0,w,h), d = im.data;
+  for (let i=0;i<d.length;i+=4){
+    if (d[i+3] < 100){ d[i+3]=0; continue; }         // 알파도 2치화 — 반투명 테두리가 흐림의 원인
+    d[i+3]=255;
+    let bi=0, bd=1e9;
+    for (let k=0;k<list.length;k++){
+      const p=list[k], dr=d[i]-p[0], dg=d[i+1]-p[1], db=d[i+2]-p[2];
+      const dist = dr*dr*0.30 + dg*dg*0.59 + db*db*0.11;   // 명도 가중 거리
+      if (dist<bd){ bd=dist; bi=k; }
+    }
+    d[i]=list[bi][0]; d[i+1]=list[bi][1]; d[i+2]=list[bi][2];
+  }
+  ctx.putImageData(im,0,0);
+}
+
+//  ── 캐릭터: 치비 2.7등신. 버퍼 76×88, 발밑 y=84, 중심 x=38
+function drawChibi(c, P){
+  const g = c.getContext('2d');
+  g.clearRect(0,0,c.width,c.height);
+  g.lineJoin='round'; g.lineCap='round';
+  const CX = 38;
+
+  // ── 뒤 레이어: 목도리 자락 (캐릭터 뒤로 크게 흘러나간다 — 실루엣의 절반이 천이다)
+  g.fillStyle = P.scarfD;
+  g.beginPath();
+  g.moveTo(CX-6, 44);
+  g.quadraticCurveTo(CX-24, 40, CX-30, 20);
+  g.quadraticCurveTo(CX-33, 34, CX-26, 50);
+  g.quadraticCurveTo(CX-22, 62, CX-12, 58);
+  g.closePath(); g.fill();
+  g.fillStyle = P.scarfM;
+  g.beginPath();
+  g.moveTo(CX-7, 45);
+  g.quadraticCurveTo(CX-21, 41, CX-27, 25);
+  g.quadraticCurveTo(CX-24, 40, CX-19, 52);
+  g.closePath(); g.fill();
+
+  // ── 다리 (짧고 굵게 — 치비는 다리가 몸의 1/4)
+  g.fillStyle = P.clothD;
+  g.beginPath(); g.moveTo(CX-11,60); g.lineTo(CX-2,60); g.lineTo(CX-3,78); g.lineTo(CX-12,78); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(CX+2,60);  g.lineTo(CX+11,60); g.lineTo(CX+12,78); g.lineTo(CX+3,78); g.closePath(); g.fill();
+  g.fillStyle = P.clothM;                                   // 왼쪽 다리에 빛 (좌상단 광원)
+  g.beginPath(); g.moveTo(CX-11,60); g.lineTo(CX-7,60); g.lineTo(CX-8,78); g.lineTo(CX-12,78); g.closePath(); g.fill();
+  g.fillStyle = P.out2;                                     // 부츠 — 명도를 갈라 접지가 보이게
+  g.fillRect(CX-14,76,12,7); g.fillRect(CX+2,76,12,7);
+  g.fillStyle = P.metD;  g.fillRect(CX-14,76,12,2); g.fillRect(CX+2,76,12,2);
+
+  // ── 몸통 (사다리꼴, 어깨가 넓고 허리가 좁다)
+  g.fillStyle = P.clothD;
+  g.beginPath();
+  g.moveTo(CX-14,42); g.quadraticCurveTo(CX,39, CX+14,42);
+  g.lineTo(CX+11,62); g.quadraticCurveTo(CX,64, CX-11,62);
+  g.closePath(); g.fill();
+  g.fillStyle = P.clothM;                                   // 왼쪽 절반이 밝다
+  g.beginPath();
+  g.moveTo(CX-14,42); g.quadraticCurveTo(CX-7,40, CX-2,41);
+  g.lineTo(CX-2,63); g.lineTo(CX-11,62); g.closePath(); g.fill();
+  g.strokeStyle = P.scarfM; g.lineWidth=3;                  // 붉은 트림 — 검은 옷은 트림이 있어야 읽힌다
+  g.beginPath(); g.moveTo(CX-9,43); g.lineTo(CX-4,62); g.stroke();
+  g.fillStyle = P.gold; g.fillRect(CX-10,57,20,4);          // 허리 벨트
+  g.fillStyle = P.goldL; g.fillRect(CX-2,57,5,4);
+
+  // ── 목도리 (목을 감는 두꺼운 덩어리 — 얼굴과 몸을 갈라 주는 장치)
+  g.fillStyle = P.scarfM;
+  g.beginPath(); g.ellipse(CX, 42, 15, 7, 0, 0, 6.283); g.fill();
+  g.fillStyle = P.scarfL;
+  g.beginPath(); g.ellipse(CX-4, 40, 9, 4, -0.15, 0, 6.283); g.fill();
+  g.fillStyle = P.scarfD;
+  g.beginPath(); g.ellipse(CX+6, 44, 8, 4, 0.2, 0, 6.283); g.fill();
+
+  // ── 뒷팔 + 검 (팔은 소매 → 손목 → 손, 세 마디)
+  g.strokeStyle = P.clothM; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(CX+11,46); g.lineTo(CX+20,50); g.stroke();
+  g.strokeStyle = P.clothD; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(CX+20,50); g.lineTo(CX+24,44); g.stroke();
+  g.fillStyle = P.skinM; g.beginPath(); g.arc(CX+25,42,4,0,6.283); g.fill();
+  g.fillStyle = P.skinL; g.beginPath(); g.arc(CX+24,41,2.2,0,6.283); g.fill();
+  //  칼: 자루 → 코등이 → 좁아지는 날 → 날선. 세 재질이 보여야 '칼'이다
+  //  ⚠ 1차 시안은 자루가 손 **뒤에서** 시작해 칼이 떠 보였다 — 자루를 손에 겹쳐 쥐게 한다
+  g.save(); g.translate(CX+25,42); g.rotate(-0.72);
+  g.fillStyle = P.out2;  g.fillRect(-6,-2.5,9,5);                    // 자루
+  g.fillStyle = P.scarfD; g.fillRect(-5,-2.5,2,5); g.fillRect(-1,-2.5,2,5);  // 감은 끈
+  g.fillStyle = P.gold;  g.fillRect(3,-5,3,10);                      // 코등이
+  g.fillStyle = P.goldL; g.fillRect(3,-5,3,3);
+  g.fillStyle = P.metM;                                              // 날
+  g.beginPath(); g.moveTo(5,-4); g.quadraticCurveTo(22,-4.5, 38,-2.2);
+  g.lineTo(40,0); g.lineTo(38,2.2); g.quadraticCurveTo(22,3.5, 5,4); g.closePath(); g.fill();
+  g.fillStyle = P.metL;                                              // 날선 하이라이트
+  g.beginPath(); g.moveTo(6,-3.2); g.quadraticCurveTo(22,-3.6, 37,-1.6); g.lineTo(37,-0.2);
+  g.quadraticCurveTo(22,-2.2, 6,-1.8); g.closePath(); g.fill();
+  g.restore();
+
+  // ── 앞팔
+  g.strokeStyle = P.clothD; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(CX-12,46); g.lineTo(CX-19,52); g.stroke();
+  g.strokeStyle = P.clothM; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(CX-19,52); g.lineTo(CX-20,60); g.stroke();
+  g.fillStyle = P.skinM; g.beginPath(); g.arc(CX-20,63,4.2,0,6.283); g.fill();
+  g.fillStyle = P.skinL; g.beginPath(); g.arc(CX-21,62,2.4,0,6.283); g.fill();
+
+  // ── 머리 (치비 = 머리가 전체의 40%가 넘는다)
+  g.fillStyle = P.skinM;
+  g.beginPath(); g.ellipse(CX, 26, 15, 15.5, 0, 0, 6.283); g.fill();
+  g.fillStyle = P.skinL;                                    // 좌상단 광원
+  g.beginPath(); g.ellipse(CX-4, 22, 10, 10, 0, 0, 6.283); g.fill();
+  g.fillStyle = P.skinD;                                    // 턱 아래 그늘
+  g.beginPath(); g.ellipse(CX+2, 36, 10, 5, 0, 0, 6.283); g.fill();
+
+  // ── 눈: 두 개 + 흰 하이라이트 + 눈썹. **이게 캐릭터의 전부다**
+  //  ⚠ 1차 시안은 눈이 **크고 네모나고 멀었다** — 벌레눈으로 읽혔다.
+  //   눈은 ⑴머리 아래쪽 ⑵눈 하나 폭만큼만 벌리고 ⑶안쪽이 낮게 기울여야 표정이 생긴다.
+  for (const [ex, dir] of [[CX-6.5,1],[CX+6.5,-1]]){
+    g.save(); g.translate(ex,29); g.rotate(dir*0.13);
+    g.fillStyle = P.out;                                                    // 눈매(아래로 좁아지는 사다리꼴)
+    g.beginPath(); g.moveTo(-3.2,-3.4); g.lineTo(3.2,-2.6); g.lineTo(2.6,3.4); g.lineTo(-2.8,3.0); g.closePath(); g.fill();
+    g.fillStyle = P.eyeR;  g.fillRect(-2.3,-2.0, 4.6, 4.6);                 // 홍채
+    g.fillStyle = P.eyeL;  g.fillRect(-2.0, 1.2, 4.0, 1.6);                 // 아래쪽 반사광
+    g.fillStyle = '#ffffff'; g.fillRect(-1.9,-1.7, 1.9, 1.9);              // 하이라이트 — 눈이 살아난다
+    g.fillStyle = P.out;                                                    // 눈썹: 안쪽이 내려온다(결의)
+    g.beginPath(); g.moveTo(-4.0,-7.4); g.lineTo(3.6,-5.8); g.lineTo(3.4,-4.2); g.lineTo(-4.2,-6.0); g.closePath(); g.fill();
+    g.restore();
+  }
+  g.fillStyle = P.skinD; g.fillRect(CX+1.4, 30.5, 1.4, 2.6);                // 코 그늘
+  g.fillStyle = P.out;                                                      // 입 — 작지만 있어야 얼굴이 완성된다
+  g.beginPath(); g.moveTo(CX-2.2,35.4); g.lineTo(CX+2.2,35.0); g.lineTo(CX+2.0,36.4); g.lineTo(CX-2.0,36.6); g.closePath(); g.fill();
+
+  // ── 머리칼: 실루엣의 주인공.
+  //  ⚠ 1·2차 시안 실패: 정수리를 타원으로 깔고 앞머리를 **가로 띠**로 얹었더니 헬멧이 됐다.
+  //   머리칼은 **바깥 윤곽(둥근 덩어리) + 안쪽 윤곽(아래로 뾰족한 갈래)** 하나의 폴리곤이다.
+  //   갈래 끝이 눈 위(y≈26)까지 내려와야 이마가 안 비고 레퍼런스의 얼굴 비율이 나온다.
+  const hairPath = ()=>{
+    g.beginPath();
+    g.moveTo(CX-19,34);                                   // 왼쪽 옆머리 끝
+    g.lineTo(CX-20,17);
+    g.quadraticCurveTo(CX-19,3, CX-6,0);                  // 정수리 왼쪽
+    g.quadraticCurveTo(CX+9,-1, CX+17,7);                 // 정수리 오른쪽
+    g.lineTo(CX+20,19);
+    g.lineTo(CX+19,33);                                   // 오른쪽 옆머리 끝
+    g.lineTo(CX+15,21);                                   // ↓ 여기서부터 안쪽 윤곽(앞머리 갈래)
+    g.lineTo(CX+12,27); g.lineTo(CX+9,16);
+    g.lineTo(CX+5,26);  g.lineTo(CX+2,15);
+    g.lineTo(CX-2,25);  g.lineTo(CX-6,14);
+    g.lineTo(CX-10,24); g.lineTo(CX-13,15);
+    g.lineTo(CX-16,22);
+    g.closePath();
+  };
+  g.fillStyle = P.hairM; hairPath(); g.fill();
+  g.save(); hairPath(); g.clip();                          // 3톤은 머리칼 안쪽에만
+  g.fillStyle = P.hairL;                                   // 정수리 하이라이트 — 광원 쪽
+  g.beginPath(); g.ellipse(CX-6, 8, 12, 5, -0.22, 0, 6.283); g.fill();
+  g.fillStyle = P.hairD;                                   // 오른쪽·아래 그늘
+  g.beginPath(); g.moveTo(CX+8,0); g.lineTo(CX+22,10); g.lineTo(CX+22,36); g.lineTo(CX+9,36); g.closePath(); g.fill();
+  g.fillStyle = P.hairD;
+  g.beginPath(); g.moveTo(CX-22,20); g.lineTo(CX+22,20); g.lineTo(CX+22,24); g.lineTo(CX-22,24); g.closePath(); g.fill();
+  g.restore();
+}
+
+//  ── 아웃라인: 4방향 오프셋 실루엣 (현행과 같은 방식이되 **색이 있는** 외곽선)
+function outlineOf(src, w, h, color){
+  const o = document.createElement('canvas'); o.width=w; o.height=h;
+  const x = o.getContext('2d');
+  x.drawImage(src,-1,0); x.drawImage(src,1,0); x.drawImage(src,0,-1); x.drawImage(src,0,1);
+  x.globalCompositeOperation='source-in'; x.fillStyle=color; x.fillRect(0,0,w,h);
+  return o;
+}
+
+function build(pal, label, zoom){
+  const W=76, H=88;
+  const buf = document.createElement('canvas'); buf.width=W; buf.height=H;
+  drawChibi(buf, pal);
+  snapToPalette(buf.getContext('2d'), W, H, pal);     // ★ 맨 마지막에 스냅 — 이 순서가 핵심
+  const ol = outlineOf(buf, W, H, pal.out);
+  const out = document.createElement('canvas');
+  out.width=W*zoom; out.height=H*zoom;
+  const g = out.getContext('2d'); g.imageSmoothingEnabled=false;
+  g.fillStyle='#2b2f3a'; g.fillRect(0,0,out.width,out.height);
+  g.drawImage(ol,0,0,out.width,out.height);
+  g.drawImage(buf,0,0,out.width,out.height);
+  const cell=document.createElement('div'); cell.className='cell';
+  cell.appendChild(out);
+  const t=document.createElement('div'); t.textContent=label; cell.appendChild(t);
+  document.getElementById('row').appendChild(cell);
+  return out;
+}
+window.__proto = ()=>{
+  document.getElementById('row').innerHTML='';
+  return { color: build(PAL_COLOR,'A · 컬러 (레퍼런스 방향)',4),
+           mono:  build(PAL_MONO, 'B · 흑백+악센트 (현 아트방향 유지)',4) };
+};
+window.__proto();
+</script>
