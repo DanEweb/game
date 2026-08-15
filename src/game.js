@@ -20277,9 +20277,50 @@ import { FX } from "./fx.js";
   const CHIBI_PK = 1.62;                // 프롭 배율 — 1.45는 날이 1px이라 무기가 희미했다
   //  프롭이 머리 상자를 지나가 잘리는 직업만 돌려 뺀다 (기본 0)
   const CHIBI_PROP_ROT = { reaper:0.62, necro:0.18, engineer:0.20, pilot:0.24 };
+  //  ── 🔴 v6.196 **자세 6종** — v6.193에서 좌우대칭은 깼지만 **37장이 전부 같은 포즈**였다.
+  //   레퍼런스는 캐릭터마다 다른 동세를 갖는다. 계열·직업에 따라 서 있는 방식 자체를 가른다.
+  //   ⚠ 허리(y=−16)는 **전 자세 공통**으로 고정한다 — 계열 의상(흉갑·스트랩·칼라)이 거기 물려 있어
+  //    자세마다 몸통을 다시 깎으면 의상이 통째로 어긋난다. 자세는 **다리·어깨·팔·머리**로만 만든다.
+  const CHIBI_STANCE = {
+    //  경계 — 앞뒤로 벌린 다리, 무기 쪽 어깨가 앞으로
+    guard: { legF:[1,-16,7,12], bootF:[0,-5,10,5], legB:[-9,-14,6,11], bootB:[-11,-4,8,4],
+             gap:[-3,-16,4,12], shL:-33, shR:-30, tilt:-0.13, hx:1,
+             hand:[15,-22], elb:[15,-27], bhand:[-14,-22], belb:[-16,-27] },
+    //  버티기(중갑) — 다리를 넓게 벌리고 어깨가 수평에 가깝다
+    brace: { legF:[3,-15,8,11], bootF:[2,-5,11,5], legB:[-13,-15,8,11], bootB:[-15,-5,11,5],
+             gap:[-2,-15,3,11], shL:-32, shR:-31, tilt:-0.05, hx:0,
+             hand:[16,-20], elb:[16,-26], bhand:[-16,-20], belb:[-17,-26] },
+    //  낮춤(도적) — 무릎을 굽혀 몸이 낮고 어깨가 웅크린다
+    crouch:{ legF:[2,-13,7,9], bootF:[1,-4,10,4], legB:[-9,-12,6,8], bootB:[-11,-4,8,4],
+             gap:[-2,-13,3,9], shL:-31, shR:-29, tilt:-0.19, hx:2,
+             hand:[16,-19], elb:[14,-25], bhand:[-13,-19], belb:[-15,-25] },
+    //  겨눔(원거리) — 몸을 옆으로 틀고 앞발을 크게 낸다
+    aim:   { legF:[4,-16,7,12], bootF:[3,-5,11,5], legB:[-10,-13,6,10], bootB:[-12,-4,8,4],
+             gap:[-2,-16,5,12], shL:-33, shR:-31, tilt:-0.09, hx:1,
+             hand:[17,-24], elb:[15,-28], bhand:[-12,-24], belb:[-14,-28] },
+    //  로브 — 다리가 안 보이니 팔과 머리 기울기로 자세를 만든다
+    float: { legF:null, shL:-32, shR:-30, tilt:-0.16, hx:1,
+             hand:[16,-25], elb:[15,-29], bhand:[-14,-25], belb:[-16,-29] },
+    //  느긋(상인) — 한쪽으로 무게를 싣고 **어깨가 반대로 처진다**(다른 자세와 기울기 방향이 반대다)
+    slack: { legF:[0,-15,7,11], bootF:[-1,-5,10,5], legB:[-9,-15,6,11], bootB:[-11,-5,8,5],
+             gap:[-3,-15,4,11], shL:-31, shR:-32, tilt:0.11, hx:0,
+             hand:[15,-21], elb:[14,-26], bhand:[-14,-21], belb:[-15,-26] },
+  };
+  const CHIBI_STANCE_OF = {
+    rusher:'brace', paladin:'brace', cheol:'brace', exhero:'brace', gymbro:'brace',
+    samurai:'guard', duelist:'guard', madman:'guard', monk:'guard',
+    runeknight:'guard', commander:'guard', engineer:'guard',
+    archer:'aim', sniper:'aim', pilot:'aim', specialist:'aim',
+    ninja:'crouch', reaper:'crouch', glitch:'crouch', blackcat:'crouch',
+    shadow:'crouch', tombraider:'crouch', mumyeong:'crouch',
+    manager:'float', voidc:'float', necro:'float', bard:'float', druid:'float',
+    returner:'slack', debug:'slack', tourist:'slack', slime:'slack', gambler:'slack',
+    collector:'slack', contributor:'slack', baeksu:'slack', stonks:'slack',
+  };
   function drawChibi(o){
     const P = o.pal, key = o.key, grp = P._grp, st = P._style;
     const HY = CHIBI_HEAD_Y, R = PX.R, ELL = PX.ELL, POLY = PX.POLY, LINE = PX.LINE;
+    const S = CHIBI_STANCE[CHIBI_STANCE_OF[key]] || CHIBI_STANCE.guard;
     PX.shear(0,0);
 
     //  🔴 v6.193 **자세** — 사용자: *"모양이나 생김새등등이 내가 준 레퍼런스들보다 훨씬떨어지잖아"*
@@ -20298,21 +20339,21 @@ import { FX } from "./fx.js";
       POLY([[-16,-8],[14,-8],[14,-5],[-16,-5]], P.accM);            // 밑단 트림
     }
 
-    // ── ② 다리 — **앞뒤로 벌린다**. 뒤 다리는 짧고 어둡다(원근)
-    if (grp!=='mag' && grp!=='pri'){
-      R(-9,-14, 6,11, P.clothD);                                    // 뒤 다리
-      R(-11,-4, 8,4, P.leaD);                                       // 뒤 부츠 (어둡게)
-      R(1,-16, 7,12, P.clothM);                                     // 앞 다리 (밝게 = 가깝다)
-      R(0,-5, 10,5, P.leaM);                                        // 앞 부츠
-      R(0,-5, 10,2, P.leaL);
-      R(-11,-1, 8,1, P.out); R(0,-1, 10,1, P.out);                  // 접지선
-      R(-3,-16, 4,12, P.out2);                                      // 두 다리 사이 어두운 틈
+    // ── ② 다리 — **앞뒤로 벌린다**. 뒤 다리는 짧고 어둡다(원근). 자세마다 벌림·높이가 다르다
+    if (S.legF && grp!=='mag' && grp!=='pri'){
+      R(S.legB[0],S.legB[1], S.legB[2],S.legB[3], P.clothD);        // 뒤 다리
+      R(S.bootB[0],S.bootB[1], S.bootB[2],S.bootB[3], P.leaD);      // 뒤 부츠 (어둡게)
+      R(S.legF[0],S.legF[1], S.legF[2],S.legF[3], P.clothM);        // 앞 다리 (밝게 = 가깝다)
+      R(S.bootF[0],S.bootF[1], S.bootF[2],S.bootF[3], P.leaM);
+      R(S.bootF[0],S.bootF[1], S.bootF[2],2, P.leaL);
+      R(S.bootB[0],-1, S.bootB[2],1, P.out); R(S.bootF[0],-1, S.bootF[2],1, P.out);   // 접지선
+      R(S.gap[0],S.gap[1], S.gap[2],S.gap[3], P.out2);              // 두 다리 사이 어두운 틈
     }
 
-    // ── ③ 몸통 — 어깨선이 기울어 있다 (왼쪽이 높고 오른쪽이 낮다 = 무기 쪽이 앞으로 나온다)
-    POLY([[-11,-33],[9,-30],[8,-16],[-9,-16]], P.clothD);
-    POLY([[-11,-33],[-1,-31],[-1,-16],[-9,-16]], P.clothM);
-    POLY([[-11,-33],[9,-30],[9,-29],[-11,-32]], P.out);             // 어깨선
+    // ── ③ 몸통 — 어깨선이 기울어 있다. ⚠ 허리(−16)는 고정 — 계열 의상이 거기 물려 있다
+    POLY([[-11,S.shL],[9,S.shR],[8,-16],[-9,-16]], P.clothD);
+    POLY([[-11,S.shL],[-1,S.shL+2],[-1,-16],[-9,-16]], P.clothM);
+    POLY([[-11,S.shL],[9,S.shR],[9,S.shR+1],[-11,S.shL+1]], P.out); // 어깨선
 
     // ── ④ 계열 의상
     if (grp==='war'){
@@ -20349,21 +20390,22 @@ import { FX } from "./fx.js";
       R(hx-3, hy-2, 6, 4, P.skinM);                                 // 손
       R(hx-3, hy-2, 3, 2, P.skinL);
     };
-    arm(-10,-32, -16,-27, -14,-22, 6);                              // 뒷팔 — 팔꿈치를 뒤로 굽힌다
+    arm(-10,S.shL+1, S.belb[0],S.belb[1], S.bhand[0],S.bhand[1], 6); // 뒷팔 — 팔꿈치를 뒤로 굽힌다
 
     //  ── ⑥ 무기 — 🔴 v6.194부터 **도트로 직접 찍는다**.
     //   v6.193까지는 옛 벡터 프롭을 `propOnly`로 빌려 썼는데, 한 그림 안에서 **몸은 도트 / 칼은 벡터**로
     //   그림체가 갈렸다. 그게 *"아직도 캐릭터 부족해"* 의 가장 큰 원인이었다.
     //   ⚠ 손이 원점이다 — 정수 이동이라 `PX`의 픽셀 격자가 그대로 유지된다.
     ctx.save();
-    ctx.translate(HX0, HY0);
+    ctx.translate(S.hand[0], S.hand[1]);                            // 무기는 **자세가 정한 손 위치**를 따라간다
     try { (CHIBI_WEAPON[key] || CHIBI_WEAPON.mumyeong)(P); } catch(e){}
     ctx.restore();
 
-    arm(8,-29, 15,-27, HX0,HY0, 6);                                 // 앞팔 — 무기를 쥔다
+    arm(8,S.shR+1, S.elb[0],S.elb[1], S.hand[0],S.hand[1], 6);      // 앞팔 — 무기를 쥔다
 
+    ctx.save(); ctx.translate(S.hx-1, 0);   // v6.196 자세별 머리 좌우 위치 (정수 이동 → 격자 유지)
     // ── ⑦ 머리 — **기울어 있다**. 턱은 좁고 정수리는 넓다(치비의 얼굴형)
-    PX.shear(-0.13, HY);
+    PX.shear(S.tilt, HY);   // 자세마다 머리 기울기가 다르다(상인군은 반대로 기운다)
     ELL(1, HY, CHIBI_HEAD_R, CHIBI_HEAD_R+0.5, P.skinM);
     //  ⚠⚠ **필로우 셰이딩 금지** — v6.192는 얼굴 한가운데에 밝은 타원을 놓았다. 그건 윤곽에서 안쪽으로
     //   밝아지는 '베개 음영'이고, 도트에서 가장 흔한 실패다(형태가 흐릿해진다).
@@ -20431,6 +20473,7 @@ import { FX } from "./fx.js";
     // ── ⑩ 머리장식 — 머리칼 위에 얹힌다(기울기를 같이 받는다)
     try { (CHIBI_HAT[CHIBI_HAT_OF[key]] || CHIBI_HAT.none)(P, HY); } catch(e){}
     PX.shear(0,0);
+    ctx.restore();
   }
   // 직업 악센트 컬러 — 목도리와 전용기 링에 반영
   const CLASS_COLORS = {
