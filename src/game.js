@@ -22957,22 +22957,39 @@ import { FX } from "./fx.js";
   //   ⇒ 리본 폴리곤(폭 요동·뾰족한 촉)은 형태감으로 남기되 **속을 채우고 발광을 얹는다**.
   //   ⚠ 밝은 맵 7개에서는 가산 번짐이 안 먹는다 → 어두운 테두리로 형태를 분리한다.
   let LA_T = 0;                     // 현재 이펙트 진행도(0→1) — 프리미티브가 공유한다
+  //  🔴 v6.202 **다중 색 램프** — 라테일은 한 이펙트 안에서 색이 흐른다(흰→하늘→남색).
+  //   v6.201은 단색 + 흰 심이라 '색이 하나인 네온'이었다. 폭 방향으로 **4단**을 겹쳐 흐름을 만든다:
+  //   바깥(깊은 색·넓게) → 본체(직업색) → 안쪽(밝게) → 심(흰색·가장 얇게).
+  //   ⚠ 깊은 색은 검정을 섞는 게 아니라 **차가운 쪽(남보라)으로 민다** — 캐릭터 팔레트와 같은 색조 이동 규칙.
+  const LA_RAMP = {};
+  function laRamp(col){
+    if (LA_RAMP[col]) return LA_RAMP[col];
+    const r = { deep: mixHex(col, '#241a6a', 0.55), mid: col,
+                lit: mixHex(col, '#ffffff', 0.48), core: mixHex(col, '#ffffff', 0.92) };
+    LA_RAMP[col] = r; return r;
+  }
   function laDraw(pts, w, col, dark, seed){
     const t = LA_T;
     const fade = t < 0.14 ? t/0.14 : Math.max(0, 1 - (t-0.14)/0.86);
-    const ws = boltWidths(pts, w*2.2*(0.8+0.45*t), seed);
+    const R = laRamp(col);
+    //  ⚠ v6.201은 캐릭터의 절반 크기였다 — 라테일은 이펙트가 **캐릭터를 덮는다**. 폭·확대를 함께 올린다.
+    const ws = boltWidths(pts, w*3.1*(0.85+0.55*t), seed);
     const poly = boltRibbon(pts, ws);
+    const mid = boltRibbon(pts, ws.map(v=>v*0.58));
     ctx.save(); ctx.lineJoin="round"; ctx.lineCap="round";
     if (dark) ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = col; ctx.strokeStyle = col;
-    ctx.globalAlpha = 0.26*fade; ctx.lineWidth = w*3.4; polyPath(poly); ctx.stroke();   // ① 바깥 번짐
-    ctx.globalAlpha = 0.80*fade; polyPath(poly); ctx.fill();                            // ② 채운 본체
+    ctx.strokeStyle = R.deep; ctx.fillStyle = R.deep;
+    ctx.globalAlpha = 0.30*fade; ctx.lineWidth = w*4.6; polyPath(poly); ctx.stroke();   // ① 바깥 — 깊은 색
+    ctx.fillStyle = R.mid;
+    ctx.globalAlpha = 0.82*fade; polyPath(poly); ctx.fill();                            // ② 본체 — 직업색
+    ctx.fillStyle = R.lit;
+    ctx.globalAlpha = 0.85*fade; polyPath(mid); ctx.fill();                             // ③ 안쪽 — 밝은 단
     if (!dark){ ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=0.55*fade;  // 밝은 맵 형태 분리
       ctx.strokeStyle="rgba(16,14,26,0.9)"; ctx.lineWidth=1.3; polyPath(poly); ctx.stroke(); }
     if (dark) ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = fade;                                                             // ③ 흰 심
-    ctx.strokeStyle = dark ? "#ffffff" : mixHex(col,"#ffffff",0.88);
-    ctx.lineWidth = Math.max(1.2, w*0.55);
+    ctx.globalAlpha = fade;                                                             // ④ 심 — 가장 밝게
+    ctx.strokeStyle = dark ? "#ffffff" : R.core;
+    ctx.lineWidth = Math.max(1.4, w*0.7);
     ctx.beginPath();
     for (let i=0;i<pts.length;i++){ if(i) ctx.lineTo(pts[i][0],pts[i][1]); else ctx.moveTo(pts[i][0],pts[i][1]); }
     ctx.stroke();
@@ -23205,7 +23222,10 @@ import { FX } from "./fx.js";
         const cd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
         LA_T = Math.min(1, fx.age/fx.life);
         const fn = CLASS_FX[fx.key];
-        if (fn){ try { fn(fx.x, fx.y, fx.a||0, fx.r||90, fx.col||CLASS_COLORS[fx.key]||'#8a8d98',
+        //  ⚠ v6.202 **연출 크기는 판정 사거리와 별개다** — 라테일은 이펙트가 캐릭터를 덮는다.
+        //   `fx.r`은 스킬의 실제 사거리라 건드리면 안 되므로, **그리기에만** 배율을 건다.
+        const vr = (fx.r||90) * 1.55;
+        if (fn){ try { fn(fx.x, fx.y, fx.a||0, vr, fx.col||CLASS_COLORS[fx.key]||'#8a8d98',
                           cd, fx.seed||7, LA_T); } catch(e){} }
         LA_T = 0;
       } else if (fx.type==='pxdeath'){
