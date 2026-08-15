@@ -3369,12 +3369,14 @@ import { FX } from "./fx.js";
   const PORTRAIT_CACHE = {};
   //  계열마다 자세를 다르게 준다 — 색만 다르면 37장이 결국 같은 그림으로 보인다
   const PORTRAIT_POSE = {
-    war: { atk:0.55, tier:2 },                    // 베는 중
-    rog: { atk:0.30, tier:2 },                    // 파고드는 중
+    //  ⚠ v6.189 atk 0.55는 **휘두르는 한복판**이라 초상화에서 무기가 얼굴을 가로질렀다.
+    //   0.88은 예비동작(무기를 뒤로 당긴 상태) — 얼굴이 열리고 무기 전체가 보인다.
+    war: { atk:0.88, tier:2 },                    // 베기 직전
+    rog: { atk:0.86, tier:2 },                    // 파고들기 직전
     rng: { chargePose:true, tier:2 },             // 겨누는 중
     mag: { satPose:true, tier:2 },                // 띄우는 중
     pri: { guardT:0.18, guardKind:'parry', tier:2 },  // 막는 중
-    mer: { atk:0.12, tier:2 },                    // 막 꺼내는 중
+    mer: { atk:0.92, tier:2 },                    // 막 꺼내는 중
   };
   function classPortrait(key){
     if (PORTRAIT_CACHE[key]) return PORTRAIT_CACHE[key];
@@ -19097,9 +19099,15 @@ import { FX } from "./fx.js";
       ctx.fillStyle = ink; ctx.strokeStyle = ink;
       ctx.lineWidth = 2;
     } else if (!o.robe){
-      ctx.lineWidth = 2.8;
-      ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(6.5+(swung?0:swing*0.3), 0.5); ctx.stroke();
-      ctx.beginPath(); ctx.arc(7+(swung?0:swing*0.3), 1.2, 1.7, 0, Math.PI*2); ctx.fill();
+      //  🔴 v6.189 **팔이 몸통에 묻혀 안 보였다** — 도트 스프라이트는 **실루엣이 몸 밖으로 나와야** 팔로 읽힌다.
+      //   몸통 반폭이 ~5인데 손이 x=7이라 거의 붙어 있었다. 손을 더 내밀고 팔을 조금 굵게.
+      ctx.lineWidth = 3.0;
+      ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(8.4+(swung?0:swing*0.3), 0.2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(9.2+(swung?0:swing*0.3), 1.0, 1.9, 0, Math.PI*2); ctx.fill();
+      // 뒷팔도 반대쪽으로 살짝 빼 실루엣을 좌우로 연다
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(-3,-4); ctx.lineTo(-7.2-(swung?0:swing*0.25), 0.6); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-7.9-(swung?0:swing*0.25), 1.4, 1.6, 0, Math.PI*2); ctx.fill();
       ctx.lineWidth = 2;
     }
     //  ⚠ 이 save는 **무기 프롭 직전**이어야 한다. 처음엔 `const g` 바로 뒤에 뒀다가
