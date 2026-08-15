@@ -5900,7 +5900,8 @@ import { FX } from "./fx.js";
       //   ⚠ 이전에는 유일무기와 **다른 원형**을 배정했다 — 그러면 같은 직업인데 무기마다 딴 사람이 된다.
       //   3층은 **다른 무기가 아니라 같은 무기의 다른 경지**다. 계보를 하나로 두고 층으로 질을 가른다.
       //   (0번 슬롯 = 그 직업의 얼굴. 1·2번은 기존 공용 원형을 남겨 빌드 선택지로 쓴다)
-      const arch = i===0 ? ('u_'+ck) : (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3];
+      //  v6.181 성장무기 0번은 **유일무기와 다른 기술**(g_)이다 — 같은 기술의 강화판이 아니다
+      const arch = i===0 ? ('g_'+ck) : (CGW_ARCH_OVR[ck]||CGW_ARCH[g])[(i+1)%3];
       const cname = CLASSES[ck] ? CLASSES[ck].name : ck;
       WEAPONS[key] = {
         name: sfx+' · '+cname, cgw:true, pgw:true, arch,
@@ -13162,22 +13163,269 @@ import { FX } from "./fx.js";
             b2.hp -= dd; addDmgNum(b2.x, b2.y, dd, true); procOnHit(b2, true, wp.imbue||null);
           }
         };
+        const LINE = (ang, len, w2, dur, dd)=>{           // v6.181 직선 장판 — 벤 궤적이 그대로 남는다
+          const step = Math.max(40, w2*0.9);
+          for (let d3=step; d3<=len; d3+=step) addHazard(player.x+Math.cos(ang)*d3, player.y+Math.sin(ang)*d3, w2, dur, dd, true);
+        };
         const FXA = (ang, reach, life)=> effects.push({ type:'arc', x:player.x, y:player.y, a:ang, r:reach, life:life||0.2, age:0 });
         const FXR = (rad)=> effects.push({ type:'ring', x:player.x, y:player.y, life:0.24, age:0, r0:8, r1:rad, col:CLASS_COLORS[player.classKey]||null });
         const C = { t:null, n:0, dmg:0, baseA:0, w:null };
         const t = nearestTarget();
         const n = def.count(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
-        const arch = def.arch;
+        let arch = def.arch;
         //  🔴 v6.180 **층 위계** — 유일(1) < 성장(2) < 성유물(3).
         //   같은 고유 행동이지만 층이 오르면 **더 멀리·더 세게·더 여러 번**이 되고,
         //   성유물은 벤 자리에 **흔적이 남는다**(질적 변화).
         const TIER = player.sacredTitle ? 3 : (w.key && w.key.indexOf('pgw_')===0 ? 2 : 1);
+        //  v6.181 성유물을 계승했으면 0번 슬롯은 **절기(s_)** 로 갈아탄다 — 층마다 기술 자체가 다르다
+        if (TIER === 3 && (arch.indexOf('u_')===0 || arch.indexOf('g_')===0)) arch = 's_' + player.classKey;
         const TD = [1, 1, 1.40, 2.05][TIER];        // 피해
         const TR = [1, 1, 1.22, 1.50][TIER];        // 사거리·범위
         const TN = [0, 0, 1, 2][TIER];              // 추가 반복 횟수
         C.t = t; C.n = n; C.dmg = dmg * TD; C.w = w;
         C.baseA = t ? Math.atan2(t.y-player.y, t.x-player.x) : (player.faceX>0?0:Math.PI);
+        //  🔴 v6.181 **성장무기 37종 별도 능력** — 사용자: *"유일 성장 성유물 모두 능력이 다르게하고싶은데"*
+        //   v6.180은 같은 행동의 **배율 차이**였다. 그건 다른 능력이 아니다.
+        //   이제 성장무기는 유일무기와 **다른 기술**이다 — 대개 **정반대의 해법**으로 잡았다:
+        //     사무라이 발도(정면 하나) ↔ 이도류(좌우 둘) / 수도승 3연타 ↔ 기공파(원거리 한 방)
+        //     창기병 돌격(내가 간다) ↔ 창 던지기(창만 간다) / 사신 즉사 ↔ 흡수
+        //     닌자 분신참 ↔ 연막 수리검 / 관광객 섬광 ↔ 단체 사진(모은다)
+        //  🔴 v6.181 **성유물 절기(絶技) 37종** — 사용자: *"성유물은 정말 확다르게 좋아야하고"*
+        //   유일·성장과 **또 다른 기술**이고, 규모 자체가 다르다.
+        //   사거리 340~520 / 12타 난무 / 반경 210~260 광역 / 체력 35~50% 이하 즉사 / 무적 부여 등
+        //   ⚠ 여기만 이 급이어야 한다 — 성유물은 관문을 깨고 제물까지 바쳐야 얻는 층이다.
+        if (arch.indexOf('s_')===0){
+          if (arch==='s_samurai'){ /* 絶技 일도양단 */
+            SL(C.baseA, 340, 16, C.dmg*4.2, C.w); LINE(C.baseA, 340, 26, 1.0, C.dmg*0.9); FXA(C.baseA,340,0.4);
+          }
+          else if (arch==='s_cheol'){ /* 絶技 혈해 */
+            RING(190, C.dmg*2.6, C.w); addHazard(player.x,player.y,190,3.0,C.dmg*1.0,true); healCapped(3*player.healMult); FXR(190);
+          }
+          else if (arch==='s_gymbro'){ /* 絶技 지각 융기 */
+            for(let r2=70;r2<=260;r2+=48) for(let i=0;i<8;i++){ const a2=(6.283/8)*i; addHazard(player.x+Math.cos(a2)*r2, player.y+Math.sin(a2)*r2, 54, 0.25+r2*0.003, C.dmg*1.6, true);} shake=Math.min(20,shake+9);
+          }
+          else if (arch==='s_monk'){ /* 絶技 천수관음 */
+            for(let k=0;k<12;k++) SL(C.baseA+(k-5.5)*0.28, 150, 22, C.dmg*0.85, C.w); FXR(150);
+          }
+          else if (arch==='s_paladin'){ /* 絶技 심판 */
+            RING(210, C.dmg*2.2, C.w, (e)=>{ if(e.hp<e.maxHp*0.35) e.hp=0; }); addHazard(player.x,player.y,210,2.5,C.dmg*0.8,true); FXR(210);
+          }
+          else if (arch==='s_duelist'){ /* 絶技 결투 선언 */
+            if(C.t){ for(let k=0;k<12;k++){ C.t.hp-=C.dmg*1.1; addDmgNum(C.t.x+(Math.random()-0.5)*20,C.t.y-k*5,C.dmg*1.1,true);} procOnHit(C.t,false,C.w.imbue||null); } for(const b2 of bosses){ if(b2){ b2.hp-=C.dmg*9; addDmgNum(b2.x,b2.y,C.dmg*9,true);} }
+          }
+          else if (arch==='s_rusher'){ /* 絶技 천마 돌격 */
+            LINE(C.baseA, 420, 44, 0.9, C.dmg*2.6); player.vx+=Math.cos(C.baseA)*520; player.vy+=Math.sin(C.baseA)*520; player.invuln=Math.max(player.invuln,0.5); FXA(C.baseA,420,0.4);
+          }
+          else if (arch==='s_madman'){ /* 絶技 피의 축제 */
+            for(let k=0;k<10;k++) SL(Math.random()*6.283, 170, 40, C.dmg*1.3, C.w); player.hp=Math.max(1,player.hp-player.maxHp*0.06); FXR(170);
+          }
+          else if (arch==='s_exhero'){ /* 絶技 전설의 재림 */
+            RING(180, C.dmg*2.0, C.w); for(let i=0;i<6;i++){ const a2=(6.283/6)*i; addHazard(player.x+Math.cos(a2)*110, player.y+Math.sin(a2)*110, 66, 2.4, C.dmg*1.1, true);} FXR(180);
+          }
+          else if (arch==='s_mumyeong'){ /* 絶技 무(無) */
+            const nn=Math.min(2.5,1+enemies.length*0.035); RING(200, C.dmg*2.2*nn, C.w); FXR(200);
+          }
+          else if (arch==='s_reaper'){ /* 絶技 대수확 */
+            RING(200, C.dmg*1.8, C.w, (e)=>{ if(e.hp<e.maxHp*0.5){ e.hp=0; healCapped(1*player.healMult);} }); FXR(200);
+          }
+          else if (arch==='s_baeksu'){ /* 絶技 절대 정지 */
+            RING(210, C.dmg*1.4, C.w, (e)=>{ e.frozenT=Math.max(e.frozenT||0,2.2); }); addHazard(player.x,player.y,210,3.5,C.dmg*0.7,true); FXR(210);
+          }
+          else if (arch==='s_shadow'){ /* 絶技 그림자 처형 */
+            for(let k=0;k<6;k++){ let best=null,bd=1e9; for(const e of enemies){ if(!e||e.__mk) continue; const d2=Math.hypot(e.x-player.x,e.y-player.y); if(d2<bd&&d2<300){bd=d2;best=e;} } if(!best) break; best.__mk=1; best.hp-=C.dmg*3.0; addDmgNum(best.x,best.y,C.dmg*3.0,true); effects.push({type:'chain',x1:player.x,y1:player.y,x2:best.x,y2:best.y,life:0.2,age:0}); } for(const e of enemies) if(e) e.__mk=0;
+          }
+          else if (arch==='s_slime'){ /* 絶技 대분열 */
+            for(let i=0;i<16;i++){ const a2=(6.283/16)*i; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*360,vy:Math.sin(a2)*360,r:8,damage:C.dmg*1.5,crit:false,pierce:4,life:1.5,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='s_bard'){ /* 絶技 진혼곡 */
+            RING(230, C.dmg*1.5, C.w, (e)=>{ e.frozenT=Math.max(e.frozenT||0,1.2); }); addHazard(player.x,player.y,230,3.0,C.dmg*0.8,true); healCapped(2*player.healMult); FXR(230);
+          }
+          else if (arch==='s_ninja'){ /* 絶技 백영난무 */
+            for(let k=0;k<8;k++) SL((6.283/8)*k, 130, 34, C.dmg*1.2, C.w); player.invuln=Math.max(player.invuln,0.6); FXR(130);
+          }
+          else if (arch==='s_blackcat'){ /* 絶技 아홉 생 */
+            player.invuln=Math.max(player.invuln,1.2); RING(170, C.dmg*2.4, C.w); healCapped(3*player.healMult); FXR(170);
+          }
+          else if (arch==='s_tombraider'){ /* 絶技 고분 붕괴 */
+            for(let i=0;i<14;i++){ const a2=Math.random()*6.283, d3=Math.random()*220; addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 60, 0.3+Math.random()*0.8, C.dmg*1.5, true);} shake=Math.min(18,shake+7);
+          }
+          else if (arch==='s_sniper'){ /* 絶技 초장거리 관통 */
+            for(let k=0;k<3;k++){ const a2=C.baseA+(k-1)*0.06; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*1500,vy:Math.sin(a2)*1500,r:7,damage:C.dmg*5.0,crit:true,pierce:99,life:2.0,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='s_archer'){ /* 絶技 만천화우 */
+            for(let i=0;i<26;i++){ const a2=Math.random()*6.283, d3=Math.random()*230; addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 38, 0.2+Math.random()*0.9, C.dmg*1.2, true); }
+          }
+          else if (arch==='s_pilot'){ /* 絶技 전략 폭격 */
+            for(let i=1;i<=10;i++) addHazard(player.x+Math.cos(C.baseA)*i*54, player.y+Math.sin(C.baseA)*i*54, 74, 0.2+i*0.06, C.dmg*2.0, true); shake=Math.min(18,shake+6);
+          }
+          else if (arch==='s_specialist'){ /* 絶技 전 장비 개방 */
+            SL(C.baseA,170,40,C.dmg*1.6,C.w); RING(150,C.dmg*1.2,C.w); for(let i=0;i<8;i++){ const a2=(6.283/8)*i; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*560,vy:Math.sin(a2)*560,r:5,damage:C.dmg*1.1,crit:false,pierce:3,life:1.3,imbue:C.w.imbue||null});} addHazard(player.x,player.y,140,2.0,C.dmg*0.7,true);
+          }
+          else if (arch==='s_stonks'){ /* 絶技 시장 붕괴 */
+            const g2=Math.min(DB.gold,300); DB.gold-=g2; RING(220, C.dmg*(1.5+g2/100), C.w); FXR(220);
+          }
+          else if (arch==='s_gambler'){ /* 絶技 올 인 올 아웃 */
+            const roll=Math.random(); if(roll<0.5){ RING(260, C.dmg*5.0, C.w); addTextNum(player.x,player.y-28,'대박!!'); } else { RING(140, C.dmg*1.2, C.w); } FXR(240);
+          }
+          else if (arch==='s_manager'){ /* 絶技 전천 폭격 */
+            for(let i=0;i<18;i++){ const a2=Math.random()*6.283, d3=Math.random()*240; addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 62, 0.3+Math.random()*0.9, C.dmg*1.7, true); }
+          }
+          else if (arch==='s_voidc'){ /* 絶技 대붕괴 */
+            const cx=C.t?C.t.x:player.x, cy=C.t?C.t.y:player.y; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2>300) continue; e.x+=(cx-e.x)*0.75; e.y+=(cy-e.y)*0.75; } addHazard(cx,cy,150,0.7,C.dmg*4.0,true); FXR(150);
+          }
+          else if (arch==='s_necro'){ /* 絶技 망자의 군세 */
+            for(let i=0;i<8;i++){ const a2=(6.283/8)*i; addHazard(player.x+Math.cos(a2)*95, player.y+Math.sin(a2)*95, 62, 4.0, C.dmg*1.0, true);} RING(180,C.dmg*1.4,C.w); FXR(180);
+          }
+          else if (arch==='s_commander'){ /* 絶技 총공격 명령 */
+            for(let i=0;i<24;i++){ const a2=Math.random()*6.283; projectiles.push({x:player.x+(Math.random()-0.5)*60,y:player.y+(Math.random()-0.5)*60,vx:Math.cos(a2)*580,vy:Math.sin(a2)*580,r:5,damage:C.dmg*1.3,crit:false,pierce:2,life:1.6,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='s_runeknight'){ /* 絶技 진명 각인 */
+            RING(190, C.dmg*1.6, C.w, (e)=>{ procOnHit(e,false,'fire'); procOnHit(e,false,'volt'); procOnHit(e,false,'frost'); }); addHazard(player.x,player.y,190,2.2,C.dmg*0.9,true); FXR(190);
+          }
+          else if (arch==='s_druid'){ /* 絶技 세계수 */
+            addHazard(player.x,player.y,230,5.0,C.dmg*1.1,true); for(let i=0;i<6;i++){ const a2=(6.283/6)*i; addHazard(player.x+Math.cos(a2)*140, player.y+Math.sin(a2)*140, 70, 4.0, C.dmg*0.9, true);} healCapped(3*player.healMult); FXR(230);
+          }
+          else if (arch==='s_engineer'){ /* 絶技 전면 포격진 */
+            for(let i=0;i<6;i++){ const a2=(6.283/6)*i; addHazard(player.x+Math.cos(a2)*80, player.y+Math.sin(a2)*80, 66, 4.5, C.dmg*1.2, true);} for(let i=0;i<10;i++){ const a3=Math.random()*6.283; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a3)*560,vy:Math.sin(a3)*560,r:4,damage:C.dmg*0.9,crit:false,pierce:2,life:1.3,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='s_glitch'){ /* 絶技 세그폴트 */
+            for(let i=0;i<20;i++) addHazard(player.x+(Math.random()-0.5)*520, player.y+(Math.random()-0.5)*520, 70, 0.25+Math.random()*0.7, C.dmg*2.0, true); shake=Math.min(20,shake+8);
+          }
+          else if (arch==='s_debug'){ /* 絶技 전수 검사 */
+            let n2=0; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; if(Math.hypot(e.x-player.x,e.y-player.y)>320) continue; e.hp-=C.dmg*2.2; addDmgNum(e.x,e.y,C.dmg*2.2,true); n2++; } for(const b2 of bosses){ if(b2){ b2.hp-=C.dmg*6; addDmgNum(b2.x,b2.y,C.dmg*6,true);} } if(n2) addTextNum(player.x,player.y-26,'전수 검사');
+          }
+          else if (arch==='s_returner'){ /* 絶技 시간 역행 */
+            RING(220, C.dmg*1.5, C.w, (e)=>{ e.frozenT=Math.max(e.frozenT||0,2.0); }); if(C.t){ for(let k=0;k<4;k++) addHazard(C.t.x,C.t.y,70,0.2+k*0.5,C.dmg*1.6,true);} player.hp=Math.min(player.maxHp, player.hp+player.maxHp*0.1); FXR(220);
+          }
+          else if (arch==='s_contributor'){ /* 絶技 메인 브랜치 */
+            RING(200, C.dmg*2.0, C.w); for(let i=0;i<10;i++){ const a2=(6.283/10)*i; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*520,vy:Math.sin(a2)*520,r:6,damage:C.dmg*1.4,crit:false,pierce:3,life:1.4,imbue:C.w.imbue||null});} FXR(200);
+          }
+          else if (arch==='s_tourist'){ /* 絶技 세계 일주 */
+            for(let k=0;k<8;k++){ const a2=(6.283/8)*k; addHazard(player.x+Math.cos(a2)*150, player.y+Math.sin(a2)*150, 72, 0.3+k*0.12, C.dmg*1.8, true);} player.speed*=1.0; RING(150,C.dmg*1.2,C.w); FXR(150);
+          }
+          else if (arch==='s_collector'){ /* 絶技 전시 개장 */
+            const own=Math.min(30,(DB.inv||[]).length); RING(210, C.dmg*(1.6+own*0.08), C.w); addHazard(player.x,player.y,210,2.4,C.dmg*0.9,true); FXR(210);
+          }
+          effects.push({ type:'ring', x:player.x, y:player.y, life:0.4, age:0, r0:12, r1:150, col:'#e0a94f' });
+          SFX.play('boom');
+          continue;
+        }
+        if (arch.indexOf('g_')===0){
+          if (arch==='g_samurai'){ /* 이도류(二刀流) — 두 자루로 좌우를 동시에 벤다 — 발도가 정면 하나라면 이건 양옆 */
+            /* ⚠ ±0.95rad(54°)로 벌렸더니 **정면의 적을 못 맞혔다**(더미 보스 상대 36피해). 두 날이 겹쳐 정면까지 덮게 ±0.5rad·폭 42° */ SL(C.baseA+0.5, 112, 42, C.dmg*1.05, C.w); SL(C.baseA-0.5, 112, 42, C.dmg*1.05, C.w); FXR(112);
+          }
+          else if (arch==='g_cheol'){ /* 철벽 반사 — 맞은 만큼 되돌린다 — 주변에 가시밭 */
+            addHazard(player.x,player.y,104,2.0,C.dmg*0.7,true); player.dmgTaken*=1.0; FXR(104);
+          }
+          else if (arch==='g_gymbro'){ /* 데드리프트 — 땅을 통째로 들어 앞으로 엎는다 — 밀지 않고 뒤집는다 */
+            for(let i=1;i<=4;i++) addHazard(player.x+Math.cos(C.baseA)*i*56, player.y+Math.sin(C.baseA)*i*56, 58, 0.3+i*0.09, C.dmg*1.2, true);
+          }
+          else if (arch==='g_monk'){ /* 기공파 — 주먹이 아니라 기를 날린다 — 연타의 반대 */
+            projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*430,vy:Math.sin(C.baseA)*430,r:13,damage:C.dmg*2.2,crit:true,pierce:6,life:1.2,imbue:C.w.imbue||null});
+          }
+          else if (arch==='g_paladin'){ /* 심판의 낙뢰 — 성역을 펴는 대신 하늘에서 내리꽂는다 */
+            for(let i=0;i<3;i++) addHazard((C.t?C.t.x:player.x)+(Math.random()-0.5)*90,(C.t?C.t.y:player.y)+(Math.random()-0.5)*90,52,0.45,C.dmg*1.5,true);
+          }
+          else if (arch==='g_duelist'){ /* 카운터 — 단일 연격이 아니라 되받아친다 — 반경 안 전원 1타 + 경직 */
+            RING(96, C.dmg*1.3, C.w, (e)=>{ e.stagT=Math.max(e.stagT||0,0.8); }); FXR(96);
+          }
+          else if (arch==='g_rusher'){ /* 창 던지기 — 돌격 대신 창을 놓는다 — 멀리, 꿰뚫으며 */
+            projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*820,vy:Math.sin(C.baseA)*820,r:10,damage:C.dmg*2.0,crit:true,pierce:99,life:1.4,imbue:C.w.imbue||null});
+          }
+          else if (arch==='g_madman'){ /* 자해 폭주 — 무작위가 아니라 제 피를 태워 한 점에 */
+            player.hp=Math.max(1,player.hp-player.maxHp*0.04); if(C.t) addHazard(C.t.x,C.t.y,78,0.35,C.dmg*3.2,true);
+          }
+          else if (arch==='g_exhero'){ /* 옛 동료 소환 — 혼자 베지 않는다 — 잔상이 대신 친다 */
+            for(let i=0;i<3;i++){ const a2=Math.random()*6.283; addHazard(player.x+Math.cos(a2)*70, player.y+Math.sin(a2)*70, 50, 1.5, C.dmg*0.8, true); }
+          }
+          else if (arch==='g_mumyeong'){ /* 무형참 — 적이 많을수록가 아니라 — 벤 자리가 남아 계속 벤다 */
+            SL(C.baseA, 96, 34, C.dmg*1.1, C.w); addHazard(player.x+Math.cos(C.baseA)*64, player.y+Math.sin(C.baseA)*64, 58, 1.8, C.dmg*0.5, true);
+          }
+          else if (arch==='g_reaper'){ /* 영혼 수거 — 즉사가 아니라 — 흡수한다 */
+            RING(98, C.dmg*1.1, C.w, ()=>{ if(Math.random()<0.25) healCapped(1*player.healMult); }); FXR(98);
+          }
+          else if (arch==='g_baeksu'){ /* 늘어짐 — 눕는 대신 주변을 늦춘다 */
+            RING(112, C.dmg*0.7, C.w, (e)=>{ e.slowT=Math.max(e.slowT||0,1.6); }); FXR(112);
+          }
+          else if (arch==='g_shadow'){ /* 그림자 분신 — 도약이 아니라 — 분신이 사방을 친다 */
+            for(let k=0;k<4;k++) SL(C.baseA+k*1.571, 74, 26, C.dmg*0.85, C.w); FXR(74);
+          }
+          else if (arch==='g_slime'){ /* 분열 — 박치기가 아니라 — 조각으로 흩어져 퍼진다 */
+            for(let i=0;i<6;i++){ const a2=(6.283/6)*i; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*300,vy:Math.sin(a2)*300,r:6,damage:C.dmg*0.9,crit:false,pierce:2,life:1.1,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_bard'){ /* 자장가 — 퍼뜨리는 대신 재운다 */
+            RING(120, C.dmg*0.5, C.w, (e)=>{ e.frozenT=Math.max(e.frozenT||0,0.7); }); FXR(120);
+          }
+          else if (arch==='g_ninja'){ /* 연막 수리검 — 분신이 아니라 — 연막 속에서 던진다 */
+            addHazard(player.x,player.y,86,1.2,C.dmg*0.4,true); for(let i=0;i<5;i++){ const a2=C.baseA+(i-2)*0.24; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*640,vy:Math.sin(a2)*640,r:3,damage:C.dmg*0.85,crit:Math.random()<player.critChance,pierce:2,life:0.9,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_blackcat'){ /* 아홉 목숨 — 할퀴기가 아니라 — 피격 무효 + 반격 폭발 */
+            player.invuln=Math.max(player.invuln,0.4); RING(88, C.dmg*1.5, C.w); FXR(88);
+          }
+          else if (arch==='g_tombraider'){ /* 함정 설치 — 끌어오는 대신 — 깔아 두고 유인한다 */
+            for(let i=0;i<3;i++){ const a2=Math.random()*6.283; addHazard(player.x+Math.cos(a2)*86, player.y+Math.sin(a2)*86, 52, 3.0, C.dmg*1.1, true); }
+          }
+          else if (arch==='g_sniper'){ /* 작렬탄 — 관통이 아니라 — 맞은 자리가 터진다 */
+            if(C.t){ addHazard(C.t.x,C.t.y,74,0.3,C.dmg*2.4,true); } else projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*900,vy:Math.sin(C.baseA)*900,r:5,damage:C.dmg*2,crit:true,pierce:1,life:1.2});
+          }
+          else if (arch==='g_archer'){ /* 관통 사격 — 화살비가 아니라 — 한 줄을 꿰뚫는 일직선 */
+            for(let i=0;i<3;i++){ const a2=C.baseA+(i-1)*0.10; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*700,vy:Math.sin(a2)*700,r:4,damage:C.dmg*1.3,crit:Math.random()<player.critChance,pierce:99,life:1.4,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_pilot'){ /* 선회 기총 — 융단 폭격이 아니라 — 내 주위를 도는 탄막 */
+            for(let i=0;i<8;i++){ const a2=(6.283/8)*i; projectiles.push({x:player.x+Math.cos(a2)*34,y:player.y+Math.sin(a2)*34,vx:Math.cos(a2+1.2)*320,vy:Math.sin(a2+1.2)*320,r:4,damage:C.dmg*0.8,crit:false,pierce:1,life:1.3,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_specialist'){ /* 전용 장비 전개 — 상황 전환이 아니라 — 셋을 동시에 */
+            SL(C.baseA,88,34,C.dmg*0.8,C.w); addHazard(player.x,player.y,70,1.0,C.dmg*0.4,true); projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*620,vy:Math.sin(C.baseA)*620,r:4,damage:C.dmg*0.8,crit:false,pierce:2,life:1.2,imbue:C.w.imbue||null});
+          }
+          else if (arch==='g_stonks'){ /* 레버리지 — 골드를 태우는 대신 — 골드를 번다 */
+            RING(94, C.dmg*1.2, C.w, ()=>{ if(Math.random()<0.35) DB.gold+=1; }); FXR(94);
+          }
+          else if (arch==='g_gambler'){ /* 카드 뿌리기 — 올인이 아니라 — 확정 소량 다발 */
+            for(let i=0;i<7;i++){ const a2=C.baseA+(i-3)*0.16; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*540,vy:Math.sin(a2)*540,r:4,damage:C.dmg*0.75,crit:Math.random()<player.critChance,pierce:1,life:1.1,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_manager'){ /* 정지 궤도포 — 낙하가 아니라 — 한 자리를 계속 태운다 */
+            if(C.t) addHazard(C.t.x,C.t.y,86,2.4,C.dmg*0.85,true);
+          }
+          else if (arch==='g_voidc'){ /* 균열 — 흡입이 아니라 — 길게 찢는다 */
+            for(let i=1;i<=5;i++) addHazard(player.x+Math.cos(C.baseA)*i*54, player.y+Math.sin(C.baseA)*i*54, 44, 1.1, C.dmg*0.95, true);
+          }
+          else if (arch==='g_necro'){ /* 역병 확산 — 소환이 아니라 — 옮겨 붙는 병 */
+            RING(90, C.dmg*0.8, C.w, (e)=>{ e.burnT=Math.max(e.burnT||0,3); e.burnDps=Math.max(e.burnDps||0, C.dmg*0.3); }); FXR(90);
+          }
+          else if (arch==='g_commander'){ /* 진형 전개 — 일제 사격이 아니라 — 사방에 진을 친다 */
+            for(let i=0;i<4;i++){ const a2=(6.283/4)*i; addHazard(player.x+Math.cos(a2)*76, player.y+Math.sin(a2)*76, 54, 2.2, C.dmg*0.75, true); }
+          }
+          else if (arch==='g_runeknight'){ /* 룬 연쇄 — 각인이 아니라 — 새긴 룬끼리 이어진다 */
+            let cx=player.x, cy=player.y; for(let k=0;k<4;k++){ let best=null,bd=1e9; for(const e of enemies){ if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2<bd&&d2<180){bd=d2;best=e;} } if(!best) break; best.hp-=C.dmg*0.9; addDmgNum(best.x,best.y,C.dmg*0.9,false); effects.push({type:'chain',x1:cx,y1:cy,x2:best.x,y2:best.y,life:0.2,age:0}); cx=best.x; cy=best.y; }
+          }
+          else if (arch==='g_druid'){ /* 가시 덤불 — 확산이 아니라 — 제자리에 오래 남는 밭 */
+            addHazard(player.x,player.y,100,3.2,C.dmg*0.55,true); FXR(100);
+          }
+          else if (arch==='g_engineer'){ /* 자동 포화 — 설치가 아니라 — 내가 직접 난사 */
+            for(let i=0;i<6;i++){ const a2=C.baseA+(Math.random()-0.5)*0.7; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*580,vy:Math.sin(a2)*580,r:3,damage:C.dmg*0.7,crit:false,pierce:1,life:1.0,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_glitch'){ /* 메모리 누수 — 무작위 폭발이 아니라 — 내 주위가 서서히 썩는다 */
+            addHazard(player.x,player.y,116,2.6,C.dmg*0.5,true); FXR(116);
+          }
+          else if (arch==='g_debug'){ /* 스택 추적 — 약점 하나가 아니라 — 전부에 표식 */
+            RING(140, C.dmg*0.7, C.w, (e)=>{ e.slowT=Math.max(e.slowT||0,1.0); }); FXR(140);
+          }
+          else if (arch==='g_returner'){ /* 시간 정지 — 되감기가 아니라 — 멈춘다 */
+            RING(104, C.dmg*0.9, C.w, (e)=>{ e.frozenT=Math.max(e.frozenT||0,1.0); }); FXR(104);
+          }
+          else if (arch==='g_contributor'){ /* 포크 — 병합이 아니라 — 갈라 던진다 */
+            for(let i=0;i<4;i++){ const a2=C.baseA+(i-1.5)*0.45; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*560,vy:Math.sin(a2)*560,r:5,damage:C.dmg*1.0,crit:false,pierce:2,life:1.2,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='g_tourist'){ /* 단체 사진 — 섬광이 아니라 — 한자리에 모은다 */
+            const cx=player.x+Math.cos(C.baseA)*90, cy=player.y+Math.sin(C.baseA)*90; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2>160) continue; const a2=Math.atan2(cy-e.y,cx-e.x); e.x+=Math.cos(a2)*d2*0.4; e.y+=Math.sin(a2)*d2*0.4; } addHazard(cx,cy,70,0.6,C.dmg*1.3,true);
+          }
+          else if (arch==='g_collector'){ /* 수집 진공 — 진열이 아니라 — 빨아들인다 */
+            player.magnet=(player.magnet||0); RING(130, C.dmg*0.75, C.w); for(const it of (items||[])){ if(!it) continue; const d2=Math.hypot(it.x-player.x,it.y-player.y); if(d2<260){ it.x+=(player.x-it.x)*0.5; it.y+=(player.y-it.y)*0.5; } } FXR(130);
+          }
+          SFX.play('shoot');
+          continue;
+        }
         if (arch.indexOf('u_')===0){
           const baseA = C.baseA;
           //  성장(2)은 한 번 더, 성유물(3)은 두 번 더 — 각도를 조금씩 틀어 '연격'으로 읽히게 한다
