@@ -18559,8 +18559,11 @@ import { FX } from "./fx.js";
     if (localStorage.gs_dot === '0'){ drawHumanoidVec(x, y, o); return; }
     const D = drawHumanoid;
     if (!D._c){
-      // ppu는 몹(0.62)과 같은 픽셀 굵기가 되도록 — 플레이어만 곱게 찍히면 격자가 어긋나 보인다
-      D.PPU = 0.8; D.SZ = 112;
+      //  ⚠⚠ v6.197 **주석은 "몹과 같은 굵기"라고 적혀 있었지만 실측은 달랐다** —
+      //   화면에서 몹의 도트 런은 2px, 플레이어는 1px이었다. 플레이어만 곱게 찍혀 **몹보다 뭉개져** 보였다.
+      //   (실측: `__qaState` 후 캔버스에서 가로 런 길이 히스토그램을 부위별로 비교)
+      //   0.8 → 0.62로 낮춰 굵기를 몹 쪽으로 붙인다. ⚠ PPU는 **굵기만** 바꾼다 — 캐릭터 크기는 `scale`이 정한다.
+      D.PPU = 0.62; D.SZ = 112;
       const b = dotBuf(D.SZ, 'hum');   // 전용 슬롯 — 몹 스프라이트 버퍼와 겹치면 서로 덮어쓴다
       D._c = b.c; D._cx = b.cx; D._o = b.o; D._ox = b.ox;
     }
@@ -18813,8 +18816,9 @@ import { FX } from "./fx.js";
     const grp = o.gear ? classResGroup(o.gear) : null;
     // 몸통 톤 분리 — 머리·팔다리(잉크)와 몸통(옷감 톤)을 나눠 실루엣이 덩어리지지 않게
     // 옷감 톤 = 직업 악센트색을 어두운 회색에 섞은 것 — 직업마다 실루엣 색이 달라진다
-    const bodyTone = o.ink ? o.ink
-      : mixHex(MAP.key==='abyss' ? '#44454f' : '#5b5d69', o.tierC || '#767884', 0.42);
+    const bodyTone = o.pal ? o.pal.clothM
+      : (o.ink ? o.ink
+      : mixHex(MAP.key==='abyss' ? '#44454f' : '#5b5d69', o.tierC || '#767884', 0.42));
     //  🔴 v6.171 **명도 팔레트** — 사용자: *"도트라해도 가디언테일즈 이런급으로"*
     //   가디언테일즈가 작은 스프라이트로도 읽히는 이유는 해상도가 아니라 **파트마다 명도가 다르기 때문**이다.
     //   지금은 머리·팔·다리·머리칼이 전부 같은 잉크라 **한 덩어리**로 보였다.
@@ -18827,6 +18831,16 @@ import { FX } from "./fx.js";
       metal:   mixHex(ink, '#d8dae2', 0.52),   // 투구·갑옷 — 가장 밝다(금속이 빛을 받는다)
       dark:    ink,
     };
+    //  🔴 v6.197 **인게임 플레이어에 초상화 팔레트를 입힌다** — 실측: 몹은 도트 2px로 또렷한데
+    //   플레이어는 1px로 곱게 찍혀 **몹보다 뭉개져 보였다**(코드 주석은 "몹과 같은 굵기"라고 적혀 있었지만 안 맞았다).
+    //   거기에 인게임 몸은 무채색 5단이라 초상화와 완전히 다른 사람이었다.
+    //   ⚠ 컬러 해금 범위는 **캐릭터까지**다(사용자 결정) — 월드·몹·맵은 무채색 그대로 둔다.
+    //   ⚠ `o.pal`이 있을 때만 바뀐다 → 몹·보스·NPC는 이 경로를 타지 않는다.
+    const CP = o.pal || null;
+    if (CP){
+      PC.hair = CP.hairM; PC.skin = CP.skinM; PC.cloth = CP.clothM;
+      PC.leather = CP.leaM; PC.metal = CP.metM; PC.dark = CP.out;
+    }
     const EQ = o.eq || null;
     const RT = ['#8f9194','#4c9a55','#3b82c4','#8b5cf6','#e08a2e','#b8362e','#d9a53f'];  // 희귀도색
     // v6.73 공격 3박자: 예비동작(뒤로 젖힘) → 타격(런지 + 스윙 + 참격 잔상) → 복귀 — 계열별 모션 분기
@@ -19091,6 +19105,15 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(3.4,-11.6,1.5,0,Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
       ctx.fillStyle = ink;
+    }
+    //  v6.197 머리장식 — 초상화와 같은 물건을 인게임 머리(중심 (1,−10.4)·r4.7)에 맞춰 축소해 얹는다.
+    //   ⚠ 초상화 모자는 r10 기준으로 그려져 있다 → 0.47배. 그래야 삿갓·두건·투구가 머리에 맞는다.
+    if (CP && o.gear && CHIBI_HAT_OF[o.gear]){
+      ctx.save();
+      ctx.translate(1, -10.4); ctx.scale(0.47, 0.47); ctx.translate(0, 40);   // 초상화 HY(−40) → 머리 중심
+      try { (CHIBI_HAT[CHIBI_HAT_OF[o.gear]] || CHIBI_HAT.none)(CP, -40); } catch(e){}
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.strokeStyle = ink;
     }
     }   // ← v6.191 `!o.propOnly` (목·머리·머리칼·눈) 닫기
     //  🔴 v6.171 **장비 착용 비주얼** — 사용자: *"장비들 착용 비주얼 무기비주얼 등등 다 어떻게 못구현하는거야?"*
@@ -19902,7 +19925,15 @@ import { FX } from "./fx.js";
     gambler:['red',2,0],    collector:['brown',4,1], contributor:['blonde',2,0],
     baeksu:['black',4,0],   stonks:['black',2,0],   gymbro:['brown',0,1],
   };
+  //  ⚠ v6.197부터 **매 프레임 인게임에서도 불린다** — mixHex를 20여 번 도는 함수라 캐시가 필요하다
+  const CHIBI_PAL_CACHE = {};
   function chibiPalette(key){
+    if (CHIBI_PAL_CACHE[key]) return CHIBI_PAL_CACHE[key];
+    const p = chibiPaletteBuild(key);
+    CHIBI_PAL_CACHE[key] = p;
+    return p;
+  }
+  function chibiPaletteBuild(key){
     const acc = CLASS_COLORS[key] || '#8a8d98';
     const cfg = CHIBI[key] || ['brown',0,0];
     const hair = HAIR_SET[cfg[0]] || HAIR_SET.brown;
@@ -20622,6 +20653,8 @@ import { FX } from "./fx.js";
       ctx.restore();
     }
     drawHumanoid(player.x + (player.recoilX||0), player.y + (player.recoilY||0), {
+      //  v6.197 초상화와 같은 팔레트를 인게임 몸에도 — 선택 화면과 게임 안이 **다른 사람**이던 문제
+      pal: chibiPalette(player.classKey),
       face:player.faceX, walk, gear:player.classKey, scale:bodyScale, robe:player.classKey==='reaper',
       atk: player.satPose ? 0 : Math.max(0, (player.swingT||0)/0.26),   // v6.95 위성 조종 중엔 휘두르지 않는다
       satPose: player.satPose, chargePose: player.chargePose,
