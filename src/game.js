@@ -13281,8 +13281,12 @@ import { FX } from "./fx.js";
           else if (arch==='s_archer'){ /* 絶技 만천화우 */
             for(let i=0;i<26;i++){ const a2=Math.random()*6.283, d3=Math.random()*230; addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 38, 0.2+Math.random()*0.9, C.dmg*1.2, true); }
           }
-          else if (arch==='s_pilot'){ /* 絶技 전략 폭격 */
-            for(let i=1;i<=10;i++) addHazard(player.x+Math.cos(C.baseA)*i*54, player.y+Math.sin(C.baseA)*i*54, 74, 0.2+i*0.06, C.dmg*2.0, true); shake=Math.min(18,shake+6);
+          else if (arch==='s_pilot'){
+            //  v6.184 絶技 **항공 지원 요청** — 편대 전개 + 융단 폭격
+            for (let k=0;k<4;k++){ const a2=(6.283/4)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*76, y:player.y+Math.sin(a2)*76, cd:0, t:14, temp:true }); }
+            for (let i=1;i<=10;i++) addHazard(player.x+Math.cos(C.baseA)*i*54, player.y+Math.sin(C.baseA)*i*54, 74, 0.2+i*0.06, C.dmg*2.0, true);
+            shake=Math.min(18,shake+6);
           }
           else if (arch==='s_specialist'){ /* 絶技 전 장비 개방 */
             SL(C.baseA,170,40,C.dmg*1.6,C.w); RING(150,C.dmg*1.2,C.w); for(let i=0;i<8;i++){ const a2=(6.283/8)*i; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*560,vy:Math.sin(a2)*560,r:5,damage:C.dmg*1.1,crit:false,pierce:3,life:1.3,imbue:C.w.imbue||null});} addHazard(player.x,player.y,140,2.0,C.dmg*0.7,true);
@@ -13293,17 +13297,40 @@ import { FX } from "./fx.js";
           else if (arch==='s_gambler'){ /* 絶技 올 인 올 아웃 */
             const roll=Math.random(); if(roll<0.5){ RING(260, C.dmg*5.0, C.w); addTextNum(player.x,player.y-28,'대박!!'); } else { RING(140, C.dmg*1.2, C.w); } FXR(240);
           }
-          else if (arch==='s_manager'){ /* 絶技 전천 폭격 */
-            for(let i=0;i<18;i++){ const a2=Math.random()*6.283, d3=Math.random()*240; addHazard(player.x+Math.cos(a2)*d3, player.y+Math.sin(a2)*d3, 62, 0.3+Math.random()*0.9, C.dmg*1.7, true); }
+          else if (arch==='s_manager'){
+            //  v6.184 絶技 **전 궤도 해방** — 궤도의 위성을 전부 쏘아 보낸다
+            try { if (!satFlight.length) ejectSat(); } catch(e){}   // 토글이므로 1회 (아래 궤도탄이 '전 해방'을 표현)
+            for (let i=0;i<10;i++){
+              const a2 = (6.283/10)*i;
+              projectiles.push({ x:player.x+Math.cos(a2)*34, y:player.y+Math.sin(a2)*34,
+                vx:Math.cos(a2)*460, vy:Math.sin(a2)*460,
+                r:10, damage:C.dmg*2.2, crit:true, pierce:6, life:1.9,
+                orb:true, imbue:C.w.imbue||null });
+            }
+            player.satBurstT = Math.max(player.satBurstT||0, 4.0);
+            player.satRush = Math.min(3.0, (player.satRush||1) + 1.0);
+            player.satOrbit = 1;
+            RING(190, C.dmg*1.4, C.w);
+            FXR(190);
           }
           else if (arch==='s_voidc'){ /* 絶技 대붕괴 */
             const cx=C.t?C.t.x:player.x, cy=C.t?C.t.y:player.y; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2>300) continue; e.x+=(cx-e.x)*0.75; e.y+=(cy-e.y)*0.75; } addHazard(cx,cy,150,0.7,C.dmg*4.0,true); FXR(150);
           }
-          else if (arch==='s_necro'){ /* 絶技 망자의 군세 */
-            for(let i=0;i<8;i++){ const a2=(6.283/8)*i; addHazard(player.x+Math.cos(a2)*95, player.y+Math.sin(a2)*95, 62, 4.0, C.dmg*1.0, true);} RING(180,C.dmg*1.4,C.w); FXR(180);
+          else if (arch==='s_necro'){
+            //  v6.184 絶技 **망자의 군세** — 여덟이 한꺼번에 일어난다
+            for (let k=0;k<8;k++){ const a2=Math.random()*6.283;
+              player.ghosts.push({ x:player.x+Math.cos(a2)*62, y:player.y+Math.sin(a2)*62, t:16+(player.ghostDur||0), cd:0 }); }
+            RING(180, C.dmg*1.5, C.w);
+            FXR(180);
           }
-          else if (arch==='s_commander'){ /* 絶技 총공격 명령 */
-            for(let i=0;i<24;i++){ const a2=Math.random()*6.283; projectiles.push({x:player.x+(Math.random()-0.5)*60,y:player.y+(Math.random()-0.5)*60,vx:Math.cos(a2)*580,vy:Math.sin(a2)*580,r:5,damage:C.dmg*1.3,crit:false,pierce:2,life:1.6,imbue:C.w.imbue||null}); }
+          else if (arch==='s_commander'){
+            //  v6.184 絶技 **총동원** — 포대와 군세를 동시에 전개
+            for (let k=0;k<6;k++){ const a2=(6.283/6)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*88, y:player.y+Math.sin(a2)*88, cd:0, t:12, temp:true }); }
+            for (let k=0;k<6;k++){ const a2=Math.random()*6.283;
+              player.ghosts.push({ x:player.x+Math.cos(a2)*66, y:player.y+Math.sin(a2)*66, t:14+(player.ghostDur||0), cd:0 }); }
+            RING(190, C.dmg*1.3, C.w);
+            FXR(190);
           }
           else if (arch==='s_runeknight'){ /* 絶技 진명 각인 */
             RING(190, C.dmg*1.6, C.w, (e)=>{ procOnHit(e,false,'fire'); procOnHit(e,false,'volt'); procOnHit(e,false,'frost'); }); addHazard(player.x,player.y,190,2.2,C.dmg*0.9,true); FXR(190);
@@ -13311,8 +13338,12 @@ import { FX } from "./fx.js";
           else if (arch==='s_druid'){ /* 絶技 세계수 */
             addHazard(player.x,player.y,230,5.0,C.dmg*1.1,true); for(let i=0;i<6;i++){ const a2=(6.283/6)*i; addHazard(player.x+Math.cos(a2)*140, player.y+Math.sin(a2)*140, 70, 4.0, C.dmg*0.9, true);} healCapped(3*player.healMult); FXR(230);
           }
-          else if (arch==='s_engineer'){ /* 絶技 전면 포격진 */
-            for(let i=0;i<6;i++){ const a2=(6.283/6)*i; addHazard(player.x+Math.cos(a2)*80, player.y+Math.sin(a2)*80, 66, 4.5, C.dmg*1.2, true);} for(let i=0;i<10;i++){ const a3=Math.random()*6.283; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a3)*560,vy:Math.sin(a3)*560,r:4,damage:C.dmg*0.9,crit:false,pierce:2,life:1.3,imbue:C.w.imbue||null}); }
+          else if (arch==='s_engineer'){
+            //  v6.184 絶技 **전면 포대** — 여섯 기 + 지속 포격
+            for (let k=0;k<6;k++){ const a2=(6.283/6)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*92, y:player.y+Math.sin(a2)*92, cd:0, t:16, temp:true }); }
+            RING(170, C.dmg*1.2, C.w);
+            FXR(170);
           }
           else if (arch==='s_glitch'){ /* 絶技 세그폴트 */
             for(let i=0;i<20;i++) addHazard(player.x+(Math.random()-0.5)*520, player.y+(Math.random()-0.5)*520, 70, 0.25+Math.random()*0.7, C.dmg*2.0, true); shake=Math.min(20,shake+8);
@@ -13397,8 +13428,12 @@ import { FX } from "./fx.js";
           else if (arch==='g_archer'){ /* 관통 사격 — 화살비가 아니라 — 한 줄을 꿰뚫는 일직선 */
             for(let i=0;i<3;i++){ const a2=C.baseA+(i-1)*0.10; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*700,vy:Math.sin(a2)*700,r:4,damage:C.dmg*1.3,crit:Math.random()<player.critChance,pierce:99,life:1.4,imbue:C.w.imbue||null}); }
           }
-          else if (arch==='g_pilot'){ /* 선회 기총 — 융단 폭격이 아니라 — 내 주위를 도는 탄막 */
-            for(let i=0;i<8;i++){ const a2=(6.283/8)*i; projectiles.push({x:player.x+Math.cos(a2)*34,y:player.y+Math.sin(a2)*34,vx:Math.cos(a2+1.2)*320,vy:Math.sin(a2+1.2)*320,r:4,damage:C.dmg*0.8,crit:false,pierce:1,life:1.3,imbue:C.w.imbue||null}); }
+          else if (arch==='g_pilot'){
+            //  v6.184 성장: **편대** — 기체 둘이 붙어 선회 사격
+            for (let k=0;k<2;k++){ const a2=(6.283/2)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*58, y:player.y+Math.sin(a2)*58, cd:0, t:9, temp:true }); }
+            for (let i=0;i<8;i++){ const a2=(6.283/8)*i;
+              projectiles.push({x:player.x+Math.cos(a2)*34,y:player.y+Math.sin(a2)*34,vx:Math.cos(a2+1.2)*320,vy:Math.sin(a2+1.2)*320,r:4,damage:C.dmg*0.8,crit:false,pierce:1,life:1.3,imbue:C.w.imbue||null}); }
           }
           else if (arch==='g_specialist'){ /* 전용 장비 전개 — 상황 전환이 아니라 — 셋을 동시에 */
             SL(C.baseA,88,34,C.dmg*0.8,C.w); addHazard(player.x,player.y,70,1.0,C.dmg*0.4,true); projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*620,vy:Math.sin(C.baseA)*620,r:4,damage:C.dmg*0.8,crit:false,pierce:2,life:1.2,imbue:C.w.imbue||null});
@@ -13409,17 +13444,30 @@ import { FX } from "./fx.js";
           else if (arch==='g_gambler'){ /* 카드 뿌리기 — 올인이 아니라 — 확정 소량 다발 */
             for(let i=0;i<7;i++){ const a2=C.baseA+(i-3)*0.16; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*540,vy:Math.sin(a2)*540,r:4,damage:C.dmg*0.75,crit:Math.random()<player.critChance,pierce:1,life:1.1,imbue:C.w.imbue||null}); }
           }
-          else if (arch==='g_manager'){ /* 정지 궤도포 — 낙하가 아니라 — 한 자리를 계속 태운다 */
-            if(C.t) addHazard(C.t.x,C.t.y,86,2.4,C.dmg*0.85,true);
+          else if (arch==='g_manager'){
+            //  v6.184 성장: **고리를 넓혀 훑는다** — 확장 궤도로 전환 + 궤도 폭주
+            player.satOrbit = 1;                          // 확장 궤도
+            player.satBurstT = Math.max(player.satBurstT||0, 2.2);
+            player.satRush = Math.min(2.6, (player.satRush||1) + 0.55);
+            RING(150, C.dmg*0.9, C.w);
+            FXR(150);
           }
           else if (arch==='g_voidc'){ /* 균열 — 흡입이 아니라 — 길게 찢는다 */
             for(let i=1;i<=5;i++) addHazard(player.x+Math.cos(C.baseA)*i*54, player.y+Math.sin(C.baseA)*i*54, 44, 1.1, C.dmg*0.95, true);
           }
-          else if (arch==='g_necro'){ /* 역병 확산 — 소환이 아니라 — 옮겨 붙는 병 */
-            RING(90, C.dmg*0.8, C.w, (e)=>{ e.burnT=Math.max(e.burnT||0,3); e.burnDps=Math.max(e.burnDps||0, C.dmg*0.3); }); FXR(90);
+          else if (arch==='g_necro'){
+            //  v6.184 성장: **역병으로 옮겨 붙이고**, 죽은 자리마다 유령이 선다
+            RING(96, C.dmg*0.9, C.w, (e)=>{ e.burnT=Math.max(e.burnT||0,3); e.burnDps=Math.max(e.burnDps||0, C.dmg*0.35); });
+            for (let k=0;k<3;k++){ const a2=Math.random()*6.283;
+              player.ghosts.push({ x:player.x+Math.cos(a2)*44, y:player.y+Math.sin(a2)*44, t:12+(player.ghostDur||0), cd:0 }); }
+            FXR(96);
           }
-          else if (arch==='g_commander'){ /* 진형 전개 — 일제 사격이 아니라 — 사방에 진을 친다 */
-            for(let i=0;i<4;i++){ const a2=(6.283/4)*i; addHazard(player.x+Math.cos(a2)*76, player.y+Math.sin(a2)*76, 54, 2.2, C.dmg*0.75, true); }
+          else if (arch==='g_commander'){
+            //  v6.184 성장: **진형을 친다** — 사방에 거점
+            for (let k=0;k<4;k++){ const a2=(6.283/4)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*74, y:player.y+Math.sin(a2)*74, cd:0, t:8, temp:true }); }
+            for (let k=0;k<2;k++){ const a2=Math.random()*6.283;
+              player.ghosts.push({ x:player.x+Math.cos(a2)*50, y:player.y+Math.sin(a2)*50, t:10+(player.ghostDur||0), cd:0 }); }
           }
           else if (arch==='g_runeknight'){ /* 룬 연쇄 — 각인이 아니라 — 새긴 룬끼리 이어진다 */
             let cx=player.x, cy=player.y; for(let k=0;k<4;k++){ let best=null,bd=1e9; for(const e of enemies){ if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2<bd&&d2<180){bd=d2;best=e;} } if(!best) break; best.hp-=C.dmg*0.9; addDmgNum(best.x,best.y,C.dmg*0.9,false); effects.push({type:'chain',x1:cx,y1:cy,x2:best.x,y2:best.y,life:0.2,age:0}); cx=best.x; cy=best.y; }
@@ -13427,8 +13475,10 @@ import { FX } from "./fx.js";
           else if (arch==='g_druid'){ /* 가시 덤불 — 확산이 아니라 — 제자리에 오래 남는 밭 */
             addHazard(player.x,player.y,100,3.2,C.dmg*0.55,true); FXR(100);
           }
-          else if (arch==='g_engineer'){ /* 자동 포화 — 설치가 아니라 — 내가 직접 난사 */
-            for(let i=0;i<6;i++){ const a2=C.baseA+(Math.random()-0.5)*0.7; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*580,vy:Math.sin(a2)*580,r:3,damage:C.dmg*0.7,crit:false,pierce:1,life:1.0,imbue:C.w.imbue||null}); }
+          else if (arch==='g_engineer'){
+            //  v6.184 성장: **포대 증설** — 셋을 동시에
+            for (let k=0;k<3;k++){ const a2=(6.283/3)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*66, y:player.y+Math.sin(a2)*66, cd:0, t:10, temp:true }); }
           }
           else if (arch==='g_glitch'){ /* 메모리 누수 — 무작위 폭발이 아니라 — 내 주위가 서서히 썩는다 */
             addHazard(player.x,player.y,116,2.6,C.dmg*0.5,true); FXR(116);
@@ -13516,8 +13566,12 @@ import { FX } from "./fx.js";
           else if (arch==='u_archer'){ /* 곡사 화살비 — 머리 위에서 떨어진다 */
             for(let i=0;i<C.n+3;i++){ const a2=Math.random()*6.283,d3=Math.random()*110; addHazard((C.t?C.t.x:player.x)+Math.cos(a2)*d3,(C.t?C.t.y:player.y)+Math.sin(a2)*d3,34,0.45,C.dmg*0.8,true); }
           }
-          else if (arch==='u_pilot'){ /* 융단 폭격 — 한 줄을 따라 터진다 */
-            for(let i=1;i<=6;i++) addHazard(player.x+Math.cos(C.baseA)*i*62, player.y+Math.sin(C.baseA)*i*62, 46, 0.25+i*0.07, C.dmg*0.95, true);
+          else if (arch==='u_pilot'){
+            //  🔴 v6.184 **파일럿은 기체를 부린다** — 지상 폭격만 하고 드론이 없었다
+            player.droneBoost = (player.droneBoost||1) + 0.02;
+            for (let k=0;k<1;k++){ const a2=(6.283/1)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*52, y:player.y+Math.sin(a2)*52, cd:0, t:7, temp:true }); }
+            for (let i=1;i<=3;i++) addHazard(player.x+Math.cos(C.baseA)*i*62, player.y+Math.sin(C.baseA)*i*62, 46, 0.25+i*0.07, C.dmg*0.95, true);
           }
           else if (arch==='u_specialist'){ /* 만능 전환 — 가까우면 베고 멀면 쏜다 */
             const dd=C.t?Math.hypot(C.t.x-player.x,C.t.y-player.y):999; if(dd<110){ SL(C.baseA,96,40,C.dmg*1.3,C.w); FXA(C.baseA,96,0.2);} else { for(let i=0;i<C.n+1;i++){const a2=C.baseA+(i-C.n/2)*0.16; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*620,vy:Math.sin(a2)*620,r:4,damage:C.dmg,crit:Math.random()<player.critChance,pierce:1,life:1.2,imbue:C.w.imbue||null});} }
@@ -13528,17 +13582,36 @@ import { FX } from "./fx.js";
           else if (arch==='u_gambler'){ /* 올인 — 대박 아니면 꽝 */
             const roll=Math.random(); if(roll<0.25){ RING(150,C.dmg*3.2,C.w); FXR(150); addTextNum(player.x,player.y-24,'잭팟!'); } else if(roll<0.55){ if(C.t){C.t.hp-=C.dmg*0.4; addDmgNum(C.t.x,C.t.y,C.dmg*0.4,false);} } else { RING(90,C.dmg*1.1,C.w); FXR(90); }
           }
-          else if (arch==='u_manager'){ /* 궤도 강하 — 하늘에서 표적 위로 떨어진다 */
-            for(let i=0;i<C.n+1;i++) addHazard((C.t?C.t.x:player.x)+(Math.random()-0.5)*70,(C.t?C.t.y:player.y)+(Math.random()-0.5)*70, 58, 0.55, C.dmg*1.25, true);
+          else if (arch==='u_manager'){
+            //  🔴 v6.184 **관측자는 폭격기가 아니라 위성술사다** (사용자 지적)
+            //   u/g/s 셋 다 addHazard 폭격이라 **위성이 통째로 사라졌다**. 직업 정체성과 무관했다.
+            //   유일: 궤도에 있던 위성을 **표적에 사출한다** — 사출은 이 직업의 고유 동사다.
+            //  ⚠ ejectSat()은 **토글**이다 — 나가 있으면 회수한다. 루프로 부르면 사출→회수로 상쇄돼
+            //   실측 사출 0회가 나왔다. 한 번만 부를 것.
+            try { if (!satFlight.length) ejectSat(); } catch(e){}
+            if (C.t){
+              projectiles.push({ x:player.x, y:player.y,
+                vx:Math.cos(C.baseA)*520, vy:Math.sin(C.baseA)*520,
+                r:9, damage:C.dmg*1.5, crit:Math.random()<player.critChance, pierce:3, life:1.4,
+                orb:true, imbue:C.w.imbue||null });
+            }
+            player.satRush = Math.min(2.2, (player.satRush||1) + 0.35);   // 궤도가 빨라진다
           }
           else if (arch==='u_voidc'){ /* 흡입 붕괴 — 한 점으로 끌어모아 터뜨린다 */
             const cx=C.t?C.t.x:player.x, cy=C.t?C.t.y:player.y; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2>170) continue; const a2=Math.atan2(cy-e.y,cx-e.x); e.x+=Math.cos(a2)*d2*0.35; e.y+=Math.sin(a2)*d2*0.35; } addHazard(cx,cy,84,0.5,C.dmg*1.5,true);
           }
-          else if (arch==='u_necro'){ /* 망자 소환 — 쓰러진 자리에서 다시 일어난다 */
-            addHazard(player.x,player.y,80,1.4,C.dmg*0.5,true); if(C.t){ addHazard(C.t.x,C.t.y,60,0.9,C.dmg*0.9,true); } player.ghostCap=(player.ghostCap||0);
+          else if (arch==='u_necro'){
+            //  🔴 v6.184 **망자는 유령을 부린다** — u/g/s 셋 다 addHazard 장판이라 유령이 없었다.
+            //   유일: 쓰러진 자리에서 **유령을 일으킨다**
+            for (let k=0;k<2;k++){ const a2=Math.random()*6.283;
+              player.ghosts.push({ x:player.x+Math.cos(a2)*34, y:player.y+Math.sin(a2)*34, t:10+(player.ghostDur||0), cd:0 }); }
+            if (C.t) addHazard(C.t.x, C.t.y, 54, 0.6, C.dmg*0.8, true);
           }
-          else if (arch==='u_commander'){ /* 일제 사격 명령 — 내가 쏘지 않는다 — 시킨다 */
-            for(let i=0;i<C.n+3;i++){ const a2=C.baseA+(Math.random()-0.5)*0.5; projectiles.push({x:player.x+(Math.random()-0.5)*40,y:player.y+(Math.random()-0.5)*40,vx:Math.cos(a2)*520,vy:Math.sin(a2)*520,r:4,damage:C.dmg*0.8,crit:false,pierce:1,life:1.3,imbue:C.w.imbue||null}); }
+          else if (arch==='u_commander'){
+            //  🔴 v6.184 **지휘관은 본인이 쏘지 않는다** — 부하가 쏜다
+            for (let k=0;k<2;k++){ const a2=(6.283/2)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*46, y:player.y+Math.sin(a2)*46, cd:0, t:6, temp:true }); }
+            if (C.t) addHazard(C.t.x, C.t.y, 50, 0.5, C.dmg*0.7, true);
           }
           else if (arch==='u_runeknight'){ /* 룬 각인 — 새기고, 잠시 뒤 터진다 */
             if(C.t){ addHazard(C.t.x,C.t.y,44,0.15,C.dmg*0.5,true); addHazard(C.t.x,C.t.y,88,0.95,C.dmg*1.6,true); }
@@ -13546,8 +13619,11 @@ import { FX } from "./fx.js";
           else if (arch==='u_druid'){ /* 덩굴 확산 — 땅을 타고 번진다 */
             for(let i=0;i<4;i++){ const a2=C.baseA+(i-1.5)*0.5; addHazard(player.x+Math.cos(a2)*70, player.y+Math.sin(a2)*70, 54, 1.6, C.dmg*0.7, true); }
           }
-          else if (arch==='u_engineer'){ /* 포탑 설치 — 깔아 두면 알아서 쏜다 */
-            for(let i=0;i<2;i++){ const a2=Math.random()*6.283; addHazard(player.x+Math.cos(a2)*46, player.y+Math.sin(a2)*46, 62, 2.8, C.dmg*0.62, true); }
+          else if (arch==='u_engineer'){
+            //  🔴 v6.184 **기술자는 설치한다** — 본인 난사가 아니다
+            for (let k=0;k<1;k++){ const a2=(6.283/1)*k;
+              player.turrets.push({ x:player.x+Math.cos(a2)*42, y:player.y+Math.sin(a2)*42, cd:0, t:8, temp:true }); }
+            addHazard(player.x, player.y, 56, 1.4, C.dmg*0.5, true);
           }
           else if (arch==='u_glitch'){ /* 좌표 오류 — 엉뚱한 곳에서 터진다 */
             for(let i=0;i<C.n+2;i++) addHazard(player.x+(Math.random()-0.5)*300, player.y+(Math.random()-0.5)*300, 50, 0.3, C.dmg*1.1, true);
