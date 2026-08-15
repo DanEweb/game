@@ -3412,7 +3412,7 @@ import { FX } from "./fx.js";
     //  ⚠ 2.6도 여전히 **머리 위가 잘렸다** — 몸통 −18만 보고 계산했는데 실제로는
     //   전직 표식(머리 위 별)과 탈것이 그 위/아래로 더 나간다. 실측 범위는 대략 −22 ~ +14(36단위).
     const S = 2.3;
-    const pose = Object.assign({ face:1, walk:0, gear:key, scale:S, tierC:col },
+    const pose = Object.assign({ face:1, walk:0, gear:key, scale:S, tierC:col, wslot:(window.__forceSlot===undefined?0:window.__forceSlot) },
                                PORTRAIT_POSE[grp] || PORTRAIT_POSE.war);
     if (key==='reaper') pose.robe = true;
     if (key==='rusher') pose.mount = 'horse';
@@ -8042,6 +8042,31 @@ import { FX } from "./fx.js";
     받는피해:+(player.dmgTaken||1).toFixed(3), 쿨감:+(player.cdr||1).toFixed(3),
     이속:Math.round(player.speed||0), 최대체력:Math.round(player.maxHp||0)
   }); } catch(e){ return "ERR "+String(e); } };
+  //  v6.183 QA: 슬롯별 무기 형태가 실제로 다른지 — 초상화를 슬롯 강제로 다시 그려 픽셀을 비교
+  window.__qaSlotAll = ()=>{ try { const bad=[]; let ok=0;
+    for (const ck of Object.keys(CLASSES)){
+      const a=JSON.parse(__qaSlotForms(ck));
+      const u=new Set(a.map(x=>x.ink+"/"+x.sig)).size;
+      if (u<7) bad.push(ck+":"+u); else ok++;
+    }
+    return JSON.stringify({전원7종:ok, 미달:bad});
+  } catch(e){ return "ERR "+String(e); } };
+  window.__qaSlotForms = (ck)=>{ try {
+    const out=[]; const prev=PORTRAIT_CACHE;
+    for (let sl=0; sl<7; sl++){
+      window.__forceSlot = sl;
+      Object.keys(PORTRAIT_CACHE).forEach(k=>delete PORTRAIT_CACHE[k]);
+      const cv = classPortrait(ck);
+      const g = cv.getContext("2d");
+      const d = g.getImageData(0,0,cv.width,cv.height).data;
+      let ink=0, sig=0;
+      for (let i=0;i<d.length;i+=4){ if (d[i+3]>60 && d[i]<150){ ink++; sig += (i%977); } }
+      out.push({slot:sl, ink, sig:sig%100000});
+    }
+    window.__forceSlot = undefined;
+    Object.keys(PORTRAIT_CACHE).forEach(k=>delete PORTRAIT_CACHE[k]);
+    return JSON.stringify(out);
+  } catch(e){ return "ERR "+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
     //  ⚠ __qaWeapon은 교체가 아니라 **추가**다 — 안 지우면 이전 층이 남아
@@ -18701,7 +18726,11 @@ import { FX } from "./fx.js";
     //   1레벨 카타나와 絶名 카타나가 같은 그림이었다. 단계(0~4)로 **날을 길게·두껍게** 키운다.
     //   ⚠ 프롭 전체를 감싸므로 여는 변환과 닫는 복원이 반드시 짝을 이뤄야 한다(아래 restore).
     const wst = o.wst || 0;
-    const wsc = 1 + wst*0.085;              // 4단계에서 약 1.34배
+    //  🔴 v6.183 **슬롯마다 무기 크기가 다르다** — 형태 계수(FL/FW/FC)는 `blade()`를 통해서만 먹어서
+    //   낫·소총처럼 **직접 경로로 그린 무기는 슬롯이 달라도 같은 크기**였다(실측 5/7만 구분).
+    //   프롭 전체 배율을 슬롯 기준으로 잡아 **모든 무기**가 슬롯마다 달라지게 한다.
+    const SLOT_SC = [1.00, 1.12, 0.90, 1.16, 1.24, 1.05, 1.38];
+    const wsc = (o.wslot>=0 && o.wslot<=6 ? SLOT_SC[o.wslot] : 1) * (1 + wst*0.045);
     ctx.lineWidth = 2;
     // v6.73 공격 스윙: 3박자 곡선(swRot)으로 어깨축 회전 + 타격 순간 참격 잔상 호
     const atk = o.atk||0;
@@ -18767,7 +18796,8 @@ import { FX } from "./fx.js";
     }
     //  ⚠ 이 save는 **무기 프롭 직전**이어야 한다. 처음엔 `const g` 바로 뒤에 뒀다가
     //   스윙 호·앞팔·손까지 같이 커져 손이 어깨에서 떨어져 나갔다.
-    if (wst > 0){ ctx.save(); ctx.scale(wsc, wsc); }
+    const wscOn = Math.abs(wsc-1) > 0.001;
+    if (wscOn){ ctx.save(); ctx.scale(wsc, wsc); }
     //  🔴 v6.174 **무기가 '검은 작대기'였다** — 사용자: *"무기들이 여전히 검은색 작대기라서 모르겠네"*
     //   37종 프롭은 각자 형태가 달랐지만 **전부 `ink` 한 색**이라, 카타나든 활이든 화면에선 검은 선이었다.
     //   (사무라이 카타나 = `moveTo(4,2) → lineTo(18,-12) → stroke`, lineWidth 2.2 — 말 그대로 선 하나)
@@ -18790,7 +18820,25 @@ import { FX } from "./fx.js";
     };
     //  ── 날 형태: 시작폭 w0 → 끝폭 w1로 **좁아지며 휘는** 폴리곤.
     //     선(stroke) 하나로는 절대 안 나오는 '깎인 날'을 만든다. curve>0이면 바깥으로 휜다.
+    //  🔴 v6.183 **슬롯별 형태 계수** — 같은 직업이라도 7자루가 서로 다른 물건이 된다.
+    //   FL 길이 · FW 폭 · FC 휨 · FD 날 수(2면 쌍날) · FO 장식 수 · FG 코등이 배율 · FT 자루 길이
+    //   유일 3종은 **같은 계열 안에서 형태가 갈리고**(표준 / 길고 가늘게 / 짧고 두껍게),
+    //   성장 3종은 **한 단계 큰 물건**(장식이 붙고 쌍날이 나온다),
+    //   성유물은 **형태가 아예 달라진다**(가장 길고, 쌍날, 장식 최대).
+    const WFORM = [
+      { FL:1.00, FW:1.00, FC:1.00, FD:1, FO:0, FG:1.00, FT:1.00 },  // 0 유일 I  — 표준형
+      { FL:1.28, FW:0.74, FC:1.35, FD:1, FO:0, FG:0.85, FT:1.10 },  // 1 유일 II — 길고 가늘고 더 휜다
+      { FL:0.82, FW:1.46, FC:0.55, FD:1, FO:0, FG:1.25, FT:0.88 },  // 2 유일 III— 짧고 두껍다
+      { FL:1.14, FW:1.12, FC:1.00, FD:1, FO:2, FG:1.30, FT:1.06 },  // 3 성장 I  — 커지고 장식이 붙는다
+      { FL:1.40, FW:0.92, FC:1.50, FD:2, FO:2, FG:1.10, FT:1.14 },  // 4 성장 II — 쌍날
+      { FL:1.06, FW:1.62, FC:0.70, FD:1, FO:3, FG:1.55, FT:0.94 },  // 5 성장 III— 육중하고 코등이가 크다
+      { FL:1.62, FW:1.30, FC:1.25, FD:2, FO:5, FG:1.70, FT:1.20 },  // 6 성유물  — 가장 길고 쌍날에 장식 최대
+    ];
+    const WF = WFORM[(o.wslot===undefined?-1:o.wslot)] || WFORM[0];
     const blade = (x0,y0,x1,y1,w0,w1,curve)=>{
+      //  v6.183 형태 계수 적용 — 끝점을 늘이고 폭·휨을 바꾼다 (배율이 아니라 '다른 물건')
+      x1 = x0 + (x1-x0)*WF.FL; y1 = y0 + (y1-y0)*WF.FL;
+      w0 *= WF.FW; w1 *= WF.FW; curve = (curve||0) * WF.FC;
       const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1;
       const nx=-dy/L, ny=dx/L, c=curve||0;
       const mx=(x0+x1)/2 + nx*c, my=(y0+y1)/2 + ny*c;
@@ -18803,6 +18851,7 @@ import { FX } from "./fx.js";
     };
     //  ── 감은 자루: 굵은 심 + 사선 감기 3줄
     const grip = (x0,y0,x1,y1,w)=>{
+      x1 = x0 + (x1-x0)*WF.FT; y1 = y0 + (y1-y0)*WF.FT;   // v6.183 슬롯마다 자루 길이가 다르다
       ctx.strokeStyle = WM.grip; ctx.lineWidth = w;
       ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
       ctx.strokeStyle = WM.dark; ctx.lineWidth = Math.max(0.4, w*0.28);
@@ -19247,8 +19296,29 @@ import { FX } from "./fx.js";
     ctx.restore();
     //  ③ 전면 하이라이트 패스는 걷어냈다 — 깎은 무기들이 이미 자기 날선(하몬·능선)을 갖고 있어
     //   위에 한 겹 더 덮으면 그 선이 묻힌다.
+    //  🔴 v6.183 **쌍날** — 성장 II·성유물은 무기가 두 자루가 된다(표식이 아니라 실물이 하나 더 있다)
+    if (WF.FD >= 2){
+      ctx.save();
+      ctx.translate(-3.2, 3.4); ctx.rotate(-0.62); ctx.scale(0.86, 0.86);
+      ctx.strokeStyle = WM.steel; ctx.fillStyle = WM.steel;
+      drawProp();
+      ctx.restore();
+    }
+    //  v6.183 **장식** — 자루~날을 따라 박히는 보석/못. 슬롯이 오를수록 늘어난다
+    if (WF.FO > 0){
+      ctx.save();
+      const gx0=6.0, gy0=0.0, gx1=16.0*WF.FL, gy1=-10.5*WF.FL;
+      for (let k=0;k<WF.FO;k++){
+        const t2 = 0.18 + k*(0.62/Math.max(1,WF.FO));
+        const px = gx0+(gx1-gx0)*t2, py = gy0+(gy1-gy0)*t2;
+        ctx.fillStyle = (o.wslot>=6) ? '#e0a94f' : WM.gold;
+        ctx.beginPath(); ctx.arc(px, py, 0.95+(o.wslot>=6?0.35:0), 0, 6.283); ctx.fill();
+        ctx.strokeStyle = WM.dark; ctx.lineWidth = 0.32; ctx.stroke();
+      }
+      ctx.restore();
+    }
     drawTierMark();                        // v6.176 층별 표식은 본체 위에 얹는다
-    if (wst > 0) ctx.restore();            // v6.173 무기 성장 변환 닫기 (위 save와 짝)
+    if (wscOn) ctx.restore();              // v6.183 슬롯 배율 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
     if ((o.tier||0)>=2){
@@ -19424,6 +19494,17 @@ import { FX } from "./fx.js";
       //  v6.171 장비를 **몸과 같은 좌표계로** 넘긴다 — 자세·반전·배율을 따라가야 '입은' 것으로 보인다
       eq: { head:eqItem('head'), body:eqItem('body'), hand:eqItem('hand'), foot:eqItem('foot') },
       wst: (weaponStage()||{}).st || 0,  // v6.173 무기 성장 단계 — 프롭이 자란다
+      //  🔴 v6.183 **어떤 무기를 들었는지**를 넘긴다 — 사용자: *"오라만 넣는 시시한 게 아니라 외형 자체를 바꿔서"*
+      //   그동안 프롭은 `g===직업키` 하나라 **직업당 1종(총 37종)**뿐이었고,
+      //   유일3+성장3+성유물1 = **직업당 7종(총 259종)**이 전부 같은 그림에 크기·표식만 달랐다.
+      //   ⇒ 슬롯 번호를 넘겨 **형태(길이·폭·휨·자루·날 수·장식)** 자체를 바꾼다. 0~2 유일 / 3~5 성장 / 6 성유물
+      wslot: (function(){
+        if (player.sacredTitle) return 6;
+        const w2 = (player.weapons||[]).find(x=>x.key && (x.key.indexOf('pgw_')===0 || x.key.indexOf('cgw_')===0));
+        if (!w2) return -1;
+        const idx = parseInt(w2.key.slice(w2.key.lastIndexOf('_')+1), 10) || 0;
+        return (w2.key.indexOf('pgw_')===0 ? 3 : 0) + Math.min(2, idx);
+      })(),
       wtier: (weaponStage()||{}).tier || null   // v6.176 층(성장/유일/성물) — 붙는 물건이 다르다
     });
     drawWeaponAura();   // v6.172 무기 발광은 **몸 위**에 — 날이 몸에 가리면 안 된다
