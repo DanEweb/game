@@ -3371,12 +3371,24 @@ import { FX } from "./fx.js";
   const PORTRAIT_POSE = {
     //  ⚠ v6.189 atk 0.55는 **휘두르는 한복판**이라 초상화에서 무기가 얼굴을 가로질렀다.
     //   0.88은 예비동작(무기를 뒤로 당긴 상태) — 얼굴이 열리고 무기 전체가 보인다.
-    war: { atk:0.88, tier:2 },                    // 베기 직전
-    rog: { atk:0.86, tier:2 },                    // 파고들기 직전
-    rng: { chargePose:true, tier:2 },             // 겨누는 중
-    mag: { satPose:true, tier:2 },                // 띄우는 중
-    pri: { guardT:0.18, guardKind:'parry', tier:2 },  // 막는 중
-    mer: { atk:0.92, tier:2 },                    // 막 꺼내는 중
+    //  ⚠⚠ v6.190 그런데 그 예비동작의 `swRot`(+0.49~+0.78)이 무기를 **눕혀** 수평 막대로 만들었다.
+    //   `atk`는 몸(런지·무릎)만 맡기고, 무기 각도는 `poseRot`으로 **직접** 잡는다.
+    //   값은 '더하기'가 아니라 '대체'다 — 프롭이 그려진 각도(−40°~−76°)에서 그만큼만 더 세운다.
+    war: { atk:0.88, poseRot:-0.16, tier:2 },                    // 베기 직전
+    rog: { atk:0.86, poseRot:-0.20, tier:2 },                    // 파고들기 직전
+    rng: { chargePose:true, tier:2 },                            // 겨누는 중
+    mag: { satPose:true, tier:2 },                               // 띄우는 중
+    pri: { guardT:0.18, guardKind:'parry', poseRot:-0.14, tier:2 },  // 막는 중
+    mer: { atk:0.92, poseRot:-0.12, tier:2 },                    // 막 꺼내는 중
+  };
+  //  계열 기본값으로 안 되는 **개별 예외**만 여기 적는다 — 프롭이 워낙 길거나 이미 세워져 있는 경우.
+  //   ⚠ 계열 값을 바꿔서 맞추려 하면 같은 계열의 다른 직업이 망가진다(v6.175의 '통짜' 교훈).
+  const PORTRAIT_POSE_CLASS = {
+    //  낫은 프롭 자체가 −76°(거의 수직)이라 계열값(−0.20)을 먹이면 **날이 머리 위를 덮는다**.
+    //   반대로 눕혀서 어깨에 걸친 모양으로 만든다.
+    reaper: { poseRot: 0.30 },
+    //  랜스(−41°)는 길이가 22라 살짝만 세워도 **창끝이 액자 밖으로** 나간다. 거의 그대로 둔다.
+    rusher: { poseRot: -0.02 },
   };
   function classPortrait(key){
     if (PORTRAIT_CACHE[key]) return PORTRAIT_CACHE[key];
@@ -3421,6 +3433,10 @@ import { FX } from "./fx.js";
                                PORTRAIT_POSE[grp] || PORTRAIT_POSE.war);
     if (key==='reaper') pose.robe = true;
     if (key==='rusher') pose.mount = 'horse';
+    if (PORTRAIT_POSE_CLASS[key]) Object.assign(pose, PORTRAIT_POSE_CLASS[key]);
+    //  v6.190 QA: 장비 착용 외형은 인게임에서만 보이는데 런을 돌려야 해서 검수가 어렵다.
+    //   `__forceEq`를 세우면 초상화가 그 장비를 입은 채로 그려진다(무게·희귀도별 실루엣 확인용).
+    if (window.__forceEq) pose.eq = window.__forceEq;
     //  캐릭터만 따로 그린 뒤 음영을 입혀 합성한다 — 인게임 도트 경로엔 있는 3톤 셰이딩이
     //  벡터 경로엔 없어서, 그냥 그리면 **납작한 검은 실루엣**으로 보인다
     //  🔴 v6.187 **초상화가 도트 파이프라인을 안 탔다** — 눈으로 보니 인게임은 도트인데
@@ -8243,6 +8259,36 @@ import { FX } from "./fx.js";
     window.__forceSlot = undefined;
     Object.keys(PORTRAIT_CACHE).forEach(k=>delete PORTRAIT_CACHE[k]);
     return JSON.stringify(out);
+  } catch(e){ return "ERR "+String(e); } };
+  //  v6.190 QA: 초상화를 **확대해 눈으로** 보는 판 — 캐시를 비우고 다시 그린 뒤 화면에 띄운다.
+  //   ⚠ v6.188에서 재로드만으로는 바이트가 같은 이미지가 나와 '안 바뀌었다'고 오판할 뻔했다.
+  //   이 훅은 항상 `PORTRAIT_CACHE`를 비우므로 그 함정을 피한다.
+  window.__qaPortraits = (keys, zoom)=>{ try {
+    const list = (keys && keys.length ? keys : ['samurai','archer','runeknight','manager','paladin','reaper']);
+    const z = zoom || 3;
+    Object.keys(PORTRAIT_CACHE).forEach(k=>delete PORTRAIT_CACHE[k]);
+    let box = document.getElementById('qaPortraitBox');
+    if (box) box.remove();
+    box = document.createElement('div');
+    box.id = 'qaPortraitBox';
+    box.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;background:#20222a;'
+      + 'display:flex;flex-wrap:wrap;gap:8px;padding:10px;overflow:auto;align-content:flex-start;';
+    for (const ck of list){
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;color:#ddd;font:11px sans-serif;';
+      const cv = classPortrait(ck);
+      const big = document.createElement('canvas');
+      big.width = cv.width*z; big.height = cv.height*z;
+      big.style.cssText = 'width:'+(132*z)+'px;height:'+(120*z)+'px;image-rendering:pixelated;';
+      const bg = big.getContext('2d');
+      bg.imageSmoothingEnabled = false;
+      bg.drawImage(cv, 0, 0, big.width, big.height);
+      wrap.appendChild(big);
+      const lb = document.createElement('div'); lb.textContent = ck; wrap.appendChild(lb);
+      box.appendChild(wrap);
+    }
+    document.body.appendChild(box);
+    return 'shown '+list.length;
   } catch(e){ return "ERR "+String(e); } };
   window.__qaShowcase = (kind)=>{ try {
     const ck = player.classKey;
@@ -18980,16 +19026,34 @@ import { FX } from "./fx.js";
       if (EQ.head){
         const c = rc(EQ.head), hv = EQ.head.wt;
         ctx.fillStyle = c;
+        //  v6.190 투구 띠도 **가로 사각 막대**라 두상 위에 얹힌 종이였다 — 머리 원(1,−10.4,r4.7)의
+        //   곡률을 따르는 **띠(고리 조각)**로 바꾼다. band(r바깥, r안쪽, 시작각, 끝각)
+        const band = (ro, ri, a0, a1)=>{
+          ctx.beginPath();
+          ctx.arc(1,-10.4, ro, a0, a1);
+          ctx.arc(1,-10.4, ri, a1, a0, true);
+          ctx.closePath(); ctx.fill();
+        };
         if (hv === 'heavy'){
           ctx.beginPath(); ctx.arc(1,-11.4,5.9,Math.PI*1.02,Math.PI*2.02); ctx.fill();  // 두개골 덮개
-          ctx.fillRect(-4.6,-11.6,11.2,2.0);                                            // 면갑(눈 위 가로대)
+          band(5.3, 3.2, Math.PI*1.04, Math.PI*1.96);                                   // 면갑(눈 위 곡선 가로대)
           ctx.fillStyle = mixHex(c,'#000000',0.35);
-          ctx.fillRect(0.2,-11.2,1.6,4.2);                                              // 콧대 가드
+          ctx.beginPath();                                                              // 콧대 가드 — 얼굴을 타고 내린다
+          ctx.moveTo(0.3,-12.4); ctx.quadraticCurveTo(1.6,-9.6, 1.1,-7.0);
+          ctx.lineTo(2.5,-7.0); ctx.quadraticCurveTo(2.9,-9.8, 1.9,-12.4);
+          ctx.closePath(); ctx.fill();
         } else if (hv === 'light'){
-          ctx.fillRect(-4.4,-13.4,10.8,1.8);                                            // 머리띠
+          band(4.9, 3.5, Math.PI*1.10, Math.PI*1.90);                                   // 머리띠
         } else {
-          ctx.fillRect(-4.6,-13.8,11.2,1.8);
-          ctx.fillRect(-5.0,-13.0,1.7,3.4); ctx.fillRect(5.0,-13.0,1.7,3.4);            // 측면 가드
+          band(5.0, 3.4, Math.PI*1.04, Math.PI*1.96);                                   // 서클릿
+          ctx.beginPath();                                                              // 측면 가드 — 볼을 따라 흐른다
+          ctx.moveTo(-3.9,-12.2); ctx.quadraticCurveTo(-5.4,-10.4,-4.4,-8.0);
+          ctx.lineTo(-2.9,-8.6); ctx.quadraticCurveTo(-3.6,-10.4,-2.6,-11.9);
+          ctx.closePath(); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(5.9,-12.2); ctx.quadraticCurveTo(7.4,-10.4, 6.4,-8.0);
+          ctx.lineTo(4.9,-8.6); ctx.quadraticCurveTo(5.6,-10.4, 4.6,-11.9);
+          ctx.closePath(); ctx.fill();
         }
         if (EQ.head.r >= 4){                                                            // 상급: 뿔 장식
           ctx.fillStyle = mixHex(c,'#ffffff',0.30);
@@ -19001,11 +19065,27 @@ import { FX } from "./fx.js";
       if (EQ.body){
         const c = rc(EQ.body);
         ctx.fillStyle = c;
-        ctx.beginPath();                                                                 // 흉갑(사다리꼴)
-        ctx.moveTo(-4.6,-5.0); ctx.lineTo(4.6,-5.0); ctx.lineTo(3.4,1.6); ctx.lineTo(-3.4,1.6);
+        //  🔴 v6.190 **흉갑이 몸에 붙은 사다리꼴 스티커였다** — 네 변이 전부 직선이라
+        //   가슴의 곡면 위에 종이를 붙인 것처럼 보였다. 네 변을 다 휘어 **몸을 감싸게** 한다.
+        ctx.beginPath();
+        ctx.moveTo(-4.7,-4.6);
+        ctx.quadraticCurveTo(0,-6.3, 4.7,-4.6);          // 윗변 — 어깨선을 따라 볼록
+        ctx.quadraticCurveTo(4.5,-1.2, 3.3,1.5);         // 옆구리로 좁아지는 곡면
+        ctx.quadraticCurveTo(0, 2.7, -3.3,1.5);          // 밑변 — 아래로 처지는 V
+        ctx.quadraticCurveTo(-4.5,-1.2, -4.7,-4.6);
         ctx.closePath(); ctx.fill();
+        ctx.fillStyle = mixHex(c,'#000000',0.28);                                        // 앞쪽(그늘) 면
+        ctx.beginPath();
+        ctx.moveTo(0.2,-5.4); ctx.quadraticCurveTo(3.6,-2.0, 3.2,1.6);
+        ctx.quadraticCurveTo(1.6,2.2, 0.2,2.1); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = mixHex(c,'#ffffff',0.40); ctx.lineWidth = 0.7;                 // 중앙 능선
+        ctx.beginPath(); ctx.moveTo(0.1,-5.3); ctx.lineTo(0.1,1.9); ctx.stroke();
+        ctx.strokeStyle = ink;
         ctx.fillStyle = mixHex(c,'#000000',0.40);
-        ctx.fillRect(-4.0,1.4,8.0,1.5);                                                  // 벨트
+        ctx.beginPath();                                                                 // 벨트도 허리를 감는다
+        ctx.moveTo(-4.1,1.2); ctx.quadraticCurveTo(0,2.5, 4.1,1.2);
+        ctx.lineTo(4.1,2.7); ctx.quadraticCurveTo(0,4.0, -4.1,2.7);
+        ctx.closePath(); ctx.fill();
         if (EQ.body.wt === 'heavy'){
           ctx.fillStyle = mixHex(c,'#ffffff',0.18);
           ctx.beginPath(); ctx.ellipse(-6.2,-5.0,3.1,2.4,-0.3,0,6.283); ctx.fill();       // 어깨 패드
@@ -19015,12 +19095,7 @@ import { FX } from "./fx.js";
           ctx.fillRect(-3.8,-4.4,7.6,1.2);                                               // 경갑: 가슴끈
         }
       }
-      // ── 장갑: 손목 브레이서 (팔 끝에 붙는다)
-      if (EQ.hand){
-        ctx.fillStyle = rc(EQ.hand);
-        ctx.fillRect(4.4,-3.4,3.0,2.6);
-        ctx.fillRect(-7.2,-3.4,3.0,2.6);
-      }
+      // ── 장갑: 손목 브레이서 — v6.190부터 **팔 블록 안**에서 아래팔 위에 그린다(여기서 그리면 팔에 덮인다)
       // ── 부츠: 정강이 커프 (걸음 스윙을 따라간다)
       if (EQ.foot){
         ctx.fillStyle = rc(EQ.foot);
@@ -19044,7 +19119,15 @@ import { FX } from "./fx.js";
     ctx.lineWidth = 2;
     // v6.73 공격 스윙: 3박자 곡선(swRot)으로 어깨축 회전 + 타격 순간 참격 잔상 호
     const atk = o.atk||0;
-    const swung = atk>0;
+    //  🔴 v6.190 **초상화에서 무기가 수평 막대로 보였다** — 원인은 무기 각도가 아니라 **애니메이션 각도**다.
+    //   37종 프롭은 저마다 −40°~−76°로 세워 그려져 있는데, 예비동작의 `swRot`(+0.49~+0.78)이
+    //   그걸 통째로 **눕혀서** 카타나·대검·쿠나이·철퇴가 전부 −10°(수평)로 찍혔다.
+    //   ⇒ 초상화는 타이밍에서 각도를 낚지 말고 `poseRot`으로 **직접 지정**한다(스윙 각도를 대체한다).
+    //   ⚠ 계열마다 한 값을 더하는 방식은 못 쓴다 — 낫(−76°)처럼 이미 세워진 무기는 뒤로 넘어간다.
+    //   대체 방식이라 원본 프롭 각도가 그대로 살고, 살짝(−0.15rad)만 더 세운다.
+    const poseRot = (o.poseRot===undefined) ? null : o.poseRot;
+    const armRot = (poseRot===null) ? swRot : poseRot;
+    const swung = atk>0 || poseRot!==null;
     if (swung){
       if (smear > 0.05){
         ctx.save();
@@ -19068,7 +19151,7 @@ import { FX } from "./fx.js";
         }
         ctx.restore();
       }
-      ctx.save(); ctx.translate(3,-3); ctx.rotate(swRot); ctx.translate(-3,3);
+      ctx.save(); ctx.translate(3,-3); ctx.rotate(armRot); ctx.translate(-3,3);
     }
     // 앞팔 + 손 — 무기와 같은 축으로 휘둘러진다 (스윙 변환 안쪽)
     if (o.chargePose){
@@ -19098,16 +19181,41 @@ import { FX } from "./fx.js";
       ctx.globalAlpha = 1;
       ctx.fillStyle = ink; ctx.strokeStyle = ink;
       ctx.lineWidth = 2;
-    } else if (!o.robe){
+    } else {
+      //  🔴 v6.190 로브 직업(사신)은 `!o.robe` 조건 때문에 **팔이 아예 없었다** — 그래서 낫이
+      //   손 없이 몸 옆에 떠 있는 등불처럼 보였다. 로브도 소매 팔을 갖는다.
       //  🔴 v6.189 **팔이 몸통에 묻혀 안 보였다** — 도트 스프라이트는 **실루엣이 몸 밖으로 나와야** 팔로 읽힌다.
       //   몸통 반폭이 ~5인데 손이 x=7이라 거의 붙어 있었다. 손을 더 내밀고 팔을 조금 굵게.
-      ctx.lineWidth = 3.0;
-      ctx.beginPath(); ctx.moveTo(3,-4); ctx.lineTo(8.4+(swung?0:swing*0.3), 0.2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(9.2+(swung?0:swing*0.3), 1.0, 1.9, 0, Math.PI*2); ctx.fill();
-      // 뒷팔도 반대쪽으로 살짝 빼 실루엣을 좌우로 연다
-      ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.moveTo(-3,-4); ctx.lineTo(-7.2-(swung?0:swing*0.25), 0.6); ctx.stroke();
-      ctx.beginPath(); ctx.arc(-7.9-(swung?0:swing*0.25), 1.4, 1.6, 0, Math.PI*2); ctx.fill();
+      //  🔴 v6.190 **팔을 2관절로** — 어깨에서 손까지 **직선 하나**라 팔이 아니라 '몸에서 뻗은 막대'였다.
+      //   위팔은 몸 밖으로 수평, 아래팔은 손으로 내려꽂아 **ㄱ자로 꺾는다**. 꺾이는 순간 팔로 읽힌다.
+      //   ⚠ 손 위치(≈x9)는 건드리지 않는다 — 37종 프롭이 전부 그 자리를 잡고 그려져 있다.
+      const sf =  (swung?0:swing*0.30);          // 앞팔 걸음 흔들림
+      const sb = -(swung?0:swing*0.25);          // 뒷팔(반대 위상)
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3.2;                                        // 위팔 — 굵다
+      ctx.beginPath(); ctx.moveTo(3,-4.4); ctx.lineTo(8.0+sf,-3.3); ctx.stroke();
+      ctx.lineWidth = 2.6;                                        // 아래팔 — 한 단 가늘게(테이퍼가 팔처럼 보이게 한다)
+      ctx.beginPath(); ctx.moveTo(8.0+sf,-3.3); ctx.lineTo(8.9+sf,0.6); ctx.stroke();
+      ctx.fillStyle = PC.skin;                                    // 손은 밝게 — 무기를 쥔 자리가 보인다
+      ctx.beginPath(); ctx.arc(9.2+sf, 1.3, 1.9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      // 뒷팔도 반대쪽으로 빼 실루엣을 좌우로 연다 (같은 2관절, 한 단 작게)
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(-3,-4.2); ctx.lineTo(-6.9+sb,-3.1); ctx.stroke();
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(-6.9+sb,-3.1); ctx.lineTo(-7.6+sb,0.8); ctx.stroke();
+      ctx.fillStyle = PC.skin;
+      ctx.beginPath(); ctx.arc(-7.9+sb, 1.4, 1.6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      //  v6.190 손목 브레이서는 **아래팔 위에** 그린다 — EQ 블록(몸통 좌표)에 두면 팔에 덮여 안 보였다
+      if (EQ && EQ.hand){
+        const hc = RT[EQ.hand.r] || '#8f9194';
+        ctx.strokeStyle = hc; ctx.lineWidth = 3.0; ctx.lineCap = 'butt';
+        ctx.beginPath(); ctx.moveTo(8.55+sf,-1.5); ctx.lineTo(8.85+sf,-0.2); ctx.stroke();
+        ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(-7.35+sb,-1.3); ctx.lineTo(-7.55+sb,-0.1); ctx.stroke();
+        ctx.strokeStyle = ink; ctx.lineCap = 'round';
+      }
       ctx.lineWidth = 2;
     }
     //  ⚠ 이 save는 **무기 프롭 직전**이어야 한다. 처음엔 `const g` 바로 뒤에 뒀다가
@@ -19643,17 +19751,30 @@ import { FX } from "./fx.js";
     if (wscOn) ctx.restore();              // v6.183 슬롯 배율 변환 닫기 (위 save와 짝)
     if (swung) ctx.restore();
     // v6.48 전직 티어 실물 외형: 2차 = 견갑, 3차 = 가슴 문장석 (직업색)
+    //  🔴 v6.190 **견갑이 어깨 옆에 떠 있는 사각 스티커였다** — 채우기는 `roundRect`인데 테두리는
+    //   `strokeRect`라 모서리가 어긋났고, 위치도 어깨(−5.6,−5.2)가 아니라 그 바깥(−9)이었다.
+    //   ⇒ 어깨 앵커 위에 **덮이는 돔 + 흘러내리는 자락**으로 바꾼다. 몸 곡면에 얹혀야 '입은' 것이 된다.
     if ((o.tier||0)>=2){
+      //  ⚠ 첫 시도는 rx 3.9 / ry 3.0이라 **어깨가 아니라 가슴 절반**을 덮는 큰 원반이 됐다.
+      //   몸통 반폭이 6인데 패드 반폭이 3.9면 어깨가 아니라 방패다. 어깨선 위에만 얹히게 줄인다.
+      const px = -5.4*B.sh, py = -5.6, rx = 2.9*B.tk, ry = 2.2;
       ctx.fillStyle = ink;
-      roundRect(-9,-8.5,5.5,4.5,1.5); ctx.fill();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = o.tierC || ink;
-      ctx.strokeRect(-9,-8.5,5.5,4.5);
+      ctx.beginPath();
+      ctx.ellipse(px, py, rx, ry, -0.16, Math.PI*0.99, Math.PI*2.01);     // 어깨를 덮는 돔
+      ctx.lineTo(px+rx*0.86, py+1.6);                                     // 아래로 흘러내리는 자락
+      ctx.quadraticCurveTo(px, py+2.5, px-rx*0.92, py+1.3);
+      ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 0.9; ctx.strokeStyle = o.tierC || ink; ctx.stroke();
+      ctx.strokeStyle = 'rgba(246,246,244,0.30)'; ctx.lineWidth = 0.7;    // 곡면임을 알리는 능선
+      ctx.beginPath(); ctx.ellipse(px, py, rx*0.55, ry*0.55, -0.16, Math.PI*1.05, Math.PI*1.95); ctx.stroke();
+      ctx.strokeStyle = ink;
     }
+    //  v6.190 문장석도 납작한 마름모 하나였다 — 박힌 대(臺) + 빛 받는 면을 넣어 **박힌 보석**으로 만든다
     if ((o.tier||0)>=3 && o.tierC){
-      ctx.fillStyle = o.tierC;
-      ctx.save(); ctx.translate(0,-1.5); ctx.rotate(Math.PI/4);
-      ctx.fillRect(-1.7,-1.7,3.4,3.4);
+      ctx.save(); ctx.translate(0,-2.0); ctx.rotate(Math.PI/4);
+      ctx.fillStyle = ink;        ctx.fillRect(-2.3,-2.3,4.6,4.6);
+      ctx.fillStyle = o.tierC;    ctx.fillRect(-1.6,-1.6,3.2,3.2);
+      ctx.fillStyle = mixHex(o.tierC,'#ffffff',0.55); ctx.fillRect(-1.6,-1.6,1.5,1.5);
       ctx.restore();
     }
     ctx.restore();
