@@ -5581,30 +5581,30 @@ import { FX } from "./fx.js";
   //   이제 직업마다 3종이 '어떻게 싸우는가'로 갈린다. 근접 직업은 최소 하나가 `cleave`다.
   const CGW_ARCH_OVR = {
     // ── 근접: 베거나(cleave) 자리를 소유한다(aura)
-    samurai:   ['cleave','lance','echo'],      cheol:     ['cleave','quake','aura'],
-    gymbro:    ['cleave','quake','aura'],      monk:      ['cleave','chainx','wave'],
-    paladin:   ['aura','cleave','burst'],      duelist:   ['cleave','lance','snipe'],
-    rusher:    ['lance','cleave','quake'],     madman:    ['cleave','spiral','quake'],
-    exhero:    ['cleave','wave','burst'],      mumyeong:  ['cleave','pierce','echo'],
-    reaper:    ['cleave','aura','rain'],       baeksu:    ['aura','cleave','burst'],
-    shadow:    ['cleave','chainx','spread'],   slime:     ['aura','burst','nova'],
-    bard:      ['aura','chainx','nova'],
+    samurai:   ['u_samurai','lance','echo'],      cheol:     ['u_cheol','quake','aura'],
+    gymbro:    ['u_gymbro','quake','aura'],      monk:      ['u_monk','chainx','wave'],
+    paladin:   ['u_paladin','cleave','burst'],      duelist:   ['u_duelist','lance','snipe'],
+    rusher:    ['u_rusher','cleave','quake'],     madman:    ['u_madman','spiral','quake'],
+    exhero:    ['u_exhero','wave','burst'],      mumyeong:  ['u_mumyeong','pierce','echo'],
+    reaper:    ['u_reaper','aura','rain'],       baeksu:    ['u_baeksu','cleave','burst'],
+    shadow:    ['u_shadow','chainx','spread'],   slime:     ['u_slime','burst','nova'],
+    bard:      ['u_bard','chainx','nova'],
     // ── 도적: 설치·연쇄·기습
-    ninja:     ['trap','spread','cleave'],     blackcat:  ['chainx','spread','trap'],
-    tombraider:['trap','quake','spread'],
+    ninja:     ['u_ninja','spread','cleave'],     blackcat:  ['u_blackcat','spread','trap'],
+    tombraider:['u_tombraider','quake','spread'],
     // ── 원거리: 쏘는 게 맞는 직업들 (정체성 그대로)
-    sniper:    ['snipe','pierce','cross'],     archer:    ['rain','spread','homing'],
-    pilot:     ['snipe','spiral','mortar'],    specialist:['cross','rain','burst'],
-    stonks:    ['burst','spread','mortar'],    gambler:   ['spiral','spread','burst'],
+    sniper:    ['u_sniper','pierce','cross'],     archer:    ['u_archer','spread','homing'],
+    pilot:     ['u_pilot','spiral','mortar'],    specialist:['u_specialist','rain','burst'],
+    stonks:    ['u_stonks','spread','mortar'],    gambler:   ['u_gambler','spread','burst'],
     // ── 마법·소환: 장판·연쇄·궤도
-    manager:   ['mortar','orbitb','rain'],     voidc:     ['chainx','burst','mortar'],
-    necro:     ['aura','homing','rain'],       commander: ['mortar','trap','homing'],
-    runeknight:['chainx','echo','lance'],      druid:     ['aura','rain','orbitb'],
-    engineer:  ['trap','chainx','mortar'],     glitch:    ['spiral','burst','chainx'],
-    debug:     ['chainx','echo','spread'],     returner:  ['echo','orbitb','homing'],
-    contributor:['orbitb','chainx','rain'],
+    manager:   ['u_manager','orbitb','rain'],     voidc:     ['u_voidc','burst','mortar'],
+    necro:     ['u_necro','homing','rain'],       commander: ['u_commander','trap','homing'],
+    runeknight:['u_runeknight','echo','lance'],      druid:     ['u_druid','rain','orbitb'],
+    engineer:  ['u_engineer','chainx','mortar'],     glitch:    ['u_glitch','burst','chainx'],
+    debug:     ['u_debug','echo','spread'],     returner:  ['u_returner','orbitb','homing'],
+    contributor:['u_contributor','chainx','rain'],
     // ── 상인·기타
-    tourist:   ['trap','spread','rain'],       collector: ['orbitb','trap','burst'],
+    tourist:   ['u_tourist','spread','rain'],       collector: ['u_collector','trap','burst'],
   };
   const CGW_NAMES = {
     rusher:['파성추','창격 노바','직진본능'], paladin:['심판의 성광','수호 성진','응보의 검광'], cheol:['혈철 참격','철침 폭산','꿰뚫는 혈창'],
@@ -13114,11 +13114,172 @@ import { FX } from "./fx.js";
         if (!any) w.cd = 0.2;
 
       } else if (def.cgw){
-        // 직업 전용 성장무기 — 발사 원형 8종 공용 엔진
+        // 직업 전용 성장무기 — 공용 원형 + **직업 고유 행동 37종**
+        //  🔴 v6.179 **직업 고유 행동 37종** — 사용자: *"왜 행동을 공유해야해 고유라는 느낌이 없잖아"*
+        //   v6.178은 공용 19종을 나눠 준 것이라 *"최소 하나가 cleave"* 같은 말이 나왔다. 그건 고유가 아니다.
+        //   이제 **직업마다 자기 이름이 붙은 행동**(u_<직업>)을 갖는다. 아무도 공유하지 않는다.
+        //   ⚠ 37개가 같은 원시함수(SL/RING)를 쓰되 **수치·횟수·부가효과가 전부 다르다** —
+        //     발도는 175 길이 단발, 백보권압은 74 길이 3연타, 할퀴기는 회피율이 곱해진다.
+        const SL = (ang, reach, wide, dd, wp, kb)=>{            // 부채꼴 즉시 참격
+          let hit = 0;
+          for (let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i]; if (!e) continue;
+            const dx=e.x-player.x, dy=e.y-player.y, d2=Math.hypot(dx,dy);
+            if (d2 > reach) continue;
+            const da = Math.abs(((Math.atan2(dy,dx)-ang+Math.PI*3)%(Math.PI*2))-Math.PI);
+            if (da > (wide||30)/57.3) continue;
+            e.hp -= dd; addDmgNum(e.x, e.y, dd, Math.random()<player.critChance);
+            staggerEnemy(e, 0.45); procOnHit(e, false, wp.imbue||null);
+            if (kb){ e.x += Math.cos(da)*0; e.knockX=(e.knockX||0)+Math.cos(Math.atan2(dy,dx))*kb; e.knockY=(e.knockY||0)+Math.sin(Math.atan2(dy,dx))*kb; }
+            hit++;
+          }
+          for (const b2 of bosses){ if (!b2) continue;
+            const dx=b2.x-player.x, dy=b2.y-player.y;
+            if (Math.hypot(dx,dy) > reach+16) continue;
+            const da = Math.abs(((Math.atan2(dy,dx)-ang+Math.PI*3)%(Math.PI*2))-Math.PI);
+            if (da <= (wide||30)/57.3 + 0.2){ b2.hp -= dd; addDmgNum(b2.x,b2.y,dd,true); procOnHit(b2,true,wp.imbue||null); hit++; }
+          }
+          if (hit){ freeze = Math.max(freeze, 0.04); shake = Math.min(12, shake+2); }
+          return hit;
+        };
+        const RING = (rad, dd, wp, extra)=>{                    // 내 주위 원형 즉시 타격
+          for (let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i]; if (!e) continue;
+            if (Math.hypot(e.x-player.x, e.y-player.y) > rad) continue;
+            e.hp -= dd; addDmgNum(e.x, e.y, dd, false);
+            staggerEnemy(e, 0.35); procOnHit(e, false, wp.imbue||null);
+            if (extra) extra(e);
+          }
+          for (const b2 of bosses){ if (!b2) continue;
+            if (Math.hypot(b2.x-player.x, b2.y-player.y) > rad+16) continue;
+            b2.hp -= dd; addDmgNum(b2.x, b2.y, dd, true); procOnHit(b2, true, wp.imbue||null);
+          }
+        };
+        const FXA = (ang, reach, life)=> effects.push({ type:'arc', x:player.x, y:player.y, a:ang, r:reach, life:life||0.2, age:0 });
+        const FXR = (rad)=> effects.push({ type:'ring', x:player.x, y:player.y, life:0.24, age:0, r0:8, r1:rad, col:CLASS_COLORS[player.classKey]||null });
+        const C = { t:null, n:0, dmg:0, baseA:0, w:null };
         const t = nearestTarget();
         const n = def.count(w);
         const dmg = def.dmg(w) * player.dmgMult * (w.imbueDmg||1);
         const arch = def.arch;
+        C.t = t; C.n = n; C.dmg = dmg; C.w = w;
+        C.baseA = t ? Math.atan2(t.y-player.y, t.x-player.x) : (player.faceX>0?0:Math.PI);
+        if (arch.indexOf('u_')===0){
+          const baseA = C.baseA;
+          if (arch==='u_samurai'){ /* 발도(拔刀) — 멀리 뻗는 일직선 참격 — 한 번, 깊게 */
+            const L=175; SL(C.baseA, L, 26, C.dmg*2.1, C.w); FXA(C.baseA, L, 0.26);
+          }
+          else if (arch==='u_cheol'){ /* 혈철참 — 내 피를 태워 주변을 원형으로 벤다 */
+            RING(112, C.dmg*1.5, C.w); player.hp=Math.max(1,player.hp-player.maxHp*0.02); FXR(112);
+          }
+          else if (arch==='u_gymbro'){ /* 벤치프레스 — 앞으로 밀어붙여 전부 날려버린다 */
+            SL(C.baseA, 96, 46, C.dmg*1.3, C.w, 340); FXA(C.baseA, 96, 0.3); shake=Math.min(14,shake+5);
+          }
+          else if (arch==='u_monk'){ /* 백보권압 — 3연타 — 세기가 아니라 횟수 */
+            for(let k=0;k<3;k++) SL(C.baseA+(k-1)*0.34, 74, 22, C.dmg*0.62, C.w); FXA(C.baseA, 74, 0.18);
+          }
+          else if (arch==='u_paladin'){ /* 성역 전개 — 내 자리를 성역으로 만든다 — 넓고 오래 */
+            addHazard(player.x, player.y, 118, 2.6, C.dmg*0.55, true); FXR(118);
+          }
+          else if (arch==='u_duelist'){ /* 연속 찌르기 — 한 놈만 본다 — 단일 대상 5연격 */
+            for(let k=0;k<5;k++){ if(!C.t) break; C.t.hp-=C.dmg*0.7; addDmgNum(C.t.x,C.t.y-k*4,C.dmg*0.7,true);} if(C.t) procOnHit(C.t,false,C.w.imbue||null);
+          }
+          else if (arch==='u_rusher'){ /* 기병 돌격 — 내가 직접 파고들며 꿰뚫는다 */
+            player.vx+=Math.cos(C.baseA)*260; player.vy+=Math.sin(C.baseA)*260; SL(C.baseA, 132, 30, C.dmg*1.25, C.w); FXA(C.baseA,132,0.24);
+          }
+          else if (arch==='u_madman'){ /* 광란 — 사방을 아무렇게나 벤다 */
+            for(let k=0;k<4;k++) SL(Math.random()*6.283, 88, 34, C.dmg*0.8, C.w); FXR(88);
+          }
+          else if (arch==='u_exhero'){ /* 전성기의 잔향 — 한때의 검기 — 넓은 반원 */
+            SL(C.baseA, 104, 88, C.dmg*1.15, C.w); FXA(C.baseA, 104, 0.3);
+          }
+          else if (arch==='u_mumyeong'){ /* 무명참 — 적이 많을수록 날이 선다 */
+            const bonus=1+Math.min(1.2, enemies.length*0.02); SL(C.baseA, 92, 40, C.dmg*bonus, C.w); FXA(C.baseA,92,0.22);
+          }
+          else if (arch==='u_reaper'){ /* 수확 — 낫을 돌린다 — 빈사는 즉시 거둔다 */
+            RING(104, C.dmg*1.2, C.w, (e)=>{ if(e.hp>0 && e.hp<e.maxHp*0.22){ e.hp=0; addTextNum(e.x,e.y-14,'수확'); } }); FXR(104);
+          }
+          else if (arch==='u_baeksu'){ /* 눕기 — 움직이지 않을수록 넓어진다 */
+            const st2=Math.hypot(player.vx,player.vy)<24?1.7:1; addHazard(player.x,player.y,86*st2,1.8,C.dmg*0.8,true); FXR(86*st2);
+          }
+          else if (arch==='u_shadow'){ /* 그림자 도약 — 뒤로 돌아가 벤다 */
+            if(C.t){ player.x=C.t.x-Math.cos(C.baseA)*26; player.y=C.t.y-Math.sin(C.baseA)*26; player.invuln=Math.max(player.invuln,0.25); } SL(C.baseA,86,34,C.dmg*1.6,C.w); FXA(C.baseA,86,0.2);
+          }
+          else if (arch==='u_slime'){ /* 몸통 박치기 — 몸을 튕겨 부딪힌다 */
+            RING(72, C.dmg*1.1, C.w); player.vx*=-0.6; player.vy*=-0.6; FXR(72);
+          }
+          else if (arch==='u_bard'){ /* 공명파 — 소리는 벽을 돌아 퍼진다 */
+            RING(96, C.dmg*0.75, C.w); addHazard(player.x,player.y,96,1.0,C.dmg*0.3,true); FXR(96);
+          }
+          else if (arch==='u_ninja'){ /* 분신 참격 — 셋이 동시에 벤다 */
+            for(const off of [-1.6,0,1.6]) SL(C.baseA+off, 78, 26, C.dmg*0.75, C.w); FXR(78);
+          }
+          else if (arch==='u_blackcat'){ /* 할퀴기 — 세 줄로 긁는다 — 회피할수록 날카롭다 */
+            const sh=1+Math.min(0.8,(player.dodge||0)*1.6); for(let k=0;k<3;k++) SL(C.baseA+(k-1)*0.18, 70, 14, C.dmg*0.62*sh, C.w); FXA(C.baseA,70,0.16);
+          }
+          else if (arch==='u_tombraider'){ /* 채찍 끌기 — 멀리서 감아 끌어온다 */
+            for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-player.x,e.y-player.y); if(d2>150||d2<20) continue; const a2=Math.atan2(player.y-e.y,player.x-e.x); e.x+=Math.cos(a2)*38; e.y+=Math.sin(a2)*38; e.hp-=C.dmg*0.9; addDmgNum(e.x,e.y,C.dmg*0.9,false); } FXR(150);
+          }
+          else if (arch==='u_sniper'){ /* 제로인 — 한 발이 줄을 통째로 뚫는다 */
+            projectiles.push({x:player.x,y:player.y,vx:Math.cos(C.baseA)*1180,vy:Math.sin(C.baseA)*1180,r:5,damage:C.dmg*2.6,crit:true,pierce:99,life:1.5,imbue:C.w.imbue||null});
+          }
+          else if (arch==='u_archer'){ /* 곡사 화살비 — 머리 위에서 떨어진다 */
+            for(let i=0;i<C.n+3;i++){ const a2=Math.random()*6.283,d3=Math.random()*110; addHazard((C.t?C.t.x:player.x)+Math.cos(a2)*d3,(C.t?C.t.y:player.y)+Math.sin(a2)*d3,34,0.45,C.dmg*0.8,true); }
+          }
+          else if (arch==='u_pilot'){ /* 융단 폭격 — 한 줄을 따라 터진다 */
+            for(let i=1;i<=6;i++) addHazard(player.x+Math.cos(C.baseA)*i*62, player.y+Math.sin(C.baseA)*i*62, 46, 0.25+i*0.07, C.dmg*0.95, true);
+          }
+          else if (arch==='u_specialist'){ /* 만능 전환 — 가까우면 베고 멀면 쏜다 */
+            const dd=C.t?Math.hypot(C.t.x-player.x,C.t.y-player.y):999; if(dd<110){ SL(C.baseA,96,40,C.dmg*1.3,C.w); FXA(C.baseA,96,0.2);} else { for(let i=0;i<C.n+1;i++){const a2=C.baseA+(i-C.n/2)*0.16; projectiles.push({x:player.x,y:player.y,vx:Math.cos(a2)*620,vy:Math.sin(a2)*620,r:4,damage:C.dmg,crit:Math.random()<player.critChance,pierce:1,life:1.2,imbue:C.w.imbue||null});} }
+          }
+          else if (arch==='u_stonks'){ /* 공매도 — 골드를 태워 그만큼 꽂는다 */
+            const pay=Math.min(DB.gold,40); DB.gold-=pay; const mul=1+pay/40; if(C.t){ addHazard(C.t.x,C.t.y,68,0.3,C.dmg*1.4*mul,true); }
+          }
+          else if (arch==='u_gambler'){ /* 올인 — 대박 아니면 꽝 */
+            const roll=Math.random(); if(roll<0.25){ RING(150,C.dmg*3.2,C.w); FXR(150); addTextNum(player.x,player.y-24,'잭팟!'); } else if(roll<0.55){ if(C.t){C.t.hp-=C.dmg*0.4; addDmgNum(C.t.x,C.t.y,C.dmg*0.4,false);} } else { RING(90,C.dmg*1.1,C.w); FXR(90); }
+          }
+          else if (arch==='u_manager'){ /* 궤도 강하 — 하늘에서 표적 위로 떨어진다 */
+            for(let i=0;i<C.n+1;i++) addHazard((C.t?C.t.x:player.x)+(Math.random()-0.5)*70,(C.t?C.t.y:player.y)+(Math.random()-0.5)*70, 58, 0.55, C.dmg*1.25, true);
+          }
+          else if (arch==='u_voidc'){ /* 흡입 붕괴 — 한 점으로 끌어모아 터뜨린다 */
+            const cx=C.t?C.t.x:player.x, cy=C.t?C.t.y:player.y; for(let i=enemies.length-1;i>=0;i--){ const e=enemies[i]; if(!e) continue; const d2=Math.hypot(e.x-cx,e.y-cy); if(d2>170) continue; const a2=Math.atan2(cy-e.y,cx-e.x); e.x+=Math.cos(a2)*d2*0.35; e.y+=Math.sin(a2)*d2*0.35; } addHazard(cx,cy,84,0.5,C.dmg*1.5,true);
+          }
+          else if (arch==='u_necro'){ /* 망자 소환 — 쓰러진 자리에서 다시 일어난다 */
+            addHazard(player.x,player.y,80,1.4,C.dmg*0.5,true); if(C.t){ addHazard(C.t.x,C.t.y,60,0.9,C.dmg*0.9,true); } player.ghostCap=(player.ghostCap||0);
+          }
+          else if (arch==='u_commander'){ /* 일제 사격 명령 — 내가 쏘지 않는다 — 시킨다 */
+            for(let i=0;i<C.n+3;i++){ const a2=C.baseA+(Math.random()-0.5)*0.5; projectiles.push({x:player.x+(Math.random()-0.5)*40,y:player.y+(Math.random()-0.5)*40,vx:Math.cos(a2)*520,vy:Math.sin(a2)*520,r:4,damage:C.dmg*0.8,crit:false,pierce:1,life:1.3,imbue:C.w.imbue||null}); }
+          }
+          else if (arch==='u_runeknight'){ /* 룬 각인 — 새기고, 잠시 뒤 터진다 */
+            if(C.t){ addHazard(C.t.x,C.t.y,44,0.15,C.dmg*0.5,true); addHazard(C.t.x,C.t.y,88,0.95,C.dmg*1.6,true); }
+          }
+          else if (arch==='u_druid'){ /* 덩굴 확산 — 땅을 타고 번진다 */
+            for(let i=0;i<4;i++){ const a2=C.baseA+(i-1.5)*0.5; addHazard(player.x+Math.cos(a2)*70, player.y+Math.sin(a2)*70, 54, 1.6, C.dmg*0.7, true); }
+          }
+          else if (arch==='u_engineer'){ /* 포탑 설치 — 깔아 두면 알아서 쏜다 */
+            for(let i=0;i<2;i++){ const a2=Math.random()*6.283; addHazard(player.x+Math.cos(a2)*46, player.y+Math.sin(a2)*46, 62, 2.8, C.dmg*0.62, true); }
+          }
+          else if (arch==='u_glitch'){ /* 좌표 오류 — 엉뚱한 곳에서 터진다 */
+            for(let i=0;i<C.n+2;i++) addHazard(player.x+(Math.random()-0.5)*300, player.y+(Math.random()-0.5)*300, 50, 0.3, C.dmg*1.1, true);
+          }
+          else if (arch==='u_debug'){ /* 약점 노출 — 읽어 낸 곳을 정확히 친다 */
+            let best=null,bh=1e9; for(const e of enemies){ if(e&&e.hp<bh){bh=e.hp;best=e;} } const tg=best||C.t; if(tg){ tg.hp-=C.dmg*2.2; addDmgNum(tg.x,tg.y,C.dmg*2.2,true); addTextNum(tg.x,tg.y-16,'약점'); procOnHit(tg,false,C.w.imbue||null); }
+          }
+          else if (arch==='u_returner'){ /* 되감기 — 같은 자리를 두 번 친다 — 시간차로 */
+            if(C.t){ addHazard(C.t.x,C.t.y,52,0.18,C.dmg,true); addHazard(C.t.x,C.t.y,52,0.85,C.dmg,true); addHazard(C.t.x,C.t.y,52,1.5,C.dmg,true); }
+          }
+          else if (arch==='u_contributor'){ /* 병합 — 흩어진 것을 하나로 합쳐 던진다 */
+            if(C.t){ addHazard(C.t.x,C.t.y, 46+C.n*10, 0.35, C.dmg*(1+C.n*0.35), true); }
+          }
+          else if (arch==='u_tourist'){ /* 플래시 — 눈을 멀게 하고 지나간다 */
+            RING(126, C.dmg*0.6, C.w, (e)=>{ e.stagT=Math.max(e.stagT||0, 1.1); }); FXR(126); player.speed*=1.0;
+          }
+          else if (arch==='u_collector'){ /* 진열 — 모은 만큼 세진다 */
+            const own=Math.min(20,(DB.inv||[]).length); RING(88, C.dmg*(0.8+own*0.06), C.w); FXR(88);
+          }
+          SFX.play('shoot');
+          continue;
+        }
         if (arch==='nova'){
           for (let i=0;i<n;i++){ const a=(Math.PI*2/n)*i + Math.random()*0.2;
             projectiles.push({ x:player.x, y:player.y, vx:Math.cos(a)*340, vy:Math.sin(a)*340, r:4, damage:dmg, crit:Math.random()<player.critChance, pierce:1, life:0.7, tracer:true }); }
