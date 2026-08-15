@@ -21598,6 +21598,29 @@ import { FX } from "./fx.js";
     moscowBear:'#7a5c52', kyivDrone:'#4c7ab8', kickboard:'#6a6c70', loanRate:'#8a6a3f',
     awakenOseojin:'#3b82c4', awakenEunJae:'#b8362e', abyssGoDokGeun:'#3aa895'
   };
+  //  🔴 v6.205 **보스 팔레트** — 보스만 옛 통짜 차콜이었다(`o.ink`가 bodyTone을 덮어 악센트 혼합이 죽는다).
+  //   화풍은 플레이어와 같은 도트 5톤(o.pal 경로), **색은 보스 악센트**(HANDOFF 사용자 결정 —
+  //   컬러 해금은 캐릭터까지, 보스는 무채색 + 악센트). 그림자는 차갑게·하이라이트는 따뜻하게(v6.193 색조 이동).
+  //   ⚠ 피부는 무채색 창백으로 둔다 — 얼굴에 색이 돌면 '컬러 해금'을 넘는다.
+  const BOSS_PAL_CACHE = {};
+  function bossPal(key, emp){
+    const ck = key + (emp ? '!' : '');
+    if (BOSS_PAL_CACHE[ck]) return BOSS_PAL_CACHE[ck];
+    const acc = BOSS_ACCENTS[key] || '#b8362e';
+    const dk = (hex, amt)=> mixHex(hex, '#241a45', amt);
+    const lt = (hex, amt)=> mixHex(hex, '#fff2c8', amt);
+    //  몸통이 악센트를 머금는다 — 잡몹(무채색 덩어리)과 실루엣 색부터 갈린다. 분노(emp)는 한 단 어둡게.
+    const cloth = emp ? dk(mixHex('#4a4650', acc, 0.42), 0.24) : mixHex('#4a4650', acc, 0.42);
+    const p = {
+      out: dk(acc, 0.84),
+      hairM: dk(mixHex('#565863', acc, 0.20), 0.30),
+      skinM: '#b6b3ae',
+      clothM: cloth,
+      leaM: dk(mixHex('#6a5f50', acc, 0.14), 0.20),
+      metM: lt(mixHex('#aab0bc', acc, 0.22), 0.18),
+    };
+    BOSS_PAL_CACHE[ck] = p; return p;
+  }
   function drawBoss(b){
     const t = performance.now()/1000;
     const face = player.x > b.x ? 1 : -1;
@@ -21776,7 +21799,7 @@ import { FX } from "./fx.js";
       const scale = 1.9 * (b.emp?1.1:1) * (b.finale?1.5:1) * breath;
       const walk = t*8;
       let robe = (b.kind==='backstab'||b.kind==='esper'||b.kind==='summoner'||b.kind==='root');
-      drawHumanoid(b.x, b.y-4, { face, walk, gear:null, scale, ink: b.emp? ink : ink2, robe, boss:true, tierC: BOSS_ACCENTS[b.key] });
+      drawHumanoid(b.x, b.y-4, { face, walk, gear:null, scale, ink: b.emp? ink : ink2, robe, boss:true, tierC: BOSS_ACCENTS[b.key], pal: bossPal(b.key, b.emp) });
       ctx.save();
       ctx.translate(b.x, b.y-4);
       ctx.scale(face*scale, scale);
