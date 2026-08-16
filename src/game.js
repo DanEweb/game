@@ -1600,10 +1600,10 @@ import { FX } from "./fx.js";
     }
     // 유일 성장무기 — 일반 장비와 같은 행 양식 (희귀도: 유일)
     const GW_LIST = [
-      { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리' },
-      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [궁수 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
-      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
-      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
+      { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리 · 진명검(Lv35+) 계보 각인' },
+      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [궁수 전용] · 각성(Lv15+) 형(型) 선택 · 진각성(Lv30+) 계보 각인' },
+      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용] · 각성(Lv15+) 형(型) 선택 · 진각성(Lv30+) 계보 각인' },
+      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용] · 각성(Lv15+) 형(型) 선택 · 진각성(Lv30+) 계보 각인' },
     ];
     // 직업 유일무기 3종 (현재 탭 직업) — 미발견도 힌트로 표시
     (CGW_NAMES[equipClassTab]||[]).forEach((nm, i)=>{
@@ -5160,12 +5160,12 @@ import { FX } from "./fx.js";
       name:'침묵하는 활', desc:'[유일] 전장을 꿰뚫는 장궁 — 보스의 정수로 성장',
       evName:'침묵하는 활·만개', evDesc:'시위가 스스로 노래하기 시작합니다',
       lvDesc:['','피해 강화','피해 +25%','관통 강화','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 0.95 : 1.2) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
+      baseCd:(w)=> (w.evolved ? 0.95 : 1.2) * gwBranchCd('gbow') * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.bow.lv||1);
         const g = 1 + gl*0.9; // 초반 하향 — 성장의 서사
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * gwBranchDmg('gbow') * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
       count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
     },
@@ -5173,12 +5173,12 @@ import { FX } from "./fx.js";
       name:'굶주린 마도서', desc:'[유일] 스스로 사냥하는 마탄 — 별의 조각으로 성장',
       evName:'굶주린 마도서·탐식', evDesc:'책장이 끝없이 펄럭이며 마탄을 토해냅니다',
       lvDesc:['','마탄 +1','피해 +25%','마탄 +1','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 1.1 : 1.4) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
+      baseCd:(w)=> (w.evolved ? 1.1 : 1.4) * gwBranchCd('gtome') * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.tome.lv||1);
         const g = 0.8 + gl*0.7; // 초반 하향
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * gwBranchDmg('gtome') * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
       count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?2:0)
     },
@@ -5186,12 +5186,12 @@ import { FX } from "./fx.js";
       name:'핏빛 대검', desc:'[유일] 대지를 가르는 참격 — 고대 톱니로 성장',
       evName:'핏빛 대검·개방', evDesc:'봉인이 풀리며 검이 울부짖습니다',
       lvDesc:['','참격 확장','피해 +25%','참격 확장','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 1.25 : 1.6) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
+      baseCd:(w)=> (w.evolved ? 1.25 : 1.6) * gwBranchCd('gblade') * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.blade.lv||1);
         const g = 3 + gl*1.8;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * gwBranchDmg('gblade') * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
       count:(w)=> 1 + (DB.gweps.blade.lv>=25?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0)
     },
@@ -5199,14 +5199,14 @@ import { FX } from "./fx.js";
       name:'무명검', desc:'[유일] 처음엔 형편없지만, 벤 만큼 영원히 성장하는 검',
       evName:'무명검·현신', evDesc:'이름 없는 검이 마침내 제 모습을 드러냅니다',
       lvDesc:['','검기 강화','피해 +25%','검기 확장','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
+      baseCd:(w)=> (w.evolved ? 0.85 : 1.05) * gwBranchCd('nameless') * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = growthEffLv(); // 봉인 해제: 이 판의 처치 수만큼만 본래 힘을 낸다
         const g = 2 + gl*1.1;
         const t = [1,1.25,1.55,1.9,2.3][w.lv-1];
         // 성장 단계 진화 보너스: Lv10 각성 / Lv20 해방 / Lv35 진명검 / Lv60 초월 / Lv100 귀일
         const tier = gl>=100?1.7 : gl>=60?1.5 : gl>=35?1.35 : gl>=20?1.2 : gl>=10?1.1 : 1;
-        const branch = (player&&player.growthBranch==='slash') ? 1.18 : 1;
+        const branch = gwBranchDmg('nameless'); // v6.238 계보: 상시 ×1.10 / 형 공명 ×1.35 / 형만 ×1.18
         return g * t * tier * branch * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
       count:(w)=>{ const gl = growthEffLv(); return 1 + (gl>=15?1:0) + (gl>=30?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0); }
@@ -5867,7 +5867,9 @@ import { FX } from "./fx.js";
     const base = l>=100?'시원의 검·귀일' : l>=60?'무극검·초월' : l>=35?'진명검·현신' : l>=20?'명검·해방' : l>=10?'무명검·각성' : '무명검';
     // v6.230: 형 태그는 그 무기를 실제로 든 런에서만 — 다른 성장무기의 형이 이름에 새면 안 된다
     const bt = (player&&player.growthBranch&&ownedWeapon('nameless')) ? '['+GROWTH_BRANCHES[player.growthBranch].tag+'] ' : '';
-    return bt + base;
+    // v6.238: 계보 문양은 영구라 런 밖(무기고·도감)에서도 보인다
+    const lc = (DB.growth&&DB.growth.lineage) ? '『'+GW_LINEAGE_CHAR.nameless[DB.growth.lineage]+'』' : '';
+    return lc + bt + base;
   }});
   // ---------- v6-3차 핵심: 직업 전용 성장무기 (32직업 × 3종 = 96종) ----------
   // 발사 원형 8종 위에 직업별 이름·파라미터 스킨 — 그 직업으로 보스를 잡다 보면 발견되고, 장착한 채 보스를 잡으면 성장
@@ -6242,8 +6244,12 @@ import { FX } from "./fx.js";
     };
   });
   // v6.230: 형 태그 — 무명검 getter와 같은 규칙 (그 무기를 든 런에서만)
+  // v6.238: 계보 문양(영구)은 앞에 — 런 밖에서도 보인다
   function gwepBranchTag(wkey){
-    return (player&&player.growthBranch&&ownedWeapon(wkey)) ? '['+GWEP_BRANCH_SKIN[wkey][player.growthBranch].tag+'] ' : '';
+    const lk = { gbow:'bow', gtome:'tome', gblade:'blade' }[wkey];
+    const lin = DB.gweps && DB.gweps[lk] && DB.gweps[lk].lineage;
+    const lc = lin ? '『'+GW_LINEAGE_CHAR[wkey][lin]+'』' : '';
+    return lc + ((player&&player.growthBranch&&ownedWeapon(wkey)) ? '['+GWEP_BRANCH_SKIN[wkey][player.growthBranch].tag+'] ' : '');
   }
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.bow.lv)||1;
@@ -6539,6 +6545,41 @@ import { FX } from "./fx.js";
           apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; (player.cardRLock=player.cardRLock||{})[gt.key]=ri; }
         });
       }
+      // v6.238 형별 전용 테크 — **형이 테크 입구다** (로드맵 13 잔여). 이번 런에 개방한 형의 축만 등장하고,
+      // 각인 계보와 그 형이 일치하면(공명) 선택 상한 +1 — 계보가 깊이를 더한다.
+      const GW_AXIS_TECHS = {
+        slash: [
+          { key:'gwx_exec',  name:'처형의 날',   max:2, desc:(m)=>'체력 35% 이하 적에게 '+GWT_SKIN.label+' 피해 +'+R(30*m)+'%', apply:(p,m)=>{ p.gwExec=(p.gwExec||0)+0.30*m; } },
+          { key:'gwx_heavy', name:'무거운 일격', max:2, desc:(m)=>GWT_SKIN.label+' 피해 +'+R(18*m)+'% / 발사 간격 +8%', apply:(p,m)=>{ p.gwDmg=(p.gwDmg||1)*(1+0.18*m); p.gwCd=(p.gwCd||1)*1.08; } },
+        ],
+        gale: [
+          { key:'gwx_pierce', name:'꿰뚫는 바람', max:2, desc:(m)=>GWT_SKIN.shot+' 관통 +2', apply:(p,m)=>{ p.gwPierce=(p.gwPierce||0)+2; } },
+          { key:'gwx_tempo',  name:'질풍 태세',   max:2, desc:(m)=>'처치 시 1.5초간 '+GWT_SKIN.label+' 발사 간격 -18% (중첩)', apply:(p,m)=>{ p.gwTempo=(p.gwTempo||0)+1; } },
+        ],
+        leech: [
+          { key:'gwx_vamp',  name:'피의 대가',   max:2, desc:(m)=>GWT_SKIN.shot+' 명중 시 '+R(8*m)+'% 확률 체력 +1', apply:(p,m)=>{ p.gwVamp=(p.gwVamp||0)+0.08*m; } },
+          { key:'gwx_cycle', name:'생명의 순환', max:2, desc:(m)=>'이 판 동안 재생 +'+(0.5*m).toFixed(1)+'/초', apply:(p,m)=>{ p.regen+=0.5*m; } },
+        ],
+      };
+      const axisNow = player.growthBranch;
+      if (axisNow && GW_AXIS_TECHS[axisNow]){
+        const resonant = gwLineage(gwOwnKey)===axisNow;
+        for (const gt of GW_AXIS_TECHS[axisNow]){
+          if (banned.has(gt.key)) continue;
+          const picks = player.techPicks[gt.key]||0;
+          if (picks >= gt.max + (resonant?1:0)) continue;
+          const lockedG = player.cardRLock && player.cardRLock[gt.key];
+          let ri = rollCardRarity();
+          if (lockedG!==undefined && picks>0 && ri<lockedG) ri = lockedG;
+          const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
+          pool.push({
+            key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
+            name:GWT_SKIN.label+' · '+gt.name, tag:'형(型) 전용'+(resonant?' · 계보 공명':''),
+            desc:gt.desc(m),
+            apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; (player.cardRLock=player.cardRLock||{})[gt.key]=ri; }
+          });
+        }
+      }
     }
 
     // ultimate (전용기): 해금 전까지 반드시 등장, 이후 강화가 풀에 합류
@@ -6716,6 +6757,68 @@ import { FX } from "./fx.js";
               gale: {n:'검풍의 형(型)', d:'이 판 동안 발사 간격 -14%, 참격 +1 — 이름에 [람(嵐)]', tag:'嵐'},
               leech:{n:'혈흡의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [혈(血)]', tag:'血'} },
   };
+  // ---------- v6.238 계보(系譜) — 형(型)의 영구판 (로드맵 12+13잔여+18) ----------
+  // 무기가 진각성 격(무명검 Lv35 / 활·마도서·대검 Lv30)에 닿으면 계보 각인 의식이 열린다.
+  // 한 축을 영구 각인: 이름에 문양이 새겨지고(『斬』류), 그 축이 상시 발동하며, 런제 형과 일치하면 공명한다.
+  // ⚠ 런제 형 선택은 그대로 남는다 — v4.4에서 사용자가 '영구 각인은 판마다 다른 분기를 못 즐긴다'고
+  //   지적해 형을 런제로 바꿨다. 계보는 그 선택을 지우는 게 아니라 **한 축을 깊게 파는 전문화**다.
+  const GW_LINEAGE_CHAR = {
+    nameless:{ slash:'斬', gale:'風', leech:'命' },
+    gbow:    { slash:'貫', gale:'連', leech:'獵' },
+    gtome:   { slash:'蝕', gale:'群', leech:'食' },
+    gblade:  { slash:'碎', gale:'嵐', leech:'血' },
+  };
+  function gwLineage(wkey){
+    if (wkey==='nameless') return (DB.growth && DB.growth.lineage) || null;
+    const m = { gbow:'bow', gtome:'tome', gblade:'blade' }[wkey];
+    return (m && DB.gweps && DB.gweps[m] && DB.gweps[m].lineage) || null;
+  }
+  // 피해 배율: 계보 斬 상시 ×1.10 / 형 공명 ×1.35 / 형만 ×1.18
+  function gwBranchDmg(wkey){
+    const br = player && player.growthBranch, lin = gwLineage(wkey);
+    if (lin==='slash') return br==='slash' ? 1.35 : 1.10;
+    return br==='slash' ? 1.18 : 1;
+  }
+  // 발사 간격 배율: 계보 風 상시 ×0.93 / 형 공명 ×0.78 / 형만 ×0.86 (+질풍 태세 테크의 일시 가속)
+  function gwBranchCd(wkey){
+    const br = player && player.growthBranch, lin = gwLineage(wkey);
+    let m = 1;
+    if (lin==='gale') m = br==='gale' ? 0.78 : 0.93;
+    else if (br==='gale') m = 0.86;
+    if (player && player.gwTempo && (player.__gwTempoT||0) > elapsed) m *= Math.pow(0.82, player.gwTempo);
+    return m;
+  }
+  function gwLineageReady(){
+    if (DB.growth.found && (DB.growth.lv||1)>=35 && !DB.growth.lineage && ownedWeapon('nameless')) return 'nameless';
+    for (const p of [['gbow','bow'],['gtome','tome'],['gblade','blade']]){
+      if (DB.gweps[p[1]].found && (DB.gweps[p[1]].lv||1)>=30 && !DB.gweps[p[1]].lineage && ownedWeapon(p[0])) return p[0];
+    }
+    return null;
+  }
+  function openLineageRite(wkey){
+    const skin = GWEP_BRANCH_SKIN[wkey];
+    const CHAR = GW_LINEAGE_CHAR[wkey];
+    const AXIS_D = {
+      slash:'상시: 피해 +10% / 그 형과 공명 시: +18% → +35%',
+      gale: '상시: 발사 간격 -7% / 공명 시: -14% → -22%',
+      leech:'상시: 회복 효과 +10% / 공명 시: 처치 회복 +1 → +2',
+    };
+    const opts = Object.keys(GROWTH_BRANCHES).map(bk=>{
+      const br = skin ? skin[bk] : GROWTH_BRANCHES[bk];
+      return { l:'『'+CHAR[bk]+'』 '+br.n+'의 계보', d:AXIS_D[bk]+' — 이름에 『'+CHAR[bk]+'』이 영구히 새겨진다', fx:()=>{
+        if (wkey==='nameless') DB.growth.lineage = bk;
+        else DB.gweps[{gbow:'bow',gtome:'tome',gblade:'blade'}[wkey]].lineage = bk;
+        saveDB();
+        toast('⚜ 계보 각인 — 『'+CHAR[bk]+'』 '+br.n+'의 길 (영구)');
+        SFX.play('evolve');
+        renderWeaponRow();
+      } };
+    });
+    opts.push({ l:'아직 각인하지 않는다', d:'각인은 되돌릴 수 없다 — 다음 레벨업 후 다시 묻는다', fx:()=>{ pendingLineageAsk = true; } });
+    openEvent({ t:'⚜ 계보 각인 의식', d:'무기가 격의 끝에 닿았다. 영원히 걸을 하나의 길을 고르라 — 이 각인은 되돌릴 수 없고, 이름에 새겨져 대대로 이어진다.', opts });
+  }
+  let pendingLineageAsk = true;
+
   // 형 개방 조건: 각성급 성장무기를 들고 있을 때 (무명검=해방 lv20 / 활·마도서·대검=각성 lv15 — 각자의 2번째 격)
   function growthBranchReady(){
     if (DB.growth.found && DB.growth.lv>=20 && ownedWeapon('nameless')) return 'nameless';
@@ -6726,12 +6829,15 @@ import { FX } from "./fx.js";
   }
   function openGrowthBranch(wkey){
     const skin = GWEP_BRANCH_SKIN[wkey];
+    const lin = gwLineage(wkey); // v6.238: 각인된 계보와 같은 형을 고르면 공명 (효과 강화)
     const opts = Object.keys(GROWTH_BRANCHES).map(bk=>{
       const br = skin ? skin[bk] : GROWTH_BRANCHES[bk];
-      return { l:br.n, d:br.d, fx:()=>{
+      const res = lin===bk;
+      return { l:(res?'⚜ ':'')+br.n, d:br.d+(res?' — 『계보 공명』 각인된 길이라 효과가 강해진다':''), fx:()=>{
         player.growthBranch = bk;
-        toast('⚔ 형 개방 — '+br.n+'! (이 판 한정)');
+        toast('⚔ 형 개방 — '+br.n+'!'+(res?' 『계보 공명』':' (이 판 한정)'));
         SFX.play('evolve');
+        renderWeaponRow(); // v6.238: [형] 태그가 무기줄에 바로 보이게
       } };
     });
     opts.push({ l:'형을 개방하지 않는다', d:'다음 레벨업 후 다시 물어본다', fx:()=>{ pendingBranchAsk = true; } });
@@ -7171,6 +7277,7 @@ import { FX } from "./fx.js";
     nextSurveyAt = SURVEY_FIRST_AT; nextAltarAt = 60; nextRiftAt = 110;
     bossPool = [];
     pendingBranchAsk = true;
+    pendingLineageAsk = true; // v6.238 계보 각인 의식 — 런마다 다시 물을 수 있다 (각인 전까지)
     midContractIdx = 0;
     egoT = 12; keyHintUntil = 30;
     waveModeRun = waveModePending; sprintWave = 0;
@@ -8592,6 +8699,13 @@ import { FX } from "./fx.js";
   };
   window.__qaWeapon = (key)=>{ // v6.54 QA: 무기 강제 지급 (전향 무기 등 발사 엔진 검증용)
     try { addWeapon(key); return 'weapon+'+key; } catch(e){ return 'ERR '+String(e); }
+  };
+  window.__qaGw = (w, lv, lineage)=>{ // v6.238 QA: 성장무기 발견·레벨·계보 강제 (계보 각인 의식 검증용)
+    try {
+      if (w==='nameless'){ DB.growth.found=true; if (lv!==undefined) DB.growth.lv=lv; if (lineage!==undefined) DB.growth.lineage=lineage; }
+      else { const k={gbow:'bow',gtome:'tome',gblade:'blade'}[w]||w; DB.gweps[k].found=true; if (lv!==undefined) DB.gweps[k].lv=lv; if (lineage!==undefined) DB.gweps[k].lineage=lineage; }
+      saveDB(); return JSON.stringify({growth:DB.growth, gweps:DB.gweps});
+    } catch(e){ return 'ERR '+String(e); }
   };
   window.__qaSpecial = (kind, n)=>{ // v6.227 특수몹 강제 소환
     try { for (let k=0;k<(n||1);k++){ const a=Math.random()*6.283;
@@ -14325,8 +14439,8 @@ import { FX } from "./fx.js";
           const a = baseA + (i - (n-1)/2) * 0.2;
           projectiles.push({
             x:player.x, y:player.y, vx:Math.cos(a)*620, vy:Math.sin(a)*620,
-            r:5, damage:dmg, crit:Math.random()<player.critChance, pierce:6+Math.floor((DB.gweps.bow.lv||1)/8),
-            life:1.2, arrow:true, gwep:'bow', imbue:w.imbue
+            r:5, damage:dmg, crit:Math.random()<player.critChance, pierce:6+Math.floor((DB.gweps.bow.lv||1)/8)+(player.gwPierce||0),
+            life:1.2, arrow:true, gwep:'bow', gwx:true, imbue:w.imbue
           });
         }
         SFX.play('shoot');
@@ -14341,8 +14455,8 @@ import { FX } from "./fx.js";
           const a = Math.random()*Math.PI*2;
           projectiles.push({
             x:player.x, y:player.y, vx:Math.cos(a)*260, vy:Math.sin(a)*260,
-            r:3.5, damage:dmg, crit:false, pierce:0, life:1.8,
-            homing:true, tracer:true, gwep:'tome', imbue:w.imbue
+            r:3.5, damage:dmg, crit:false, pierce:0+(player.gwPierce||0), life:1.8,
+            homing:true, tracer:true, gwep:'tome', gwx:true, imbue:w.imbue
           });
         }
         SFX.play('shoot');
@@ -14357,8 +14471,8 @@ import { FX } from "./fx.js";
           const a = baseA + (i - (n-1)/2) * 0.5;
           projectiles.push({
             x:player.x, y:player.y, vx:Math.cos(a)*280, vy:Math.sin(a)*280,
-            r: w.evolved?18:15, damage:dmg, crit:false, pierce:6, life:0.75,
-            kind:'wave', gwep:'blade', imbue:w.imbue
+            r: w.evolved?18:15, damage:dmg, crit:false, pierce:6+(player.gwPierce||0), life:0.75,
+            kind:'wave', gwep:'blade', gwx:true, imbue:w.imbue
           });
         }
         SFX.play('sweep');
@@ -14375,8 +14489,8 @@ import { FX } from "./fx.js";
             x:player.x, y:player.y,
             vx:Math.cos(a)*300, vy:Math.sin(a)*300,
             r: w.evolved?14:10, damage:dmg, crit:false,
-            pierce: 3 + Math.floor((DB.growth.lv||1)/10), life:0.7,
-            kind:'wave'
+            pierce: 3 + Math.floor((DB.growth.lv||1)/10) + (player.gwPierce||0), life:0.7,
+            kind:'wave', gwx:true
           });
         }
         SFX.play('sweep');
@@ -15850,9 +15964,17 @@ import { FX } from "./fx.js";
       player.hp -= player.maxHp*(player.madmanSlow?0.005:0.008)*dt;
     }
     // 흡명·사냥꾼·포식·혈흡의 형: 성장무기를 든 동안 처치 회복 +1 (v6.230: 4무기 공통)
-    if (player.growthBranch==='leech' && !player.__leechApplied
-        && (ownedWeapon('nameless')||ownedWeapon('gbow')||ownedWeapon('gtome')||ownedWeapon('gblade'))){
-      player.lifesteal += 1; player.__leechApplied = true;
+    // v6.238 계보: 命 각인 공명 시 +2 / 命 각인 상시 회복 효과 +10%
+    {
+      const gwk = ownedWeapon('nameless')?'nameless' : ownedWeapon('gbow')?'gbow' : ownedWeapon('gtome')?'gtome' : ownedWeapon('gblade')?'gblade' : null;
+      if (gwk){
+        if (player.growthBranch==='leech' && !player.__leechApplied){
+          player.lifesteal += (gwLineage(gwk)==='leech') ? 2 : 1; player.__leechApplied = true;
+        }
+        if (gwLineage(gwk)==='leech' && !player.__linHealApplied){
+          player.healMult *= 1.10; player.__linHealApplied = true;
+        }
+      }
     }
     // 백수: 가만히 있으면 강해진다 (움직이면 해제)
     if (player.baeksu){
@@ -16378,7 +16500,14 @@ import { FX } from "./fx.js";
             effects.push({ type:'ring', x:e.x, y:e.y, life:0.25, age:0, r0:6, r1:e.r+14, col:'#cfd6e4' });
             p.damage *= 0.2;
           }
-          const dmgAmt = p.damage * corrodeMult(e);
+          // v6.238 형 전용 테크 — 성장무기 투사체(gwx)에만 걸린다
+          let gwxM = 1;
+          if (p.gwx && player.gwExec && e.hp < e.maxHp*0.35) gwxM = 1 + player.gwExec;      // 처형의 날 (참 축)
+          if (p.gwx && player.gwVamp && player.hp < player.maxHp && Math.random() < player.gwVamp){ // 피의 대가 (명 축)
+            player.hp = Math.min(player.maxHp, player.hp + 1);
+            addTextNum(player.x, player.y-18, '+1');
+          }
+          const dmgAmt = p.damage * gwxM * corrodeMult(e);
           e.hp -= dmgAmt;
           addDmgNum(p.x, p.y, dmgAmt, p.crit);
           burst(p.x,p.y, p.crit?8:4, p.crit?170:90);
@@ -16445,6 +16574,7 @@ import { FX } from "./fx.js";
           }
           if (e.hp<=0){
             defeatEnemy(i);
+            if (p.gwx && player.gwTempo) player.__gwTempoT = elapsed + 1.5; // 질풍 태세 (풍 축)
             if (p.gwep){
               // 유일 무기 성장 (인게임 처치분)
               const gw = DB.gweps[p.gwep];
@@ -17268,6 +17398,7 @@ import { FX } from "./fx.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
+      else if (pendingLineageAsk && gwLineageReady()){ pendingLineageAsk=false; state='playing'; openLineageRite(gwLineageReady()); }
       else if (pendingBranchAsk && !player.growthBranch && growthBranchReady()){ pendingBranchAsk=false; state='playing'; openGrowthBranch(growthBranchReady()); }
       else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
