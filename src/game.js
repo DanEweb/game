@@ -939,54 +939,37 @@ import { FX } from "./fx.js";
   //  🔴 v6.168 **치장** — 칭호마다 다른 이펙트. 능력치가 없는 대신 눈에 띄어야 의미가 있다.
   //   ⚠ 매 프레임 도는 자리라 전부 도형 몇 개로 끝낸다 (파티클 배열을 만들지 않는다)
   function drawTitleFx(t){
+    //  v6.210 칭호 오라 — 치장도 같은 이펙트 문법(글린트·리본 호·룬 다이아)을 쓴다
     if (!t || !t.fx || t.fx === 'none') return;
     const now = performance.now();
     const x = player.x, y = player.y, col = t.col || '#d9a53f';
-    ctx.save();
-    ctx.strokeStyle = col; ctx.fillStyle = col;
-    ctx.shadowColor = col; ctx.shadowBlur = 8;
-    if (t.fx === 'ring'){
-      const a0 = now/700;
-      ctx.globalAlpha = 0.55; ctx.lineWidth = 1.6;
-      for (let k=0;k<2;k++){
-        ctx.beginPath();
-        ctx.arc(x, y, 20 + k*5, a0 + k*2.1, a0 + k*2.1 + 2.2);
-        ctx.stroke();
+    const tcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+    LA_T = 0.3;   // 상시 오라 — 퍼짐 단계에 고정(제일 또렷한 구간)
+    try {
+      if (t.fx === 'ring'){
+        const a0 = now/800;
+        rbArc(x, y+6, 24, a0, a0+2.0, 1.1, col, tcd, 71, 0.02);
+        rbArc(x, y+6, 28, a0+3.14, a0+4.74, 0.9, col, tcd, 73, 0.02);
+      } else if (t.fx === 'motes'){
+        for (let k=0;k<3;k++){ const a=now/900+k*2.094;
+          laGlint(x+Math.cos(a)*22, y+Math.sin(a)*13, 5+Math.sin(now/300+k)*1.5, col, tcd); }
+      } else if (t.fx === 'crown'){
+        const by = y-27+Math.sin(now/500)*1.2;
+        rbStar(x, by-3, 6, 3, 2, 1.1, col, tcd, 77, 0);
+        laGlint(x-8, by, 4.5, col, tcd); laGlint(x+8, by, 4.5, col, tcd);
+      } else if (t.fx === 'halo'){
+        ctx.save(); if (tcd) ctx.globalCompositeOperation='lighter';
+        ctx.globalAlpha = 0.16+0.08*Math.sin(now/600);
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(x, y+10, 24, 12, 0, 0, 6.283); ctx.fill();
+        ctx.restore();
+        laGlint(x, y-24, 5+2*Math.sin(now/400), col, tcd);
+      } else if (t.fx === 'spark'){
+        for (let k=0;k<4;k++){ const a=now/300+k*1.571; const r1=16+((now/90+k*30)%12);
+          laGlint(x+Math.cos(a)*r1, y+Math.sin(a)*r1*0.7, 3.5, col, tcd); }
       }
-    } else if (t.fx === 'motes'){
-      ctx.globalAlpha = 0.7;
-      for (let k=0;k<3;k++){
-        const a = now/900 + k*2.094;
-        ctx.beginPath();
-        ctx.arc(x + Math.cos(a)*22, y + Math.sin(a)*22*0.6, 2.1, 0, 6.283);
-        ctx.fill();
-      }
-    } else if (t.fx === 'crown'){
-      ctx.globalAlpha = 0.85;
-      const by = y - 26 + Math.sin(now/500)*1.2;
-      ctx.beginPath();
-      for (let k=-2;k<=2;k++){
-        ctx.moveTo(x + k*4, by);
-        ctx.lineTo(x + k*4 + 2, by - (k===0?6:4));
-        ctx.lineTo(x + k*4 + 4, by);
-      }
-      ctx.lineWidth = 1.4; ctx.stroke();
-    } else if (t.fx === 'halo'){
-      ctx.globalAlpha = 0.20 + 0.10*Math.sin(now/600);
-      ctx.beginPath(); ctx.arc(x, y, 26, 0, 6.283); ctx.fill();
-    } else if (t.fx === 'spark'){
-      ctx.globalAlpha = 0.75; ctx.lineWidth = 1.4;
-      for (let k=0;k<4;k++){
-        const a = now/300 + k*1.571;
-        const r1 = 16 + ((now/90 + k*30) % 12);
-        ctx.beginPath();
-        ctx.moveTo(x + Math.cos(a)*r1, y + Math.sin(a)*r1*0.7);
-        ctx.lineTo(x + Math.cos(a)*(r1+4), y + Math.sin(a)*(r1+4)*0.7);
-        ctx.stroke();
-      }
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1;
+    } catch(e){}
+    LA_T = 0;
   }
   function checkBossAch(){
     try {
@@ -23223,6 +23206,16 @@ import { FX } from "./fx.js";
     ctx.translate(x, y); ctx.rotate(a);
     if (mirror) ctx.scale(1,-1);
     ctx.scale(k, k); ctx.translate(-256, -256);
+    //  🔴 v6.210 **모션 잔상** — 트렌디한 이펙트는 실루엣이 같아도 '움직임'이 붙는다.
+    //   진행 반대쪽으로 옅은 고스트 두 장 — 정지된 심볼이 아니라 지나가는 이펙트로 읽힌다.
+    for (let gi=2; gi>=1; gi--){
+      ctx.save();
+      ctx.translate(-gi*34, 0);
+      ctx.translate(256,256); const gk=1-gi*0.05; ctx.scale(gk,gk); ctx.translate(-256,-256);
+      ctx.fillStyle = R.deep; ctx.globalAlpha = fade*(gi===1?0.28:0.14);
+      ctx.fill(P);
+      ctx.restore();
+    }
     const g = ctx.createLinearGradient(0, 470, 0, 50);
     g.addColorStop(0, R.deep); g.addColorStop(0.55, R.mid); g.addColorStop(1, R.lit);
     ctx.fillStyle = g; ctx.globalAlpha = 0.94*fade;
@@ -23442,107 +23435,57 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI*2); ctx.stroke();
         ctx.setLineDash([]);
       } else if (fx.type==='arc'){
-        // v6.84 근접 궤적 재작업: 옅은 부채꼴(α0.22)이라 배경에 묻혀 "아무 이펙트도 없다"는 피드백.
-        // → 날이 지나간 자리를 '긁는' 초승달로: 바깥 밝은 날 + 안쪽 그림자 + 끝단 스파크
-        //  🔴 v6.198 **참격을 도트로 다시 찍는다** — 이전은 `arc` + `lineWidth` + 알파 감쇠,
-        //   즉 **부드러운 벡터 호**였다. 몸이 도트인데 참격만 벡터라 v6.194의 무기와 같은 문제였다.
-        //   ⇒ 호 위에 블록을 박고, 시간을 **3단**으로 끊는다(1단 두꺼운 날 → 2단 얇은 날 → 3단 흩어지는 파편).
-        const sweep = fx.arc >= Math.PI*2 ? Math.PI*2 : fx.arc;
-        const prog = fx.age/fx.life;
-        const start = fx.a - sweep/2 + prog*0.4;
-        const acc = fx.col || (dark ? '#e8f2f6' : '#dfe6ea');
-        const RM = fxRamp(acc);
-        const stage = fxStep(prog, 3);
-        ctx.save();
-        //  ⚠ 1차 시안은 부채꼴 **안쪽을 블록으로 가득 채웠다** — 참격이 아니라 **흩어진 구름**이 됐다.
-        //   면을 블록으로 채우면 노이즈다. 그림자는 **날 바로 안쪽 한 줄**이면 충분하다.
-        if (stage < 2){
-          const sh = dark ? 'rgba(255,255,255,0.18)' : 'rgba(20,16,34,0.26)';
-          for (let a2=0; a2<=sweep; a2+=0.075)
-            fxBlock(fx.x+Math.cos(start+a2)*fx.r*0.80, fx.y+Math.sin(start+a2)*fx.r*0.80, sh);
-        }
-        //  날 — 호를 따라 블록을 박는다. 단계가 오를수록 얇아지고 성글어진다
-        const bandN = stage===0 ? 3 : stage===1 ? 2 : 1;      // 날 두께(블록 줄 수)
-        const dStep = stage===2 ? 0.16 : 0.075;               // 성글기
-        for (let a2=0; a2<=sweep; a2+=dStep){
-          if (stage===2 && ((a2*10)|0)%2) continue;           // 마지막 단계는 이가 빠진다
-          const ang2 = start + a2;
-          for (let k=0;k<bandN;k++){
-            const rr = fx.r*(0.96 - k*0.055);
-            const c = k===0 ? RM[0] : (k===1 ? RM[1] : RM[2]);
-            fxBlock(fx.x+Math.cos(ang2)*rr, fx.y+Math.sin(ang2)*rr, c);
-          }
-        }
-        //  끝단 파편 — 날이 빠져나간 지점에서 큰 픽셀이 튄다
-        for (let k=0;k<4;k++){
-          const ea = start + sweep*(0.80 + k*0.07);
-          const er = fx.r*(0.98 + k*0.06) + stage*5;
-          fxBlock(fx.x+Math.cos(ea)*er, fx.y+Math.sin(ea)*er, k<2?RM[0]:RM[1], FXPX+1);
-        }
-        ctx.restore();
+        //  🔴 v6.210 참격 = 쉼표 칼날 — 전 이펙트 문법 통일(사용자: "모든 이펙트를 다 바꿔야해").
+        //   v6.198의 도트 블록 참격은 v6.199에서 '내 판단'이었음이 확인된 것 — 프로 벡터 문법으로 합친다.
+        const acd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const acol = fx.col || (acd ? '#e8f2f6' : '#6a7080');
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { rbBlade(fx.x, fx.y, fx.a, Math.min(2.3, fx.arc||1.5), fx.r*0.95, 4.4, acol, acd, ((fx.x|0)*7+(fx.y|0))&1023, 0.2);
+              laSparks(fx.x, fx.y, fx.a, fx.r*0.85, 2, acol, acd, (fx.x|0)&511); } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='iai'){
-        // v6.93 발도 참격선 — 시작점에서 끝까지 훑고 지나가는 한 줄기 검흔
+        //  v6.210 발도 참격선 — 그라디언트 바늘(심이 끝으로 갈수록 밝다)
+        const icd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
         const pr = Math.min(1, fx.age/fx.life*1.6);
-        const len = fx.r*pr;
-        ctx.save();
-        ctx.translate(fx.x, fx.y); ctx.rotate(fx.a);
-        ctx.globalAlpha = tt;
-        ctx.fillStyle = fx.col || PAL.ink;
-        ctx.fillRect(0, -fx.hw*0.25, len, fx.hw*0.5);              // 심(芯)
-        ctx.globalAlpha = tt*0.35;
-        ctx.fillRect(0, -fx.hw, len, fx.hw*2);                     // 폭
-        if (fx.heavy){                                              // 무거운 일섬: 끝단이 터진다
-          ctx.globalAlpha = tt;
-          for (let k=0;k<3;k++) ctx.fillRect(len-2+k*4, -fx.hw*(0.6-k*0.15), 3, fx.hw*(1.2-k*0.3));
-        }
-        ctx.restore();
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { rbNeedle(fx.x, fx.y, fx.a, fx.r*pr, (fx.heavy?4.2:2.8), fx.col || (icd?'#ffffff':'#3a3d46'), icd, ((fx.x|0)*13)&1023);
+              if (fx.heavy) laGlint(fx.x+Math.cos(fx.a)*fx.r*pr, fx.y+Math.sin(fx.a)*fx.r*pr, 9, fx.col||'#ffffff', icd); } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='slash'){
-        // v6.51 근접 타격 궤적 — 초승달 베기 아크가 적 방향으로 쓸린다 (실제 휘두르는 프레임)
-        const prog = fx.age/fx.life;
-        const sweep = fx.arc||2.0;
-        const start = fx.a - sweep/2 + (fx.dir||1)*0;
-        const end = start + sweep*Math.min(1, prog*1.7);
-        const col = dark ? 'rgba(255,255,255,' : 'rgba(32,33,36,';
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = col+(0.8*tt)+')';
-        ctx.lineWidth = 3.5*tt + 0.5;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r, start, end); ctx.stroke();
-        ctx.strokeStyle = col+(0.3*tt)+')';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*0.7, start+0.12, end); ctx.stroke();
-        ctx.lineCap = 'butt';
+        //  v6.210 근접 타격 궤적 — 쉼표 칼날이 진행도만큼 쓸린다
+        const scd2 = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const sprog = Math.min(1, fx.age/fx.life*1.7);
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { rbBlade(fx.x, fx.y, fx.a, (fx.arc||2.0)*sprog + 0.3, fx.r, 3.4, fx.col || (scd2?'#e8eef4':'#4a4e58'), scd2, ((fx.y|0)*17)&1023, 0.22); } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='sigil'){
-        // v6.56 시전 마법진 — 점선 룬 링 + 4방위 글리프가 돌며 펼쳐진다
-        const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
-        const rot = fx.age*3;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6,7]);
-        ctx.lineDashOffset = -fx.age*40;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI*2); ctx.stroke();
-        ctx.setLineDash([]);
-        for (let k=0;k<4;k++){
-          const a = rot + k*Math.PI/2;
-          ctx.save();
-          ctx.translate(fx.x+Math.cos(a)*r, fx.y+Math.sin(a)*r);
-          ctx.rotate(a+Math.PI/4);
-          ctx.strokeRect(-2.4,-2.4,4.8,4.8);
-          ctx.restore();
-        }
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, r*0.65, 0, Math.PI*2); ctx.stroke();
+        //  v6.210 시전 마법진 — 리본 이중 링 + 룬 다이아 4 + 심 반짝임
+        const gcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const sr = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
+        const srot = fx.age*2.4;
+        const scol = fx.col || '#e8c56a';
+        LA_T = Math.min(1, fx.age/fx.life);
+        try {
+          rbRing(fx.x, fx.y, sr, 1.5, scol, gcd, 41, 0.02);
+          rbRing(fx.x, fx.y, sr*0.6, 1.1, scol, gcd, 43, 0.02);
+          for (let k=0;k<4;k++){ const a2=srot+k*1.5708;
+            rbStar(fx.x+Math.cos(a2)*sr*0.82, fx.y+Math.sin(a2)*sr*0.82, 6.5, 3.6, 2, 1.2, scol, gcd, 45+k, a2); }
+          laGlint(fx.x, fx.y, 8+6*(1-LA_T), scol, gcd);
+        } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='rays'){
-        ctx.lineWidth = 2;
-        for (let k=0;k<7;k++){
-          const a = (Math.PI*2/7)*k - Math.PI/2;
-          const r0 = 12 + (1-tt)*30;
-          ctx.beginPath();
-          ctx.moveTo(fx.x+Math.cos(a)*r0, fx.y+Math.sin(a)*r0);
-          ctx.lineTo(fx.x+Math.cos(a)*(r0+14*tt), fx.y+Math.sin(a)*(r0+14*tt));
-          ctx.stroke();
-        }
+        //  v6.210 궁극 방사광 — 그라디언트 바늘 7방이 돌며 뻗는다
+        const ycd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        const rcol = fx.col || '#e8c56a';
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { for (let k=0;k<7;k++){ const a2=(6.283/7)*k - 1.5708 + LA_T*0.4;
+          rbNeedle(fx.x+Math.cos(a2)*10, fx.y+Math.sin(a2)*10, a2, 24+34*(1-tt), 2.2, rcol, ycd, 61+k*17); } } catch(e){}
+        LA_T = 0;
       } else if (fx.type==='muzzle'){
-        ctx.fillStyle = PAL.ink;
-        ctx.beginPath(); ctx.arc(fx.x, fx.y, 4*tt, 0, Math.PI*2); ctx.fill();
+        const mcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+        LA_T = Math.min(1, fx.age/fx.life);
+        try { laGlint(fx.x, fx.y, 4+5*tt, fx.col || PAL.ink, mcd); } catch(e){}
+        LA_T = 0;
       }
       ctx.restore();
     }
