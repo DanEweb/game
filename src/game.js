@@ -3390,7 +3390,7 @@ import { FX } from "./fx.js";
     //  랜스(−41°)는 길이가 22라 살짝만 세워도 **창끝이 액자 밖으로** 나간다. 거의 그대로 둔다.
     rusher: { poseRot: -0.02 },
   };
-  //  🔴 v6.191 새 초상화 — 치비 렌더러 + 팔레트 강제 스냅. (구버전은 `classPortraitOld`로 남겨 뒀다)
+  //  🔴 v6.191 새 초상화 — 치비 렌더러 + 팔레트 강제 스냅.
   //   ⚠ 순서가 전부다: **그린다 → (배경 없이) 팔레트 스냅 → 아웃라인 → 최근접 확대 → 배경 위에 합성.**
   //    이전 버전은 스냅(포스터라이즈) **뒤에** 그라디언트를 칠해 948색이 나왔다.
   function classPortrait(key){
@@ -3460,121 +3460,7 @@ import { FX } from "./fx.js";
   //  ⚠ v6.190까지의 초상화 파이프라인 — **호출되지 않는다.** 새 그림이 마음에 안 들 때 한 줄로 되돌리려고
   //   한 버전만 남겨 둔다. v6.192에서 새 것이 자리 잡으면 지울 것.
   //   (이 함수가 948색이 나오던 그 순서다: 포스터라이즈 → 확대 → **그 위에 그라디언트**)
-  function classPortraitOld(key){
-    if (PORTRAIT_CACHE[key]) return PORTRAIT_CACHE[key];
-    //  ⚠ 세 번째 액자 조정 — v6.173에서 직업 체형이 붙으면서 **키 큰 직업(사신 h1.08)의 긴 프롭(낫)**이
-    //   위로 더 뻗어 잘렸다. 캐릭터 범위만이 아니라 **프롭 길이까지** 봐야 한다.
-    const W = 132, H = 120, DPR = Math.min(2, window.devicePixelRatio||1);
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
-    cv.style.cssText = 'width:100%;height:'+H+'px;display:block;border-radius:8px;';
-    const g = cv.getContext('2d');
-    g.setTransform(DPR,0,0,DPR,0,0);
-    const col = CLASS_COLORS[key] || '#767884';
-    const grp = classResGroup(key);
-    // 배경: 직업색 방사광 + 아래로 가라앉는 바닥
-    const bg = g.createRadialGradient(W/2, H*0.42, 4, W/2, H*0.42, W*0.62);
-    bg.addColorStop(0, mixHex('#f2f2ef', col, 0.30));
-    bg.addColorStop(0.62, mixHex('#ececeb', col, 0.10));
-    bg.addColorStop(1, '#e6e6e4');
-    g.fillStyle = bg; g.fillRect(0,0,W,H);
-    // 계열 문장 — 캐릭터 뒤에 크게 깔리는 기하 문양 (계열마다 다른 도형)
-    g.save();
-    g.globalAlpha = 0.16; g.strokeStyle = col; g.lineWidth = 2.4;
-    g.translate(W/2, H*0.46);
-    const R = 30;
-    if (grp==='war'){ g.beginPath(); for(let i=0;i<4;i++){ const a=i*Math.PI/2; g.lineTo(Math.cos(a)*R, Math.sin(a)*R); } g.closePath(); g.stroke(); }
-    else if (grp==='rng'){ g.beginPath(); g.arc(0,0,R,-0.9,0.9); g.stroke(); g.beginPath(); g.moveTo(-R,0); g.lineTo(R*0.8,0); g.stroke(); }
-    else if (grp==='mag'){ for(let k=0;k<3;k++){ g.beginPath(); g.arc(0,0,R-k*8,0,6.283); g.stroke(); } }
-    else if (grp==='rog'){ g.beginPath(); g.moveTo(-R,-R*0.5); g.lineTo(R,R*0.5); g.moveTo(R,-R*0.5); g.lineTo(-R,R*0.5); g.stroke(); }
-    else if (grp==='pri'){ g.beginPath(); g.moveTo(0,-R); g.lineTo(0,R); g.moveTo(-R*0.6,-R*0.25); g.lineTo(R*0.6,-R*0.25); g.stroke(); }
-    else { g.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3; g.lineTo(Math.cos(a)*R, Math.sin(a)*R); } g.closePath(); g.stroke(); }
-    g.restore();
-    // 바닥 그림자
-    g.save(); g.globalAlpha = 0.14; g.fillStyle = '#202124';
-    g.beginPath(); g.ellipse(W/2, H*0.86, 22, 5, 0, 0, 6.283); g.fill(); g.restore();
-    // 캐릭터 — 인게임과 같은 벡터 바디를 크게 (드로잉 대상만 잠시 바꿔치기)
-    //  ⚠ 배율 3.2로 뒀더니 **발이 액자 밖으로 잘렸다**. 몸통은 국소좌표로 머리끝 −18 ~ 발 +13(31단위)이라
-    //   배율 S일 때 세로로 31·S 픽셀을 먹는다. 96px 액자에 여백까지 넣으려면 2.6이 상한이다
-    //  ⚠ 2.6도 여전히 **머리 위가 잘렸다** — 몸통 −18만 보고 계산했는데 실제로는
-    //   전직 표식(머리 위 별)과 탈것이 그 위/아래로 더 나간다. 실측 범위는 대략 −22 ~ +14(36단위).
-    const S = 2.0;   // v6.187 도트 확대는 같은 배율이라도 더 커 보인다
-    const pose = Object.assign({ face:1, walk:0, gear:key, scale:S, tierC:col, wslot:(window.__forceSlot===undefined?0:window.__forceSlot) },
-                               PORTRAIT_POSE[grp] || PORTRAIT_POSE.war);
-    if (key==='reaper') pose.robe = true;
-    if (key==='rusher') pose.mount = 'horse';
-    if (PORTRAIT_POSE_CLASS[key]) Object.assign(pose, PORTRAIT_POSE_CLASS[key]);
-    //  v6.190 QA: 장비 착용 외형은 인게임에서만 보이는데 런을 돌려야 해서 검수가 어렵다.
-    //   `__forceEq`를 세우면 초상화가 그 장비를 입은 채로 그려진다(무게·희귀도별 실루엣 확인용).
-    if (window.__forceEq) pose.eq = window.__forceEq;
-    //  캐릭터만 따로 그린 뒤 음영을 입혀 합성한다 — 인게임 도트 경로엔 있는 3톤 셰이딩이
-    //  벡터 경로엔 없어서, 그냥 그리면 **납작한 검은 실루엣**으로 보인다
-    //  🔴 v6.187 **초상화가 도트 파이프라인을 안 탔다** — 눈으로 보니 인게임은 도트인데
-    //   초상화만 **안티앨리어싱된 벡터**라 흐릿했다. `drawHumanoidVec`를 직접 불렀기 때문이다.
-    //   인게임 경로(`drawHumanoid`)는 **저해상도 버퍼에 그린 뒤 포스터라이즈 + 아웃라인**을 거친다.
-    //   초상화도 같은 처리를 태워 **같은 그림**이 되게 한다.
-    //   ⚠ 버퍼 해상도(PPU)가 곧 도트 굵기다 — 크게 잡으면 다시 벡터처럼 매끈해진다.
-    const PPU = 1.05, BSZ = 128;
-    const bb = document.createElement('canvas'); bb.width = BSZ; bb.height = BSZ;
-    const bg2 = bb.getContext('2d');
-    const main = ctx;
-    bg2.setTransform(PPU,0,0,PPU, BSZ/2, BSZ*0.62);
-    ctx = bg2;
-    try { drawHumanoidVec(0, 0, Object.assign({}, pose, { scale:1 })); } catch(e){} finally { ctx = main; }
-    // 인게임과 같은 3톤 셰이딩 → 포스터라이즈 → 아웃라인
-    bg2.setTransform(1,0,0,1,0,0);
-    bg2.save();
-    bg2.globalCompositeOperation = 'source-atop';
-    const shd = bg2.createLinearGradient(0, BSZ*0.62-19*PPU, 0, BSZ*0.62+14*PPU);
-    shd.addColorStop(0,    'rgba(255,252,240,0.30)');
-    shd.addColorStop(0.40, 'rgba(255,252,240,0.08)');
-    shd.addColorStop(0.62, 'rgba(0,0,0,0)');
-    shd.addColorStop(1,    'rgba(10,10,14,0.32)');
-    bg2.fillStyle = shd; bg2.fillRect(0,0,BSZ,BSZ);
-    bg2.restore();
-    try { dotPosterize(bg2, BSZ); } catch(e){}
-    const ob = document.createElement('canvas'); ob.width = BSZ; ob.height = BSZ;
-    try { dotOutline({ c:bb, ox:ob.getContext('2d') }, BSZ, '#26272e'); } catch(e){}
-    // 도트 버퍼를 액자 크기로 **확대**한다 — 부드럽게 늘리면 도트가 죽는다
-    const ch = document.createElement('canvas');
-    ch.width = Math.round(W*DPR); ch.height = Math.round(H*DPR);
-    const cg = ch.getContext('2d');
-    cg.imageSmoothingEnabled = false;
-    //  ⚠ 버퍼 원점은 (BSZ/2, BSZ*0.62)이지 버퍼 중앙이 아니다.
-    //   가로·세로에 같은 `half`를 쓰면 **세로가 34px 어긋나 하반신이 잘린다**(실제로 잘렸다).
-    //   확대비 k로 원점을 각각 환산할 것.
-    const k = S / PPU;
-    const dw = BSZ * k;
-    const dx = W/2      - (BSZ/2)    * k;
-    const dy = H*0.62   - (BSZ*0.62) * k;
-    cg.setTransform(DPR,0,0,DPR,0,0);
-    cg.imageSmoothingEnabled = false;
-    cg.drawImage(ob, dx, dy, dw, dw);
-    cg.drawImage(bb, dx, dy, dw, dw);
-    // 실루엣 안쪽에만: 위 하이라이트 · 아래 그림자 · 직업색 반사광
-    cg.save();
-    cg.setTransform(DPR,0,0,DPR,0,0);
-    cg.globalCompositeOperation = 'source-atop';
-    const sh = cg.createLinearGradient(0, H*0.62-19*S, 0, H*0.62+14*S);
-    sh.addColorStop(0,    'rgba(255,252,240,0.30)');
-    sh.addColorStop(0.40, 'rgba(255,252,240,0.08)');
-    sh.addColorStop(0.62, 'rgba(0,0,0,0)');
-    sh.addColorStop(1,    'rgba(10,10,14,0.30)');
-    cg.fillStyle = sh; cg.fillRect(0,0,W,H);
-    // 직업색 림라이트 — 왼쪽 위에서 들어오는 빛이 색을 띤다
-    const rim = cg.createLinearGradient(W*0.30, 0, W*0.70, H);
-    rim.addColorStop(0, mixHex('#000000', col, 1) + '55');
-    rim.addColorStop(0.5, 'rgba(0,0,0,0)');
-    cg.fillStyle = rim; cg.fillRect(0,0,W,H);
-    cg.restore();
-    g.drawImage(ch, 0, 0, W, H);
-    // 상단 광택 — 배경과 카드가 맞붙어 밋밋해지지 않게
-    const gl = g.createLinearGradient(0,0,0,H*0.5);
-    gl.addColorStop(0,'rgba(255,255,255,0.35)'); gl.addColorStop(1,'rgba(255,255,255,0)');
-    g.fillStyle = gl; g.fillRect(0,0,W,H*0.5);
-    PORTRAIT_CACHE[key] = cv;
-    return cv;
-  }
+
   //  잠긴 직업 — 실루엣만 보여 준다 (뭘 얻게 되는지는 알되, 정체는 감춘다)
   function lockedPortrait(key){
     const k = '__lock_'+key;
@@ -23508,8 +23394,14 @@ import { FX } from "./fx.js";
   }
   function drawEffects(){
     const dark = MAP.key==='abyss';
+    //  v6.224 링 스팸 완화 — 성유물+물량전에서 링 수십 장이 겹쳐 화면이 금색으로 덮였다(v6.204 발견).
+    //   피해·판정은 그대로 두고 **그리기만** 최근 12장으로 자른다(오래된 것부터 생략).
+    let ringTotal = 0;
+    for (const fx of effects) if (fx.type==='ring' && fx.age >= 0) ringTotal++;
+    let ringSkip = Math.max(0, ringTotal - 12);
     for (const fx of effects){
       if (fx.age < 0) continue;   // v6.169 시차 이펙트(공명 파문·시간 잔상)는 아직 등장 전이다
+      if (fx.type==='ring' && ringSkip > 0){ ringSkip--; continue; }
       const tt = 1 - fx.age/fx.life;
       ctx.save();
       ctx.globalAlpha = Math.max(0,tt);
