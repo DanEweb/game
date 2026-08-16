@@ -20616,49 +20616,43 @@ import { FX } from "./fx.js";
     return best;
   }
   function drawRankAura(){
+    //  🔴 v6.216 등급 치장을 새 이펙트 문법으로 — 리본 스윕·글린트·블룸(v6.210 칭호 오라와 같은 결).
+    //   원칙 유지: 몸 아래에 깔리고, 주인공을 가리지 않는다.
     const r = gearRank();
-    const sacred = !!player.sacredTitle;          // 絶名 계승자는 등급과 별개로 최상위 연출을 받는다
+    const sacred = !!player.sacredTitle;
     if (r < 3 && !sacred) return;
     const now = performance.now();
     const col = sacred ? '#e0a94f' : (RANK_TINT[r] || '#8f9194');
     const x = player.x, y = player.y;
-    ctx.save();
-    ctx.strokeStyle = col; ctx.fillStyle = col;
-    ctx.shadowColor = col;
-    // ── 3 에픽: 발밑 링 하나 (있다는 것만 알린다)
-    ctx.globalAlpha = 0.30; ctx.lineWidth = 1.4; ctx.shadowBlur = 5;
-    ctx.beginPath(); ctx.ellipse(x, y+15, 13, 4.2, 0, 0, 6.283); ctx.stroke();
-    // ── 4 전설: 반대로 도는 두 번째 링 + 떠오르는 문양
-    if (r >= 4 || sacred){
-      ctx.globalAlpha = 0.34; ctx.lineWidth = 1.2;
+    const acd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+    const ground = (fn)=>{ ctx.save(); ctx.translate(x, y+15); ctx.scale(1, 0.34); ctx.translate(-x, -(y+15)); try{ fn(); }catch(e){} ctx.restore(); };
+    LA_T = 0.3;
+    try {
+      //  3 에픽 — 발밑 리본 스윕 하나 (있다는 것만 알린다)
       const a0 = now/900;
-      ctx.beginPath(); ctx.ellipse(x, y+15, 18, 5.6, 0, a0, a0+2.4); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(x, y+15, 18, 5.6, 0, a0+3.14, a0+3.14+2.4); ctx.stroke();
-    }
-    // ── 5 유니크: 발밑에서 솟아 사라지는 입자 3점
-    if (r >= 5 || sacred){
-      ctx.globalAlpha = 0.55;
-      for (let k=0;k<3;k++){
-        const t = ((now/1100) + k/3) % 1;
-        const px = x + Math.sin(now/700 + k*2.1)*9;
-        ctx.globalAlpha = 0.55*(1-t);
-        ctx.beginPath(); ctx.arc(px, y+15 - t*26, 1.6, 0, 6.283); ctx.fill();
+      ground(()=>{ rbArc(x, y+15, 15, a0, a0+2.2, 1.0, col, acd, 83, 0.02); });
+      //  4 전설 — 반대로 도는 두 번째 스윕 + 발밑 블룸
+      if (r >= 4 || sacred){
+        ground(()=>{ rbArc(x, y+15, 20, -a0*0.8+3.14, -a0*0.8+4.94, 0.9, col, acd, 85, 0.02);
+                     laBloom(x, y+15, 18, col, acd, 0.4); });
       }
-    }
-    // ── 6 태초 / 絶名: 머리 위 회전 문장 + 몸을 감싸는 잔광
-    if (r >= 6 || sacred){
-      ctx.globalAlpha = 0.42; ctx.lineWidth = 1.5; ctx.shadowBlur = 9;
-      const a1 = now/1400;
-      ctx.save(); ctx.translate(x, y-26); ctx.rotate(a1);
-      ctx.beginPath();
-      for (let k=0;k<3;k++){ const a=k*2.094; ctx.lineTo(Math.cos(a)*6.5, Math.sin(a)*6.5); }
-      ctx.closePath(); ctx.stroke();
-      ctx.restore();
-      ctx.globalAlpha = 0.14;
-      ctx.beginPath(); ctx.arc(x, y-1, 20 + Math.sin(now/520)*1.6, 0, 6.283); ctx.fill();
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      //  5 유니크 — 솟아오르며 옅어지는 글린트 3점
+      if (r >= 5 || sacred){
+        for (let k=0;k<3;k++){
+          const t2 = ((now/1100) + k/3) % 1;
+          const px = x + Math.sin(now/700 + k*2.1)*9;
+          LA_T = 0.25 + t2*0.6;
+          laGlint(px, y+13 - t2*28, 3.4, col, acd);
+        }
+        LA_T = 0.3;
+      }
+      //  6 태초 / 絶名 — 머리 위 회전 룬 다이아 + 몸 잔광
+      if (r >= 6 || sacred){
+        rbStar(x, y-27+Math.sin(now/520)*1.4, 6.5, 3.4, 2, 1.1, col, acd, 87, now/1400);
+        laBloom(x, y-1, 22 + Math.sin(now/520)*2, col, acd, 0.3);
+      }
+    } catch(e){}
+    LA_T = 0;
   }
   //  🔴 v6.172 **무기 3층 외형 위계** — 사용자: *"유일무기 성장무기 성유물은 그 급에따라서 정말 멋있게"*
   //   무명검(v6.49)만 레벨별로 자라고 나머지 259종(CGW 111·PGW 111·성물 37)은 **전부 같은 그림**이었다.
