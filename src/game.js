@@ -1824,6 +1824,41 @@ import { FX } from "./fx.js";
         invList.appendChild(bulkRow);
       }
     }
+    // v6.236 로드맵 4번 잔여: 세트 조각 합성 — 겹치는 조각 3개를 녹여 없는 조각 하나로 (3셋 완성 가속)
+    {
+      const setPieces = DB.inv.filter(i=>i.set && !allEquippedIds().has(i.id));
+      const ownedNames = new Set(DB.inv.filter(i=>i.set).map(i=>i.name.replace(/^각성 · /,'')));
+      const missing = [];
+      for (const sk in SET_DEFS) for (const it of SET_DEFS[sk].items) if (!ownedNames.has(it.name)) missing.push({sk, it});
+      if (setPieces.length>=3 && missing.length){
+        const fusRow = document.createElement('div');
+        fusRow.className = 'shopItem';
+        fusRow.innerHTML = '<div class="info"><div class="nm">🧩 세트 조각 합성</div>'
+          + '<div class="ds">미장착 세트 조각 3개 + 300G → <b>미보유 조각 1개</b> (중복 조각·낮은 강화부터 소모)</div></div>';
+        const fusBtn = document.createElement('button');
+        fusBtn.className = 'buy';
+        fusBtn.textContent = '합성 (300G)';
+        fusBtn.disabled = DB.gold < 300;
+        fusBtn.addEventListener('click', ()=>{
+          if (DB.gold < 300) return;
+          // 소모 우선순위: 중복 보유 조각 먼저 → 강화 안 된 것 → 오래된 것 (장착품은 애초에 제외)
+          const cnt = {}; for (const p of DB.inv) if (p.set) cnt[p.name]=(cnt[p.name]||0)+1;
+          const feed = setPieces.slice().sort((a,b)=>
+            ((cnt[b.name]>1?1:0)-(cnt[a.name]>1?1:0)) || ((a.plus||0)-(b.plus||0)) || (a.id-b.id)).slice(0,3);
+          const ids = new Set(feed.map(i=>i.id));
+          DB.inv = DB.inv.filter(i=>!ids.has(i.id));
+          DB.gold -= 300;
+          const pick = missing[(Math.random()*missing.length)|0];
+          addEquip({ id:DB.nextId++, slot:pick.it.slot, r:4, name:pick.it.name,
+            stats:pick.it.stats.map(s=>({k:s.k,v:s.v})), affix:null, set:pick.sk });
+          questAdd('craft',1);
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          toast('🧩 합성 — ['+pick.it.name+'] 획득!'); SFX.play('evolve');
+        });
+        fusRow.appendChild(fusBtn);
+        invList.appendChild(fusRow);
+      }
+    }
     sorted.forEach((item)=>{
       const isEq = equippedIds.includes(item.id);
       const row = document.createElement('div');
@@ -1877,6 +1912,26 @@ import { FX } from "./fx.js";
           renderEquip(); goldVal.textContent = DB.gold;
         });
         row.appendChild(enhBtn);
+      }
+      // v6.236 로드맵 4번 잔여: 유니크 각성 의식 — 재료를 바쳐 유일 장비의 격을 올린다 (1회, 스탯 ×1.25)
+      // ⚠ 음수 스탯(포식자의 두개골 hp-20)도 같이 커진다 — 양날 유니크는 각성도 양날이다 (의도)
+      if (item.unique && !item.awakened){
+        const awBtn = document.createElement('button');
+        awBtn.className = 'buy sec';
+        awBtn.textContent = '✦ 각성 (★2 ◆2 +1500G)';
+        const canAw = DB.mats.shard>=2 && DB.mats.essence>=2 && DB.gold>=1500;
+        awBtn.disabled = !canAw;
+        awBtn.addEventListener('click', ()=>{
+          if (!(DB.mats.shard>=2 && DB.mats.essence>=2 && DB.gold>=1500)) return;
+          DB.mats.shard-=2; DB.mats.essence-=2; DB.gold-=1500;
+          item.awakened = true;
+          item.stats = item.stats.map(s=>({ k:s.k, v: Math.round(s.v*1.25*10)/10 }));
+          item.name = '각성 · '+item.name;
+          questAdd('craft',1);
+          saveDB(); renderEquip(); goldVal.textContent = DB.gold;
+          toast('✦ ['+item.name+'] — 유일 장비가 각성했다'); SFX.play('evolve');
+        });
+        row.appendChild(awBtn);
       }
       if (!isEq && !allEquippedIds().has(item.id)){
         const sellBtn = document.createElement('button');
