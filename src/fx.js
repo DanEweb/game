@@ -1,6 +1,8 @@
 // Pixi WebGL 이펙트 레이어 — Canvas2D 월드 위에 겹쳐지는 가산 합성 파티클
 // 1단계 도입: 폭발/처치/보스 연출을 WebGL 파티클로. (월드 렌더러 이관은 다음 단계)
-import { Application, Container, Sprite, Texture, BLEND_MODES } from 'pixi.js';
+// v6.232: BLEND_MODES는 pixi 8에 없는 export인데 import만 하고 안 썼다(블렌드는 문자열 'add' 사용).
+// 프로덕션 번들은 통과하지만 vite dev의 실 ESM 로드는 여기서 죽어 npm run dev가 안 떴다.
+import { Application, Container, Sprite, Texture } from 'pixi.js';
 
 let app = null, layer = null, ready = false, failed = false;
 let camX = 0, camY = 0, viewW = 940, viewH = 588, camS = 1;
