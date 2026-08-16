@@ -196,3 +196,71 @@ export const FX = {
   },
   get enabled(){ return ready; }
 };
+
+// ---------- v6.239 Pixi 3단계: 몹 본체 WebGL 레이어 ----------
+// 게임 캔버스(지면·장판·투사체) 위, 오버레이 캔버스(보스·플레이어·이펙트) 아래에 끼는 두 번째 WebGL 캔버스.
+// 몹 본체는 이미 dotPush 스프라이트 캐시(키 있는 베이크 캔버스)로 그려지므로,
+// 그 캔버스를 텍스처로 한 번만 올리고 프레임마다 스프라이트 배치만 바꾼다 — 본체 blit이 GPU 배치 렌더가 된다.
+// ⚠ 도트 격자 보존: resolution=DPR + scaleMode 'nearest' (CSS 확대는 linear라 도트가 뭉개진다)
+let wApp = null, wLayer = null, wReady = false, wFailed = false;
+let wVS = 1, wCamX = 0, wCamY = 0, wW = 940, wH = 588;
+const wTex = new Map();            // key → Texture (SPR 키와 동일 — 키가 내용을 완전 결정하므로 재베이크돼도 같은 그림)
+const W_TEX_MAX = 500;
+const wSprites = [];               // 스프라이트 풀
+let wCount = 0;                    // 이번 프레임 사용 수
+
+export const WORLD = {
+  async init(hostEl){
+    if (wReady || wFailed) return;
+    try {
+      wApp = new Application();
+      await wApp.init({ width:wW, height:wH, backgroundAlpha:0, antialias:false, autoStart:false, preference:'webgl', resolution:Math.min(window.devicePixelRatio||1,2), autoDensity:true });
+      wApp.canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;';
+      hostEl.appendChild(wApp.canvas);
+      wLayer = new Container();
+      wLayer.scale.set(wVS);           // init 이전에 setScale이 이미 지나갔을 수 있다
+      wApp.stage.addChild(wLayer);
+      wReady = true;
+      window.__WDBG = { get mobs(){ return wCount; }, get textures(){ return wTex.size; } };
+    } catch(e){ wFailed = true; console.warn('[WORLD] WebGL mob layer disabled:', e); }
+  },
+  resize(w, h){
+    wW = w; wH = h;
+    if (wReady) wApp.renderer.resize(w, h);
+  },
+  setScale(sc){ wVS = sc || 1; if (wLayer) wLayer.scale.set(wVS); },
+  // 프레임 시작 — tx/ty: 게임 캔버스 카메라 translate와 **같은 값**(정수 반올림·흔들림 포함).
+  // 층간 서브픽셀 어긋남이 없도록 계산식을 공유한다.
+  begin(tx, ty){
+    if (!wReady) return;
+    wCamX = tx; wCamY = ty;
+    wCount = 0;
+  },
+  // 몹 본체 하나 — cv: dotPush 캐시 캔버스(px×px), key: 캐시 키, 배치는 월드 좌표·포즈 스케일
+  mob(key, cv, x, y, sx, sy, ppu){
+    if (!wReady) return false;
+    let tex = wTex.get(key);
+    if (!tex){
+      if (wTex.size >= W_TEX_MAX){ const k0 = wTex.keys().next().value; const t0 = wTex.get(k0); wTex.delete(k0); try{ t0.destroy(true); }catch(e){} }
+      tex = Texture.from(cv);
+      tex.source.scaleMode = 'nearest';
+      wTex.set(key, tex);
+    } else { wTex.delete(key); wTex.set(key, tex); } // LRU 갱신
+    let s = wSprites[wCount];
+    if (!s){ s = new Sprite(); s.anchor.set(0.5); wLayer.addChild(s); wSprites.push(s); }
+    s.visible = true;
+    s.texture = tex;
+    s.x = x + wCamX;
+    s.y = y + wCamY;
+    s.scale.set(sx/ppu, sy/ppu);
+    wCount++;
+    return true;
+  },
+  end(){
+    if (!wReady) return;
+    for (let i=wCount; i<wSprites.length; i++) wSprites[i].visible = false;
+    wApp.render();
+  },
+  clearTex(){ for (const t of wTex.values()){ try{ t.destroy(true); }catch(e){} } wTex.clear(); },
+  get enabled(){ return wReady; }
+};

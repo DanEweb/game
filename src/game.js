@@ -3,7 +3,7 @@ import { BOSS_TYPES } from "./data/bosses.js";
 import { SLOT_NAMES, SLOT_KEYS, NORMAL_SLOTS, HEAVY_OK, RARITY_NAMES, RARITY_PREFIX, SELL_PRICE, UNIQUE_POOL, SET_DEFS } from "./data/equipment.js";
 import { EQ_STATS, EQ_AFFIX, EQ_NOUNS, EQ_CURSES, RELICS } from "./data/equipment-stats.js";
 import { STAR_BRANCHES, TRANSFORM_KEYS } from "./data/startree.js";
-import { FX } from "./fx.js";
+import { FX, WORLD } from "./fx.js";
 
   const $ = (id)=> document.getElementById(id);
   const canvas = $('c'); let ctx = canvas.getContext('2d'); // let: 도트 렌더 파이프라인이 오프스크린으로 잠시 스왑
@@ -47,12 +47,22 @@ import { FX } from "./fx.js";
     W = cw / VS;                      // 이후 W·H 는 '월드 기준 가시 범위' — 스폰 거리·컬링·그리드가 이 값을 쓴다
     H = chh / VS;
     ctx.setTransform(DPR*VS,0,0,DPR*VS,0,0);
+    // v6.239 Pixi 3단계 — 몹 본체 WebGL 레이어(z:1) 위에 얹는 오버레이 캔버스(z:2).
+    // 몹 본체보다 위에 그려야 하는 것(보스·플레이어·이펙트·숫자·HUD)이 여기로 온다.
+    ovCanvas.width = canvas.width; ovCanvas.height = canvas.height;
+    tctx.setTransform(DPR*VS,0,0,DPR*VS,0,0);
     FX.resize(cw, chh);
     if (FX.setScale) FX.setScale(VS);
+    WORLD.resize(cw, chh);
+    WORLD.setScale(VS);
   }
+  const ovCanvas = (function(){ const c=document.createElement('canvas'); c.style.cssText='position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2;'; wrap.appendChild(c); return c; })();
+  const tctx = ovCanvas.getContext('2d');
+  const gctx = ctx; // 게임(하단) 캔버스 컨텍스트 — 매 프레임 시작 시 ctx를 여기로 되돌린다
   window.addEventListener('resize', resize);
   resize();
   FX.init(wrap).then(()=>{ FX.resize(W, H); }); // Pixi WebGL 이펙트 레이어 (1단계)
+  WORLD.init(wrap).then(()=>{ WORLD.resize(cssW||W, cssH||H); WORLD.setScale(VS); }); // Pixi 3단계 — 몹 본체 레이어
 
   // ---------- persistence ----------
   const SAVE_KEY = 'gray_survivor_v3';
@@ -18950,9 +18960,9 @@ import { FX } from "./fx.js";
     ctx = b.cx;
     return 1;
   }
-  function dotPop(){
+  function dotPop(noBlit){
     const s = DOTW.st.pop();
-    if (!s) return;
+    if (!s) return null;
     let cv = s.cv;
     if (!s.cached){
       ctx = s.main;
@@ -18965,12 +18975,15 @@ import { FX } from "./fx.js";
         sprPut(s.key, cv);
       }
     }
+    // v6.239 Pixi 3단계: blit 없이 캐시 캔버스만 돌려받는다 (WebGL 스프라이트 경로)
+    if (noBlit && cv) return cv;
     const half = s.px/2/s.ppu;
     const sm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
     if (cv) ctx.drawImage(cv, -half, -half, half*2, half*2);
     else { ctx.drawImage(s.b.o, -half, -half, half*2, half*2); ctx.drawImage(s.b.c, -half, -half, half*2, half*2); }
     ctx.imageSmoothingEnabled = sm;
+    return cv || null;
   }
   // v6.73 도트 렌더 파이프라인: 휴머노이드를 저해상 오프스크린에 벡터로 그린 뒤 최근접 확대로 블릿 —
   // 실루엣 아웃라인 + 상하 2톤 셰이딩 + 걸음 6프레임 양자화가 합쳐져 도트 게임 스프라이트 질감이 난다.
@@ -21351,41 +21364,56 @@ import { FX } from "./fx.js";
     swarm:'#7a94b8', normal:'#b89a7a', brute:'#b87a7a', shooter:'#7ab894',
     splitter:'#a87ab8', binder:'#b8a87a', kamikaze:'#c9705a', fish:'#7ab0c9', clone:'#b08ab0'
   };
-  function drawEnemy(e){
+  // v6.239 Pixi 3단계 — phase: undefined(기존 한 캔버스) / 'under'(본체 아래 + 본체→WebGL) / 'over'(본체 위 오버레이)
+  // 본체는 WORLD 레이어(z:1)의 스프라이트로 가고, under는 게임 캔버스(z:0)·over는 오버레이 캔버스(z:2)에 남는다.
+  // ⚠ 변환은 전부 translate/scale뿐이라 (_px,_py,_psx,_psy)로 합성 포즈를 추적해 스프라이트에 그대로 싣는다.
+  function drawEnemy(e, phase){
     ctx.save();
     ctx.translate(e.x, e.y);
+    let _px = e.x, _py = e.y, _psx = 1, _psy = 1;   // 본체 포즈 합성 추적 (WebGL 스프라이트용)
+    const _T = (dx,dy)=>{ ctx.translate(dx,dy); _px += dx*_psx; _py += dy*_psy; };
+    const _S = (a,b)=>{ ctx.scale(a,b); _psx *= a; _psy *= b; };
     //  🔴 v6.151 **덤벼드는 예비동작을 눈에 보이게** — 이게 없으면 근접 패링은 영원히 운이다.
     //   뒤로 몸을 뺐다가(0→최대) 놓는 순간 달려든다. 판정(windT)과 그림이 같은 값을 쓰므로 어긋나지 않는다
     if (e.windT > 0){
       const k = Math.min(1, e.windT / 0.32);                 // 1(막 시작) → 0(덮치기 직전)
       const wa = Math.atan2(e.y-player.y, e.x-player.x);     // 플레이어 반대 방향 = 뒤로 빼는 방향
-      ctx.translate(Math.cos(wa)*7*k, Math.sin(wa)*7*k);
-      ctx.scale(1 + 0.12*(1-k), 1 - 0.10*(1-k));             // 덮치기 직전에 앞으로 눌린다
-      ctx.strokeStyle = '#e0a94f'; ctx.globalAlpha = 0.30 + 0.5*(1-k); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0, 0, e.r + 5 + 6*k, 0, Math.PI*2); ctx.stroke();
-      ctx.globalAlpha = 1;
+      _T(Math.cos(wa)*7*k, Math.sin(wa)*7*k);
+      _S(1 + 0.12*(1-k), 1 - 0.10*(1-k));                    // 덮치기 직전에 앞으로 눌린다
+      if (phase!=='over'){
+        ctx.strokeStyle = '#e0a94f'; ctx.globalAlpha = 0.30 + 0.5*(1-k); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, e.r + 5 + 6*k, 0, Math.PI*2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
     }
-    // v6.47 타격 플래시 + 저체력 연출 (비주얼 대개편)
-    if (e._phk===undefined) e._phk = e.hp;
-    if (e.hp < e._phk - 0.4){
-      e._fT = performance.now();
-      // v6.75 타격 스파크: 플레이어 반대편으로 밝은 픽셀이 튄다 — 어디를 때렸는지 눈에 보인다
-      const sa = Math.atan2(e.y-player.y, e.x-player.x);
-      hitSpark(e.x - Math.cos(sa)*e.r*0.6, e.y - Math.sin(sa)*e.r*0.6, sa);
+    // v6.47 타격 플래시 + 저체력 연출 (비주얼 대개편) — 상태 변이는 프레임당 한 번만 ('over' 재실행 금지)
+    if (phase!=='over'){
+      if (e._phk===undefined) e._phk = e.hp;
+      if (e.hp < e._phk - 0.4){
+        e._fT = performance.now();
+        // v6.75 타격 스파크: 플레이어 반대편으로 밝은 픽셀이 튄다 — 어디를 때렸는지 눈에 보인다
+        const sa = Math.atan2(e.y-player.y, e.x-player.x);
+        hitSpark(e.x - Math.cos(sa)*e.r*0.6, e.y - Math.sin(sa)*e.r*0.6, sa);
+      }
+      e._phk = e.hp;
     }
-    e._phk = e.hp;
     const hitAge = e._fT ? (performance.now()-e._fT)/165 : 2;
     if (hitAge < 1){
       // v6.75 피격 리액션: 맞은 순간 뒤로 밀리고 납작해졌다 되돌아온다 (연출 전용 — 판정 좌표는 그대로)
       const k = (1-hitAge)*(1-hitAge);
       const ka = Math.atan2(e.y-player.y, e.x-player.x);
-      ctx.translate(Math.cos(ka)*4.5*k, Math.sin(ka)*4.5*k);
-      ctx.scale(1 + 0.22*k, 1 - 0.18*k);
+      _T(Math.cos(ka)*4.5*k, Math.sin(ka)*4.5*k);
+      _S(1 + 0.22*k, 1 - 0.18*k);
     }
     if (e._fT && performance.now() - e._fT < 70) ctx.filter = 'brightness(2.4) saturate(0.4)';
-    if (e.maxHp && e.hp/e.maxHp < 0.35) ctx.translate((Math.random()-0.5)*1.3, (Math.random()-0.5)*1.3); // 빈사 경련
-    drawShadow(0, e.r*0.95, e.r*0.85);
-    // 타입 틴트 오라
+    if (e.maxHp && e.hp/e.maxHp < 0.35){
+      // 빈사 경련 — 분리 렌더에서는 under가 뽑은 난수를 over가 재사용 (층간 어긋남 방지)
+      if (phase!=='over'){ e._jx = (Math.random()-0.5)*1.3; e._jy = (Math.random()-0.5)*1.3; }
+      _T(phase ? (e._jx||0) : (Math.random()-0.5)*1.3, phase ? (e._jy||0) : (Math.random()-0.5)*1.3);
+    }
+    if (phase!=='over') drawShadow(0, e.r*0.95, e.r*0.85);
+    // 타입 틴트 오라 — 본체 아래 오라·표식 전부 ('over' 위상에서는 건너뛴다)
+    if (phase!=='over'){
     if (e.blessed){
       const bp = 0.25 + 0.15*Math.sin(performance.now()/150);
       ctx.fillStyle = 'rgba(232,197,106,'+bp+')';
@@ -21441,6 +21469,7 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.arc(0,0,e.r*1.18,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
     }
+    } // phase!=='over' (본체 아래 블록 끝)
     // v6.75 몹 애니메이션을 8프레임으로 양자화 — 도트 게임 특유의 딱딱 끊기는 몸짓이면서,
     // 동시에 (스킨·크기·프레임) 조합이 유한해져 스프라이트 캐시가 성립한다
     const sk = e.skin;
@@ -21457,8 +21486,8 @@ import { FX } from "./fx.js";
     // v6.57 살아있는 몸짓: 걸음에 맞춰 통통 튀는 스쿼시&스트레치 (빙결 시 정지)
     const hop = e.frozenT>0 ? 0 : Math.sin(aph);
     ctx.save();
-    ctx.translate(0, -Math.max(0,hop)*e.r*0.14);
-    ctx.scale(1 - Math.abs(hop)*0.05, 1 + Math.abs(hop)*0.07);
+    _T(0, -Math.max(0,hop)*e.r*0.14);
+    _S(1 - Math.abs(hop)*0.05, 1 + Math.abs(hop)*0.07);
     // v6.73 몹도 같은 픽셀 격자로 — 플레이어만 도트고 몹은 매끈한 벡터인 불일치 제거
     // 스쿼시는 스프라이트 밖(블릿 단계) 변환이라 프레임 키가 늘지 않는다
     // 스프라이트 내용이 인스턴스 상태에 따라 달라지는 스킨은 그 상태도 키에 넣는다
@@ -21476,11 +21505,18 @@ import { FX } from "./fx.js";
     } else if (sk==='revenant'){
       vkey = '|b'+(e.reborn?1:0);
     }
-    const eDot = sk==='treasure' ? 0 : dotPush(e.r*2.1 + 16, {
-      key: 'e|'+sk+'|'+Math.round(e.r)+'|'+af+'|'+(e.frozenT>0?1:0)+'|'+MAP.key+vkey,
-      ppu: 0.62
-    });
-    if (eDot !== 2) {
+    const eKey = 'e|'+sk+'|'+Math.round(e.r)+'|'+af+'|'+(e.frozenT>0?1:0)+'|'+MAP.key+vkey;
+    const eDot = (phase==='over') ? 0 : (sk==='treasure' ? 0 : dotPush(e.r*2.1 + 16, { key: eKey, ppu: 0.62 }));
+    if (phase==='over'){
+      // 본체는 WebGL 레이어에 있다 — 70ms 타격 플래시만 캔버스로 덧그린다
+      // (Pixi tint는 곱셈이라 밝히기가 안 된다 — 위 ctx.filter(brightness)가 걸린 이 층에서 겹치는 게 정확하다)
+      if (e._wcv && e._fT && performance.now()-e._fT < 70){
+        const half = e._wcv.width/2/0.62;
+        const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(e._wcv, -half, -half, half*2, half*2);
+        ctx.imageSmoothingEnabled = sm;
+      }
+    } else if (eDot !== 2) {
 
     if (sk==='moth'){
       ctx.fillStyle = soft;
@@ -21844,11 +21880,18 @@ import { FX } from "./fx.js";
       ctx.beginPath(); ctx.moveTo(0,-e.r*0.85); ctx.lineTo(0,e.r*0.55); ctx.stroke();
     }
     }
-    if (eDot) dotPop();
+    if (eDot){
+      if (phase==='under'){
+        // v6.239: blit 대신 캐시 캔버스를 WebGL 스프라이트로 — 포즈(윈드업·피격·경련·스쿼시)는 추적값으로 싣는다
+        const cv = dotPop(true);
+        if (cv){ e._wcv = cv; WORLD.mob(eKey, cv, _px, _py, _psx, _psy, 0.62); }
+      } else dotPop();
+    }
     ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
 
     // v6.58 엘리트 마커 — 텍스트 라벨 대신 시각 표시: 점선 링(기존) + 어픽스 아이콘 배지
     // (이름 있는 엘리트는 코믹 이름만 위에 표시 — '[어픽스] 엘리트' 텍스트 겹침 제거)
+    if (phase!=='under'){ // 본체 위 오버레이 — 'under' 위상에서는 건너뛴다
     if (e.elite){
       ctx.strokeStyle = ink;
       ctx.lineWidth = 2;
@@ -21933,6 +21976,7 @@ import { FX } from "./fx.js";
       ctx.fillStyle = ink;
       ctx.fillRect(-e.r, -e.r-9, e.r*2*(1-dmgT), 3);
     }
+    } // phase!=='under' (본체 위 오버레이 끝)
     ctx.restore();
   }
 
@@ -24414,6 +24458,9 @@ import { FX } from "./fx.js";
 
   // ---------- draw ----------
   function draw(dt){
+    ctx = gctx; // v6.239: 프레임 시작 — 하단(게임) 캔버스부터. worldOn이면 몹 이후는 오버레이 캔버스로 넘어간다
+    const worldOn = WORLD.enabled && localStorage.gs_world !== '0';
+    tctx.clearRect(0,0,W+4,H+4); // 오버레이 캔버스는 항상 청소 (토글 잔상 방지)
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle = PAL.bg;
     ctx.fillRect(0,0,W,H);
@@ -24429,8 +24476,9 @@ import { FX } from "./fx.js";
 
     let ox=0, oy=0;
     if (shake>0){ ox=(Math.random()-0.5)*shake; oy=(Math.random()-0.5)*shake; }
+    const camTx = Math.round(W/2 - player.x + ox), camTy = Math.round(H/2 - player.y + oy); // 층 공유 카메라 (WebGL 몹 레이어와 동일값)
     ctx.save();
-    ctx.translate(Math.round(W/2 - player.x + ox), Math.round(H/2 - player.y + oy));
+    ctx.translate(camTx, camTy);
 
     drawGrid();
     drawRadar(dt);
@@ -24503,7 +24551,21 @@ import { FX } from "./fx.js";
 
     drawProjectiles();
     drawHostileShots();
-    for (const e of enemies) drawEnemy(e);
+    if (worldOn){
+      // v6.239 Pixi 3단계: 몹 본체 = WebGL(z:1). 본체 아래(오라·그림자)는 게임 캔버스(z:0)에 남고,
+      // 본체 위(엘리트 링·상태·HP바)부터 보스·플레이어·이펙트·HUD까지는 오버레이 캔버스(z:2)로 — 그리기 순서가 층으로 보존된다
+      WORLD.begin(camTx, camTy);
+      for (const e of enemies) drawEnemy(e, 'under');
+      WORLD.end();
+      ctx.restore();            // 게임 캔버스 카메라 종료 (save 스택 불균형 방지)
+      ctx = tctx;
+      ctx.save();
+      ctx.translate(camTx, camTy);
+      for (const e of enemies) drawEnemy(e, 'over');
+    } else {
+      if (WORLD.enabled){ WORLD.begin(0,0); WORLD.end(); } // 방금 껐다면 스프라이트 잔상 제거
+      for (const e of enemies) drawEnemy(e);
+    }
     for (const b of bosses) drawBoss(b);
     drawSatellites();
     drawDrones();
