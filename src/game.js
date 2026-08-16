@@ -23058,10 +23058,32 @@ import { FX } from "./fx.js";
       (LA_SHARP ? polyPath : polyPathS)(hot); ctx.fill();
     }
     ctx.restore();
+    //  v6.213 백열 헤드 — 경로 머리(끝점)에 블룸. 에너지가 한 점에서 탄다.
+    if (coreA > 0.3 && span > 14){
+      const hw = Array.isArray(w) ? w[w.length-1]+w[Math.max(0,w.length-2)] : w;
+      laBloom(B[0], B[1], Math.max(7, hw*2.6), col, dark, coreA*0.8);
+    }
+  }
+  //  🔴 v6.213 **백열 블룸** — 스톡 이펙트 미리보기 분석: 모든 프로 이펙트는 흰 코어 둘레에
+  //   **부드러운 방사형 글로우**가 있다(가산합성만으로는 안 나온다). 헤드·글린트·아이콘 심장에 깐다.
+  function laBloom(x,y,r,col,dark,al){
+    if (r < 2) return;
+    const R2 = laRamp(col);
+    ctx.save(); if (dark) ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0, "rgba(255,255,255,0.85)");
+    g.addColorStop(0.28, R2.mid + "");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    //  ⚠ 밝은 맵에서 투명 종점이 검정을 섞으면 지저분 — source-over에선 알파를 크게 낮춘다
+    ctx.globalAlpha = (dark ? 0.85 : 0.30) * (al===undefined ? 1 : al);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,r,0,6.283); ctx.fill();
+    ctx.restore();
   }
   //  4각 반짝임 — 라테일 계열의 서명 같은 장식
   function laGlint(x,y,r,col,dark){
     const t=LA_T, fade=Math.max(0,1-t);
+    laBloom(x, y, r*2.4, col, dark, fade);
     ctx.save(); if (dark) ctx.globalCompositeOperation="lighter";
     ctx.globalAlpha=fade; ctx.fillStyle = dark ? "#ffffff" : mixHex(col,"#ffffff",0.8);
     ctx.beginPath();
@@ -23240,6 +23262,10 @@ import { FX } from "./fx.js";
       ctx.fill(P);
       ctx.restore();
     }
+    //  v6.213 심장 블룸 — 아이콘 중심 뒤의 부드러운 발광(어두운 맵에서 네온이 된다)
+    ctx.save(); ctx.translate(256,256);
+    laBloom(0, 0, 300, col, dark, fade*0.45);
+    ctx.restore();
     const g = ctx.createLinearGradient(0, 470, 0, 50);
     g.addColorStop(0, R.deep); g.addColorStop(0.55, R.mid); g.addColorStop(1, R.lit);
     ctx.fillStyle = g; ctx.globalAlpha = 0.94*fade;
