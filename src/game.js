@@ -24004,12 +24004,16 @@ import { FX } from "./fx.js";
     const fxBullets = fxBulletFrame;
     const domKey = dominantElemKey(); // v6.56: 프레임당 1회만 계산
     for (const p of projectiles){
+      // v6.233 Pixi 2단계 마감: 형태 있는 투사체(수리검·검기·화살·mega)만 글로우가 빠져 있었다.
+      // 잉크색 형태는 가산에서 안 보이므로 중성 담색 글로우 — 무채색 원칙(월드 흑백+악센트)은 유지된다.
       if (p.mega){
+        if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r*1.1, tint:0xf2f2f4 });
         ctx.strokeStyle = PAL.ink;
         ctx.lineWidth = 2;
         ctx.fillStyle = PAL.ink;
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
       } else if (p.kind==='shuriken'){
+        if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r*0.9, tint:0xb9c0c9 });
         ctx.save();
         ctx.translate(p.x,p.y);
         ctx.rotate(p.spin);
@@ -24024,6 +24028,7 @@ import { FX } from "./fx.js";
         ctx.closePath(); ctx.fill();
         ctx.restore();
       } else if (p.kind==='wave'){
+        if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r*0.7, tint:0xdfe3ea });
         // 무명검 검기 — 은빛 초승달
         ctx.save();
         ctx.translate(p.x,p.y);
@@ -24036,10 +24041,11 @@ import { FX } from "./fx.js";
         ctx.beginPath(); ctx.arc(-6,0,p.r, -1.1, 1.1); ctx.stroke();
         ctx.restore();
       } else if (p.arrow){
+        const ac2 = (p.imbue && COLORS[p.imbue]) || dominantElemColor() || CLASS_COLORS[player.classKey] || PAL.ink;
+        if (FX.enabled) fxBullets.push({ x:p.x, y:p.y, r:p.r*0.8, tint: ac2[0]==='#' ? parseInt(ac2.slice(1),16) : 0xd8dde4 });
         ctx.save();
         ctx.translate(p.x,p.y);
         ctx.rotate(Math.atan2(p.vy,p.vx));
-        const ac2 = (p.imbue && COLORS[p.imbue]) || dominantElemColor() || CLASS_COLORS[player.classKey] || PAL.ink;
         ctx.strokeStyle = ac2;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(6,0); ctx.stroke();

@@ -16,3 +16,8 @@ ch.port2.postMessage(0);
 const html = fs.readFileSync('dist/gray_survivor_single.html','utf8').replace('<head>', '<head>'+shim);
 fs.writeFileSync('dist/qa.html', html);
 console.log('dist/qa.html written (MessageChannel pump shim)');
+// v6.233: qa2.html — 청크판(index.html) 기반 + 같은 심.
+// qa.html은 단일 파일 기반이라 Pixi 청크가 404 → WebGL 검수가 불가능하다. WebGL(FX 레이어) 검수는 qa2에서.
+const html2 = fs.readFileSync('dist/index.html','utf8').replace('<head>', '<head>'+shim);
+fs.writeFileSync('dist/qa2.html', html2);
+console.log('dist/qa2.html written (chunked + pump shim — WebGL 검수용)');
