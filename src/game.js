@@ -20674,30 +20674,25 @@ import { FX } from "./fx.js";
   function drawWeaponAura(){
     const W = weaponStage();
     if (!W || W.st <= 0) return;
+    //  🔴 v6.217 무기 성장 발광을 새 문법으로 — 그라디언트 바늘 + 칼끝 글린트(블룸) + 만개 리본 스윕
     const now = performance.now();
-    // 무기는 앞손 쪽에 있다 — 몸 기준 오프셋으로 잡는다
     const wx = player.x + player.faceX*9, wy = player.y - 5;
-    ctx.save();
-    ctx.strokeStyle = W.col; ctx.fillStyle = W.col;
-    ctx.shadowColor = W.col; ctx.shadowBlur = 4 + W.st*2;
-    ctx.globalAlpha = 0.20 + W.st*0.09;
-    // 날을 따라 흐르는 빛 — 단계가 오를수록 길고 두꺼워진다
-    ctx.lineWidth = 1.0 + W.st*0.5;
-    ctx.beginPath();
-    ctx.moveTo(wx, wy+3);
-    ctx.lineTo(wx - player.faceX*1.5, wy - 8 - W.st*3.5);
-    ctx.stroke();
-    if (W.st >= 3){   // 상위 단계: 칼끝에 맺히는 빛
-      ctx.globalAlpha = 0.45 + 0.15*Math.sin(now/300);
-      ctx.beginPath(); ctx.arc(wx - player.faceX*1.5, wy - 8 - W.st*3.5, 1.8, 0, 6.283); ctx.fill();
-    }
-    if (W.st >= 4){   // 만개: 무기를 감도는 고리
-      ctx.globalAlpha = 0.30; ctx.lineWidth = 1.1;
-      const a = now/600;
-      ctx.beginPath(); ctx.ellipse(wx - player.faceX*1, wy - 8, 5.5, 2.2, a, 0, 6.283); ctx.stroke();
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    const wcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
+    LA_T = 0.34;
+    try {
+      //  날을 따라 흐르는 빛 — 단계가 오를수록 길고 두껍다
+      rbNeedle(wx, wy+3, -1.5708 - player.faceX*0.12, 11 + W.st*3.5, 0.9 + W.st*0.28, W.col, wcd, 91);
+      if (W.st >= 3){   // 상위 단계: 칼끝에 맺히는 빛
+        laGlint(wx - player.faceX*1.5, wy - 8 - W.st*3.5, 5 + 1.5*Math.sin(now/300), W.col, wcd);
+      }
+      if (W.st >= 4){   // 만개: 무기를 감도는 리본 스윕
+        const a2 = now/600;
+        ctx.save(); ctx.translate(wx, wy-8); ctx.scale(1, 0.4); ctx.translate(-wx, -(wy-8));
+        rbArc(wx, wy-8, 8, a2, a2+2.4, 0.8, W.col, wcd, 93, 0.02);
+        ctx.restore();
+      }
+    } catch(e){}
+    LA_T = 0;
   }
   function drawPlayerChar(){
     drawShadow(player.x, player.y+15, 11);
