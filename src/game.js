@@ -4554,13 +4554,21 @@ import { FX } from "./fx.js";
     } else if (tier===2){
       const base = player.jobs[0] || '';
       const list2 = JOB2_BY_CLASS[player.classKey] || JOB2_OPTIONS;
+      // v6.237 로드맵 6번: 2차 전직 분기 — 1차 선택이 2차 후보를 가른다 (1차 4종 × 각 2분기 = 직업당 8루트)
+      // 후보 = [1차와 같은 번호의 길, 그 옆 길] — 기존 4택 콘텐츠를 구조로 재배선(새 밸런스 표면 없음).
+      // 원본 인덱스(ji)를 그대로 실어 계승 미리보기·전용 가지·대시 각인 배선이 안 깨진다.
+      // 1차 기록이 없으면(전직 용사 자동 1차 등) 기존 4택 폴백.
+      const p1v = (player.jobPicks && player.jobPicks[0]) ? player.jobPicks[0].v : null;
+      const idxs2 = (p1v===null || typeof p1v!=='number' || list2.length<4)
+        ? list2.map((_,i)=>i)
+        : [p1v % list2.length, (p1v+1) % list2.length];
       // v6.47 계승 변환 미리보기
       const g2 = classResGroup(player.classKey);
       const kits2 = JOBVAR[g2]||JOBVAR.war;
       const SIG2 = ['💥 폭쇄','🌫 무형','🌪 질풍','🩸 흡생'];
       const GD2 = { war:0, rng:2, mag:2, mag2:2, rog:1, pri:3, mer:3 };
-      const opts = list2.map((j, ji)=>({ l:'2차 전직: '+j.n,
-        d:j.d + (base?' — ['+base+']의 길이 깊어진다':'')
+      const opts = idxs2.map((ji)=>{ const j = list2[ji]; return { l:'2차 전직: '+j.n,
+        d:j.d + (base?' — ['+base+']에서 이어지는 길':'')
           + '<br>▸ 열리는 것: 승천반 ['+kits2[ji % kits2.length].t+'의 길] 가지 ×1.4 · [각인 부여] 시 '+SIG2[((GD2[g2]||0)+ji)%4]+' 대시', fx:()=>{
         j.fx(player); player.jobs.push(j.n);
         (player.jobPicks=player.jobPicks||[])[1]={n:j.n, v:ji};
@@ -4574,8 +4582,9 @@ import { FX } from "./fx.js";
         // v6.50: 대시 각인도 '각인 부여' 카드로 활성화
         toast('2차 전직 — '+j.n+'!');
         SFX.play('win');
-      } }));
-      openEvent({ t:'2차 전직 — '+CLASSES[player.classKey].name+'의 길', d:'직업 고유의 심화 경로 중 하나를 선택하세요.', opts });
+      } }; });
+      openEvent({ t:'2차 전직 — '+CLASSES[player.classKey].name+'의 길',
+        d: idxs2.length===2 ? '['+base+']에서 두 갈래가 이어진다. 걸어온 길이 다음 길을 정한다.' : '직업 고유의 심화 경로 중 하나를 선택하세요.', opts });
     } else {
       const rc = resonantCount(player.classKey);
       const list3 = JOB3_BY_CLASS[player.classKey] || JOB3_OPTIONS;
@@ -8609,6 +8618,8 @@ import { FX } from "./fx.js";
         enemies: enemies.length, zones: zones.map(z=>z.type), hp: Math.round(player&&player.hp||0), err: window.__gameErr||null,
         // v6.122 근접 축 계측 — 감사·벤치에서 '실제로 도는지'를 눈이 아니라 값으로 확인한다
         cls: player&&player.classKey, weapons: (player&&player.weapons||[]).map(w=>w.key),
+        jobs: (player&&player.jobs)||[], jobPicks: (player&&player.jobPicks)||[],   // v6.237 전직 분기 검증
+
         heat: +((player&&player.heat)||0).toFixed(3),
         aim: +((player&&player.aim)||0).toFixed(3),                      // v6.128 원거리 지속 축
         aimNear: Math.round((player&&player.aimNear)||0),                // v6.129 가장 가까운 적까지 거리
