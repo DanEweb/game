@@ -7248,6 +7248,17 @@ import { FX } from "./fx.js";
       e = { type, x,y, r:9, hp:10*s, maxHp:10*s, speed:100+Math.random()*16, dmg:6*ds, xpValue:1, hitCd:0 }; // 속도 너프 — 컨트롤로 피할 수 있게
     } else if (type==='clone'){
       e = { type, x,y, r:16, hp:55*s, maxHp:55*s, speed:70+Math.random()*10, dmg:10*ds, xpValue:3, hitCd:0 };
+    } else if (type==='thief'){
+      //  v6.227 도굴꾼 — 다가와서 골드를 훔쳐 달아난다. 잡으면 두 배로 뱉는다
+      e = { type, x,y, r:12, hp:26*s, maxHp:26*s, speed:112+Math.random()*12, dmg:0, xpValue:5, hitCd:0,
+            stole:0, thiefFleeT:12 };
+    } else if (type==='revenant'){
+      //  v6.227 분열체 — 죽으면 더 강해져서 한 번 부활한다
+      e = { type, x,y, r:14, hp:22*s, maxHp:22*s, speed:58+Math.random()*12, dmg:10*ds, xpValue:3, hitCd:0 };
+    } else if (type==='mirror'){
+      //  v6.227 성난 거울 — 주기적으로 반사 태세. 태세 중 맞은 탄환을 되쏜다
+      e = { type, x,y, r:15, hp:34*s, maxHp:34*s, speed:44+Math.random()*8, dmg:9*ds, xpValue:5, hitCd:0,
+            mirrorT:0, mirrorCyc:3.0+Math.random()*1.5 };
     } else if (type==='treasure'){
       // v6.77 근접 구제: 3.4초마다 1.1초씩 숨을 고르며 멈춘다(전조: 헐떡임) — 근접·돌격도 따라잡을 창이 생긴다
       e = { type, x,y, r:17, hp:70*s, maxHp:70*s, speed:96, dmg:0, xpValue:6, hitCd:0, fleeT:15,
@@ -7310,6 +7321,7 @@ import { FX } from "./fx.js";
     else if (elapsed>90 && r<0.17) type='splitter';
     else if (elapsed>50 && r<0.26) type='shooter';
     else if (elapsed>45 && r<0.38) type='brute';
+    else if (elapsed>110 && r<0.41) type=['thief','revenant','mirror'][(Math.random()*3)|0];   // v6.227 특수몹 3%
     else if (r<0.66) type='swarm';
     enemies.push(makeEnemy(type, p.x, p.y, false));
   }
@@ -7754,6 +7766,26 @@ import { FX } from "./fx.js";
       else { rerollsLeft+=1; addTextNum(e.x,e.y-14,'✨ 운명의 축복 (리롤+1)'); }
       effects.push({ type:'ring', x:e.x, y:e.y, life:0.4, age:0, r0:10, r1:70 });
       SFX.play('quest');
+    }
+    if (e.type==='thief' && e.stole>0){
+      //  v6.227 도둑을 잡으면 두 배로 뱉는다
+      const back = e.stole*2;
+      gainGold(back);
+      addTextNum(e.x, e.y-14, '💰 +'+back+'G 회수!');
+      SFX.play('coin');
+    }
+    if (e.type==='revenant' && !e.reborn){
+      //  v6.227 분열체 — 한 번 더, 더 강하게
+      const ne = makeEnemy('revenant', e.x, e.y, false);
+      ne.reborn = true;
+      ne.hp = e.maxHp*1.7; ne.maxHp = e.maxHp*1.7;
+      ne.dmg = Math.round((e.dmg||10)*1.35);
+      ne.speed = e.speed*1.15; ne.r = e.r*1.12;
+      ne.hitCd = 0.5;
+      enemies.push(ne);
+      effects.push({ type:'ring', x:e.x, y:e.y, life:0.4, age:0, r0:8, r1:52, col:'#c94f4f' });
+      addTextNum(e.x, e.y-14, '부활!');
+      SFX.play('warn');
     }
     if (e.elite){
       questAdd('elite', 1);
@@ -8428,6 +8460,10 @@ import { FX } from "./fx.js";
   window.__qaWeapon = (key)=>{ // v6.54 QA: 무기 강제 지급 (전향 무기 등 발사 엔진 검증용)
     try { addWeapon(key); return 'weapon+'+key; } catch(e){ return 'ERR '+String(e); }
   };
+  window.__qaSpecial = (kind, n)=>{ // v6.227 특수몹 강제 소환
+    try { for (let k=0;k<(n||1);k++){ const a=Math.random()*6.283;
+      enemies.push(makeEnemy(kind, player.x+Math.cos(a)*240, player.y+Math.sin(a)*240, false)); }
+      return kind+' x'+(n||1); } catch(e){ return 'ERR '+String(e); } };
   window.__qaFlood = (n)=>{ // v6.75 QA: 다수 개체 성능 회귀 측정용 — 몹을 한꺼번에 소환
     try { for (let i=0;i<(n||40);i++) spawnEnemy(); return 'enemies='+enemies.length; } catch(e){ return 'ERR '+String(e); }
   };
@@ -16057,6 +16093,31 @@ import { FX } from "./fx.js";
           e.x -= (ex/ed)*e.speed*speedFactor*dt;
           e.y -= (ey/ed)*e.speed*speedFactor*dt;
         }
+      } else if (e.type==='thief'){
+        //  v6.227 도굴꾼: 훔치기 전엔 접근, 훔친 뒤엔 도주. 시간이 다 되면 골드와 함께 사라진다
+        if (e.stole > 0){
+          e.thiefFleeT -= dt;
+          if (e.thiefFleeT<=0){
+            burst(e.x, e.y, 12, 150);
+            addTextNum(e.x, e.y-16, '-'+e.stole+'G 도둑맞았다!');
+            enemies.splice(i,1);
+            continue;
+          }
+          if (speedFactor>0 && ed < 420){ e.x -= (ex/ed)*e.speed*1.1*speedFactor*dt; e.y -= (ey/ed)*e.speed*1.1*speedFactor*dt; }
+        } else {
+          if (speedFactor>0){ e.x += (ex/ed)*e.speed*speedFactor*dt; e.y += (ey/ed)*e.speed*speedFactor*dt; }
+          if (ed < e.r + player.r + 6){
+            const take = Math.min(runGold, 8 + ((Math.random()*8)|0));
+            if (take>0){ runGold -= take; e.stole = take; addTextNum(player.x, player.y-30, '-'+take+'G 도둑!'); SFX.play('warn'); }
+            else e.stole = 1;   // 빈털터리면 그냥 도망만
+          }
+        }
+      } else if (e.type==='mirror'){
+        //  v6.227 성난 거울: 3~4.5초마다 1.2초 반사 태세 — 태세 중엔 멈춰 선다
+        e.mirrorCyc -= dt;
+        if (e.mirrorCyc<=0){ e.mirrorT = 1.2; e.mirrorCyc = 3.0+Math.random()*1.5; SFX.play('warn'); }
+        if (e.mirrorT>0) e.mirrorT -= dt;
+        else if (speedFactor>0){ e.x += (ex/ed)*e.speed*speedFactor*dt; e.y += (ey/ed)*e.speed*speedFactor*dt; }
       } else
       // movement AI per type
       if (speedFactor>0){
@@ -16172,6 +16233,13 @@ import { FX } from "./fx.js";
             player.__streak = ((player.__streakT||0) > elapsed) ? Math.min(12, (player.__streak||0)+1) : 1;
             player.__streakT = elapsed + 0.9;
             rangedActCharge('streak', player.__streak);
+          }
+          //  v6.227 성난 거울 — 태세 중 맞은 탄환을 되쏜다(피해 80% 감쇄)
+          if (e.type==='mirror' && e.mirrorT>0){
+            const ra2 = Math.atan2(player.y-e.y, player.x-e.x);
+            hostileShot(e.x, e.y, ra2, 250, 5, 8*dmgScale(), 2.4);
+            effects.push({ type:'ring', x:e.x, y:e.y, life:0.25, age:0, r0:6, r1:e.r+14, col:'#cfd6e4' });
+            p.damage *= 0.2;
           }
           const dmgAmt = p.damage * corrodeMult(e);
           e.hp -= dmgAmt;
@@ -21132,6 +21200,12 @@ import { FX } from "./fx.js";
       vkey = '|a'+(Math.round(Math.atan2(player.y-e.y, player.x-e.x)/(Math.PI/4)) & 7)+'h'+(af>>1);
     } else if (sk==='kamikaze'){
       vkey = '|f'+(e.fuse>=0?1:0);
+    } else if (sk==='thief'){
+      vkey = '|s'+(e.stole>0?1:0);
+    } else if (sk==='mirror'){
+      vkey = '|m'+(e.mirrorT>0?1:0);
+    } else if (sk==='revenant'){
+      vkey = '|b'+(e.reborn?1:0);
     }
     const eDot = sk==='treasure' ? 0 : dotPush(e.r*2.1 + 16, {
       key: 'e|'+sk+'|'+Math.round(e.r)+'|'+af+'|'+(e.frozenT>0?1:0)+'|'+MAP.key+vkey,
@@ -21420,7 +21494,45 @@ import { FX } from "./fx.js";
       ctx.lineWidth = 1.6;
       ctx.beginPath(); ctx.moveTo(-4,-16); ctx.lineTo(-8,-20); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(4,-16); ctx.lineTo(8,-20); ctx.stroke();
-    } else {
+    } else if (sk==='thief'){
+      //  v6.227 도굴꾼 — 웅크린 몸 + 두건 + 등의 보따리(훔치면 금색)
+      ctx.fillStyle = ink2;
+      ctx.beginPath(); ctx.ellipse(0, e.r*0.15, e.r*0.85, e.r*0.7, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(e.r*0.25, -e.r*0.35, e.r*0.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = e.stole>0 ? '#d9a53f' : mid;
+      ctx.beginPath(); ctx.arc(-e.r*0.6, -e.r*0.45, e.r*0.48, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-e.r*0.9,-e.r*0.75); ctx.lineTo(-e.r*0.3,-e.r*0.15); ctx.stroke();
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.fillRect(e.r*0.18, -e.r*0.5, 2.2, 2.2); ctx.fillRect(e.r*0.5, -e.r*0.45, 2.2, 2.2);
+    } else if (sk==='revenant'){
+      //  v6.227 분열체 — 몸에 균열. 부활체는 균열이 밝게 벌어져 있다
+      ctx.fillStyle = e.reborn ? ink : ink2;
+      ctx.beginPath(); ctx.ellipse(0, 0, e.r*0.8, e.r*0.95, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = e.reborn ? (MAP.key==='abyss' ? '#e8e8e6' : '#fefefe') : mid;
+      ctx.lineWidth = e.reborn ? 1.8 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-e.r*0.15,-e.r*0.85); ctx.lineTo(e.r*0.12,-e.r*0.3); ctx.lineTo(-e.r*0.18,e.r*0.1); ctx.lineTo(e.r*0.1,e.r*0.7);
+      ctx.stroke();
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.fillRect(-e.r*0.45, -e.r*0.3, 2.4, 2.4); ctx.fillRect(e.r*0.25, -e.r*0.3, 2.4, 2.4);
+    } else if (sk==='mirror'){
+      //  v6.227 성난 거울 — 몸이 거울판이다. 태세 중엔 판이 하얗게 빛난다
+      const hot = e.mirrorT>0;
+      ctx.fillStyle = ink;
+      ctx.fillRect(-e.r*0.62, -e.r*0.95, e.r*1.24, e.r*1.6);
+      ctx.fillStyle = hot ? (MAP.key==='abyss' ? '#f6f6f4' : '#ffffff') : mid;
+      ctx.fillRect(-e.r*0.45, -e.r*0.78, e.r*0.9, e.r*1.26);
+      if (!hot){
+        ctx.strokeStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-e.r*0.25,-e.r*0.6); ctx.lineTo(e.r*0.2,-e.r*0.1); ctx.stroke();
+      }
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-e.r*0.4, e.r*0.68); ctx.lineTo(-e.r*0.6, e.r*1.0); ctx.moveTo(e.r*0.4, e.r*0.68); ctx.lineTo(e.r*0.6, e.r*1.0); ctx.stroke();
+    }
+    else {
       // v6.57 기본 몹 리디자인 — 원 하나가 아니라 '생물': 몸통 + 노려보는 눈 + 으르렁대는 입 + 총총거리는 발
       const chomp = Math.abs(Math.sin(t*6 + e.x*0.11));
       ctx.fillStyle = ink2;
