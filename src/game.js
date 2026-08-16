@@ -746,6 +746,11 @@ import { FX } from "./fx.js";
     { key:'asc',     name:'승천자',       unit:'승천석 사용', tiers:[3,10,30,80,200],   gold:[80,250,700,1800,4000], equip:[0,0,3,4,6] },
     { key:'fuse',    name:'융합 기술자',  unit:'무기 합성', tiers:[1,5,15],             gold:[100,400,1200], equip:[3,4,6] },
     { key:'imbue',   name:'각인사',       unit:'각인',     tiers:[1,5,20,50],          gold:[60,200,600,1500], equip:[0,3,4,5] },
+    //  v6.228 신설 4계열 (로드맵 0-6): 균열·웨이브·칭호·속성
+    { key:'rift',  name:'균열 답파자',   unit:'균열 클리어', tiers:[1,5,15,40],         gold:[80,250,700,1800], equip:[0,3,4,6] },
+    { key:'wave',  name:'파도를 넘는 자', unit:'웨이브',     tiers:[8,40,120,400,1000], gold:[60,180,500,1200,3000], equip:[0,0,3,4,6] },
+    { key:'title', name:'이름을 쌓는 자', unit:'칭호',       tiers:[1,5,12,25],         gold:[100,300,800,2000], equip:[0,3,4,6] },
+    { key:'elem',  name:'원소학자',      unit:'속성 투자',   tiers:[10,40,120,300],     gold:[60,200,600,1500], equip:[0,0,4,5] },
   ];
   function questAdd(key, n){
     const q = QUESTS.find(q=>q.key===key);
@@ -1011,6 +1016,7 @@ import { FX } from "./fx.js";
     if (!DB.titleOn) DB.titleOn = key;   // 첫 칭호는 자동 장착 — 안 그러면 얻고도 안 보인다
     saveDB();
     toast('👑 칭호 해금: 『'+TITLES[key].name+'』');
+    questAdd('title', 1);   // v6.228 칭호 계열
     SFX.play('win');
   }
   function unlockAch(key){
@@ -6384,6 +6390,7 @@ import { FX } from "./fx.js";
           apply:()=>{
             node.apply(player, m);
             player.tech[tkey] = (player.tech[tkey]||0) + 1;
+            if (!tree.common) questAdd('elem', 1);   // v6.228 속성 계열
             player.techPicks[node.key] = picks + 1;
             (player.cardRLock = player.cardRLock||{})[node.key] = ri; // 희귀도 잠금
             if (!DB.seenTech) DB.seenTech = {};
@@ -7407,6 +7414,7 @@ import { FX } from "./fx.js";
     SFX.play('warn');
   }
   function exitRift(success){
+    if (success) questAdd('rift', 1);   // v6.228 균열 계열
     player.x = rift.returnX; player.y = rift.returnY;
     player.invuln = Math.max(player.invuln, 1.5);
     // 균열 전용 보스·원격 몹 정리: 안에서 못 잡은 것은 바깥으로 따라오지 못한다
@@ -15792,6 +15800,7 @@ import { FX } from "./fx.js";
     // 웨이브(스프린트) 모드: 45초마다 웨이브 상승 — 압축된 8웨이브 + 최종 보스
     if (waveModeRun && sprintWave < 8 && elapsed >= sprintWave*45 && !gateActive){
       sprintWave += 1;
+      questAdd('wave', 1);   // v6.228 웨이브 계열
       showBossBanner('WAVE '+sprintWave+' / 8', sprintWave>=8 ? '최종 보스가 다가온다' : '웨이브 '+sprintWave+' 시작', sprintWave>=7 ? '#b8362e' : '#45474a');
       for (let k=0;k<sprintWave*4;k++){
         const a = Math.random()*Math.PI*2;
