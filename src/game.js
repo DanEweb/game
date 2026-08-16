@@ -21935,11 +21935,15 @@ import { FX } from "./fx.js";
         ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
         ctx.beginPath(); ctx.arc(-7.5,0,1.4,0,Math.PI*2); ctx.fill();
       } else if (b.kind==='esper'){ // 눅눅근EX: 긴 머리 + 염동 링
-        ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.moveTo(-3,-15); ctx.quadraticCurveTo(-10,-4,-8,8); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(5,-15); ctx.quadraticCurveTo(12,-4,10,8); ctx.stroke();
+        //  v6.221 얇은 선 머리칼은 도트에서 뭉개진다 — 채운 폴리곤 커튼으로(휴머노이드 머리칼과 같은 기법)
+        ctx.fillStyle = ink;
+        ctx.beginPath(); ctx.moveTo(-3,-15); ctx.quadraticCurveTo(-11,-4,-9,9);
+        ctx.lineTo(-5.5,9); ctx.quadraticCurveTo(-6.5,-4,-1,-13); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(5,-15); ctx.quadraticCurveTo(13,-4,11,9);
+        ctx.lineTo(7.5,9); ctx.quadraticCurveTo(8.5,-4,3,-13); ctx.closePath(); ctx.fill();
+        //  염동 링 — 도트에서 살아남게 굵게
         ctx.strokeStyle = mid;
-        ctx.lineWidth = 1.4;
+        ctx.lineWidth = 3.0;
         ctx.save();
         ctx.rotate(t*2);
         ctx.beginPath(); ctx.ellipse(1,-6,14,5,0,0,Math.PI*2); ctx.stroke();
