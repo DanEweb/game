@@ -21442,6 +21442,23 @@ import { FX } from "./fx.js";
         ctx.closePath(); ctx.fill();
       }
     }
+    //  🔴 v6.225 **타입 표식** — 스킨은 13맵×5종으로 갈리지만 '역할'이 실루엣에서 안 읽혔다(HANDOFF).
+    //   무채색 유지(사용자 결정) — 명도·형태로만: 브루트=어깨 뿔 / 슈터=외눈 조준점 / 스플리터=분열 선.
+    //   스웜은 무표식(제일 작고 흔함 — '없음'도 구분이다). 도트 버퍼 안이라 화풍이 갈리지 않는다.
+    if (e.type==='brute'){
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.moveTo(-e.r*0.7,-e.r*0.5); ctx.lineTo(-e.r*1.08,-e.r*1.08); ctx.lineTo(-e.r*0.32,-e.r*0.78); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(e.r*0.7,-e.r*0.5); ctx.lineTo(e.r*1.08,-e.r*1.08); ctx.lineTo(e.r*0.32,-e.r*0.78); ctx.closePath(); ctx.fill();
+    } else if (e.type==='shooter'){
+      ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.beginPath(); ctx.arc(0,-e.r*0.15,e.r*0.3,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(0,-e.r*0.15,e.r*0.13,0,Math.PI*2); ctx.fill();
+    } else if (e.type==='splitter'){
+      ctx.strokeStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(0,-e.r*0.85); ctx.lineTo(0,e.r*0.55); ctx.stroke();
+    }
     }
     if (eDot) dotPop();
     ctx.restore(); // 스쿼시 종료 — 마커·상태 표시는 원좌표계에서
