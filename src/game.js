@@ -1975,9 +1975,10 @@ import { FX } from "./fx.js";
           else if (r<0.12){ addEquip(genEquip(3)); toast('🎰 쓸만한 물건'); SFX.play('chest'); }
           else { addEquip(genEquip(0)); toast('🎰 ...잡동사니'); SFX.play('hit'); }
         } },
-      { nm:'🎲 뒷골목 복권', ds:'60% 꽝 / 30% +300G / 9% +1000G / 1% +3000G — 수학은 하우스 편', cost:200, fx:()=>{
+      { nm:'🎲 뒷골목 복권', ds:'64% 꽝 / 27% +300G / 8% +1000G / 1% +3000G — 수학은 하우스 편', cost:200, fx:()=>{
+          // v6.229: EV 210G(+5%)로 하우스가 잃고 있었다 — 기대값 191G(-4.5%)로 정정
           const r = Math.random();
-          const win = r<0.01?3000 : r<0.10?1000 : r<0.40?300 : 0;
+          const win = r<0.01?3000 : r<0.09?1000 : r<0.36?300 : 0;
           questAdd('gamble', 1); unlockAch('gamble1');
           if (win===3000) unlockAch('jackpot777');
           if (win){ DB.gold += win; toast('🎲 당첨! +'+win+'G'); SFX.play('win'); }
@@ -2003,7 +2004,7 @@ import { FX } from "./fx.js";
     const gacha = document.createElement('div');
     gacha.className = 'shopItem';
     gacha.innerHTML = '<div class="info"><div class="nm">장비 뽑기</div>'
-      + '<div class="ds">무작위 장비 1개 — 일반 40% · 고급 30% · 희귀 18% · 영웅 9% · 전설 3%</div></div>';
+      + '<div class="ds">10% 직업 성유물 · 나머지 90%는 장비 — 일반 40% · 고급 30% · 희귀 18% · 영웅 9% · 전설 3%</div></div>';
     const gBuy = document.createElement('button');
     gBuy.className = 'buy';
     gBuy.textContent = '120G';
@@ -2043,7 +2044,7 @@ import { FX } from "./fx.js";
     const bet = document.createElement('div');
     bet.className = 'shopItem';
     bet.innerHTML = '<div class="info"><div class="nm">따당 도박</div>'
-      + '<div class="ds">50G 베팅 — 45% 꽝 · 50% 2배(100G) · 5% 잭팟(300G)</div></div>';
+      + '<div class="ds">50G 베팅 — 60% 꽝 · 36% 2배(100G) · 4% 잭팟(300G)</div></div>';
     const bBuy = document.createElement('button');
     bBuy.className = 'buy';
     bBuy.textContent = '50G';
@@ -2051,9 +2052,10 @@ import { FX } from "./fx.js";
     bBuy.addEventListener('click', ()=>{
       if (DB.gold < 50) return;
       DB.gold -= 50;
+      // v6.229: EV 65G(+30%) — 클릭 반복 = 무한 골드였다. 기대값 48G(-4%)로 정정
       const roll = Math.random();
-      if (roll < 0.05){ DB.gold += 300; toast('잭팟!! +300G'); SFX.play('win'); }
-      else if (roll < 0.55){ DB.gold += 100; toast('당첨! +100G'); SFX.play('coin'); }
+      if (roll < 0.04){ DB.gold += 300; toast('잭팟!! +300G'); SFX.play('win'); }
+      else if (roll < 0.40){ DB.gold += 100; toast('당첨! +100G'); SFX.play('coin'); }
       else { toast('꽝... -50G'); SFX.play('hit'); }
       saveDB(); renderShop();
     });
