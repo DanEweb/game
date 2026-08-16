@@ -3,8 +3,12 @@
   "configurations": [
     {
       "name": "qa",
-      "url": "http://localhost:8123",
-      "port": 8123
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "serve.mjs"
+      ],
+      "port": 8123,
+      "autoPort": false
     }
   ]
 }

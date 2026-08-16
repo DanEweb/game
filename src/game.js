@@ -23009,13 +23009,17 @@ import { FX } from "./fx.js";
       sc = 1.30; fade = 0; coreA = 0; ghostA = 0.35*(1-u); }
     const R = laRamp(col);
     //  ⚠ v6.201은 캐릭터의 절반 크기였다 — 라테일은 이펙트가 **캐릭터를 덮는다**. 폭·확대를 함께 올린다.
-    const ws = boltWidths(pts, w*3.1*sc, seed);
+    //  🔴 v6.206 **폭을 난수가 아니라 형태가 정할 수 있다** — w가 배열이면 명시적 폭(형태가 있는 칼날·바늘),
+    //   숫자면 기존처럼 boltWidths의 난수 요동(유기적 리본). 레퍼런스 교훈: 형태 언어가 1순위다.
+    const wRep = Array.isArray(w) ? Math.max.apply(null, w) : w;
+    const ws = Array.isArray(w) ? w.map(v=>Math.max(0.25, v*3.1*sc))
+                                : boltWidths(pts, w*3.1*sc, seed);
     const poly = boltRibbon(pts, ws);
     const mid = boltRibbon(pts, ws.map(v=>v*0.58));
     ctx.save(); ctx.lineJoin="round"; ctx.lineCap="round";
     if (dark) ctx.globalCompositeOperation = "lighter";
     ctx.strokeStyle = R.deep; ctx.fillStyle = R.deep;
-    ctx.globalAlpha = 0.30*fade; ctx.lineWidth = w*4.6; polyPath(poly); ctx.stroke();   // ① 바깥 — 깊은 색
+    ctx.globalAlpha = 0.30*fade; ctx.lineWidth = wRep*4.6; polyPath(poly); ctx.stroke();   // ① 바깥 — 깊은 색
     ctx.fillStyle = R.mid;
     ctx.globalAlpha = 0.82*fade; polyPath(poly); ctx.fill();                            // ② 본체 — 직업색
     ctx.fillStyle = R.lit;
@@ -23023,12 +23027,15 @@ import { FX } from "./fx.js";
     if (!dark){ ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=0.55*fade;  // 밝은 맵 형태 분리
       ctx.strokeStyle="rgba(16,14,26,0.9)"; ctx.lineWidth=1.3; polyPath(poly); ctx.stroke(); }
     if (dark) ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = coreA;                                                            // ④ 심 — 가장 밝게, 터짐에서 먼저 차고 먼저 식는다
+    //  ④ 심 — 🔴 v6.206 **에너지를 끝에 몬다**(레퍼런스: "칼끝이 가장 밝아야 한다 — 균일하면 시선이 흩어진다").
+    //   경로의 진행 방향(마지막 점)으로 갈수록 심이 밝아진다. 고리는 한쪽이 살짝 밝은 광원 악센트가 된다.
     ctx.strokeStyle = dark ? "#ffffff" : R.core;
-    ctx.lineWidth = Math.max(1.4, w*0.7);
-    ctx.beginPath();
-    for (let i=0;i<pts.length;i++){ if(i) ctx.lineTo(pts[i][0],pts[i][1]); else ctx.moveTo(pts[i][0],pts[i][1]); }
-    ctx.stroke();
+    ctx.lineWidth = Math.max(1.4, wRep*0.7);
+    const nseg = pts.length-1;
+    for (let i=0;i<nseg;i++){
+      ctx.globalAlpha = coreA*(0.34+0.66*((i+1)/nseg));
+      ctx.beginPath(); ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[i+1][0],pts[i+1][1]); ctx.stroke();
+    }
     //  ⑤ 잔상 — 속이 꺼진 뒤에도 껍데기 윤곽이 잠깐 남았다가 걷힌다
     if (ghostA > 0.01){
       ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
@@ -23090,100 +23097,221 @@ import { FX } from "./fx.js";
       laDraw(pts, k===0?w:w*0.62, col, dark, seed+k*7);
     }
   }
+  //  ── 🔴 v6.206 깎은 프리미티브 — 레퍼런스 조사(모바일 액션 VFX 공통 원칙) 세 가지를 코드로:
+  //   ① 형태 언어가 1순위(난수 요동이 아니라 실루엣이 정체성을 말한다)
+  //   ② 에너지는 한 점에 몬다(laDraw 심이 경로 끝으로 갈수록 밝다 — 위에서 처리)
+  //   ③ 보조 요소(불똥·반짝임)가 한 방을 마무리한다
+  //  칼날 — 갈고리 진 초승달. 끝이 안으로 감기고 한 점으로 죽는다(참격의 실루엣).
+  function rbBlade(x,y,a,span,rad,w,col,dark,seed,hook){
+    const h = hook===undefined ? 0.20 : hook;
+    const pts = rbPts(u=>{ const th = a - span/2 + span*u;
+      const rr = rad*(1 - h*Math.pow(Math.abs(u-0.5)*2, 2.4));
+      return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; }, 14);
+    const ws = pts.map((_,i)=>{ const u=i/(pts.length-1);
+      return Math.max(0.2, w*Math.pow(Math.sin(u*Math.PI), 0.72)); });
+    laDraw(pts, ws, col, dark, seed);
+  }
+  //  바늘 — 밑동이 가늘고 끝 직전에 부풀었다가 한 점으로 꽂힌다(찌르기·창격).
+  function rbNeedle(x,y,a,len,w,col,dark,seed){
+    const pts = rbPts(u=>[x+Math.cos(a)*len*u, y+Math.sin(a)*len*u], 8);
+    const ws = pts.map((_,i)=>{ const u=i/(pts.length-1);
+      return Math.max(0.2, u<0.78 ? w*(0.30+0.58*u) : w*0.83*(1-u)/0.22); });
+    laDraw(pts, ws, col, dark, seed);
+  }
+  //  화살촉·진격 표식 — 꼭짓점이 (x,y), a 방향을 가리킨다.
+  function rbChev(x,y,a,size,w,col,dark,seed){
+    const b1=a+2.55, b2=a-2.55;
+    laDraw([[x+Math.cos(b1)*size,y+Math.sin(b1)*size],[x,y],[x+Math.cos(b2)*size,y+Math.sin(b2)*size]],
+           [0.25,w,0.25], col, dark, seed);
+  }
+  //  별 — 표창(n=4)·다이아 룬(n=2)·플래시(n=4 겹침). 닫힌 별 외곽을 리본으로 두른다.
+  function rbStar(x,y,rOut,rIn,n,w,col,dark,seed,rot){
+    const pts=[];
+    for(let k=0;k<=n*2;k++){ const a2=(rot||0)+k*(Math.PI/n); const rr=(k%2)?rIn:rOut;
+      pts.push([x+Math.cos(a2)*rr, y+Math.sin(a2)*rr]); }
+    laDraw(pts, pts.map(()=>w), col, dark, seed);
+  }
+  //  작은 구슬 — 위성·혼·음표 머리. (반지름보다 굵은 고리 = 채워진 구슬)
+  function rbOrb(x,y,r2,col,dark,seed){ rbRing(x,y,Math.max(2,r2*0.6),Math.max(2.4,r2),col,dark,seed,0.05); }
+  //  보조 불똥 — 궤적 둘레의 짧은 스침. 이게 있어야 '손으로 마무리한 한 방'이 된다.
+  function laSparks(x,y,a,rad,n,col,dark,seed){
+    let s2=(seed|0)||7; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; };
+    for(let k=0;k<n;k++){
+      const sa=a+(rnd()-0.5)*1.7, rr=rad*(0.45+rnd()*0.75), ln=5+rnd()*10;
+      const sx=x+Math.cos(sa)*rr, sy=y+Math.sin(sa)*rr;
+      laDraw([[sx,sy],[sx+Math.cos(sa)*ln, sy+Math.sin(sa)*ln]], [1.6,0.2], col, dark, (seed|0)+k*97);
+    }
+  }
   //  ── 직업 37종. `t`는 0→1 진행도. 전부 자기 형태를 갖는다(공유 0).
   const CLASS_FX = {
     // ── 전사군 8: 베고·버티고·짓밟는다
-    samurai(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.9,a-0.8,a+0.8,5.2,c,d,s,0.05);                 // 발도 — 한 줄기 참격
-                              rbLine(x+Math.cos(a)*r*0.5,y+Math.sin(a)*r*0.5,a,r*0.6,2.4,c,d,s+7,0.2); },
-    cheol(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.86,a-1.15,a+1.15,7.0,c,d,s,0.10);                // 대검 — 두껍고 넓게
-                            rbBurst(x,y,r*0.5,r*0.95,3,3.0,c,d,s+11,1.9,a); },
-    paladin(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,4.4,c,d,s,0.06);                             // 성역 — 결계 고리
-                              rbBurst(x,y,r*0.2,r*0.72,6,2.6,c,d,s+3); },
-    rusher(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.25,6.0,c,d,s,0.10);                           // 돌격 — 꿰뚫는 직선
-                             rbBurst(x+Math.cos(a)*r,y+Math.sin(a)*r,4,26,5,2.2,c,d,s+5,2.2,a); },
-    exhero(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.92,a-0.95,a+0.95,5.6,c,d,s,0.04);                // 용사 — 십자 참격
-                             rbLine(x,y,a-1.57,r*0.8,3.4,c,d,s+9,0); rbLine(x,y,a+1.57,r*0.8,3.4,c,d,s+13,0); },
-    madman(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++)                                            // 광인 — 난도질
-                               rbArc(x,y,r*(0.6+0.09*k),a-1.3+k*0.5,a-0.5+k*0.5,3.2,c,d,s+k*29,0.16); },
-    monk(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.5,3.4,c,d,s,0.18);                                 // 수도승 — 기(氣) 파문
-                           rbRing(x,y,r*0.82,2.4,c,d,s+17,0.10);
-                           rbBurst(x,y,r*0.86,r*1.05,8,1.8,c,d,s+23); },
-    duelist(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.1,3.0,c,d,s,0.05);                            // 결투가 — 세 번 찌르기
-                              rbLine(x,y,a-0.18,r*0.9,2.2,c,d,s+5,0.05);
-                              rbLine(x,y,a+0.18,r*0.9,2.2,c,d,s+9,0.05); },
+    samurai(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,1.95,r*0.92,4.8,c,d,s,0.18);                    // 발도 — 갈고리 진 일섬
+                              const tx=x+Math.cos(a+0.93)*r*0.86, ty=y+Math.sin(a+0.93)*r*0.86;
+                              laGlint(tx,ty,9,c,d); laSparks(x,y,a,r*0.75,3,c,d,s+7); },
+    cheol(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,2.35,r*0.84,7.6,c,d,s,0.09);                       // 대검 — 둔중한 반달
+                            laSparks(x,y,a,r*0.95,5,c,d,s+11); },
+    paladin(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.78,3.6,c,d,s,0.04);                             // 성십자 — 결계 + 빛기둥
+                              rbNeedle(x,y,-1.5708,r*0.95,3.2,c,d,s+3);
+                              rbNeedle(x,y,1.5708,r*0.55,2.6,c,d,s+5);
+                              rbNeedle(x,y,0,r*0.55,2.6,c,d,s+7); rbNeedle(x,y,3.1416,r*0.55,2.6,c,d,s+9);
+                              laGlint(x,y,12,c,d); },
+    rusher(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.3,5.6,c,d,s);                                // 창격 — 꿰뚫고 진격 표식
+                             rbChev(x+Math.cos(a)*r*0.5,y+Math.sin(a)*r*0.5,a,13,2.8,c,d,s+5);
+                             rbChev(x+Math.cos(a)*r*0.85,y+Math.sin(a)*r*0.85,a,17,3.2,c,d,s+9);
+                             laGlint(x+Math.cos(a)*r*1.28,y+Math.sin(a)*r*1.28,10,c,d); },
+    exhero(x,y,a,r,c,d,s,t){ rbBlade(x,y,a-1.05,1.5,r*0.9,4.4,c,d,s,0.2);                    // 용사 — 엇갈린 십자 베기
+                             rbBlade(x,y,a+1.05,1.5,r*0.9,4.4,c,d,s+9,0.2);
+                             laGlint(x+Math.cos(a)*r*0.55,y+Math.sin(a)*r*0.55,12,c,d); },
+    madman(x,y,a,r,c,d,s,t){ let s2=s|0; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; };
+                             for(let k=0;k<5;k++)                                            // 광인 — 어긋난 난도질
+                               rbBlade(x+(rnd()-0.5)*r*0.3,y+(rnd()-0.5)*r*0.3,
+                                       a-0.9+k*0.45,1.15,r*(0.55+0.1*k),2.9,c,d,s+k*29,0.32);
+                             laSparks(x,y,a,r*0.7,4,c,d,s+13); },
+    monk(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.5,3.4,c,d,s,0.16);                                 // 수도승 — 기 파문 + 장풍촉
+                           rbRing(x,y,r*0.82,2.4,c,d,s+17,0.09);
+                           for(let k=0;k<8;k++){ const ka=(6.283/8)*k+0.39;
+                             rbChev(x+Math.cos(ka)*r*0.98,y+Math.sin(ka)*r*0.98,ka,9,2.0,c,d,s+k*23); } },
+    duelist(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.15,3.4,c,d,s);                              // 결투가 — 세 번 찌르기
+                              rbNeedle(x,y,a-0.26,r*0.85,2.2,c,d,s+5);
+                              rbNeedle(x,y,a+0.26,r*0.85,2.2,c,d,s+9);
+                              laGlint(x+Math.cos(a)*r*1.13,y+Math.sin(a)*r*1.13,8,c,d); },
     // ── 원거리 4: 쏘고·꿰뚫고·훑는다
-    archer(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++)                                            // 궁수 — 화살 비
-                               rbLine(x,y,a-0.5+k*0.25,r*(0.85+0.05*k),2.2,c,d,s+k*41,0.06); },
-    sniper(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.5,3.6,c,d,s,0.02);                             // 저격수 — 한 줄기 관통선
-                             rbCrescent(x+Math.cos(a)*r*1.5,y+Math.sin(a)*r*1.5,a+3.14,16,2.6,c,d,s+7); },
-    pilot(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.9,a-1.4,a-0.2,3.2,c,d,s,0.08);                     // 파일럿 — 급강하 훑기
-                            rbArc(x,y,r*0.9,a+0.2,a+1.4,3.2,c,d,s+13,0.08);
-                            rbBurst(x,y,r*0.3,r*0.6,4,2.0,c,d,s+19,1.6,a); },
-    specialist(x,y,a,r,c,d,s,t){ rbBurst(x,y,r*0.25,r*0.85,5,2.4,c,d,s,2.6,a);               // 스페셜리스트 — 도구 산개
-                                 rbRing(x,y,r*0.34,2.2,c,d,s+7,0.22); },
+    archer(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const ra=a-0.3+k*0.3;                     // 궁수 — 화살촉 셋
+                               rbNeedle(x,y,ra,r*0.92,2.3,c,d,s+k*41);
+                               rbChev(x+Math.cos(ra)*r*0.92,y+Math.sin(ra)*r*0.92,ra,8.5,2.2,c,d,s+k*17); } },
+    sniper(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.55,3.0,c,d,s);                               // 저격 — 총구 별 + 착탄
+                             rbStar(x,y,11,4,4,1.5,c,d,s+7,a);
+                             laGlint(x+Math.cos(a)*r*1.53,y+Math.sin(a)*r*1.53,12,c,d); },
+    pilot(x,y,a,r,c,d,s,t){ const w1=a+1.5708, w2=a-1.5708;                                  // 파일럿 — 기수 삼각 편대 비행운
+                            rbNeedle(x+Math.cos(w1)*16,y+Math.sin(w1)*16,a,r*0.8,2.4,c,d,s);
+                            rbNeedle(x+Math.cos(w2)*16,y+Math.sin(w2)*16,a,r*0.8,2.4,c,d,s+13);
+                            rbNeedle(x,y,a,r*1.05,3.0,c,d,s+5);
+                            rbChev(x+Math.cos(a)*r*1.05,y+Math.sin(a)*r*1.05,a,14,3.0,c,d,s+19);
+                            laSparks(x,y,a,r*0.55,3,c,d,s+23); },
+    specialist(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.42,2.2,c,d,s,0.03);                          // 조준경 — 십자 눈금
+                                 for(let k=0;k<4;k++){ const ka=(6.283/4)*k;
+                                   rbNeedle(x+Math.cos(ka)*r*0.46,y+Math.sin(ka)*r*0.46,ka,r*0.3,2.0,c,d,s+k*13); }
+                                 laGlint(x,y,7,c,d); laSparks(x,y,a,r*0.85,3,c,d,s+29); },
     // ── 마법군 3 (+지휘관)
-    manager(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.75,3.2,c,d,s,0.05);                             // 관측자 — 궤도
-                              rbArc(x,y,r*0.95,a-2.2,a+0.6,2.6,c,d,s+11,0.03);
-                              rbBurst(x,y,0,r*0.3,4,2.0,c,d,s+17); },
-    voidc(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.62,4.6,c,d,s,0.26);                               // 공허술사 — 뒤틀린 구멍
-                            for(let k=0;k<6;k++) rbLine(x,y,(6.283/6)*k+s*0.01,r*0.55,2.0,c,d,s+k*53,0.5); },
-    runeknight(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.88,a-0.9,a+0.9,4.6,c,d,s,0.04);               // 룬기사 — 참격 + 룬 문양
-                                 for(let k=0;k<3;k++){ const ra=a-0.6+k*0.6;
-                                   rbRing(x+Math.cos(ra)*r*0.7,y+Math.sin(ra)*r*0.7,9,1.8,c,d,s+k*31,0.3); } },
-    commander(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*0.9,4.0,c,d,s,0);                             // 지휘관 — 지휘선 + 대열
-                                for(let k=-1;k<=1;k+=2) rbLine(x+Math.cos(a+1.57*k)*22,y+Math.sin(a+1.57*k)*22,a,r*0.7,2.4,c,d,s+k*29,0); },
+    manager(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.75,2.9,c,d,s,0.04);                             // 관측자 — 궤도 위 위성
+                              const oa=s*0.02;
+                              rbArc(x,y,r*0.75,oa-0.9,oa,2.3,c,d,s+11,0.02);
+                              rbOrb(x+Math.cos(oa)*r*0.75,y+Math.sin(oa)*r*0.75,6,c,d,s+17);
+                              laGlint(x+Math.cos(oa)*r*0.75,y+Math.sin(oa)*r*0.75,10,c,d); },
+    voidc(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.6,4.8,c,d,s,0.26);                                // 공허 — 빨려 드는 갈고리
+                            for(let k=0;k<5;k++){ const ka=(6.283/5)*k+s*0.01;
+                              const pts=rbPts(u=>{ const th=ka+u*1.35, rr=r*(0.95-0.72*u);
+                                return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },9);
+                              const ws=pts.map((_,i2)=>{ const u=i2/(pts.length-1); return Math.max(0.2, 2.6*(1-u*0.75)); });
+                              laDraw(pts,ws,c,d,s+k*53); } },
+    runeknight(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,1.8,r*0.88,4.6,c,d,s,0.16);                   // 마검 — 참격 + 룬 다이아
+                                 for(let k=0;k<3;k++){ const ra=a-0.75+k*0.75;               //  룬은 칼날 안쪽 궤도에 — 칼날에 묻히지 않게
+                                   rbStar(x+Math.cos(ra)*r*0.45,y+Math.sin(ra)*r*0.45,10,5.5,2,1.7,c,d,s+k*31,ra); } },
+    commander(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*0.95,4.2,c,d,s);                            // 지휘 — 돌격 명령
+                                for(let k=-1;k<=1;k+=2){
+                                  const bx=x+Math.cos(a+1.57*k)*23, by=y+Math.sin(a+1.57*k)*23;
+                                  rbNeedle(bx,by,a,r*0.66,2.4,c,d,s+k*29);
+                                  rbChev(bx+Math.cos(a)*r*0.66,by+Math.sin(a)*r*0.66,a,9,2.2,c,d,s+k*41); }
+                                rbChev(x+Math.cos(a)*r*0.95,y+Math.sin(a)*r*0.95,a,12,2.8,c,d,s+7); },
     // ── 도적군 7: 파고들고·베고·사라진다
-    ninja(x,y,a,r,c,d,s,t){ for(let k=0;k<4;k++){ const ra=a-0.9+k*0.6;                      // 닌자 — 표창 궤적
-                              rbLine(x,y,ra,r*0.9,2.0,c,d,s+k*37,0.35);
-                              rbRing(x+Math.cos(ra)*r*0.9,y+Math.sin(ra)*r*0.9,6,1.6,c,d,s+k*11,0.4); } },
-    reaper(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.95,a-1.5,a+1.5,6.4,c,d,s,0.12);                   // 사신 — 대낫 훑기
-                             rbCrescent(x+Math.cos(a)*r*0.6,y+Math.sin(a)*r*0.6,a,r*0.42,3.0,c,d,s+7); },
-    glitch(x,y,a,r,c,d,s,t){ for(let k=0;k<7;k++){ const ra=s*0.01+k*0.9;                    // 글리치 — 어긋난 조각
-                               rbLine(x+Math.cos(ra)*r*0.3,y+Math.sin(ra)*r*0.3,ra+1.57,r*0.4,2.6,c,d,s+k*61,0.02); } },
-    blackcat(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++)                                           // 검은고양이 — 세 갈래 발톱
-                                 rbArc(x,y,r*(0.72+0.11*k),a-0.55,a+0.55,2.8,c,d,s+k*43,0.03); },
-    shadow(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.8,a-0.7,a+0.7,4.0,c,d,s,0.06);                    // 그림자 — 앞뒤로 베기
-                             rbArc(x,y,r*0.8,a+3.14-0.7,a+3.14+0.7,4.0,c,d,s+19,0.06); },
+    ninja(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const ra=a-0.55+k*0.55;                    // 닌자 — 날아가는 표창
+                              rbNeedle(x,y,ra,r*0.72,1.8,c,d,s+k*37);
+                              rbStar(x+Math.cos(ra)*r*0.85,y+Math.sin(ra)*r*0.85,9,3.4,4,1.5,c,d,s+k*11,ra+s*0.03); } },
+    reaper(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,2.9,r*0.95,6.6,c,d,s,0.33);                       // 대낫 — 깊은 갈고리 훑기
+                             rbOrb(x+Math.cos(a-1.2)*r*0.5,y+Math.sin(a-1.2)*r*0.5,5,c,d,s+7);
+                             laSparks(x,y,a,r*0.8,3,c,d,s+13); },
+    glitch(x,y,a,r,c,d,s,t){ let s2=s|0; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; };
+                             for(let k=0;k<7;k++){ const ra=s*0.01+k*0.9;                    // 글리치 — 어긋난 직선 조각
+                               const gx=x+Math.cos(ra)*r*(0.25+rnd()*0.35), gy=y+Math.sin(ra)*r*(0.25+rnd()*0.35);
+                               const ga=(rnd()<0.5?0:1.5708), gl=r*(0.2+rnd()*0.3);
+                               laDraw([[gx,gy],[gx+Math.cos(ga)*gl,gy+Math.sin(ga)*gl]],[2.6,2.6],c,d,s+k*61); } },
+    blackcat(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const off=(k-1)*11;                     // 검은고양이 — 세 갈퀴 발톱
+                                 const ox=x+Math.cos(a+1.5708)*off, oy=y+Math.sin(a+1.5708)*off;
+                                 rbBlade(ox,oy,a,1.2,r*0.78,2.7,c,d,s+k*43,0.3); } },
+    shadow(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,1.5,r*0.8,4.2,c,d,s,0.2);                         // 그림자 — 본체와 잔상
+                             rbBlade(x,y,a+3.1416,1.5,r*0.8,2.4,c,d,s+19,0.2); },
     tombraider(x,y,a,r,c,d,s,t){ const pts=rbPts(u=>{ const th=a-1.6+u*3.2, rr=r*(0.35+0.6*u);
-                                   return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },16);      // 도굴꾼 — 채찍 나선
-                                 drawBolt(pts,c,3.4,d,s); },
-    mumyeong(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*1.15,4.2,c,d,s,0.03);                          // 무명자 — 이름 없는 한 줄
-                               rbCrescent(x,y,a,r*0.5,2.2,c,d,s+11); },
+                                   return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },16);      // 도굴꾼 — 채찍 + 채찍 끝 파열
+                                 const ws=pts.map((_,i2)=>{ const u=i2/(pts.length-1); return Math.max(0.2, 3.6*(0.35+0.65*u)*(u>0.9?(1-u)/0.1:1)); });
+                                 laDraw(pts,ws,c,d,s);
+                                 const ex=pts[pts.length-1][0], ey=pts[pts.length-1][1];
+                                 laGlint(ex,ey,10,c,d); laSparks(ex,ey,a,14,3,c,d,s+7); },
+    mumyeong(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.2,4.0,c,d,s);                              // 무명 — 이름 없는 한 줄과 그 흔적
+                               const px2=x+Math.cos(a+1.5708)*5, py2=y+Math.sin(a+1.5708)*5;
+                               rbNeedle(px2,py2,a,r*0.95,1.5,c,d,s+11); },
     // ── 사제군 4
-    necro(x,y,a,r,c,d,s,t){ for(let k=0;k<4;k++){ const ra=a-1.1+k*0.73;                     // 망자 — 솟아오르는 혼
-                              rbLine(x+Math.cos(ra)*r*0.4,y+Math.sin(ra)*r*0.4,-1.57,r*0.5,2.6,c,d,s+k*47,0.6);
-                              rbRing(x+Math.cos(ra)*r*0.4,y+Math.sin(ra)*r*0.4-r*0.5,7,1.6,c,d,s+k*13,0.35); } },
-    bard(x,y,a,r,c,d,s,t){ for(let k=1;k<=3;k++) rbRing(x,y,r*0.32*k,2.6,c,d,s+k*23,0.05); },// 선율가 — 퍼지는 음파
-    returner(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,3.0,c,d,s,0.04);                             // 귀환자 — 시계바늘
-                               rbLine(x,y,a,r*0.78,3.2,c,d,s+5,0); rbLine(x,y,a-2.1,r*0.5,2.4,c,d,s+9,0); },
-    druid(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.01;               // 드루이드 — 뻗는 덩굴
+    necro(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const px2=x+(k-1)*r*0.5, py2=y+(k%2?r*0.18:-r*0.05);  // 망자 — 셋이 나란히 솟는 혼불
+                              rbNeedle(px2,py2,-1.5708,r*(0.42+0.12*(k%2)),2.6,c,d,s+k*47);
+                              rbOrb(px2,py2-r*(0.44+0.12*(k%2)),4,c,d,s+k*13); } },
+    bard(x,y,a,r,c,d,s,t){ for(let k=1;k<=3;k++)                                             // 선율가 — 음파와 큰 음표
+                             rbArc(x,y,r*0.34*k,a-0.62,a+0.62,2.7,c,d,s+k*23,0.03);
+                           const nx=x-Math.cos(a)*r*0.28, ny=y-Math.sin(a)*r*0.28-r*0.18;    //  음표는 파문 반대쪽 — 겹치지 않게
+                           rbOrb(nx,ny,5.5,c,d,s+7);
+                           laDraw([[nx+6,ny-1],[nx+6,ny-20]],[1.7,1.7],c,d,s+9);
+                           laDraw([[nx+6,ny-20],[nx+15,ny-15]],[1.7,0.3],c,d,s+11); },
+    returner(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,3.0,c,d,s,0.03);                             // 귀환 — 시계
+                               rbNeedle(x,y,a,r*0.74,3.2,c,d,s+5);
+                               rbNeedle(x,y,a-2.1,r*0.48,2.4,c,d,s+9);
+                               rbOrb(x,y,4,c,d,s+13);
+                               for(let k=0;k<4;k++){ const ka=(6.283/4)*k;
+                                 laDraw([[x+Math.cos(ka)*r*0.72,y+Math.sin(ka)*r*0.72],[x+Math.cos(ka)*r*0.84,y+Math.sin(ka)*r*0.84]],[1.6,1.6],c,d,s+k*17); } },
+    druid(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.01;               // 드루이드 — 덩굴 + 잎눈
                               const pts=rbPts(u=>{ const th=ra+Math.sin(u*3+k)*0.5, rr=r*0.9*u;
                                 return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },10);
-                              drawBolt(pts,c,2.6,d,s+k*31); } },
+                              const ws=pts.map((_,i2)=>{ const u=i2/(pts.length-1); return Math.max(0.2, 2.8*(1-u*0.6)); });
+                              laDraw(pts,ws,c,d,s+k*31);
+                              const tp=pts[pts.length-1];
+                              rbChev(tp[0],tp[1],ra+Math.sin(3+k)*0.5,7,1.8,c,d,s+k*7); } },
     // ── 상인군 10: 일하고·팔고·놀고·던진다
-    engineer(x,y,a,r,c,d,s,t){ rbBolt(x,y,a,r,4.2,c,d,s,3); },                               // 기술자 — 방전
-    debug(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.7,2.6,c,d,s,0.02);                                // 디버거 — 스캔 격자
-                            for(let k=0;k<4;k++) rbLine(x-Math.cos((6.283/4)*k)*r*0.7,y-Math.sin((6.283/4)*k)*r*0.7,(6.283/4)*k,r*1.4,1.8,c,d,s+k*17,0); },
-    tourist(x,y,a,r,c,d,s,t){ rbBurst(x,y,r*0.15,r*0.95,10,2.2,c,d,s);                       // 관광객 — 플래시
-                              rbRing(x,y,r*0.28,3.0,c,d,s+7,0.04); },
-    slime(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.02;               // 슬라임 — 튀는 점액
-                              rbRing(x+Math.cos(ra)*r*0.55,y+Math.sin(ra)*r*0.55,r*0.2,2.4,c,d,s+k*29,0.3); } },
-    gambler(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=a-1.0+k*0.5;                    // 도박사 — 뿌려지는 카드
-                                const px2=x+Math.cos(ra)*r*0.8, py2=y+Math.sin(ra)*r*0.8;
-                                rbLine(px2-Math.cos(ra+1.2)*9,py2-Math.sin(ra+1.2)*9,ra+1.2,18,2.6,c,d,s+k*53,0); } },
-    collector(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.85,2.8,c,d,s,0.08);                           // 수집가 — 끌어모으는 고리
-                                rbBurst(x,y,r*0.8,r*0.3,6,2.2,c,d,s+11); },
-    contributor(x,y,a,r,c,d,s,t){ rbLine(x,y,a,r*0.5,3.0,c,d,s,0);                           // 브랜치 — 갈라졌다 합친다
-                                  const mx=x+Math.cos(a)*r*0.5, my=y+Math.sin(a)*r*0.5;
-                                  rbLine(mx,my,a-0.5,r*0.5,2.4,c,d,s+7,0); rbLine(mx,my,a+0.5,r*0.5,2.4,c,d,s+11,0);
-                                  rbRing(mx,my,7,1.8,c,d,s+13,0.2); },
-    baeksu(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.6,a-1.9,a+1.9,3.0,c,d,s,0.22); },                 // 백수 — 축 늘어진 호
-    stonks(x,y,a,r,c,d,s,t){ const pts=rbPts(u=>[x+r*u*Math.cos(a)-Math.sin(a)*(-r*0.5*u+Math.sin(u*9)*r*0.09),
-                                                 y+r*u*Math.sin(a)+Math.cos(a)*(-r*0.5*u+Math.sin(u*9)*r*0.09)],12);
-                             drawBolt(pts,c,3.6,d,s);                                        // 주식쟁이 — 상승 차트
-                             rbLine(x+Math.cos(a)*r,y+Math.sin(a)*r-r*0.5,a-0.9,20,2.6,c,d,s+7,0); },
+    engineer(x,y,a,r,c,d,s,t){ rbBolt(x,y,a,r,4.2,c,d,s,3);                                  // 기술자 — 방전 + 합선 별
+                               rbStar(x+Math.cos(a)*r,y+Math.sin(a)*r,9,3.2,4,1.4,c,d,s+7,a);
+                               laSparks(x,y,a,r*0.7,3,c,d,s+13); },
+    debug(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.55,2.6,c,d,s,0.02);                               // 디버거 — 크로스헤어 + 괄호
+                            for(let k=0;k<4;k++){ const ka=(6.283/4)*k;
+                              rbNeedle(x+Math.cos(ka)*r*0.58,y+Math.sin(ka)*r*0.58,ka,r*0.34,1.8,c,d,s+k*17); }
+                            for(let k=0;k<4;k++){ const ka=(6.283/4)*k+0.785;
+                              const bx=x+Math.cos(ka)*r*0.8, by=y+Math.sin(ka)*r*0.8;
+                              laDraw([[bx-Math.cos(ka+1.5708)*7,by-Math.sin(ka+1.5708)*7],[bx,by],[bx+Math.cos(ka-1.5708)*7,by+Math.sin(ka-1.5708)*7]],[1.5,1.5,1.5],c,d,s+k*29); }
+                            rbOrb(x,y,3.4,c,d,s+31); },
+    tourist(x,y,a,r,c,d,s,t){ rbStar(x,y,r*0.85,r*0.26,4,1.9,c,d,s,0.785);                   // 관광객 — 카메라 플래시
+                              rbStar(x,y,r*0.55,r*0.18,4,1.6,c,d,s+7,0);
+                              laGlint(x,y,14,c,d); },
+    slime(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.02;               // 슬라임 — 튀는 점액(유기 요동 유지)
+                              rbRing(x+Math.cos(ra)*r*0.55,y+Math.sin(ra)*r*0.55,r*0.2,2.4,c,d,s+k*29,0.3); }
+                            laSparks(x,y,a,r*0.75,4,c,d,s+11); },
+    gambler(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=a-1.0+k*0.5;                    // 도박사 — 부채꼴 카드
+                                const px2=x+Math.cos(ra)*r*0.8, py2=y+Math.sin(ra)*r*0.8, ca=ra+0.5;
+                                const cw=6.5, ch=10.5;
+                                const cx2=Math.cos(ca), cy2=Math.sin(ca), nx2=-cy2, ny2=cx2;
+                                laDraw([[px2-cx2*ch+nx2*cw,py2-cy2*ch+ny2*cw],[px2+cx2*ch+nx2*cw,py2+cy2*ch+ny2*cw],
+                                        [px2+cx2*ch-nx2*cw,py2+cy2*ch-ny2*cw],[px2-cx2*ch-nx2*cw,py2-cy2*ch-ny2*cw],
+                                        [px2-cx2*ch+nx2*cw,py2-cy2*ch+ny2*cw]],[1.5,1.5,1.5,1.5,1.5],c,d,s+k*53); }
+                              laGlint(x+Math.cos(a)*r*0.8,y+Math.sin(a)*r*0.8,8,c,d); },
+    collector(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.85,2.8,c,d,s,0.06);                           // 수집가 — 안으로 모이는 표식
+                                for(let k=0;k<4;k++){ const ka=(6.283/4)*k+0.785;
+                                  rbChev(x+Math.cos(ka)*r*0.45,y+Math.sin(ka)*r*0.45,ka+3.1416,10,2.4,c,d,s+k*19); }
+                                laGlint(x,y,9,c,d); },
+    contributor(x,y,a,r,c,d,s,t){ const mx=x+Math.cos(a)*r*0.42, my=y+Math.sin(a)*r*0.42;    // 브랜치 — 갈라짐과 병합점
+                                  laDraw([[x,y],[mx,my]],[2.8,2.8],c,d,s);
+                                  rbNeedle(mx,my,a-0.8,r*0.62,2.3,c,d,s+7); rbNeedle(mx,my,a+0.8,r*0.62,2.3,c,d,s+11);
+                                  rbOrb(mx,my,4.5,c,d,s+13);
+                                  rbOrb(mx+Math.cos(a-0.8)*r*0.62,my+Math.sin(a-0.8)*r*0.62,3.8,c,d,s+17);
+                                  rbOrb(mx+Math.cos(a+0.8)*r*0.62,my+Math.sin(a+0.8)*r*0.62,3.8,c,d,s+19); },
+    baeksu(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.6,a-1.9,a+1.9,3.0,c,d,s,0.22);                    // 백수 — 늘어진 호와 Zzz
+                             for(let k=0;k<3;k++){ const zx=x+r*0.3+k*11, zy=y-r*0.45-k*9, zw=6-k;
+                               laDraw([[zx-zw,zy-zw],[zx+zw,zy-zw],[zx-zw,zy+zw],[zx+zw,zy+zw]],[1.3,1.3,1.3,1.3],c,d,s+k*23); } },
+    stonks(x,y,a,r,c,d,s,t){ const ca=Math.cos(a), sa=Math.sin(a);                           // 주식쟁이 — 캔들 차트 + 상승 화살표
+                             const P=(u,v)=>[x+ca*r*u-sa*(-r*0.5*v), y+sa*r*u+ca*(-r*0.5*v)];
+                             const zig=[[0,0],[0.22,0.18],[0.4,0.08],[0.62,0.5],[0.78,0.38],[1,1]].map(q=>P(q[0],q[1]));
+                             const ws=zig.map((_,i2)=>{ const u=i2/(zig.length-1); return 2.2+u*1.6; });
+                             laDraw(zig,ws,c,d,s);
+                             rbChev(zig[5][0],zig[5][1],Math.atan2(zig[5][1]-zig[4][1],zig[5][0]-zig[4][0]),11,2.8,c,d,s+7);
+                             for(let k=0;k<3;k++){ const q=P(0.2+k*0.25,-0.12);
+                               laDraw([[q[0],q[1]-5],[q[0],q[1]+5]],[2.2,2.2],c,d,s+k*31); } },
     gymbro(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.55,6.0,c,d,s,0.05);                              // 헬창 — 터지는 근육
-                             rbBurst(x,y,r*0.55,r*1.0,6,3.2,c,d,s+7); },
+                             for(let k=0;k<6;k++){ const ka=(6.283/6)*k+0.52;
+                               rbNeedle(x+Math.cos(ka)*r*0.58,y+Math.sin(ka)*r*0.58,ka,r*0.45,3.4,c,d,s+k*19); }
+                             laGlint(x,y,10,c,d); },
   };
   function drawHazards(){
     for (const h of hazards){
