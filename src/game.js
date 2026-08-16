@@ -18589,6 +18589,45 @@ import { FX } from "./fx.js";
     b.ox.fillRect(0,0,sz,sz);
     b.ox.restore();
   }
+  //  🔴 v6.219 보스 악세서리용 포스터라이즈 — dotPosterize는 알파<70을 지워 저알파 장식
+  //   (번아웃 잿빛 그림자 α0.3 · 수문장 배리어 돔)이 조용히 사라진다(v6.205에서 미리 발견한 함정).
+  //   알파를 3단(0/128/255)으로 끊어 반투명 연출을 반투명인 채로 도트화한다.
+  function dotPosterizeDeco(dx, sz){
+    const im = dx.getImageData(0,0,sz,sz), d8 = im.data;
+    for (let i=0; i<d8.length; i+=4){
+      if (d8[i+3] < 40){ d8[i+3] = 0; continue; }
+      d8[i+3] = d8[i+3] < 160 ? 128 : 255;
+      d8[i]   = Math.min(255,(d8[i]  +8>>4)<<4);
+      d8[i+1] = Math.min(255,(d8[i+1]+8>>4)<<4);
+      d8[i+2] = Math.min(255,(d8[i+2]+8>>4)<<4);
+    }
+    dx.putImageData(im,0,0);
+  }
+  //  🔴 v6.219 **보스 악세서리 도트 패스** — 안경·왕관·뿔·대검이 매끈한 벡터로 도트 몸 위에 얹혀
+  //   한 그림에서 화풍이 갈렸다(v6.194 교훈). 악세서리 블록 전체를 도트 버퍼로 우회시킨다.
+  function drawBossDecoDot(b, face, scale, drawFn){
+    const D = drawHumanoid;
+    if (!D._c || localStorage.gs_dot === '0'){
+      ctx.save(); ctx.translate(b.x, b.y-4); ctx.scale(face*scale, scale);
+      try { drawFn(); } finally { ctx.restore(); }
+      return;
+    }
+    const SZ = D.SZ, PPU = D.PPU;
+    const bb = dotBuf(SZ, 'bossdeco');
+    const dc = bb.cx;
+    dc.setTransform(1,0,0,1,0,0); dc.clearRect(0,0,SZ,SZ);
+    dc.setTransform(PPU*face, 0, 0, PPU, SZ/2, SZ/2);
+    const main = ctx; ctx = dc;
+    try { drawFn(); } finally { ctx = main; }
+    dc.setTransform(1,0,0,1,0,0);
+    dotPosterizeDeco(dc, SZ);
+    dotOutline({ c: bb.c, ox: bb.ox }, SZ, b.emp ? PAL.ink : PAL.ink2);
+    const half = SZ/2/PPU*scale;
+    const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bb.o, b.x-half, (b.y-4)-half, half*2, half*2);
+    ctx.drawImage(bb.c, b.x-half, (b.y-4)-half, half*2, half*2);
+    ctx.imageSmoothingEnabled = sm;
+  }
   // v6.75 스프라이트 캐시 — 같은 (대상·프레임) 조합은 한 번만 그려두고 재사용한다.
   // v6.74의 도트 래퍼는 몹마다 매 프레임 getImageData를 돌려서(GPU→CPU 리드백 + 픽셀 루프)
   // 개체 수가 늘수록 모바일이 급격히 느려졌다. 캐시가 그 비용을 '스킨×프레임' 횟수로 못박는다.
@@ -21802,17 +21841,18 @@ import { FX } from "./fx.js";
       const walk = t*8;
       let robe = (b.kind==='backstab'||b.kind==='esper'||b.kind==='summoner'||b.kind==='root');
       drawHumanoid(b.x, b.y-4, { face, walk, gear:null, scale, ink: b.emp? ink : ink2, robe, boss:true, tierC: BOSS_ACCENTS[b.key], pal: bossPal(b.key, b.emp) });
+      //  v6.219 악세서리 블록 전체가 도트 파이프라인을 지난다 — 화풍 통일
+      drawBossDecoDot(b, face, scale, ()=>{
       ctx.save();
-      ctx.translate(b.x, b.y-4);
-      ctx.scale(face*scale, scale);
       ctx.strokeStyle = ink;
       ctx.fillStyle = ink;
       ctx.lineCap = 'round';
       ctx.lineWidth = 1.6;
 
       if (b.kind==='root'){ // 각성 오서진: 안경 + 왕관 + 궤도 구슬 3개
-        ctx.beginPath(); ctx.arc(-1,-11,2.6,0,Math.PI*2); ctx.stroke();
-        ctx.beginPath(); ctx.arc(4.6,-11,2.6,0,Math.PI*2); ctx.stroke();
+        //  v6.219 안경 원 2개는 도트 해상도에서 구멍이 사라져 덩어리가 된다 — 밴드 + 렌즈로
+        ctx.fillStyle = ink; ctx.fillRect(-5.5,-13,12.5,3.6);
+        ctx.fillStyle = '#cfe8f2'; ctx.fillRect(-3.8,-12.4,3,2.2); ctx.fillRect(1.8,-12.4,3,2.2); ctx.fillStyle = ink;
         ctx.beginPath();
         ctx.moveTo(-5,-16); ctx.lineTo(-3,-21); ctx.lineTo(0,-17); ctx.lineTo(2,-22); ctx.lineTo(4,-17); ctx.lineTo(7,-21); ctx.lineTo(8,-16);
         ctx.closePath(); ctx.fill();
@@ -21821,12 +21861,12 @@ import { FX } from "./fx.js";
           ctx.beginPath(); ctx.arc(Math.cos(oa)*16, -6+Math.sin(oa)*7, 2.8, 0, Math.PI*2); ctx.fill();
         }
       } else if (b.kind==='ranged'){ // 오서진: 안경 + 마법 구슬
-        ctx.beginPath(); ctx.arc(-1,-11,2.6,0,Math.PI*2); ctx.stroke();
-        ctx.beginPath(); ctx.arc(4.6,-11,2.6,0,Math.PI*2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(1.6,-11); ctx.lineTo(2,-11); ctx.stroke();
+        //  v6.219 안경 원 2개는 도트 해상도에서 구멍이 사라져 덩어리가 된다 — 밴드 + 렌즈로
+        ctx.fillStyle = ink; ctx.fillRect(-5.5,-13,12.5,3.6);
+        ctx.fillStyle = '#cfe8f2'; ctx.fillRect(-3.8,-12.4,3,2.2); ctx.fillRect(1.8,-12.4,3,2.2); ctx.fillStyle = ink;
         const oa = t*4;
-        ctx.beginPath(); ctx.arc(11+Math.cos(oa)*2, -14+Math.sin(oa)*2, 3.2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(11+Math.cos(oa)*2, -14+Math.sin(oa)*2, 5.6, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(11+Math.cos(oa)*2, -14+Math.sin(oa)*2, 3.4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#cfe8f2'; ctx.fillRect(10+Math.cos(oa)*2, -15.4+Math.sin(oa)*2, 1.6, 1.6); ctx.fillStyle = ink;
       } else if (b.kind==='charger'){ // 박태영: 뿔 투구 + 주먹
         ctx.beginPath(); ctx.moveTo(-4,-15); ctx.lineTo(-8,-22); ctx.lineTo(-1,-16); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(6,-15); ctx.lineTo(10,-22); ctx.lineTo(3,-16); ctx.closePath(); ctx.fill();
@@ -22124,6 +22164,7 @@ import { FX } from "./fx.js";
         }
       }
       ctx.restore();
+      });
     }
 
     ctx.globalAlpha = 1;
