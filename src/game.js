@@ -1593,9 +1593,9 @@ import { FX } from "./fx.js";
     // 유일 성장무기 — 일반 장비와 같은 행 양식 (희귀도: 유일)
     const GW_LIST = [
       { key:'nameless', found:DB.growth.found, lv:DB.growth.lv, def:WEAPONS.nameless, ds:'벨수록 성장하는 검 — 형(型) 선택·전용 강화 트리' },
-      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [궁수 전용]' },
-      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용]' },
-      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용]' },
+      { key:'gbow', found:DB.gweps.bow.found, lv:DB.gweps.bow.lv, def:WEAPONS.gbow, ds:'보스의 정수로 성장하는 장궁 · [궁수 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
+      { key:'gtome', found:DB.gweps.tome.found, lv:DB.gweps.tome.lv, def:WEAPONS.gtome, ds:'별의 조각을 먹는 마도서 · [공허술사 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
+      { key:'gblade', found:DB.gweps.blade.found, lv:DB.gweps.blade.lv, def:WEAPONS.gblade, ds:'고대 톱니로 성장하는 대검 · [사신 전용] · 각성(Lv15+) 후 런제 형(型) 선택' },
     ];
     // 직업 유일무기 3종 (현재 탭 직업) — 미발견도 힌트로 표시
     (CGW_NAMES[equipClassTab]||[]).forEach((nm, i)=>{
@@ -5083,40 +5083,40 @@ import { FX } from "./fx.js";
       name:'침묵하는 활', desc:'[유일] 전장을 꿰뚫는 장궁 — 보스의 정수로 성장',
       evName:'침묵하는 활·만개', evDesc:'시위가 스스로 노래하기 시작합니다',
       lvDesc:['','피해 강화','피해 +25%','관통 강화','피해 강화'],
-      baseCd:(w)=> w.evolved ? 0.95 : 1.2,
+      baseCd:(w)=> (w.evolved ? 0.95 : 1.2) * ((player&&player.growthBranch==='gale')?0.86:1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.bow.lv||1);
         const g = 1 + gl*0.9; // 초반 하향 — 성장의 서사
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + (w.evolved?1:0)
+      count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + ((player&&player.growthBranch==='gale')?1:0) + (w.evolved?1:0)
     },
     gtome: {
       name:'굶주린 마도서', desc:'[유일] 스스로 사냥하는 마탄 — 별의 조각으로 성장',
       evName:'굶주린 마도서·탐식', evDesc:'책장이 끝없이 펄럭이며 마탄을 토해냅니다',
       lvDesc:['','마탄 +1','피해 +25%','마탄 +1','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.1 : 1.4,
+      baseCd:(w)=> (w.evolved ? 1.1 : 1.4) * ((player&&player.growthBranch==='gale')?0.86:1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.tome.lv||1);
         const g = 0.8 + gl*0.7; // 초반 하향
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + (w.evolved?2:0)
+      count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + ((player&&player.growthBranch==='gale')?1:0) + (w.evolved?2:0)
     },
     gblade: {
       name:'핏빛 대검', desc:'[유일] 대지를 가르는 참격 — 고대 톱니로 성장',
       evName:'핏빛 대검·개방', evDesc:'봉인이 풀리며 검이 울부짖습니다',
       lvDesc:['','참격 확장','피해 +25%','참격 확장','피해 강화'],
-      baseCd:(w)=> w.evolved ? 1.25 : 1.6,
+      baseCd:(w)=> (w.evolved ? 1.25 : 1.6) * ((player&&player.growthBranch==='gale')?0.86:1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.blade.lv||1);
         const g = 3 + gl*1.8;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.gweps.blade.lv>=25?1:0)
+      count:(w)=> 1 + (DB.gweps.blade.lv>=25?1:0) + ((player&&player.growthBranch==='gale')?1:0)
     },
     nameless: {
       name:'무명검', desc:'[유일] 처음엔 형편없지만, 벤 만큼 영원히 성장하는 검',
@@ -5788,7 +5788,8 @@ import { FX } from "./fx.js";
   Object.defineProperty(WEAPONS.nameless, 'name', { get(){
     const l = (DB.growth&&DB.growth.lv)||1;
     const base = l>=100?'시원의 검·귀일' : l>=60?'무극검·초월' : l>=35?'진명검·현신' : l>=20?'명검·해방' : l>=10?'무명검·각성' : '무명검';
-    const bt = (player&&player.growthBranch) ? '['+GROWTH_BRANCHES[player.growthBranch].tag+'] ' : '';
+    // v6.230: 형 태그는 그 무기를 실제로 든 런에서만 — 다른 성장무기의 형이 이름에 새면 안 된다
+    const bt = (player&&player.growthBranch&&ownedWeapon('nameless')) ? '['+GROWTH_BRANCHES[player.growthBranch].tag+'] ' : '';
     return bt + base;
   }});
   // ---------- v6-3차 핵심: 직업 전용 성장무기 (32직업 × 3종 = 96종) ----------
@@ -6163,17 +6164,21 @@ import { FX } from "./fx.js";
       count:(w)=> (arch==='nova'?7 : arch==='spread'?3 : arch==='homing'?2 : 1) + 1 + (w.evolved?1:0)
     };
   });
+  // v6.230: 형 태그 — 무명검 getter와 같은 규칙 (그 무기를 든 런에서만)
+  function gwepBranchTag(wkey){
+    return (player&&player.growthBranch&&ownedWeapon(wkey)) ? '['+GWEP_BRANCH_SKIN[wkey][player.growthBranch].tag+'] ' : '';
+  }
   Object.defineProperty(WEAPONS.gbow, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.bow.lv)||1;
-    return l>=100?'침묵하는 활·종언' : l>=60?'침묵하는 활·극의' : l>=30?'침묵하는 활·진각성' : l>=15?'침묵하는 활·각성' : '침묵하는 활';
+    return gwepBranchTag('gbow') + (l>=100?'침묵하는 활·종언' : l>=60?'침묵하는 활·극의' : l>=30?'침묵하는 활·진각성' : l>=15?'침묵하는 활·각성' : '침묵하는 활');
   }});
   Object.defineProperty(WEAPONS.gtome, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.tome.lv)||1;
-    return l>=100?'굶주린 마도서·종언' : l>=60?'굶주린 마도서·극의' : l>=30?'굶주린 마도서·진각성' : l>=15?'굶주린 마도서·각성' : '굶주린 마도서';
+    return gwepBranchTag('gtome') + (l>=100?'굶주린 마도서·종언' : l>=60?'굶주린 마도서·극의' : l>=30?'굶주린 마도서·진각성' : l>=15?'굶주린 마도서·각성' : '굶주린 마도서');
   }});
   Object.defineProperty(WEAPONS.gblade, 'name', { get(){
     const l = (DB.gweps&&DB.gweps.blade.lv)||1;
-    return l>=100?'핏빛 대검·종언' : l>=60?'핏빛 대검·극의' : l>=30?'핏빛 대검·진각성' : l>=15?'핏빛 대검·각성' : '핏빛 대검';
+    return gwepBranchTag('gblade') + (l>=100?'핏빛 대검·종언' : l>=60?'핏빛 대검·극의' : l>=30?'핏빛 대검·진각성' : l>=15?'핏빛 대검·각성' : '핏빛 대검');
   }});
   const GROWTH_GATE_LVS = [9,19,34,59,99]; // 이 레벨에서는 각성 의식(영구 강화 탭)으로만 돌파 가능
   function growthTierToast(lv){
@@ -6608,9 +6613,35 @@ import { FX } from "./fx.js";
     gale:  { n:'질풍의 형(型)', d:'이 판 동안 발사 간격 -14%, 검기 +1 — 이름에 [풍(風)]', tag:'풍' },
     leech: { n:'흡명의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [명(命)]', tag:'명' },
   };
-  function openGrowthBranch(){
+  // v6.230 로드맵 0-3: 활/마도서/대검에도 런제 형 선택 — 3축(피해/속사/흡생) 엔진은 공유하고
+  // 이름만 무기 정체성으로 간다 (CSKIN 패턴). 계수는 무명검과 동일 대역: ×1.18 / cd×0.86+1발 / 처치 회복 +1.
+  // 런당 성장무기는 1종만 들 수 있으므로 player.growthBranch 하나를 넷이 공유해도 충돌하지 않는다.
+  const GWEP_BRANCH_SKIN = {
+    gbow:   { t:'활이 형(型)을 묻는다',
+              slash:{n:'관통의 형(型)', d:'이 판 동안 화살 피해 +18% — 이름에 [관(貫)]', tag:'貫'},
+              gale: {n:'속사의 형(型)', d:'이 판 동안 발사 간격 -14%, 화살 +1 — 이름에 [연(連)]', tag:'連'},
+              leech:{n:'사냥꾼의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [렵(獵)]', tag:'獵'} },
+    gtome:  { t:'마도서가 형(型)을 묻는다',
+              slash:{n:'침식의 형(型)', d:'이 판 동안 마탄 피해 +18% — 이름에 [식(蝕)]', tag:'蝕'},
+              gale: {n:'군체의 형(型)', d:'이 판 동안 발사 간격 -14%, 마탄 +1 — 이름에 [군(群)]', tag:'群'},
+              leech:{n:'포식의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [식(食)]', tag:'食'} },
+    gblade: { t:'대검이 형(型)을 묻는다',
+              slash:{n:'파쇄의 형(型)', d:'이 판 동안 참격 피해 +18% — 이름에 [쇄(碎)]', tag:'碎'},
+              gale: {n:'검풍의 형(型)', d:'이 판 동안 발사 간격 -14%, 참격 +1 — 이름에 [람(嵐)]', tag:'嵐'},
+              leech:{n:'혈흡의 형(型)', d:'이 판 동안 처치 시 회복 +1 — 이름에 [혈(血)]', tag:'血'} },
+  };
+  // 형 개방 조건: 각성급 성장무기를 들고 있을 때 (무명검=해방 lv20 / 활·마도서·대검=각성 lv15 — 각자의 2번째 격)
+  function growthBranchReady(){
+    if (DB.growth.found && DB.growth.lv>=20 && ownedWeapon('nameless')) return 'nameless';
+    for (const p of [['gbow','bow'],['gtome','tome'],['gblade','blade']]){
+      if (DB.gweps[p[1]].found && DB.gweps[p[1]].lv>=15 && ownedWeapon(p[0])) return p[0];
+    }
+    return null;
+  }
+  function openGrowthBranch(wkey){
+    const skin = GWEP_BRANCH_SKIN[wkey];
     const opts = Object.keys(GROWTH_BRANCHES).map(bk=>{
-      const br = GROWTH_BRANCHES[bk];
+      const br = skin ? skin[bk] : GROWTH_BRANCHES[bk];
       return { l:br.n, d:br.d, fx:()=>{
         player.growthBranch = bk;
         toast('⚔ 형 개방 — '+br.n+'! (이 판 한정)');
@@ -6618,7 +6649,7 @@ import { FX } from "./fx.js";
       } };
     });
     opts.push({ l:'형을 개방하지 않는다', d:'다음 레벨업 후 다시 물어본다', fx:()=>{ pendingBranchAsk = true; } });
-    openEvent({ t:'검이 형(型)을 묻는다', d:'해방된 검은 매 전장에서 다른 형태로 운용할 수 있다. 이번 판의 형을 선택하라.', opts });
+    openEvent({ t: skin ? skin.t : '검이 형(型)을 묻는다', d:'해방된 무기는 매 전장에서 다른 형태로 운용할 수 있다. 이번 판의 형을 선택하라.', opts });
   }
   let pendingBranchAsk = true;
 
@@ -15724,8 +15755,9 @@ import { FX } from "./fx.js";
     if (player.madman && elapsed > 5){
       player.hp -= player.maxHp*(player.madmanSlow?0.005:0.008)*dt;
     }
-    // 무명검 흡명의 형: 검을 든 동안 처치 회복 +1
-    if (player.growthBranch==='leech' && !player.__leechApplied && ownedWeapon('nameless')){
+    // 흡명·사냥꾼·포식·혈흡의 형: 성장무기를 든 동안 처치 회복 +1 (v6.230: 4무기 공통)
+    if (player.growthBranch==='leech' && !player.__leechApplied
+        && (ownedWeapon('nameless')||ownedWeapon('gbow')||ownedWeapon('gtome')||ownedWeapon('gblade'))){
       player.lifesteal += 1; player.__leechApplied = true;
     }
     // 백수: 가만히 있으면 강해진다 (움직이면 해제)
@@ -17141,7 +17173,7 @@ import { FX } from "./fx.js";
     luHint.textContent = '레벨업 — 하나를 선택하세요 (1~4 · R 리롤)';
     setTimeout(()=>{
       if (pendingLevelUps>0){ state='playing'; maybeOpenLevelUp(); }
-      else if (pendingBranchAsk && DB.growth.found && DB.growth.lv>=20 && !player.growthBranch && ownedWeapon('nameless')){ pendingBranchAsk=false; state='playing'; openGrowthBranch(); }
+      else if (pendingBranchAsk && !player.growthBranch && growthBranchReady()){ pendingBranchAsk=false; state='playing'; openGrowthBranch(growthBranchReady()); }
       else if (pendingJobs.length>0){ state='playing'; openJobChoice(pendingJobs.shift()); }
       else if (pendingAwaken && !player.awakening){ state='playing'; openAwakening(); }
       else if (pendingSkills.length>0){ state='playing'; openSkillSwap(pendingSkills.shift()); }
