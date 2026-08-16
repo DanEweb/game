@@ -22978,12 +22978,31 @@ import { FX } from "./fx.js";
   //   바깥(깊은 색·넓게) → 본체(직업색) → 안쪽(밝게) → 심(흰색·가장 얇게).
   //   ⚠ 깊은 색은 검정을 섞는 게 아니라 **차가운 쪽(남보라)으로 민다** — 캐릭터 팔레트와 같은 색조 이동 규칙.
   const LA_RAMP = {};
+  //  🔴 v6.211 **이펙트 전용 색 부스트** — 사용자: "색감이나 이런것도".
+  //   CLASS_COLORS는 흑백 월드용 탁한 악센트(#8a6a4f류)라 어떤 램프를 얹어도 칙칙했다.
+  //   이펙트에서만 채도·명도를 끌어올린다(HSL: s ×1.5+0.1, l → 0.52~0.62). 월드 악센트는 그대로.
+  function fxVivid(col){
+    const R0=parseInt(col.slice(1,3),16)/255, G0=parseInt(col.slice(3,5),16)/255, B0=parseInt(col.slice(5,7),16)/255;
+    const mx=Math.max(R0,G0,B0), mn=Math.min(R0,G0,B0); let h=0, l=(mx+mn)/2;
+    let sat = mx===mn ? 0 : (l>0.5 ? (mx-mn)/(2-mx-mn) : (mx-mn)/(mx+mn));
+    if (mx!==mn){
+      if (mx===R0) h=((G0-B0)/(mx-mn)+(G0<B0?6:0))/6;
+      else if (mx===G0) h=((B0-R0)/(mx-mn)+2)/6;
+      else h=((R0-G0)/(mx-mn)+4)/6;
+    }
+    sat = Math.min(1, sat*1.5+0.10); l = Math.max(0.52, Math.min(0.62, l+0.08));
+    const q = l<0.5 ? l*(1+sat) : l+sat-l*sat, p = 2*l-q;
+    const f=(tc)=>{ let u=tc<0?tc+1:tc>1?tc-1:tc;
+      if (u<1/6) return p+(q-p)*6*u; if (u<0.5) return q; if (u<2/3) return p+(q-p)*(2/3-u)*6; return p; };
+    const to=(v)=>('0'+Math.round(v*255).toString(16)).slice(-2);
+    return '#'+to(f(h+1/3))+to(f(h))+to(f(h-1/3));
+  }
   function laRamp(col){
     if (LA_RAMP[col]) return LA_RAMP[col];
-    //  v6.207 채도 유지 — 레퍼런스는 몸통이 끝까지 **진하다**. 흰 기운은 뜨거운 날(core) 한 줄뿐.
-    //   lit을 0.48 → 0.30으로 낮춰 파스텔로 바래는 것을 막는다.
-    const r = { deep: mixHex(col, '#241a6a', 0.58), mid: col,
-                lit: mixHex(col, '#fff2c8', 0.30), core: mixHex(col, '#ffffff', 0.92) };
+    const v = fxVivid(col);
+    //  v6.207 채도 유지 — 몸통은 끝까지 진하다. 흰 기운은 뜨거운 날(core) 한 줄뿐.
+    const r = { deep: mixHex(v, '#241a6a', 0.55), mid: v,
+                lit: mixHex(v, '#fff2c8', 0.30), core: mixHex(v, '#ffffff', 0.92) };
     LA_RAMP[col] = r; return r;
   }
   //  각을 살려야 하는 도형(글리치 조각·차트 캔들·카드)은 중점 스무딩을 끈다
@@ -22996,11 +23015,14 @@ import { FX } from "./fx.js";
     //   ③ 흰 값은 **한쪽 날에만** — 스파인을 한쪽으로 밀어낸 얇은 리본. 중앙선 전체에 깔면 네온 튜브다
     //   ④ 모서리 금지 — 중점 스무딩(polyPathS)
     //  다단(v6.204)은 유지: 터짐 → 퍼짐 → 잔몸(외곽선 대신 몸이 옅게 남는다) → 걷힘.
+    //  🔴 v6.211 **늘어나지 않는다** — 사용자: "그냥 길쭉하게 늘어나는 느낌".
+    //   레퍼런스 스프라이트는 거의 안 커진다: 1프레임에 완성 크기로 터지듯 나타나고(0.86→1.04),
+    //   이후는 알파·단계가 처리한다. 계속 커지는 건(0.6→1.24) 고무줄이다.
     let sc, fade, coreA;
-    if (t < 0.12){ const u = t/0.12; sc = 0.6+0.4*u*u; fade = u; coreA = Math.min(1, u*1.6); }
-    else if (t < 0.5){ const u = (t-0.12)/0.38; sc = 1+0.16*u; fade = 1-0.12*u; coreA = 1-0.4*u; }
-    else if (t < 0.8){ const u = (t-0.5)/0.3; sc = 1.16+0.08*u; fade = 0.88*(1-u)*(1-u)+0.05; coreA = 0.6*(1-u); }
-    else { const u = (t-0.8)/0.2; sc = 1.24; fade = 0.05*(1-u); coreA = 0; }
+    if (t < 0.10){ const u = t/0.10; const ov=u*(2-u); sc = 0.86+0.18*ov; fade = Math.min(1,u*1.5); coreA = Math.min(1, u*1.8); }
+    else if (t < 0.5){ const u = (t-0.10)/0.40; sc = 1.04+0.05*u; fade = 1-0.12*u; coreA = 1-0.4*u; }
+    else if (t < 0.8){ const u = (t-0.5)/0.3; sc = 1.09+0.04*u; fade = 0.88*(1-u)*(1-u)+0.05; coreA = 0.6*(1-u); }
+    else { const u = (t-0.8)/0.2; sc = 1.13; fade = 0.05*(1-u); coreA = 0; }
     const R = laRamp(col);
     //  ⚠ v6.201: 라테일은 이펙트가 캐릭터를 덮는다 — 폭·확대 유지.
     //  v6.206: w가 배열이면 명시적 폭(형태가 정한다), 숫자면 난수 요동(유기 리본).
@@ -23138,9 +23160,11 @@ import { FX } from "./fx.js";
   function laSparks(x,y,a,rad,n,col,dark,seed){
     let s2=(seed|0)||7; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; };
     for(let k=0;k<n;k++){
-      const sa=a+(rnd()-0.5)*1.7, rr=rad*(0.45+rnd()*0.75), ln=5+rnd()*10;
+      const sa=a+(rnd()-0.5)*1.7, rr=rad*(0.45+rnd()*0.75), ln=4+rnd()*7;
       const sx=x+Math.cos(sa)*rr, sy=y+Math.sin(sa)*rr;
-      laDraw([[sx,sy],[sx+Math.cos(sa)*ln, sy+Math.sin(sa)*ln]], [1.6,0.2], col, dark, (seed|0)+k*97);
+      //  v6.211 선이 아니라 **물방울 파편** — 머리가 통통하고 꼬리가 한 점으로 죽는다(레퍼런스의 흩어지는 조각)
+      laDraw([[sx,sy],[sx+Math.cos(sa)*ln*0.45, sy+Math.sin(sa)*ln*0.45],[sx+Math.cos(sa)*ln, sy+Math.sin(sa)*ln]],
+             [0.4, 2.0, 0.12], col, dark, (seed|0)+k*97);
     }
   }
   //  🔴 v6.208 **전문 벡터 아이콘** — game-icons.net (CC BY 3.0 · Lorc/Delapouite/Darkzaitzev 作)
@@ -23195,10 +23219,10 @@ import { FX } from "./fx.js";
     let P = FX_P2D[key]; if (!P){ P = FX_P2D[key] = new Path2D(dd); }
     const t = LA_T;
     let sc, fade, coreA;
-    if (t < 0.12){ const u=t/0.12; sc=0.6+0.4*u*u; fade=u; coreA=Math.min(1,u*1.6); }
-    else if (t < 0.5){ const u=(t-0.12)/0.38; sc=1+0.16*u; fade=1-0.12*u; coreA=1-0.4*u; }
-    else if (t < 0.8){ const u=(t-0.5)/0.3; sc=1.16+0.08*u; fade=0.88*(1-u)*(1-u)+0.05; coreA=0.6*(1-u); }
-    else { const u=(t-0.8)/0.2; sc=1.24; fade=0.05*(1-u); coreA=0; }
+    if (t < 0.10){ const u=t/0.10; const ov=u*(2-u); sc=0.86+0.18*ov; fade=Math.min(1,u*1.5); coreA=Math.min(1,u*1.8); }
+    else if (t < 0.5){ const u=(t-0.10)/0.40; sc=1.04+0.05*u; fade=1-0.12*u; coreA=1-0.4*u; }
+    else if (t < 0.8){ const u=(t-0.5)/0.3; sc=1.09+0.04*u; fade=0.88*(1-u)*(1-u)+0.05; coreA=0.6*(1-u); }
+    else { const u=(t-0.8)/0.2; sc=1.13; fade=0.05*(1-u); coreA=0; }
     const R = laRamp(col);
     const k = size*sc/512;
     ctx.save();
@@ -23355,7 +23379,9 @@ import { FX } from "./fx.js";
       } else if (fx.type==='ring'){
         //  🔴 v6.203 스킬·궁극·폭발이 **공유하는 고리**. 얇은 원 하나였다 → 라테일 리본으로.
         //   ⚠ 호출부가 수십 곳이라 여기 한 곳만 바꾸면 **그 전부가 같이 올라간다**.
-        const r = fx.r0 + (fx.r1-fx.r0)*(fx.age/fx.life);
+        //  v6.211 선형 팽창 = 풍선 — ease-out(급감속)이어야 충격파로 읽힌다.
+        const pe = fx.age/fx.life;
+        const r = fx.r0 + (fx.r1-fx.r0)*(1-Math.pow(1-pe,3));
         const rcd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
         LA_T = Math.min(1, fx.age/fx.life);
         try { rbRing(fx.x, fx.y, r, 2.4, fx.col || COLORS.volt, rcd, ((fx.x|0)*7+(fx.y|0)*3)&1023, 0.07); } catch(e){}
