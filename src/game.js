@@ -5083,40 +5083,40 @@ import { FX } from "./fx.js";
       name:'침묵하는 활', desc:'[유일] 전장을 꿰뚫는 장궁 — 보스의 정수로 성장',
       evName:'침묵하는 활·만개', evDesc:'시위가 스스로 노래하기 시작합니다',
       lvDesc:['','피해 강화','피해 +25%','관통 강화','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 0.95 : 1.2) * ((player&&player.growthBranch==='gale')?0.86:1),
+      baseCd:(w)=> (w.evolved ? 0.95 : 1.2) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.bow.lv||1);
         const g = 1 + gl*0.9; // 초반 하향 — 성장의 서사
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + ((player&&player.growthBranch==='gale')?1:0) + (w.evolved?1:0)
+      count:(w)=> 1 + (DB.gweps.bow.lv>=20?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?1:0)
     },
     gtome: {
       name:'굶주린 마도서', desc:'[유일] 스스로 사냥하는 마탄 — 별의 조각으로 성장',
       evName:'굶주린 마도서·탐식', evDesc:'책장이 끝없이 펄럭이며 마탄을 토해냅니다',
       lvDesc:['','마탄 +1','피해 +25%','마탄 +1','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 1.1 : 1.4) * ((player&&player.growthBranch==='gale')?0.86:1),
+      baseCd:(w)=> (w.evolved ? 1.1 : 1.4) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.tome.lv||1);
         const g = 0.8 + gl*0.7; // 초반 하향
         const tier = gl>=30?2.0 : gl>=15?1.3 : 1; // 후반 왕귀
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + ((player&&player.growthBranch==='gale')?1:0) + (w.evolved?2:0)
+      count:(w)=> 2 + (w.lv>=2?1:0) + (w.lv>=4?1:0) + Math.floor((DB.gweps.tome.lv||1)/12) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0) + (w.evolved?2:0)
     },
     gblade: {
       name:'핏빛 대검', desc:'[유일] 대지를 가르는 참격 — 고대 톱니로 성장',
       evName:'핏빛 대검·개방', evDesc:'봉인이 풀리며 검이 울부짖습니다',
       lvDesc:['','참격 확장','피해 +25%','참격 확장','피해 강화'],
-      baseCd:(w)=> (w.evolved ? 1.25 : 1.6) * ((player&&player.growthBranch==='gale')?0.86:1),
+      baseCd:(w)=> (w.evolved ? 1.25 : 1.6) * ((player&&player.growthBranch==='gale')?0.86:1) * ((player&&player.gwCd)||1),
       dmg:(w)=>{
         const gl = gwepEffLv(DB.gweps.blade.lv||1);
         const g = 3 + gl*1.8;
         const tier = gl>=30?1.4 : gl>=15?1.2 : 1;
-        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * (w.evolved?1.5:1);
+        return g * [1,1.25,1.55,1.9,2.3][w.lv-1] * tier * ((player&&player.growthBranch==='slash')?1.18:1) * ((player&&player.gwDmg)||1) * (w.evolved?1.5:1);
       },
-      count:(w)=> 1 + (DB.gweps.blade.lv>=25?1:0) + ((player&&player.growthBranch==='gale')?1:0)
+      count:(w)=> 1 + (DB.gweps.blade.lv>=25?1:0) + ((player&&player.growthBranch==='gale')?1:0) + ((player&&player.gwCount)||0)
     },
     nameless: {
       name:'무명검', desc:'[유일] 처음엔 형편없지만, 벤 만큼 영원히 성장하는 검',
@@ -6430,13 +6430,22 @@ import { FX } from "./fx.js";
       }
     }
 
-    // 성장무기 전용 테크 — 무명검을 든 런에서만 등장 (이 판에서의 운용 방식 선택)
-    if (ownedWeapon('nameless')){
+    // 성장무기 전용 테크 — 성장무기를 든 런에서만 등장 (이 판에서의 운용 방식 선택)
+    // v6.231 로드맵 13 전반부: 무명검 전용이던 4종을 전설 성장무기 4종 공통으로 — 엔진(gwDmg/gwCd/gwCount/gwXp2)은
+    // 공유하고 이름만 무기 정체성으로 (v6.230 형 확장과 같은 CSKIN 패턴). 런당 성장무기 1종이라 충돌 없음.
+    const gwOwnKey = ['nameless','gbow','gtome','gblade'].find(k=>ownedWeapon(k));
+    if (gwOwnKey){
+      const GWT_SKIN = {
+        nameless:{ label:'무명검',       shot:'검기', hone:'검기 연마', multi:'잔영 검기', soul:'명검 공명',   haste:'검기 가속' },
+        gbow:    { label:'침묵하는 활',  shot:'화살', hone:'시위 연마', multi:'갈래 화살', soul:'과녁의 공명', haste:'속사 시위' },
+        gtome:   { label:'굶주린 마도서', shot:'마탄', hone:'탐식 각인', multi:'겹침 마탄', soul:'서고의 공명', haste:'속독 영창' },
+        gblade:  { label:'핏빛 대검',    shot:'참격', hone:'핏날 연마', multi:'잔향 참격', soul:'핏빛 공명',   haste:'참격 가속' },
+      }[gwOwnKey];
       const GW_TECHS = [
-        { key:'gw_hone',  name:'검기 연마', max:3, desc:(m)=>'무명검 피해 +'+R(12*m)+'%', apply:(p,m)=>{ p.gwDmg=(p.gwDmg||1)*(1+0.12*m); } },
-        { key:'gw_multi', name:'잔영 검기', max:2, desc:(m)=>'검기 +1발', apply:(p,m)=>{ p.gwCount=(p.gwCount||0)+1; } },
-        { key:'gw_soul',  name:'명검 공명', max:1, desc:(m)=>'이 판 동안 무명검 성장 경험치 2배', apply:(p,m)=>{ p.gwXp2=true; } },
-        { key:'gw_haste', name:'검기 가속', max:2, desc:(m)=>'무명검 발사 간격 -'+R(8*m)+'%', apply:(p,m)=>{ p.gwCd=(p.gwCd||1)*(1-0.08*m); } },
+        { key:'gw_hone',  name:GWT_SKIN.hone,  max:3, desc:(m)=>GWT_SKIN.label+' 피해 +'+R(12*m)+'%', apply:(p,m)=>{ p.gwDmg=(p.gwDmg||1)*(1+0.12*m); } },
+        { key:'gw_multi', name:GWT_SKIN.multi, max:2, desc:(m)=>GWT_SKIN.shot+' +1발', apply:(p,m)=>{ p.gwCount=(p.gwCount||0)+1; } },
+        { key:'gw_soul',  name:GWT_SKIN.soul,  max:1, desc:(m)=>'이 판 동안 '+GWT_SKIN.label+' 성장 경험치 2배', apply:(p,m)=>{ p.gwXp2=true; } },
+        { key:'gw_haste', name:GWT_SKIN.haste, max:2, desc:(m)=>GWT_SKIN.label+' 발사 간격 -'+R(8*m)+'%', apply:(p,m)=>{ p.gwCd=(p.gwCd||1)*(1-0.08*m); } },
       ];
       for (const gt of GW_TECHS){
         if (banned.has(gt.key)) continue;
@@ -6448,7 +6457,7 @@ import { FX } from "./fx.js";
         const m = CARD_RARITY[ri].m * Math.pow(0.7, picks); // 수확 체감
         pool.push({
           key:gt.key, kind:'gwtech', rarity:ri, ctag:true,
-          name:'무명검 · '+gt.name, tag:'무기 강화 · 유일',
+          name:GWT_SKIN.label+' · '+gt.name, tag:'무기 강화 · 유일',
           desc:gt.desc(m),
           apply:()=>{ gt.apply(player, m); player.techPicks[gt.key] = picks+1; (player.cardRLock=player.cardRLock||{})[gt.key]=ri; }
         });
@@ -16354,7 +16363,8 @@ import { FX } from "./fx.js";
             if (p.gwep){
               // 유일 무기 성장 (인게임 처치분)
               const gw = DB.gweps[p.gwep];
-              if (gw){ gw.xp += 1; if (gw.xp >= 20+gw.lv*15){ gw.xp -= (20+gw.lv*15); gw.lv += 1; toast(GWEP_DEFS[p.gwep].name+' 성장! Lv'+gw.lv); SFX.play('quest'); saveDB(); } }
+              // v6.231: 공명 테크(gwXp2)는 활·마도서·대검 성장에도 걸린다 (무명검 addGrowthXp와 같은 규칙)
+              if (gw){ gw.xp += (player&&player.gwXp2)?2:1; if (gw.xp >= 20+gw.lv*15){ gw.xp -= (20+gw.lv*15); gw.lv += 1; toast(GWEP_DEFS[p.gwep].name+' 성장! Lv'+gw.lv); SFX.play('quest'); saveDB(); } }
             } else if (p.kind==='wave') addGrowthXp(1); // 무명검이 벤 수만큼 성장
           }
           break;
