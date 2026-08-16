@@ -23281,51 +23281,75 @@ import { FX } from "./fx.js";
     }
     ctx.restore();
   }
+  //  🔴 v6.214 **혜성 꼬리** — 레퍼런스(mg1·mg3)의 정체: 오브젝트/백열 머리 + 터뷸런트 에너지 꼬리.
+  //   머리(x,y)가 제일 밝고, 꼬리는 반대방향으로 요동치며 한 점으로 죽는다.
+  function laComet(x,y,a,len,w,col,dark,seed){
+    const pts0=rbPts(u=>{ const j=Math.sin(u*7+(seed||0)*0.1)*w*1.5*u;
+      return [x-Math.cos(a)*len*u - Math.sin(a)*j, y-Math.sin(a)*len*u + Math.cos(a)*j]; },12);
+    const pts=pts0.slice().reverse();
+    const ws=pts.map((_,i)=>{ const u=i/(pts.length-1); return Math.max(0.15, w*Math.pow(u,0.85)); });
+    laDraw(pts,ws,col,dark,seed);
+    //  곁가닥 — 꼬리가 흐트러진다
+    for(let k=-1;k<=1;k+=2){
+      const sp=pts0.map((p,i)=>{ const u=i/(pts0.length-1);
+        return [p[0]-Math.sin(a)*w*1.4*k*u, p[1]+Math.cos(a)*w*1.4*k*u]; }).reverse();
+      laDraw(sp, sp.map((_,i)=>{ const u=i/(sp.length-1); return Math.max(0.1, w*0.32*Math.pow(u,0.9)); }), col, dark, (seed||0)+k*77);
+    }
+    laGlint(x,y,Math.max(5,w*1.5),col,dark);
+  }
+  //  나선 소용돌이 — 빨려드는 마법
+  function laSwirl(x,y,r,w,col,dark,seed){
+    const pts=rbPts(u=>{ const th=(seed||0)*0.01+u*4.6, rr=r*(1-u*0.85);
+      return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },16);
+    const ws=pts.map((_,i)=>{ const u=i/(pts.length-1); return Math.max(0.15, w*(1-u*0.6)); });
+    laDraw(pts,ws,col,dark,seed);
+    laGlint(x,y,r*0.28,col,dark);
+  }
   //  ── 직업 37종. `t`는 0→1 진행도. 전부 자기 형태를 갖는다(공유 0).
   const CLASS_FX = {
     // ── 전사군 8: 베고·버티고·짓밟는다
-    samurai(x,y,a,r,c,d,s,t){ laIcon('quick-slash',x,y,a+0.6,r*1.7,c,d); laSparks(x,y,a,r*0.7,3,c,d,s+7); laGlint(x+Math.cos(a)*r*0.7,y+Math.sin(a)*r*0.7,9,c,d); },
-    cheol(x,y,a,r,c,d,s,t){ laIcon('serrated-slash',x,y,a+0.6,r*1.8,c,d); laSparks(x,y,a,r*0.9,4,c,d,s+11); },
-    paladin(x,y,a,r,c,d,s,t){ laIcon('beams-aura',x,y,0,r*1.8,c,d); laGlint(x,y,12,c,d); },
-    rusher(x,y,a,r,c,d,s,t){ laIcon('thrown-spear',x,y,a+0.785,r*1.8,c,d); laGlint(x+Math.cos(a)*r*0.9,y+Math.sin(a)*r*0.9,10,c,d); },
-    exhero(x,y,a,r,c,d,s,t){ laIcon('crossed-slashes',x,y,a,r*1.7,c,d); laGlint(x,y,11,c,d); },
-    madman(x,y,a,r,c,d,s,t){ laIcon('atomic-slashes',x,y,a,r*1.7,c,d); laSparks(x,y,a,r*0.7,4,c,d,s+13); },
-    monk(x,y,a,r,c,d,s,t){ laIcon('echo-ripples',x,y,0,r*1.75,c,d); },
-    duelist(x,y,a,r,c,d,s,t){ laIcon('dervish-swords',x,y,a,r*1.7,c,d); laGlint(x+Math.cos(a)*r*0.7,y+Math.sin(a)*r*0.7,9,c,d); },
+    samurai(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,2.0,r*0.95,5.0,c,d,s,0.2); laSparks(x,y,a,r*0.75,3,c,d,s+7); laGlint(x+Math.cos(a+0.95)*r*0.9,y+Math.sin(a+0.95)*r*0.9,10,c,d); },
+    cheol(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,2.4,r*0.88,7.8,c,d,s,0.1); LA_SHARP=true; for(let k=0;k<3;k++){ const ra=a-0.5+k*0.5, px2=x+Math.cos(ra)*r*0.95, py2=y+Math.sin(ra)*r*0.95; laDraw([[px2,py2],[px2+Math.cos(ra)*10,py2+Math.sin(ra)*10-6],[px2+Math.cos(ra)*16,py2+Math.sin(ra)*16]],[2.6,3.4,0.3],c,d,s+k*31); } LA_SHARP=false; },
+    paladin(x,y,a,r,c,d,s,t){ rbNeedle(x,y,-1.5708,r*1.05,4.0,c,d,s); rbNeedle(x,y,1.5708,r*0.5,2.8,c,d,s+3); rbRing(x,y,r*0.7,2.8,c,d,s+5,0.03); laGlint(x,y-r*0.6,12,c,d); laGlint(x,y,8,c,d); },
+    rusher(x,y,a,r,c,d,s,t){ laComet(x+Math.cos(a)*r*1.05,y+Math.sin(a)*r*1.05,a,r*1.25,4.6,c,d,s); rbChev(x+Math.cos(a)*r*0.55,y+Math.sin(a)*r*0.55,a,14,3.0,c,d,s+5); },
+    exhero(x,y,a,r,c,d,s,t){ rbBlade(x,y,a-1.05,1.5,r*0.9,4.6,c,d,s,0.2); rbBlade(x,y,a+1.05,1.5,r*0.9,4.6,c,d,s+9,0.2); laGlint(x+Math.cos(a)*r*0.5,y+Math.sin(a)*r*0.5,13,c,d); },
+    madman(x,y,a,r,c,d,s,t){ let s2=s|0; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; }; for(let k=0;k<5;k++) rbBlade(x+(rnd()-0.5)*r*0.3,y+(rnd()-0.5)*r*0.3,a-0.9+k*0.45,1.15,r*(0.55+0.1*k),3.1,c,d,s+k*29,0.32); laSparks(x,y,a,r*0.7,4,c,d,s+13); },
+    monk(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.5,3.4,c,d,s,0.14); rbRing(x,y,r*0.82,2.4,c,d,s+17,0.08); for(let k=0;k<8;k++){ const ka=(6.283/8)*k+0.39; rbChev(x+Math.cos(ka)*r*0.98,y+Math.sin(ka)*r*0.98,ka,9,2.1,c,d,s+k*23); } laGlint(x,y,9,c,d); },
+    duelist(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.18,3.5,c,d,s); rbNeedle(x,y,a-0.26,r*0.85,2.2,c,d,s+5); rbNeedle(x,y,a+0.26,r*0.85,2.2,c,d,s+9); laGlint(x+Math.cos(a)*r*1.16,y+Math.sin(a)*r*1.16,9,c,d); },
     // ── 원거리 4: 쏘고·꿰뚫고·훑는다
-    archer(x,y,a,r,c,d,s,t){ laIcon('arrow-cluster',x,y,a+0.785,r*1.7,c,d); },
-    sniper(x,y,a,r,c,d,s,t){ laIcon('arrow-scope',x,y,a+0.785,r*1.6,c,d); laGlint(x+Math.cos(a)*r*1.1,y+Math.sin(a)*r*1.1,10,c,d); },
-    pilot(x,y,a,r,c,d,s,t){ laIcon('jet-fighter',x,y,a+1.5708,r*1.5,c,d); laSparks(x,y,a,r*0.6,3,c,d,s+23); },
-    specialist(x,y,a,r,c,d,s,t){ laIcon('convergence-target',x,y,0,r*1.55,c,d); laGlint(x,y,8,c,d); },
+    archer(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const ra=a-0.3+k*0.3; rbNeedle(x,y,ra,r*0.92,2.4,c,d,s+k*41); rbChev(x+Math.cos(ra)*r*0.92,y+Math.sin(ra)*r*0.92,ra,9,2.3,c,d,s+k*17); } },
+    sniper(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.55,3.0,c,d,s); rbStar(x,y,11,4,4,1.5,c,d,s+7,a); laGlint(x+Math.cos(a)*r*1.53,y+Math.sin(a)*r*1.53,12,c,d); },
+    pilot(x,y,a,r,c,d,s,t){ laComet(x+Math.cos(a)*r*0.9,y+Math.sin(a)*r*0.9,a,r*1.2,3.4,c,d,s); laIcon('jet-fighter',x+Math.cos(a)*r*0.95,y+Math.sin(a)*r*0.95,a+1.5708,r*0.6,c,d); },
+    specialist(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.42,2.2,c,d,s,0.02); for(let k=0;k<4;k++){ const ka=(6.283/4)*k; rbNeedle(x+Math.cos(ka)*r*0.46,y+Math.sin(ka)*r*0.46,ka,r*0.3,2.0,c,d,s+k*13); } laGlint(x,y,8,c,d); laSparks(x,y,a,r*0.85,3,c,d,s+29); },
     // ── 마법군 3 (+지휘관)
-    manager(x,y,a,r,c,d,s,t){ laIcon('beam-satellite',x,y,0,r*1.6,c,d); },
-    voidc(x,y,a,r,c,d,s,t){ laIcon('magic-swirl',x,y,0,r*1.7,c,d); },
-    runeknight(x,y,a,r,c,d,s,t){ laIcon('rune-sword',x,y,a+0.785,r*1.65,c,d); laSparks(x,y,a,r*0.6,3,c,d,s+9); },
-    commander(x,y,a,r,c,d,s,t){ laIcon('knight-banner',x,y,0,r*1.6,c,d); rbChev(x+Math.cos(a)*r*0.9,y+Math.sin(a)*r*0.9,a,12,2.6,c,d,s+7); },
+    manager(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.75,2.6,c,d,s,0.02); const oa=s*0.02; rbArc(x,y,r*0.75,oa-0.9,oa,2.2,c,d,s+11,0.02); laIcon('beam-satellite',x+Math.cos(oa)*r*0.75,y+Math.sin(oa)*r*0.75,0,r*0.55,c,d); laGlint(x+Math.cos(oa)*r*0.75,y+Math.sin(oa)*r*0.75,9,c,d); },
+    voidc(x,y,a,r,c,d,s,t){ laSwirl(x,y,r*0.95,4.4,c,d,s); rbRing(x,y,r*0.3,3.6,c,d,s+7,0.2); },
+    runeknight(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,1.8,r*0.9,4.8,c,d,s,0.16); for(let k=0;k<3;k++){ const ra=a-0.75+k*0.75; rbStar(x+Math.cos(ra)*r*0.45,y+Math.sin(ra)*r*0.45,10,5.5,2,1.7,c,d,s+k*31,ra); } },
+    commander(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*0.98,4.4,c,d,s); for(let k=-1;k<=1;k+=2){ const bx=x+Math.cos(a+1.5708*k)*24, by=y+Math.sin(a+1.5708*k)*24; rbNeedle(bx,by,a,r*0.66,2.5,c,d,s+k*29); rbChev(bx+Math.cos(a)*r*0.66,by+Math.sin(a)*r*0.66,a,10,2.3,c,d,s+k*41); } rbChev(x+Math.cos(a)*r*0.98,y+Math.sin(a)*r*0.98,a,13,3.0,c,d,s+7); },
     // ── 도적군 7: 파고들고·베고·사라진다
-    ninja(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const ra=a-0.55+k*0.55; rbNeedle(x,y,ra,r*0.6,1.6,c,d,s+k*37); laIcon('sharp-shuriken',x+Math.cos(ra)*r*0.8,y+Math.sin(ra)*r*0.8,ra+s*0.05,r*0.5,c,d); } },
-    reaper(x,y,a,r,c,d,s,t){ laIcon('reaper-scythe',x,y,a+0.6,r*1.8,c,d); laSparks(x,y,a,r*0.8,3,c,d,s+13); },
-    glitch(x,y,a,r,c,d,s,t){ laIcon('static',x,y,0,r*1.6,c,d); laSparks(x,y,a,r*0.6,3,c,d,s+13); },
-    blackcat(x,y,a,r,c,d,s,t){ laIcon('claw-slashes',x,y,a,r*1.65,c,d); },
-    shadow(x,y,a,r,c,d,s,t){ laIcon('shadow-grasp',x,y,a,r*1.65,c,d); },
-    tombraider(x,y,a,r,c,d,s,t){ laIcon('electric-whip',x,y,a+0.785,r*1.7,c,d); laGlint(x+Math.cos(a)*r*0.9,y+Math.sin(a)*r*0.9,9,c,d); },
-    mumyeong(x,y,a,r,c,d,s,t){ laIcon('energy-sword',x,y,a+0.785,r*1.6,c,d); },
+    ninja(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const ra=a-0.55+k*0.55, hx=x+Math.cos(ra)*r*0.85, hy=y+Math.sin(ra)*r*0.85; laComet(hx,hy,ra,r*0.65,2.0,c,d,s+k*37); laIcon('sharp-shuriken',hx,hy,ra+s*0.05,r*0.4,c,d); } },
+    reaper(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,2.9,r*0.95,6.8,c,d,s,0.34); rbOrb(x+Math.cos(a-1.2)*r*0.5,y+Math.sin(a-1.2)*r*0.5,5,c,d,s+7); rbOrb(x+Math.cos(a+1.5)*r*0.35,y+Math.sin(a+1.5)*r*0.35,3.6,c,d,s+11); laSparks(x,y,a,r*0.8,3,c,d,s+13); },
+    glitch(x,y,a,r,c,d,s,t){ let s2=s|0; const rnd=()=>{ s2=(s2*1664525+1013904223)&0x7fffffff; return s2/0x7fffffff; }; LA_SHARP=true; for(let k=0;k<7;k++){ const ra=s*0.01+k*0.9; const gx=x+Math.cos(ra)*r*(0.25+rnd()*0.35), gy=y+Math.sin(ra)*r*(0.25+rnd()*0.35); const ga=(rnd()<0.5?0:1.5708), gl=r*(0.22+rnd()*0.32); laDraw([[gx,gy],[gx+Math.cos(ga)*gl*0.5,gy+Math.sin(ga)*gl*0.5],[gx+Math.cos(ga)*gl,gy+Math.sin(ga)*gl]],[2.5,2.5,2.5],c,d,s+k*61); } LA_SHARP=false; },
+    blackcat(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const off=(k-1)*11; const ox=x+Math.cos(a+1.5708)*off, oy=y+Math.sin(a+1.5708)*off; rbBlade(ox,oy,a,1.2,r*0.78,2.8,c,d,s+k*43,0.3); } },
+    shadow(x,y,a,r,c,d,s,t){ rbBlade(x,y,a,1.6,r*0.85,4.6,c,d,s,0.22); rbBlade(x,y,a+3.1416,1.6,r*0.7,2.4,c,d,s+19,0.22); laBloom(x,y,r*0.5,c,d,0.5); },
+    tombraider(x,y,a,r,c,d,s,t){ const pts=rbPts(u=>{ const th=a-1.6+u*3.2, rr=r*(0.35+0.6*u); return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },16); const ws=pts.map((_,i2)=>{ const u=i2/(pts.length-1); return Math.max(0.2, 3.8*(0.35+0.65*u)*(u>0.9?(1-u)/0.1:1)); }); laDraw(pts,ws,c,d,s); const ex=pts[pts.length-1][0], ey=pts[pts.length-1][1]; laGlint(ex,ey,11,c,d); laSparks(ex,ey,a,15,3,c,d,s+7); },
+    mumyeong(x,y,a,r,c,d,s,t){ rbNeedle(x,y,a,r*1.2,4.0,c,d,s); const px2=x+Math.cos(a+1.5708)*5, py2=y+Math.sin(a+1.5708)*5; rbNeedle(px2,py2,a,r*0.95,1.5,c,d,s+11); },
     // ── 사제군 4
-    necro(x,y,a,r,c,d,s,t){ laIcon('spark-spirit',x,y,0,r*1.5,c,d); laIcon('spark-spirit',x-r*0.55,y+r*0.15,0,r*0.9,c,d); laIcon('spark-spirit',x+r*0.55,y+r*0.15,0,r*0.9,c,d); },
-    bard(x,y,a,r,c,d,s,t){ laIcon('music-spell',x,y,0,r*1.65,c,d); },
-    returner(x,y,a,r,c,d,s,t){ laIcon('clockwork',x,y,0,r*1.6,c,d); },
-    druid(x,y,a,r,c,d,s,t){ laIcon('leaf-swirl',x,y,0,r*1.7,c,d); },
+    necro(x,y,a,r,c,d,s,t){ for(let k=0;k<3;k++){ const px2=x+(k-1)*r*0.5, py2=y+(k%2?r*0.18:-r*0.05); rbNeedle(px2,py2,-1.5708,r*(0.42+0.12*(k%2)),2.0,c,d,s+k*47); rbOrb(px2,py2-r*(0.44+0.12*(k%2)),3.4,c,d,s+k*13); laBloom(px2,py2-r*(0.44+0.12*(k%2)),12,c,d,0.7); } },
+    bard(x,y,a,r,c,d,s,t){ for(let k=1;k<=3;k++) rbArc(x,y,r*0.34*k,a-0.58,a+0.58,1.8,c,d,s+k*23,0.02); const nx=x-Math.cos(a)*r*0.3, ny=y-Math.sin(a)*r*0.3-r*0.16; rbOrb(nx,ny,4.5,c,d,s+7); laDraw([[nx+5,ny-1],[nx+5,ny-17]],[1.4,1.4],c,d,s+9); laDraw([[nx+5,ny-17],[nx+13,ny-13]],[1.4,0.25],c,d,s+11); laGlint(nx,ny,7,c,d); },
+    returner(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.8,3.0,c,d,s,0.02); rbNeedle(x,y,a,r*0.74,3.2,c,d,s+5); rbNeedle(x,y,a-2.1,r*0.48,2.4,c,d,s+9); rbOrb(x,y,4,c,d,s+13); for(let k=0;k<4;k++){ const ka=(6.283/4)*k; laDraw([[x+Math.cos(ka)*r*0.72,y+Math.sin(ka)*r*0.72],[x+Math.cos(ka)*r*0.84,y+Math.sin(ka)*r*0.84]],[1.7,1.7],c,d,s+k*17); } },
+    druid(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.01; const pts=rbPts(u=>{ const th=ra+Math.sin(u*3+k)*0.5, rr=r*0.9*u; return [x+Math.cos(th)*rr, y+Math.sin(th)*rr]; },10); const ws=pts.map((_,i2)=>{ const u=i2/(pts.length-1); return Math.max(0.2, 2.9*(1-u*0.6)); }); laDraw(pts,ws,c,d,s+k*31); const tp=pts[pts.length-1]; rbChev(tp[0],tp[1],ra+Math.sin(3+k)*0.5,8,1.9,c,d,s+k*7); } },
     // ── 상인군 10: 일하고·팔고·놀고·던진다
-    engineer(x,y,a,r,c,d,s,t){ laIcon('lightning-spanner',x,y,0,r*1.6,c,d); laSparks(x,y,a,r*0.7,3,c,d,s+13); },
-    debug(x,y,a,r,c,d,s,t){ laIcon('spider-bot',x,y,0,r*1.5,c,d); laGlint(x,y-r*0.5,8,c,d); },
-    tourist(x,y,a,r,c,d,s,t){ laIcon('photo-camera',x,y,0,r*1.45,c,d); laGlint(x-r*0.45,y-r*0.35,12,c,d); },
-    slime(x,y,a,r,c,d,s,t){ laIcon('gooey-impact',x,y,0,r*1.65,c,d); },
-    gambler(x,y,a,r,c,d,s,t){ laIcon('card-random',x,y,0,r*1.6,c,d); laGlint(x+r*0.4,y-r*0.4,9,c,d); },
-    collector(x,y,a,r,c,d,s,t){ laIcon('magnet-blast',x,y,0,r*1.6,c,d); },
-    contributor(x,y,a,r,c,d,s,t){ laIcon('branch-arrow',x,y,a,r*1.55,c,d); },
-    baeksu(x,y,a,r,c,d,s,t){ laIcon('night-sleep',x,y,0,r*1.55,c,d); },
-    stonks(x,y,a,r,c,d,s,t){ laIcon('profit',x,y,0,r*1.6,c,d); },
-    gymbro(x,y,a,r,c,d,s,t){ laIcon('punch-blast',x,y,a,r*1.7,c,d); },
+    engineer(x,y,a,r,c,d,s,t){ rbBolt(x,y,a,r,4.2,c,d,s,3); rbStar(x+Math.cos(a)*r,y+Math.sin(a)*r,9,3.2,4,1.5,c,d,s+7,a); laSparks(x,y,a,r*0.7,3,c,d,s+13); },
+    debug(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.55,2.6,c,d,s,0.02); for(let k=0;k<4;k++){ const ka=(6.283/4)*k; rbNeedle(x+Math.cos(ka)*r*0.58,y+Math.sin(ka)*r*0.58,ka,r*0.34,1.9,c,d,s+k*17); } rbOrb(x,y,3.4,c,d,s+31); laGlint(x,y,8,c,d); },
+    tourist(x,y,a,r,c,d,s,t){ rbStar(x,y,r*0.85,r*0.26,4,2.0,c,d,s,0.785); rbStar(x,y,r*0.55,r*0.18,4,1.7,c,d,s+7,0); laGlint(x,y,16,c,d); },
+    slime(x,y,a,r,c,d,s,t){ for(let k=0;k<5;k++){ const ra=(6.283/5)*k+s*0.02; rbRing(x+Math.cos(ra)*r*0.55,y+Math.sin(ra)*r*0.55,r*0.2,2.5,c,d,s+k*29,0.3); } laSparks(x,y,a,r*0.75,4,c,d,s+11); },
+    gambler(x,y,a,r,c,d,s,t){ LA_SHARP=true; for(let k=0;k<5;k++){ const ra=a-1.0+k*0.5; const px2=x+Math.cos(ra)*r*0.8, py2=y+Math.sin(ra)*r*0.8, ca=ra+0.5; const cw=6.5, ch=10.5; const cx2=Math.cos(ca), cy2=Math.sin(ca), nx2=-cy2, ny2=cx2; laDraw([[px2-cx2*ch+nx2*cw,py2-cy2*ch+ny2*cw],[px2+cx2*ch+nx2*cw,py2+cy2*ch+ny2*cw],[px2+cx2*ch-nx2*cw,py2+cy2*ch-ny2*cw],[px2-cx2*ch-nx2*cw,py2-cy2*ch-ny2*cw],[px2-cx2*ch+nx2*cw,py2-cy2*ch+ny2*cw]],[1.5,1.5,1.5,1.5,1.5],c,d,s+k*53); } LA_SHARP=false; laGlint(x+Math.cos(a)*r*0.8,y+Math.sin(a)*r*0.8,9,c,d); },
+    collector(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.85,2.8,c,d,s,0.05); for(let k=0;k<4;k++){ const ka=(6.283/4)*k+0.785; rbChev(x+Math.cos(ka)*r*0.45,y+Math.sin(ka)*r*0.45,ka+3.1416,11,2.5,c,d,s+k*19); } laGlint(x,y,10,c,d); },
+    contributor(x,y,a,r,c,d,s,t){ const mx=x+Math.cos(a)*r*0.42, my=y+Math.sin(a)*r*0.42; laDraw([[x,y],[mx,my]],[2.9,2.9],c,d,s); rbNeedle(mx,my,a-0.8,r*0.62,2.4,c,d,s+7); rbNeedle(mx,my,a+0.8,r*0.62,2.4,c,d,s+11); rbOrb(mx,my,4.5,c,d,s+13); rbOrb(mx+Math.cos(a-0.8)*r*0.62,my+Math.sin(a-0.8)*r*0.62,3.8,c,d,s+17); rbOrb(mx+Math.cos(a+0.8)*r*0.62,my+Math.sin(a+0.8)*r*0.62,3.8,c,d,s+19); },
+    baeksu(x,y,a,r,c,d,s,t){ rbArc(x,y,r*0.6,a-1.9,a+1.9,3.0,c,d,s,0.2); LA_SHARP=true; for(let k=0;k<3;k++){ const zx=x+r*0.3+k*11, zy=y-r*0.45-k*9, zw=6-k; laDraw([[zx-zw,zy-zw],[zx+zw,zy-zw],[zx-zw,zy+zw],[zx+zw,zy+zw]],[1.4,1.4,1.4,1.4],c,d,s+k*23); } LA_SHARP=false; },
+    stonks(x,y,a,r,c,d,s,t){ const ca=Math.cos(a), sa=Math.sin(a); const P=(u,v)=>[x+ca*r*u-sa*(-r*0.5*v), y+sa*r*u+ca*(-r*0.5*v)]; LA_SHARP=true; const zig=[[0,0],[0.22,0.18],[0.4,0.08],[0.62,0.5],[0.78,0.38],[1,1]].map(q=>P(q[0],q[1])); laDraw(zig,zig.map((_,i2)=>1.8+(i2/(zig.length-1))*1.3),c,d,s); for(let k=0;k<3;k++){ const q=P(0.2+k*0.25,-0.12); laDraw([[q[0],q[1]-5],[q[0],q[1]],[q[0],q[1]+5]],[2.1,2.1,2.1],c,d,s+k*31); } LA_SHARP=false; rbChev(zig[5][0],zig[5][1],Math.atan2(zig[5][1]-zig[4][1],zig[5][0]-zig[4][0]),12,2.7,c,d,s+7); laGlint(zig[5][0],zig[5][1],8,c,d); },
+    gymbro(x,y,a,r,c,d,s,t){ rbRing(x,y,r*0.55,6.0,c,d,s,0.04); for(let k=0;k<6;k++){ const ka=(6.283/6)*k+0.52; rbNeedle(x+Math.cos(ka)*r*0.58,y+Math.sin(ka)*r*0.58,ka,r*0.45,3.5,c,d,s+k*19); } laGlint(x,y,12,c,d); },
   };
   function drawHazards(){
     for (const h of hazards){
