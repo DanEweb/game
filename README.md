@@ -35,3 +35,6 @@ node build-single.mjs   # dist/gray_survivor_single.html 생성
 - [ ] 맵 30종 (절차 생성 변형)
 - [ ] 코드 모듈 분리 (`src/`)
 - [ ] 온라인 리더보드 (Supabase)
+
+## 크레딧
+- 직업 스킬 이펙트 실루엣: [game-icons.net](https://game-icons.net) — Lorc, Delapouite, Darkzaitzev 외 (CC BY 3.0). 색·발광·연출은 자체 렌더러.
