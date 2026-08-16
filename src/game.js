@@ -145,6 +145,14 @@ import { FX } from "./fx.js";
           }
           DB.nextId = d.nextId||1;
           DB.muted = !!d.muted;
+          // 🔴 v6.235 로더 전수조사: saveDB는 DB 전체를 저장하는데 로더는 허용 목록만 복원한다 —
+          // 아래 5필드가 목록에 없어 **재접속마다 소실**되고 있었다(첫 saveDB에서 빈 값으로 굳음).
+          // 칭호 해금·장착(titles/titleOn), 성물 37종(relics), 성물 각성(sacredAwake), 최근 출전 직업(lastClass — 직업 대성단 잠금 기준).
+          DB.titles = d.titles||{};
+          DB.titleOn = d.titleOn||null;
+          DB.relics = d.relics||{};
+          DB.sacredAwake = d.sacredAwake||{};
+          DB.lastClass = d.lastClass||null;
         }
       }
     }catch(e){}
@@ -2674,10 +2682,14 @@ import { FX } from "./fx.js";
     }
     return true;
   }
+  // v6.235 로드맵 2번 잔여 '직업별 시작 위치': 내 직업(최근 출전)의 소성단 시작 별은
+  // 중앙 '기원'에서 길을 잇지 않아도 바로 밝힐 수 있는 제2의 뿌리다.
+  // 다른 직업으로 출전하면 그 직업의 뿌리도 열린다 — 계정이 커질수록 진입점이 늘어나는 구조.
+  function starClassRoot(id){ return id === 'cs_'+DB.lastClass+'_s'; }
   function starCanBuy(id){
     const n = STAR_NODES[id];
     return n && !starAllocated(id) && starAvailPts() >= starCost(id)
-      && n.links.some(l=>starAllocated(l)) && starGateOk(id) && starClassLock(id);
+      && (n.links.some(l=>starAllocated(l)) || starClassRoot(id)) && starGateOk(id) && starClassLock(id);
   }
   function starHasName(name){
     for (const id in DB.star.nodes){ if (STAR_NODES[id] && STAR_NODES[id].name===name) return true; }
@@ -2958,7 +2970,8 @@ import { FX } from "./fx.js";
         const isMine = DB.lastClass===ck3;
         ownerLine = '<div style="margin:3px 0; padding:2px 8px; display:inline-block; border-radius:5px;'
           + 'background:'+(isMine?'rgba(232,197,106,0.18)':'rgba(120,120,124,0.18)')+'; color:'+(isMine?'#e8c56a':'#aeb0b2')+'; font-weight:700;">'
-          + '👤 ['+cn3.name+'] 전용'+(isMine?' — 현재 내 직업':' · 이 직업으로 출전해야 습득 가능')+'</div><br>';
+          + '👤 ['+cn3.name+'] 전용'+(isMine?' — 현재 내 직업':' · 이 직업으로 출전해야 습득 가능')+'</div><br>'
+          + (starClassRoot(id) ? '<div style="margin:2px 0; color:#9ecbe8; font-weight:700;">🌱 직업 시작 별 — 기원과 연결 없이 바로 밝힐 수 있다</div>' : '');
       }
     }
     info.innerHTML = '<b style="color:'+n.color+';">'+tierName+' — '+n.name+'</b> <span style="opacity:0.8;">['+cost+'P]</span><br>' + ownerLine + n.desc
@@ -8500,6 +8513,12 @@ import { FX } from "./fx.js";
   } catch(e){ return "ERR "+String(e); } };
   window.__qaTitle = (k)=>{ DB.titles=DB.titles||{}; if(k==='*'){ Object.keys(TITLES).forEach(t=>DB.titles[t]=true); } else if(k){ DB.titles[k]=true; DB.titleOn=k; } saveDB(); return JSON.stringify({on:DB.titleOn, n:Object.keys(DB.titles).length}); };
   window.__qaMats = (n,g)=>{ if (g!==undefined){ DB.gold=g; saveDB(); } if (n!==null && typeof n==="object"){ Object.assign(DB.mats, n); saveDB(); } else if (n!==undefined){ DB.mats.forge=n; DB.mats.sigil=n; DB.mats.shard=n; DB.mats.essence=n; DB.mats.gear=n; saveDB(); } return JSON.parse(JSON.stringify(Object.assign({gold:DB.gold}, DB.mats))); };
+  // v6.235 QA: 성도 노드 상태 조회·구매 (직업 시작 별 검증용). __qaStar('cs_archer_s') / __qaStar(id, true)=구매 시도
+  window.__qaStar = (id, doBuy)=>{ try {
+    if (doBuy && starCanBuy(id)){ DB.star.nodes[id] = true; saveDB(); }
+    return JSON.stringify({ id, alloc:starAllocated(id), canBuy:starCanBuy(id), root:starClassRoot(id),
+      pts:starAvailPts(), last:DB.lastClass, linked:(STAR_NODES[id]?STAR_NODES[id].links.some(l=>starAllocated(l)):null) });
+  } catch(e){ return 'ERR '+String(e); } };
   window.__qaSacredOffer = (ck)=>{ try { const ok = offerSacredTribute(ck);
     return JSON.stringify({ 계승:ok, 각성:sacredAwoken(ck), 배율:+sacredMult(ck).toFixed(2), 제물무기레벨:(DB.pgw[ck+'_0']||{}).lv });
   } catch(e){ return 'ERR '+String(e); } };
