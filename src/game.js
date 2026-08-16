@@ -13926,7 +13926,9 @@ import { FX } from "./fx.js";
         if (arch.indexOf('u_')===0){
           const baseA = C.baseA;
           //  성장(2)은 한 번 더, 성유물(3)은 두 번 더 — 각도를 조금씩 틀어 '연격'으로 읽히게 한다
-          for (let rep=0; rep<=TN; rep++){
+          //  v6.218 연격 시차 — 반복이 같은 프레임에 겹치면 장판 한 장으로 읽힌다(무라마사 문의).
+          //   0.12초 간격으로 벌려 '두 번 벤다'로 읽히게 한다. 총 피해는 동일하다.
+          const __fireRep = (rep)=>{
           if (rep > 0) C.baseA = baseA + (rep%2? 0.30 : -0.30);
           if (arch==='u_samurai'){ /* 발도(拔刀) — 멀리 뻗는 일직선 참격 — 한 번, 깊게 */
             const L=175; SL(C.baseA, L, 26, C.dmg*2.1, C.w); FXA(C.baseA, L, 0.26);
@@ -14065,7 +14067,18 @@ import { FX } from "./fx.js";
           else if (arch==='u_collector'){ /* 진열 — 모은 만큼 세진다 */
             const own=Math.min(20,(DB.inv||[]).length); RING(88, C.dmg*(0.8+own*0.06), C.w); FXR(88);
           }
+          };
+          __fireRep(0);
+          for (let rep=1; rep<=TN; rep++){
+            const __rep = rep, __snap = { t:C.t, n:C.n, dmg:C.dmg, w:C.w };
+            setTimeout(()=>{ if (state!=='playing') return;
+              const __o = { t:C.t, n:C.n, dmg:C.dmg, w:C.w, baseA:C.baseA };
+              C.t=__snap.t; C.n=__snap.n; C.dmg=__snap.dmg; C.w=__snap.w;
+              __fireRep(__rep);
+              C.t=__o.t; C.n=__o.n; C.dmg=__o.dmg; C.w=__o.w; C.baseA=__o.baseA;
+            }, __rep*120);
           }
+
           C.baseA = baseA;
           //  성유물: 벤 자리에 흔적이 남는다 — 층이 다르면 '남는 것'도 달라야 한다
           if (TIER >= 3){
