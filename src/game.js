@@ -4022,6 +4022,63 @@ import { FX } from "./fx.js";
     ],
     cheolhyeol: [],
   };
+  //  🔴 v6.222 **스킬 공백 9직업 채움** — 사용자 지시: "스킬없는 직업 채워".
+  //   v6.204 검증에서 발견: SKILL_POOLS에 없는 직업은 1~4를 눌러도 무반응인데 스킬 칩 UI는 떠 있었다.
+  //   수치는 기존 풀 대역을 그대로 따른다(lv3 cd8~9 / lv8 유틸 / lv15 특화 / lv25 cd24~30 대기).
+  SKILL_POOLS.samurai = [
+    { n:'일섬(一閃)', lv:3, cd:8, d:'전방을 꿰뚫는 세 걸음의 참격', fx:()=>{ const a=(()=>{ const t=nearestTarget(); return t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; })(); for(let k=0;k<3;k++) friendlyBlast(player.x+Math.cos(a)*(55+k*55), player.y+Math.sin(a)*(55+k*55), 46, 15*player.dmgMult, true); SFX.play('shoot'); } },
+    { n:'잔심(殘心)', lv:8, cd:15, d:'2.5초간 모든 공격 확정 치명타', fx:()=>{ const o=player.critChance; player.critChance=1; setTimeout(()=>{ player.critChance=o; },2500); SFX.play('fever'); } },
+    { n:'발도 자세', lv:15, cd:13, d:'대시 쿨 초기화 + 3초간 피해 +30%', fx:()=>{ player.dashCd=0; tbuff('dmg',1.3,3); addTextNum(player.x,player.y-26,'發刀'); } },
+    { n:'츠바메가에시', lv:25, cd:26, d:'제비처럼 두 번 — 주변을 연달아 벤다', fx:()=>{ skNova(160,36); setTimeout(()=>{ if(state==='playing') skNova(160,36); },140); SFX.play('boom'); } },
+  ];
+  SKILL_POOLS.specialist = [
+    { n:'수류탄 투척', lv:3, cd:9, d:'전방에 폭발 하나', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; addHazard(player.x+Math.cos(a)*100, player.y+Math.sin(a)*100, 62, 0.3, 30*player.dmgMult, true); SFX.play('boom'); } },
+    { n:'연막 산개', lv:8, cd:16, d:'대시 쿨 초기화 + 3초 회피 +35%', fx:()=>{ player.dashCd=0; player.dodge=Math.min(0.9,player.dodge+0.35); setTimeout(()=>{ player.dodge=Math.max(0,player.dodge-0.35); },3000); burst(player.x,player.y,18,140); } },
+    { n:'조준 지원 요청', lv:15, cd:14, d:'3초간 치명 +25%', fx:()=>{ const o=player.critChance; player.critChance=Math.min(1,o+0.25); setTimeout(()=>{ player.critChance=o; },3000); SFX.play('fever'); } },
+    { n:'융단 폭격', lv:25, cd:28, d:'전방 지대를 초토화한다', fx:()=>{ const a=player.facing; for(let k=0;k<6;k++) addHazard(player.x+Math.cos(a)*(80+k*52)+(Math.random()*70-35), player.y+Math.sin(a)*(80+k*52)+(Math.random()*70-35), 58, 0.3+k*0.08, 34*player.dmgMult, true); SFX.play('boom'); } },
+  ];
+  SKILL_POOLS.runeknight = [
+    { n:'룬 참격', lv:3, cd:8, d:'마력을 실은 한 칼', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; friendlyBlast(player.x+Math.cos(a)*90, player.y+Math.sin(a)*90, 96, 30*player.dmgMult, true); SFX.play('shoot'); } },
+    { n:'룬 방벽', lv:8, cd:16, d:'3초간 받는 피해 -40%', fx:()=>{ tbuff('dr',0.6,3); burst(player.x,player.y,14,120); SFX.play('equip'); } },
+    { n:'마력 공명', lv:15, cd:13, d:'주변에 새긴 룬이 일제히 터진다', fx:()=>{ skNova(140,26); SFX.play('boom'); } },
+    { n:'금지된 비문', lv:25, cd:26, d:'대폭발 + 0.8초 정지', fx:()=>{ skFreezeAll(0.8); skNova(200,44); SFX.play('boom'); } },
+  ];
+  SKILL_POOLS.druid = [
+    { n:'가시 채찍', lv:3, cd:8, d:'덩굴이 가장 가까운 적을 후려친다', fx:()=>{ const t=nearestTarget(); if(t){ friendlyBlast(t.x, t.y, 80, 26*player.dmgMult, false); } SFX.play('shoot'); } },
+    { n:'재생의 이슬', lv:8, cd:18, d:'체력 12% 회복', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.12*player.healMult); addTextNum(player.x,player.y-46,'+'+Math.round(player.maxHp*0.12*player.healMult)); SFX.play('pick'); } },
+    { n:'뿌리 얽기', lv:15, cd:14, d:'모든 적을 1.2초 결박', fx:()=>{ skFreezeAll(1.2); SFX.play('warn'); } },
+    { n:'대자연의 분노', lv:25, cd:26, d:'주위가 가시밭이 된다', fx:()=>{ for(let k=0;k<5;k++){ const a=(6.283/5)*k; addHazard(player.x+Math.cos(a)*95, player.y+Math.sin(a)*95, 64, 2.5, 12*player.dmgMult, true); } SFX.play('boom'); } },
+  ];
+  SKILL_POOLS.duelist = [
+    { n:'플레슈', lv:3, cd:8, d:'한 놈만 세 번 찌른다', fx:()=>{ const t=nearestTarget(); if(t){ for(let k=0;k<3;k++){ const d2=11*player.dmgMult; t.hp-=d2; addDmgNum(t.x,t.y-k*5,d2,true); } if(t.hp<=0){ const ti=enemies.indexOf(t); if(ti>=0) defeatEnemy(ti); } procOnHit(t,false); } SFX.play('shoot'); } },
+    { n:'되받아치기', lv:8, cd:15, d:'0.8초 무적 + 3초 피해 +20%', fx:()=>{ player.invuln=Math.max(player.invuln,0.8); tbuff('dmg',1.2,3); SFX.play('tele'); } },
+    { n:'일점 관통', lv:15, cd:12, d:'가장 가까운 적에게 필살의 일격', fx:()=>{ const t=nearestTarget(); if(t){ const d2=42*player.dmgMult*player.critMult; t.hp-=d2; addDmgNum(t.x,t.y,d2,true); burst(t.x,t.y,8,150); if(t.hp<=0){ const ti=enemies.indexOf(t); if(ti>=0) defeatEnemy(ti); } } SFX.play('boom'); } },
+    { n:'왕의 결투장', lv:25, cd:28, d:'모두 멈추고 — 결투는 나의 것', fx:()=>{ skFreezeAll(1.5); const t=nearestTarget(); if(t){ const d2=80*player.dmgMult; t.hp-=d2; addDmgNum(t.x,t.y,d2,true); if(t.hp<=0){ const ti=enemies.indexOf(t); if(ti>=0) defeatEnemy(ti); } } SFX.play('fever'); } },
+  ];
+  SKILL_POOLS.madman = [
+    { n:'피의 낫질', lv:3, cd:8, d:'제 피 2%를 태워 주위를 벤다', fx:()=>{ player.hp=Math.max(1,player.hp-player.maxHp*0.02); skNova(120,24); SFX.play('boom'); } },
+    { n:'광소(狂笑)', lv:8, cd:15, d:'4초간 공속 +50% / 피 3%', fx:()=>{ player.hp=Math.max(1,player.hp-player.maxHp*0.03); tbuff('rate',1.5,4); addTextNum(player.x,player.y-26,'하하하!'); SFX.play('fever'); } },
+    { n:'피분수', lv:15, cd:13, d:'체력 8%를 태워 그만큼 터뜨린다', fx:()=>{ const pay=player.maxHp*0.08; player.hp=Math.max(1,player.hp-pay); skNova(150, (18+pay*0.35)*1); SFX.play('boom'); } },
+    { n:'광란의 축제', lv:25, cd:27, d:'5초간 피해 +35%·공속 +25% / 받는 피해 +15%', fx:()=>{ tbuff('dmg',1.35,5); tbuff('rate',1.25,5); const o=player.dmgTaken; player.dmgTaken*=1.15; setTimeout(()=>{ player.dmgTaken=o; },5000); SFX.play('fever'); } },
+  ];
+  SKILL_POOLS.monk = [
+    { n:'철산고', lv:3, cd:8, d:'몸통으로 밀어붙이는 일격', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; friendlyBlast(player.x+Math.cos(a)*70, player.y+Math.sin(a)*70, 88, 28*player.dmgMult, true); SFX.play('boom'); } },
+    { n:'기공 순환', lv:8, cd:16, d:'체력 10% 회복 + 3초 피해감소', fx:()=>{ player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.10*player.healMult); tbuff('dr',0.75,3); SFX.play('pick'); } },
+    { n:'백열 연타', lv:15, cd:13, d:'가장 가까운 적에게 8연타', fx:()=>{ const t=nearestTarget(); if(t){ for(let k=0;k<8;k++){ const d2=5.5*player.dmgMult; t.hp-=d2; addDmgNum(t.x,t.y-k*3,d2,k%3===0); } if(t.hp<=0){ const ti=enemies.indexOf(t); if(ti>=0) defeatEnemy(ti); } procOnHit(t,false); } SFX.play('shoot'); } },
+    { n:'만다라 개방', lv:25, cd:28, d:'기의 원 — 대폭발 + 1.5초 무적', fx:()=>{ skNova(190,38); player.invuln=Math.max(player.invuln,1.5); SFX.play('boom'); } },
+  ];
+  SKILL_POOLS.commander = [
+    { n:'돌격 명령', lv:3, cd:9, d:'4초간 피해 +20%', fx:()=>{ tbuff('dmg',1.2,4); addTextNum(player.x,player.y-26,'돌격!'); SFX.play('warn'); } },
+    { n:'진형 재편', lv:8, cd:15, d:'1초 무적 + 대시 쿨 초기화', fx:()=>{ player.invuln=Math.max(player.invuln,1); player.dashCd=0; burst(player.x,player.y,12,130); SFX.play('tele'); } },
+    { n:'집중 포화', lv:15, cd:14, d:'가장 가까운 적에게 8발 일제 사격', fx:()=>{ const t=nearestTarget(); if(t){ const a=Math.atan2(t.y-player.y,t.x-player.x); for(let k=0;k<8;k++) projectiles.push({x:player.x,y:player.y,vx:Math.cos(a+(k-3.5)*0.09)*520,vy:Math.sin(a+(k-3.5)*0.09)*520,r:4,damage:9*player.dmgMult,crit:false,pierce:1,life:1.0}); } SFX.play('shoot'); } },
+    { n:'총공세', lv:25, cd:28, d:'전선을 밀어붙인다 — 광역 + 5초 공속 +40%', fx:()=>{ skNova(170,30); tbuff('rate',1.4,5); SFX.play('fever'); } },
+  ];
+  SKILL_POOLS.tombraider = [
+    { n:'채찍 후리기', lv:3, cd:8, d:'채찍이 전방을 훑는다', fx:()=>{ const t=nearestTarget(); const a=t?Math.atan2(t.y-player.y,t.x-player.x):player.facing; friendlyBlast(player.x+Math.cos(a)*85, player.y+Math.sin(a)*85, 100, 26*player.dmgMult, true); SFX.play('shoot'); } },
+    { n:'함정 설치', lv:8, cd:15, d:'발밑에 오래 남는 함정', fx:()=>{ addHazard(player.x, player.y, 88, 3.5, 9*player.dmgMult, true); SFX.play('equip'); } },
+    { n:'도굴품 감정', lv:15, cd:16, d:'골드 +15 · 4초 피해 +15%', fx:()=>{ const g=gainGold(15); addTextNum(player.x,player.y-46,'+'+g+'G'); tbuff('dmg',1.15,4); SFX.play('coin'); } },
+    { n:'왕묘의 저주', lv:25, cd:28, d:'모두 묶고 저주를 퍼뜨린다', fx:()=>{ skFreezeAll(1.2); skNova(180,34); SFX.play('boom'); } },
+  ];
   SKILL_POOLS.cheolhyeol = SKILL_POOLS.cheol;
   function tryDashFree(){ const o=player.dashCd; player.dashCd=0; tryDash(); if (player.dashCd>0) player.dashCd=Math.min(player.dashCd,o); }
 
