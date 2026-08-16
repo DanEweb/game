@@ -23470,19 +23470,44 @@ import { FX } from "./fx.js";
               laSparks(fx.x, fx.y, fx.a, fx.r*0.85, 2, acol, acd, (fx.x|0)&511); } catch(e){}
         LA_T = 0;
       } else if (fx.type==='iai'){
-        //  v6.210 발도 참격선 — 그라디언트 바늘(심이 끝으로 갈수록 밝다)
+        //  🔴 v6.212 발도 연출 — 사용자: "캐릭터한테서 그냥 길쭉하게 쑥 나가는 느낌뿐".
+        //   길이는 자라지 않는다: ① 면도날 검흔이 **풀 길이로 한 번에** 그어지고
+        //   ② 칼배(폭)가 피어났다가 ③ 속이 꺼지며 파편이 흩어진다. + 평행 스피드라인.
         const icd = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
-        const pr = Math.min(1, fx.age/fx.life*1.6);
-        LA_T = Math.min(1, fx.age/fx.life);
-        try { rbNeedle(fx.x, fx.y, fx.a, fx.r*pr, (fx.heavy?4.2:2.8), fx.col || (icd?'#ffffff':'#3a3d46'), icd, ((fx.x|0)*13)&1023);
-              if (fx.heavy) laGlint(fx.x+Math.cos(fx.a)*fx.r*pr, fx.y+Math.sin(fx.a)*fx.r*pr, 9, fx.col||'#ffffff', icd); } catch(e){}
+        const T2 = Math.min(1, fx.age/fx.life);
+        const icol = fx.col || (icd?'#ffffff':'#3a3d46');
+        const L2 = fx.r, ca2=Math.cos(fx.a), sa2=Math.sin(fx.a);
+        const wPeak = (fx.heavy?5.4:3.8);
+        const bloom = T2<0.15 ? 0.18+(T2/0.15)*0.10
+                    : T2<0.55 ? 0.28+0.72*(1-Math.pow(1-(T2-0.15)/0.4,2))
+                    : Math.max(0.02, 1-(T2-0.55)/0.45);
+        LA_T = T2;
+        try {
+          const N2=9, pts2=[], ws2=[];
+          for(let k2=0;k2<=N2;k2++){ const u=k2/N2;
+            pts2.push([fx.x+ca2*L2*u, fx.y+sa2*L2*u]);
+            const belly=Math.pow(Math.sin(Math.min(1,u*1.15)*Math.PI),0.8);
+            ws2.push(Math.max(0.12, wPeak*bloom*belly)); }
+          laDraw(pts2, ws2, icol, icd, ((fx.x|0)*13)&1023);
+          //  평행 스피드라인 — 검이 지나간 바람
+          for(let k2=-1;k2<=1;k2+=2){
+            const ox2=-sa2*9*k2, oy2=ca2*9*k2, u0=0.18+0.12*(k2>0?1:0);
+            laDraw([[fx.x+ox2+ca2*L2*u0, fx.y+oy2+sa2*L2*u0],[fx.x+ox2+ca2*L2*(u0+0.42), fx.y+oy2+sa2*L2*(u0+0.42)]],
+                   [0.9,0.15], icol, icd, 91+k2);
+          }
+          //  파편 — 검흔 위에서 피어난 뒤부터 흩어진다
+          if (T2>0.3) laSparks(fx.x+ca2*L2*0.55, fx.y+sa2*L2*0.55, fx.a, L2*0.3, fx.heavy?4:2, icol, icd, ((fx.y|0)*7)&511);
+          laGlint(fx.x+ca2*L2, fx.y+sa2*L2, 7+6*(1-T2), icol, icd);
+          if (fx.heavy) laGlint(fx.x+ca2*L2*0.5, fx.y+sa2*L2*0.5, 10*(1-T2)+4, icol, icd);
+        } catch(e){}
         LA_T = 0;
       } else if (fx.type==='slash'){
-        //  v6.210 근접 타격 궤적 — 쉼표 칼날이 진행도만큼 쓸린다
+        //  v6.212 근접 궤적 — 호가 자라는 게 아니라, 이미 그어진 베기의 **폭이** 피었다 닫힌다
         const scd2 = MAP.key==='abyss' || (PAL.bg && parseInt(PAL.bg.slice(1,3),16) < 100);
-        const sprog = Math.min(1, fx.age/fx.life*1.7);
-        LA_T = Math.min(1, fx.age/fx.life);
-        try { rbBlade(fx.x, fx.y, fx.a, (fx.arc||2.0)*sprog + 0.3, fx.r, 3.4, fx.col || (scd2?'#e8eef4':'#4a4e58'), scd2, ((fx.y|0)*17)&1023, 0.22); } catch(e){}
+        const T3 = Math.min(1, fx.age/fx.life);
+        const bl2 = T3<0.5 ? 0.45+0.55*(1-Math.pow(1-T3/0.5,2)) : Math.max(0.1, 1-(T3-0.5)/0.5);
+        LA_T = T3;
+        try { rbBlade(fx.x, fx.y, fx.a, (fx.arc||2.0), fx.r, 3.6*bl2, fx.col || (scd2?'#e8eef4':'#4a4e58'), scd2, ((fx.y|0)*17)&1023, 0.22); } catch(e){}
         LA_T = 0;
       } else if (fx.type==='sigil'){
         //  v6.210 시전 마법진 — 리본 이중 링 + 룬 다이아 4 + 심 반짝임
