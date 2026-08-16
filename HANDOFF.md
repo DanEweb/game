@@ -1,6 +1,6 @@
 # Gray Survivor — 세션 핸드오프 (다른 데스크탑에서 이어가기)
 
-> 마지막 갱신: 2026-08-16 · 현재 버전 **v6.219** (보스 악세서리 도트화 — 파이프라인 완료)
+> 마지막 갱신: 2026-08-16 · 현재 버전 **v6.220** (비인간형 보스 3종 도트화 — 보스 화풍 통일 완료)
 >
 > 📌 **v6.208 교훈 — 직접 그리는 것보다 검증된 실루엣을 가져오는 게 몇 배 빠르고 좋다** (사용자 지시).
 > game-icons.net(CC BY 3.0, 4천종)에서 SVG 전경 패스만 추출해 `FX_ICON`으로 내장, `laIcon`이 색·발광·다단을 입힌다.
@@ -24,9 +24,7 @@
 
 ### 할 일 (이 순서대로)
 
-**1. 보스 비인간형 3종 도트화 + 눅눅근EX 보정** — 전수 검수는 v6.219에서 완료(50종 시트).
-   - 남은 것: 유진콩·고독근(콩/알 몸체)·우주별(별 몸체)은 비인간형 전용 분기라 아직 매끈한 벡터.
-     wind/star 분기도 drawBossDecoDot으로 감싸되, 분기 안의 translate(b.x,b.y)를 로컬 원점으로 바꿔야 한다.
+**1. 눅눅근EX 머리칼 도트용 재작업** (비인간형 3종은 v6.220 완료 — 보스 50종 화풍 통일 끝)
    - 눅눅근EX 머리칼이 탁하게 뭉개짐 — 도트용 재작업 후보.
 
 **(완료) 보스 악세서리·무기 프롭 도트화 파이프라인** — 몸은 도트 5톤 + 악센트가 됐는데(v6.205)
@@ -94,7 +92,7 @@ npm run build → node build-single.mjs → node make-qa.mjs
 → git diff --stat 눈으로 확인(수천 줄이면 CRLF 사고)
 → commit/push → Actions success → https://daneweb.github.io/game/ 200
 ```
-⚠ `git stash pop`이 작업본을 **CRLF로 뒤집는다**(core.autocrlf=true, .gitattributes 없음). 되돌리려면 LF로 정규화.
+⚠ `git stash pop`·**`git checkout -- 파일`**이 작업본을 **CRLF로 뒤집는다**(v6.220에서 checkout으로 재현 — 24,335 CR. 복구: LF 정규화 후 재작업)(core.autocrlf=true, .gitattributes 없음). 되돌리려면 LF로 정규화.
 
 ---
 >

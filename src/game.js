@@ -21760,47 +21760,49 @@ import { FX } from "./fx.js";
     if (b.kind!=='centipede') drawShadow(b.x, b.y + b.r*0.85, b.r*0.95);
 
     if (b.kind==='centipede'){
-      // 고독근 — 소울풍 지네
-      for (let i=b.segs.length-1;i>=0;i--){
-        const s = b.segs[i];
-        const rr = 13 - i*0.5;
-        ctx.fillStyle = i%2===0 ? ink2 : ink;
-        ctx.globalAlpha = (b.ghost?0.22:1) * (0.55 + 0.45*(1-i/b.segs.length));
-        ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6,rr), 0, Math.PI*2); ctx.fill();
-        if (i%2===0){
-          ctx.strokeStyle = ink;
-          ctx.lineWidth = 1.2;
-          const la = Math.atan2(s.y-(b.segs[i-1]?b.segs[i-1].y:b.y), s.x-(b.segs[i-1]?b.segs[i-1].x:b.x)) + Math.PI/2;
+      //  고독근 — 소울풍 지네. v6.220 도트화: 마디마다 작은 도트 스프라이트(다리 각도가 변해 캐시 없음)
+      for (let i2=b.segs.length-1;i2>=0;i2--){
+        const s2 = b.segs[i2];
+        const rr = Math.max(6, 13 - i2*0.5);
+        const la = Math.atan2(s2.y-(b.segs[i2-1]?b.segs[i2-1].y:b.y), s2.x-(b.segs[i2-1]?b.segs[i2-1].x:b.x)) + Math.PI/2;
+        ctx.save(); ctx.translate(s2.x, s2.y);
+        ctx.globalAlpha = (b.ghost?0.22:1) * (0.55 + 0.45*(1-i2/b.segs.length));
+        const dw2 = dotPush(rr+9, { ppu:0.62, ink:PAL.ink });
+        ctx.fillStyle = i2%2===0 ? ink2 : ink;
+        ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI*2); ctx.fill();
+        if (i2%2===0){
+          ctx.strokeStyle = ink; ctx.lineWidth = 2.2;
           ctx.beginPath();
-          ctx.moveTo(s.x+Math.cos(la)*rr, s.y+Math.sin(la)*rr);
-          ctx.lineTo(s.x+Math.cos(la)*(rr+7), s.y+Math.sin(la)*(rr+7));
-          ctx.moveTo(s.x-Math.cos(la)*rr, s.y-Math.sin(la)*rr);
-          ctx.lineTo(s.x-Math.cos(la)*(rr+7), s.y-Math.sin(la)*(rr+7));
+          ctx.moveTo(Math.cos(la)*rr, Math.sin(la)*rr); ctx.lineTo(Math.cos(la)*(rr+7), Math.sin(la)*(rr+7));
+          ctx.moveTo(-Math.cos(la)*rr, -Math.sin(la)*rr); ctx.lineTo(-Math.cos(la)*(rr+7), -Math.sin(la)*(rr+7));
           ctx.stroke();
         }
+        if (dw2) dotPop();
+        ctx.restore();
       }
       ctx.globalAlpha = b.ghost?0.22:1;
-      ctx.fillStyle = ink;
-      ctx.beginPath(); ctx.arc(b.x, b.y, 16, 0, Math.PI*2); ctx.fill();
       const ha = Math.atan2(player.y-b.y, player.x-b.x);
-      ctx.strokeStyle = ink;
-      ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(b.x+Math.cos(ha-0.5)*16, b.y+Math.sin(ha-0.5)*16, 7, ha-1.6, ha+0.5); ctx.stroke();
-      ctx.beginPath(); ctx.arc(b.x+Math.cos(ha+0.5)*16, b.y+Math.sin(ha+0.5)*16, 7, ha-0.5, ha+1.6); ctx.stroke();
+      ctx.save(); ctx.translate(b.x, b.y);
+      const dwh = dotPush(26, { ppu:0.62, ink:PAL.ink });
+      ctx.fillStyle = ink;
+      ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.arc(Math.cos(ha-0.5)*16, Math.sin(ha-0.5)*16, 7, ha-1.6, ha+0.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(Math.cos(ha+0.5)*16, Math.sin(ha+0.5)*16, 7, ha-0.5, ha+1.6); ctx.stroke();
       ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
       ctx.beginPath();
-      ctx.arc(b.x+Math.cos(ha-0.4)*9, b.y+Math.sin(ha-0.4)*9, 2.2, 0, Math.PI*2);
-      ctx.arc(b.x+Math.cos(ha+0.4)*9, b.y+Math.sin(ha+0.4)*9, 2.2, 0, Math.PI*2);
+      ctx.arc(Math.cos(ha-0.4)*9, Math.sin(ha-0.4)*9, 2.2, 0, Math.PI*2);
+      ctx.arc(Math.cos(ha+0.4)*9, Math.sin(ha+0.4)*9, 2.2, 0, Math.PI*2);
       ctx.fill();
+      if (dwh) dotPop();
+      ctx.restore();
 
     } else if (b.kind==='meteor'){
-      // 우주별 — 별 모양
-      ctx.save();
-      ctx.translate(b.x,b.y);
-      ctx.rotate(t*0.8);
-      ctx.fillStyle = ink2;
-      ctx.strokeStyle = ink;
-      ctx.lineWidth = 2;
+      //  우주별 — v6.220 도트화. ⚠ 회전은 버퍼 **안에서**(스프라이트를 돌리면 AA가 돌아온다 — v6.193)
+      ctx.save(); ctx.translate(b.x,b.y);
+      const dw = dotPush(b.r*1.4, { ppu:0.62, ink:PAL.ink });
+      ctx.save(); ctx.rotate(t*0.8);
+      ctx.fillStyle = ink2; ctx.strokeStyle = ink; ctx.lineWidth = 2;
       ctx.beginPath();
       for (let k=0;k<10;k++){
         const a=(Math.PI*2/10)*k - Math.PI/2;
@@ -21810,12 +21812,14 @@ import { FX } from "./fx.js";
       ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
       ctx.fillStyle = MAP.key==='abyss' ? '#232427' : '#f6f6f4';
-      ctx.beginPath(); ctx.arc(b.x-5,b.y-3,2.4,0,Math.PI*2); ctx.arc(b.x+5,b.y-3,2.4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-5,-3,2.4,0,Math.PI*2); ctx.arc(5,-3,2.4,0,Math.PI*2); ctx.fill();
+      if (dw) dotPop();
+      ctx.restore();
 
     } else if (b.kind==='wind'){
-      // 유진콩 — 콩 모양 몸체 + 바람
-      ctx.save();
-      ctx.translate(b.x,b.y);
+      //  유진콩 — v6.220 도트화
+      ctx.save(); ctx.translate(b.x,b.y);
+      const dw = dotPush(b.r*1.7, { ppu:0.62, ink:PAL.ink });
       ctx.fillStyle = ink2;
       ctx.strokeStyle = ink;
       ctx.lineWidth = 1.6;
@@ -21832,6 +21836,7 @@ import { FX } from "./fx.js";
         ctx.arc(Math.cos(a)*(b.r+10), Math.sin(a)*(b.r+10), 7, a, a+2.2);
         ctx.stroke();
       }
+      if (dw) dotPop();
       ctx.restore();
 
     } else {
